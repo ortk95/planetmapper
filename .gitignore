@@ -1,0 +1,11 @@
+# Ignore all filetypes by default except those explicitly allowed
+*
+!*/
+!*.py
+!*.md
+
+# Allowed paths
+!.gitignore
+
+# Ignored paths
+.vscode
