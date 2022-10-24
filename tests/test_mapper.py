@@ -14,14 +14,8 @@ class TestSpiceBody(unittest.TestCase):
         """
         Test that conversion lon/lat -> ra/dec -> lon/lat gives consistent result.
         """
-        body = self.body
-        while True:
-            # Choose random point on surface that's visible
-            lon = np.deg2rad(np.random.rand() * 360)
-            lat = np.deg2rad(np.random.rand() * 180 - 90)
-            if body.test_if_lonlat_visible(lon, lat):
-                break
-        lon_rt, lat_rt = body.radec2lonlat(*body.lonlat2radec(lon, lat))
+        lon, lat = generate_lonlat(self.body)
+        lon_rt, lat_rt = self.body.radec2lonlat(*self.body.lonlat2radec(lon, lat))
         self.assertAlmostEqual(lon, lon_rt, places=3)
         self.assertAlmostEqual(lat, lat_rt, places=3)
 
@@ -44,14 +38,10 @@ class TestObservation(unittest.TestCase):
         """
         Test that conversion lon/lat -> ra/dec -> lon/lat gives consistent result.
         """
-        obs = self.observation
-        while True:
-            # Choose random point on surface that's visible
-            lon = np.deg2rad(np.random.rand() * 360)
-            lat = np.deg2rad(np.random.rand() * 180 - 90)
-            if obs.test_if_lonlat_visible(lon, lat):
-                break
-        lon_rt, lat_rt = obs.xy2lonlat(*obs.lonlat2xy(lon, lat))
+        lon, lat = generate_lonlat(self.observation)
+        lon_rt, lat_rt = self.observation.xy2lonlat(
+            *self.observation.lonlat2xy(lon, lat)
+        )
         self.assertAlmostEqual(lon, lon_rt, places=3)
         self.assertAlmostEqual(lat, lat_rt, places=3)
 
@@ -64,6 +54,19 @@ class TestObservation(unittest.TestCase):
         x = x + self.observation.get_r0() * 10
 
         self.assertTrue(all(np.isnan(self.observation.xy2lonlat(x, y))))
+
+
+def generate_lonlat(body: mapper.SpiceBody) -> tuple[float, float]:
+    """Choose a random point on the surface that's visible"""
+    # Use deterministic seed so tests are reproducable (on the same day)
+    seed = (datetime.datetime.now() - datetime.datetime(2000, 1, 1)).days
+    rng = np.random.default_rng(seed)
+    while True:
+        lon = np.deg2rad(rng.random() * 360)
+        lat = np.deg2rad(rng.random() * 120 - 60)
+        # avoid polar latitudes where singularity can break 1-to-1 conversions
+        if body.test_if_lonlat_visible(lon, lat):
+            return lon, lat
 
 
 if __name__ == '__main__':
