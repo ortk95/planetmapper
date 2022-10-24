@@ -27,13 +27,17 @@ def main(*args):
     io = InteractiveObservation()
     io.run()
 
+    
+
 
 class InteractiveObservation:
     def __init__(self) -> None:
         self.handles = []
 
         p = 'jupiter_test.jpg'
-        self.observation = mapper.Observation('jupiter', datetime.datetime(2020, 8, 25, 12))
+        self.observation = mapper.Observation(
+            'jupiter', datetime.datetime(2020, 8, 25, 12)
+        )
         self.image = np.flipud(plt.imread(p))
 
         self.observation.set_x0(self.image.shape[0] / 2)
@@ -183,9 +187,7 @@ class InteractiveObservation:
 
     def plot_wireframe(self) -> None:
         ax = self.ax
-        transform = (
-            self.observation.get_matplotlib_radec_to_xy_transform() + ax.transData
-        )
+        transform = self.observation.get_matplotlib_radec2xy_transform() + ax.transData
 
         ax.plot(
             *self.observation.limb_radec(),
@@ -222,7 +224,7 @@ class InteractiveObservation:
         print(ra_day[0], dec_day[0])
         for lon, lat, s in ((0, 90, 'N'), (0, -90, 'S')):
             if self.observation.test_if_lonlat_visible_degrees(lon, lat):
-                ra, dec = self.observation.lonlat_to_radec(
+                ra, dec = self.observation.lonlat2radec(
                     np.deg2rad(lon), np.deg2rad(lat)
                 )
                 ax.text(

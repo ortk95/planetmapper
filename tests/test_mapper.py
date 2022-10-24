@@ -21,7 +21,7 @@ class TestSpiceBody(unittest.TestCase):
             lat = np.deg2rad(np.random.rand() * 180 - 90)
             if body.test_if_lonlat_visible(lon, lat):
                 break
-        lon_rt, lat_rt = body.radec_to_lonlat(*body.lonlat_to_radec(lon, lat))
+        lon_rt, lat_rt = body.radec2lonlat(*body.lonlat2radec(lon, lat))
         self.assertAlmostEqual(lon, lon_rt, places=3)
         self.assertAlmostEqual(lat, lat_rt, places=3)
 
@@ -31,7 +31,7 @@ class TestSpiceBody(unittest.TestCase):
         """
         ra = self.body.subpoint_ra + np.pi  # this should always miss
         dec = self.body.subpoint_dec
-        self.assertTrue(all(np.isnan(self.body.radec_to_lonlat(ra, dec))))
+        self.assertTrue(all(np.isnan(self.body.radec2lonlat(ra, dec))))
 
 
 class TestObservation(unittest.TestCase):
@@ -51,7 +51,7 @@ class TestObservation(unittest.TestCase):
             lat = np.deg2rad(np.random.rand() * 180 - 90)
             if obs.test_if_lonlat_visible(lon, lat):
                 break
-        lon_rt, lat_rt = obs.xy_to_lonlat(*obs.lonlat_to_xy(lon, lat))
+        lon_rt, lat_rt = obs.xy2lonlat(*obs.lonlat2xy(lon, lat))
         self.assertAlmostEqual(lon, lon_rt, places=3)
         self.assertAlmostEqual(lat, lat_rt, places=3)
 
@@ -63,7 +63,7 @@ class TestObservation(unittest.TestCase):
         y = self.observation.get_x0()
         x = x + self.observation.get_r0() * 10
 
-        self.assertTrue(all(np.isnan(self.observation.xy_to_lonlat(x, y))))
+        self.assertTrue(all(np.isnan(self.observation.xy2lonlat(x, y))))
 
 
 if __name__ == '__main__':
