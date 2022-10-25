@@ -459,7 +459,8 @@ class Body:
 
     # Utility methods
     def standardise_body_name(self, name: str) -> str:
-        return name.upper().strip()
+        name = spice.bodc2s(spice.bods2c(name))
+        return name
 
     def et2dtm(self, et: float) -> datetime.datetime:
         s = spice.et2utc(et, 'ISOC', 6) + '+0000'
