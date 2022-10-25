@@ -4,6 +4,8 @@
 import mapper
 import datetime
 
-obs = mapper.Observation('jupiter', datetime.datetime.now(), 'europa')
-obs.plot_wirefeame_radec()
-obs.plot_wirefeame_xy()
+import numpy as np
+
+# testing case where no pole is visible
+body = mapper.Body('jupiter', datetime.datetime.now(), 'europa')
+body.plot_wirefeame_radec()

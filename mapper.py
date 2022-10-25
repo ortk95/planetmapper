@@ -468,6 +468,26 @@ class Body:
         # i.e. this lets python know it is UTC
         return datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%f%z')
 
+    def _get_poles_to_plot(self) ->list[tuple[float, float, str]]:
+        """
+        Get list of poles for a plot.
+
+        If at least one pole is visible, return the visible poles.
+        If no poles are visible, return both poles in brackets.
+        """
+        poles: list[tuple[float, float, str]] = []
+        pole_options = ((0, 90, 'N'), (0, -90, 'S'))
+        for lon, lat, s in pole_options:
+            if self.test_if_lonlat_visible_degrees(lon, lat):
+                poles.append((lon, lat, s))
+
+        if len(poles) == 0:
+            # if no poles are visible, show both
+            for lon, lat, s in pole_options:
+                poles.append((lon, lat, f'({s})'))
+
+        return poles
+
     def _plot_wireframe(
         self, transform: None | Transform, ax: Axes | None = None
     ) -> Axes:
@@ -497,22 +517,21 @@ class Body:
                 ra, dec, color='silver', linestyle=':', zorder=0, transform=transform
             )
 
-        for lon, lat, s in ((0, 90, 'N'), (0, -90, 'S')):
-            if self.test_if_lonlat_visible_degrees(lon, lat):
-                ra, dec = self.lonlat2radec_degrees(lon, lat)
-                ax.annotate(
-                    s,
-                    (ra, dec),
-                    ha='center',
-                    va='center',
-                    weight='bold',
-                    color='grey',
-                    path_effects=[
-                        path_effects.Stroke(linewidth=3, foreground='w'),
-                        path_effects.Normal(),
-                    ],
-                    transform=transform,
-                )
+        for lon, lat, s in self._get_poles_to_plot():
+            ra, dec = self.lonlat2radec_degrees(lon, lat)
+            ax.annotate(
+                s,
+                (ra, dec),
+                ha='center',
+                va='center',
+                weight='bold',
+                color='grey',
+                path_effects=[
+                    path_effects.Stroke(linewidth=3, foreground='w'),
+                    path_effects.Normal(),
+                ],
+                transform=transform,
+            )
         ax.set_title(self.get_description(newline=True))
         return ax
 
@@ -748,7 +767,7 @@ class Observation(Body):
         # Generate affine transformation from radec in degrees -> xy
         transform_rad2deg = matplotlib.transforms.Affine2D().scale(np.deg2rad(1))
         transform = transform_rad2deg + self.get_matplotlib_radec2xy_transform()
-        
+
         ax = self._plot_wireframe(transform=transform, ax=ax)
 
         ax.set_xlabel('x (pixels)')
