@@ -467,7 +467,7 @@ class Body:
         # i.e. this lets python know it is UTC
         return datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%f%z')
 
-    def _get_poles_to_plot(self) ->list[tuple[float, float, str]]:
+    def _get_poles_to_plot(self) -> list[tuple[float, float, str]]:
         """
         Get list of poles for a plot.
 
