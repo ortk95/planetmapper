@@ -4,4 +4,6 @@
 import mapper
 import datetime
 
-obs = mapper.Observation('jupiter', datetime.datetime.now())
+obs = mapper.Observation('jupiter', datetime.datetime.now(), 'europa')
+obs.plot_wirefeame_radec()
+obs.plot_wirefeame_xy()

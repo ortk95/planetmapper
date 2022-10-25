@@ -19,6 +19,8 @@ from typing import Callable, TypeVar, cast
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import matplotlib.transforms
+from matplotlib.transforms import Transform
+from matplotlib.axes import Axes
 import numpy as np
 import spiceypy as spice
 
@@ -466,20 +468,34 @@ class Body:
         # i.e. this lets python know it is UTC
         return datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%f%z')
 
-    def plot_wirefeame_radec(self) -> None:
-        """
-        Plot basic wireframe representation of the observation
-        """
-        fig, ax = plt.subplots()
+    def _plot_wireframe(
+        self, transform: None | Transform, ax: Axes | None = None
+    ) -> Axes:
+        """Plot generic wireframe representation of the observation"""
+        if ax is None:
+            fig, ax = plt.subplots()
 
-        ax.plot(*self.limb_radec_degrees(), color='k', linewidth=0.5)
-        ax.plot(*self.terminator_radec_degrees(), color='k', linestyle='--')
+        if transform is None:
+            transform = ax.transData
+        else:
+            transform = transform + ax.transData
+
+        ax.plot(
+            *self.limb_radec_degrees(), color='k', linewidth=0.5, transform=transform
+        )
+        ax.plot(
+            *self.terminator_radec_degrees(),
+            color='k',
+            linestyle='--',
+            transform=transform,
+        )
 
         ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination_degrees()
-        ax.plot(ra_day, dec_day, color='k')
-
+        ax.plot(ra_day, dec_day, color='k', transform=transform)
         for ra, dec in self.visible_latlon_grid_radec_degrees(30):
-            ax.plot(ra, dec, color='silver', linestyle=':', zorder=0)
+            ax.plot(
+                ra, dec, color='silver', linestyle=':', zorder=0, transform=transform
+            )
 
         for lon, lat, s in ((0, 90, 'N'), (0, -90, 'S')):
             if self.test_if_lonlat_visible_degrees(lon, lat):
@@ -495,17 +511,25 @@ class Body:
                         path_effects.Stroke(linewidth=3, foreground='w'),
                         path_effects.Normal(),
                     ],
+                    transform=transform,
                 )
-
         ax.set_title(self.get_description(newline=True))
+        return ax
+
+    def plot_wirefeame_radec(self, ax: Axes | None = None, show: bool = True) -> Axes:
+        """
+        Plot basic wireframe representation of the observation
+        """
+        ax = self._plot_wireframe(transform=None, ax=ax)
 
         ax.set_xlabel('RA (degrees)')
         ax.set_ylabel('Dec (degrees)')
-
         ax.set_aspect(1 / np.cos(self.target_dec), adjustable='datalim')
         ax.invert_xaxis()
 
-        plt.show()
+        if show:
+            plt.show()
+        return ax
 
     def get_description(self, newline: bool = True) -> str:
         return '{t} ({tid}){nl}from {o} at {d}'.format(
@@ -717,42 +741,23 @@ class Observation(Body):
     def update_transform(self) -> None:
         self.get_matplotlib_radec2xy_transform().set_matrix(self.get_radec2xy_matrix())
 
-    def plot_wirefeame_xy(self) -> None:
-        fig, ax = plt.subplots()
-
-        ax.plot(*self.limb_xy(), color='k', linewidth=0.5)
-        ax.plot(*self.terminator_xy(), color='k', linestyle='--')
-
-        x_day, y_day, x_night, y_night = self.limb_xy_by_illumination()
-        ax.plot(x_day, y_day, color='k')
-
-        for x, y in self.visible_latlon_grid_xy(30):
-            ax.plot(x, y, color='silver', linestyle=':', zorder=0)
-
-        for lon, lat, s in ((0, 90, 'N'), (0, -90, 'S')):
-            if self.test_if_lonlat_visible_degrees(lon, lat):
-                x, y = self.lonlat2xy_degrees(lon, lat)
-                ax.annotate(
-                    s,
-                    (x, y),
-                    ha='center',
-                    va='center',
-                    weight='bold',
-                    color='grey',
-                    path_effects=[
-                        path_effects.Stroke(linewidth=3, foreground='w'),
-                        path_effects.Normal(),
-                    ],
-                )
-
-        ax.set_title(self.get_description(newline=True))
+    def plot_wirefeame_xy(self, ax: Axes | None = None, show: bool = True) -> Axes:
+        """
+        Plot basic wireframe representation of the observation
+        """
+        # Generate affine transformation from radec in degrees -> xy
+        transform_rad2deg = matplotlib.transforms.Affine2D().scale(np.deg2rad(1))
+        transform = transform_rad2deg + self.get_matplotlib_radec2xy_transform()
+        
+        ax = self._plot_wireframe(transform=transform, ax=ax)
 
         ax.set_xlabel('x (pixels)')
         ax.set_ylabel('y (pixels)')
-
         ax.set_aspect(1, adjustable='datalim')
 
-        plt.show()
+        if show:
+            plt.show()
+        return ax
 
 
 if __name__ == '__main__':
