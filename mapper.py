@@ -110,6 +110,7 @@ class Body:
         )
         self._target_obsvec = cast(np.ndarray, starg)[:3]
         self.light_time = cast(float, lt)
+        self.distance = self.light_time * spice.clight()
         # cast() calls are only here to make type checking play nicely with spice.spkezr
         self.target_ra, self.target_dec = self.obsvec2radec(self._target_obsvec)
 
@@ -293,7 +294,7 @@ class Body:
             rolstp,
             npts,
             4,
-            self.light_time * spice.clight(),
+            self.distance,
             npts,
         )
         if close_loop:
@@ -355,7 +356,7 @@ class Body:
             rolstp,
             npts,
             4,
-            self.light_time * spice.clight(),
+            self.distance,
             npts,
         )
         if close_loop:
@@ -623,8 +624,7 @@ class Observation(Body):
         # a = M*v + a0 - M*v0
 
         r_km = self.r_eq
-        dist_km = self.light_time * spice.clight()
-        r_radians = r_km / dist_km  # TODO do this better
+        r_radians = r_km / self.distance  # TODO do this better?
 
         s = r_radians / self.get_r0()
 
