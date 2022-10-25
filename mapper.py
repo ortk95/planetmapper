@@ -22,7 +22,7 @@ import matplotlib.transforms
 import numpy as np
 import spiceypy as spice
 
-__version__ = '1.0a1'
+__version__ = '0.1'
 
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
 
