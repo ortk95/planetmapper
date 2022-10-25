@@ -58,7 +58,6 @@ class Body:
     Class representing spice data about an observation of an astronomical body.
     """
 
-    C_LIGHT = 299792.458  # Light speed in km/s
     DEFAULT_DTM_FORMAT_STRING = '%Y-%m-%dT%H:%M:%S.%f'
 
     def __init__(
@@ -150,8 +149,7 @@ class Body:
         dist = np.linalg.norm(
             self._subpoint_rayvec - self._subpoint_targvec + targvec
         ) - np.linalg.norm(self._subpoint_rayvec)
-        ep = self._subpoint_et - dist / self.C_LIGHT
-
+        ep = self._subpoint_et - dist / spice.clight()
         # Transform to the J2000 frame corresponding to when the ray hit the detector
         px = spice.pxfrm2(self.target_frame, self.observer_frame, ep, self.et)
         return self._subpoint_obsvec + np.matmul(px, targvec - self._subpoint_targvec)
@@ -295,7 +293,7 @@ class Body:
             rolstp,
             npts,
             4,
-            self.light_time * self.C_LIGHT,
+            self.light_time * spice.clight(),
             npts,
         )
         if close_loop:
@@ -357,7 +355,7 @@ class Body:
             rolstp,
             npts,
             4,
-            self.light_time * self.C_LIGHT,
+            self.light_time * spice.clight(),
             npts,
         )
         if close_loop:
@@ -625,7 +623,7 @@ class Observation(Body):
         # a = M*v + a0 - M*v0
 
         r_km = self.r_eq
-        dist_km = self.light_time * self.C_LIGHT
+        dist_km = self.light_time * spice.clight()
         r_radians = r_km / dist_km  # TODO do this better
 
         s = r_radians / self.get_r0()
