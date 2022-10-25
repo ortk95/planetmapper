@@ -11,24 +11,16 @@
 - `targvec` - target frame rectangular vector
 - `lonlat` - planetary coordinates on target
 """
-import sys
-import os
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatch
-import matplotlib.patheffects as path_effects
-from matplotlib.axes import Axes
-import numpy as np
-from functools import cached_property
-import tkinter as tk
-from tkinter import ttk
-from typing import Callable
-import itertools
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import spiceypy as spice
-import glob
-from typing import TypeVar, cast, TypeAlias, NewType, Protocol
 import datetime
+import glob
+import os
+import sys
+from typing import Callable, TypeVar, cast
+import matplotlib.patheffects as path_effects
+import matplotlib.pyplot as plt
 import matplotlib.transforms
+import numpy as np
+import spiceypy as spice
 
 __version__ = '1.0a1'
 
@@ -135,9 +127,7 @@ class SpiceBody:
         self._subpoint_obsvec = self.rayvec2obsvec(
             self._subpoint_rayvec, self._subpoint_et
         )
-        self.subpoint_ra, self.subpoint_dec = self.obsvec2radec(
-            self._subpoint_obsvec
-        )
+        self.subpoint_ra, self.subpoint_dec = self.obsvec2radec(self._subpoint_obsvec)
 
     def __repr__(self) -> str:
         return f'Body({self.target!r}, {self.utc!r})'
@@ -231,9 +221,7 @@ class SpiceBody:
                 raise
         return ra, dec
 
-    def radec2lonlat_degrees(
-        self, ra: float, dec: float, **kw
-    ) -> tuple[float, float]:
+    def radec2lonlat_degrees(self, ra: float, dec: float, **kw) -> tuple[float, float]:
         return self._radian_pair2degrees(
             *self.radec2lonlat(*self._degree_pair2radians(ra, dec), **kw)
         )
@@ -251,9 +239,7 @@ class SpiceBody:
                 for t in targvec_arr
             ]
         else:
-            ra_dec = [
-                self.obsvec2radec(self.targvec2obsvec(t)) for t in targvec_arr
-            ]
+            ra_dec = [self.obsvec2radec(self.targvec2obsvec(t)) for t in targvec_arr]
         ra = np.array([r for r, d in ra_dec])
         dec = np.array([d for r, d in ra_dec])
         return ra, dec
@@ -722,15 +708,11 @@ class Observation(SpiceBody):
     # Other
     def get_matplotlib_radec2xy_transform(self) -> matplotlib.transforms.Affine2D:
         if self._transform is None:
-            self._transform = matplotlib.transforms.Affine2D(
-                self.get_radec2xy_matrix()
-            )
+            self._transform = matplotlib.transforms.Affine2D(self.get_radec2xy_matrix())
         return self._transform
 
     def update_transform(self) -> None:
-        self.get_matplotlib_radec2xy_transform().set_matrix(
-            self.get_radec2xy_matrix()
-        )
+        self.get_matplotlib_radec2xy_transform().set_matrix(self.get_radec2xy_matrix())
 
     def plot_wirefeame_xy(self) -> None:
         fig, ax = plt.subplots()

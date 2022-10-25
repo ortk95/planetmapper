@@ -1,24 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import datetime
 import sys
-import mapper
-import os
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatch
-import matplotlib.patheffects as path_effects
-from matplotlib.axes import Axes
-import numpy as np
-from functools import cached_property
 import tkinter as tk
 from tkinter import ttk
-from typing import Callable
-import itertools
+from typing import TypeVar
+import matplotlib.patheffects as path_effects
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.axes import Axes
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import spiceypy as spice
-import glob
-from typing import TypeVar, cast, TypeAlias, NewType, Protocol
-import datetime
-import matplotlib.transforms
+import mapper
 
 Widget = TypeVar('Widget', bound=tk.Widget)
 
@@ -26,8 +18,6 @@ Widget = TypeVar('Widget', bound=tk.Widget)
 def main(*args):
     io = InteractiveObservation()
     io.run()
-
-    
 
 
 class InteractiveObservation:
@@ -47,6 +37,8 @@ class InteractiveObservation:
 
         self.step_size = 10
 
+        self.ax: Axes
+        self.canvas: FigureCanvasTkAgg
         # print(self.observation.get_x0())
         # print(self.observation.get_y0())
         # print(self.observation.get_r0())
@@ -143,7 +135,7 @@ class InteractiveObservation:
         # ent.pack()
         # ent.insert(0, '1345')
 
-        fig = plt.figure(figsize=(5, 4), dpi=100)
+        fig = plt.figure(figsize=(5, 4), dpi=200)
         self.ax = fig.add_subplot()
         self.ax.imshow(self.image, origin='lower', zorder=0)
         self.plot_wireframe()
