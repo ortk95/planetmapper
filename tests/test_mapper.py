@@ -4,11 +4,11 @@ import numpy as np
 import datetime
 
 
-class TestSpiceBody(unittest.TestCase):
+class TestBody(unittest.TestCase):
     def setUp(self):
         dtm = datetime.datetime.now()
         dtm_str = dtm.strftime('%Y-%m-%d %H:%M:%S')
-        self.body = mapper.SpiceBody('jupiter', dtm_str)
+        self.body = mapper.Body('jupiter', dtm_str)
 
     def test_round_trip_conversion(self):
         """
@@ -56,7 +56,7 @@ class TestObservation(unittest.TestCase):
         self.assertTrue(all(np.isnan(self.observation.xy2lonlat(x, y))))
 
 
-def generate_lonlat(body: mapper.SpiceBody) -> tuple[float, float]:
+def generate_lonlat(body: mapper.Body) -> tuple[float, float]:
     """Choose a random point on the surface that's visible"""
     # Use deterministic seed so tests are reproducable (on the same day)
     seed = (datetime.datetime.now() - datetime.datetime(2000, 1, 1)).days

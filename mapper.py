@@ -51,7 +51,7 @@ def main(*args):
     o.plot_wirefeame_radec()
 
 
-class SpiceBody:
+class Body:
     """
     Class representing spice data about an observation of an astronomical body.
     """
@@ -557,7 +557,7 @@ class SpiceBody:
         return np.deg2rad(degrees0), np.deg2rad(degrees1)  # type: ignore
 
 
-class Observation(SpiceBody):
+class Observation(Body):
     def __init__(self, target: str, utc: str | datetime.datetime, *args, **kw) -> None:
         super().__init__(target, utc, *args, **kw)
 
@@ -569,6 +569,9 @@ class Observation(SpiceBody):
         self._xy2radec_matrix: np.ndarray | None = None
         self._radec2xy_matrix: np.ndarray | None = None
         self._transform: matplotlib.transforms.Affine2D | None = None
+
+    def __repr__(self) -> str:
+        return f'Observation({self.target!r}, {self.utc!r})'
 
     # Coordinate transformations
     def set_dirty(self):
