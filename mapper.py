@@ -58,26 +58,24 @@ def main(*args):
     o.set_x0(10)
     o.set_y0(10)
     o.set_r0(9)
-    o.set_rotation_degrees(10)
+    o.set_rotation_degrees(-30)
     utils.print_progress('set coordinates')
 
-    ax = o.plot_wirefeame_xy(show=False)
+    ax = o.plot_wirefeame_xy()
     utils.print_progress('plot wireframe')
 
-    img = o.get_distance_img()
-    utils.print_progress('get img')
+    for k, img in o.get_backplanes().items():
+        utils.print_progress(k)
+        ax = o.plot_wirefeame_xy(show=False)
+        im = ax.imshow(
+            img,
+            origin='lower',
+            zorder=0,
+            cmap='turbo',
+        )
+        plt.colorbar(im, label=k)
+        plt.show()
 
-    im = ax.imshow(
-        img,
-        origin='lower',
-        zorder=0,
-        cmap='turbo',
-    )
-    plt.colorbar(im)
-    utils.print_progress('plotting')
-    
-    plt.show()
-    utils.print_progress('show plot')
 
 class Body:
     """
@@ -967,6 +965,10 @@ class Observation(Body):
             ) = self._state_from_targvec(targvec)
         return position_img, velocity_img, lt_img
 
+    def get_distance_img(self) -> np.ndarray:
+        position_img, velocity_img, lt_img = self._get_state_imgs()
+        return lt_img * spice.clight()
+
     @cache_result
     def get_radial_velocity_img(self) -> np.ndarray:
         out = self._make_empty_img()
@@ -977,12 +979,22 @@ class Observation(Body):
             )
         return out
 
-    def get_distance_img(self) -> np.ndarray:
-        position_img, velocity_img, lt_img = self._get_state_imgs()
-        return lt_img * spice.clight()
-
     def get_doppler_img(self) -> np.ndarray:
         return self.get_radial_velocity_img() / spice.clight()
+
+    def get_backplanes(self) -> dict[str, np.ndarray]:
+        return {
+            'lon': self.get_lon_img_degrees(),
+            'lat': self.get_lat_img_degrees(),
+            'ra': self.get_ra_img_degrees(),
+            'dec': self.get_dec_img_degrees(),
+            'phase': self.get_phase_angle_img_degrees(),
+            'incidence': self.get_incidence_angle_img_degrees(),
+            'emission': self.get_emission_angle_img_degrees(),
+            'distance': self.get_distance_img(),
+            'radial_velocity': self.get_radial_velocity_img(),
+            'doppler': self.get_doppler_img(),
+        }
 
 
 if __name__ == '__main__':
