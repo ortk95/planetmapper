@@ -24,6 +24,7 @@ from matplotlib.axes import Axes
 import numpy as np
 import spiceypy as spice
 import utils
+from functools import wraps
 
 __version__ = '0.1'
 
@@ -55,6 +56,10 @@ def main(*args):
     o.set_y0(10)
     o.set_r0(9)
     o.set_rotation_degrees(10)
+
+    print(o.get_radial_velocity_img)
+    print(o.get_radial_velocity_img.__name__)
+    print(o.get_radial_velocity_img.__doc__)
 
     ax = o.plot_wirefeame_xy(show=False)
     im = ax.imshow(
@@ -671,6 +676,7 @@ class Observation(Body):
     # Cache management
     @staticmethod
     def cache_result(fn: Callable[P, T]) -> Callable[P, T]:
+        @wraps(fn)
         def decorated(self, *args, **kwargs):
             k = fn.__name__
             if k not in self._cache:
