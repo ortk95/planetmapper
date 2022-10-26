@@ -56,8 +56,6 @@ def main(*args):
     lon = 0
     lat = 0
 
-    print(o.radec2lonlat_degrees(*o.lonlat2radec_degrees(lon, lat)))
-
 
 class Body:
     """
@@ -147,7 +145,6 @@ class Body:
         Transform lon/lat coordinates on body to rectangular vector in target frame.
         """
         return spice.pgrrec(self.target, lon, lat, 0, self.r_eq, self.flattening)
-
 
     def targvec2obsvec(self, targvec: np.ndarray) -> np.ndarray:
         """
@@ -269,7 +266,7 @@ class Body:
         dec = np.array([d for r, d in ra_dec])
         return ra, dec
 
-    # Illumination/visibility methods
+    # Other spice methods
     def _illumination_angles_from_targvec(
         self, targvec: np.ndarray
     ) -> tuple[float, float, float]:
@@ -481,6 +478,35 @@ class Body:
         )
         return lon_radec + lat_radec
 
+    def _state_from_targvec(
+        self, targvec: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, float]:
+        state, lt = spice.spkcpt(
+            trgpos=targvec,
+            trgctr=self.target,
+            trgref=self.target_frame,
+            et=self.et,
+            outref=self.observer_frame,
+            refloc='OBSERVER',
+            abcorr=self.aberration_correction,
+            obsrvr=self.observer,
+        )
+        position = state[:3]
+        velocity = state[3:]
+        return position, velocity, lt
+
+    def _radial_velocity_from_targvec(self, targvec: np.ndarray) -> float:
+        position, velocity, lt = self._state_from_targvec(targvec)
+        # dot the velocity with the normalised position vector to get radial component
+        radial_velocity = np.dot(velocity, spice.vhat(position))
+        return radial_velocity
+
+    def radial_velocity_from_lonlat(self, lon: float, lat: float) -> float:
+        return self._radial_velocity_from_targvec(self.lonlat2targvec(lon, lat))
+
+    def radial_velocity_from_lonlat_degrees(self, lon: float, lat: float) -> float:
+        return self.radial_velocity_from_lonlat(*self._degree_pair2radians(lon, lat))
+
     # Utility methods
     def standardise_body_name(self, name: str) -> str:
         name = spice.bodc2s(spice.bods2c(name))
@@ -633,16 +659,22 @@ class Observation(Body):
         self._r0: float = 10
         self._rotation: float = 0
 
-        self._cache : dict[str, Any]= {}
+        self._cache: dict[str, Any] = {}
         self._matplotlib_transform: matplotlib.transforms.Affine2D | None = None
 
     def __repr__(self) -> str:
         return f'Observation({self.target!r}, {self.utc!r})'
 
-    # Coordinate transformations
-    def set_dirty(self):
+    # Cache management
+    def _get_cached(self, k: str, fn: Callable[[], T]) -> T:
+        if k not in self._cache:
+            self._cache[k] = fn()
+        return self._cache[k]
+
+    def clear_cache(self):
         self._cache.clear()
 
+    # Coordinate transformations
     def calculate_xy2radec_matrix(self) -> np.ndarray:
         # a = M*v + a0 - M*v0
 
@@ -669,11 +701,6 @@ class Observation(Body):
 
     def calculate_radec2xy_matrix(self) -> np.ndarray:
         return np.linalg.inv(self.get_xy2radec_matrix())
-
-    def _get_cached(self, k: str, fn: Callable[[], T]) -> T:
-        if k not in self._cache:
-            self._cache[k] = fn()
-        return self._cache[k]
 
     def get_xy2radec_matrix(self) -> np.ndarray:
         return self._get_cached('xy2radec_matrix', self.calculate_xy2radec_matrix)
@@ -717,28 +744,28 @@ class Observation(Body):
     # Interface
     def set_x0(self, x0: float) -> None:
         self._x0 = x0
-        self.set_dirty()
+        self.clear_cache()
 
     def get_x0(self) -> float:
         return self._x0
 
     def set_y0(self, y0: float) -> None:
         self._y0 = y0
-        self.set_dirty()
+        self.clear_cache()
 
     def get_y0(self) -> float:
         return self._y0
 
     def set_r0(self, r0: float) -> None:
         self._r0 = r0
-        self.set_dirty()
+        self.clear_cache()
 
     def get_r0(self) -> float:
         return self._r0
 
     def set_rotation(self, rotation: float) -> None:
         self._rotation = rotation % (2 * np.pi)
-        self.set_dirty()
+        self.clear_cache()
 
     def get_rotation(self) -> float:
         return self._rotation
@@ -776,7 +803,9 @@ class Observation(Body):
     # Other
     def get_matplotlib_radec2xy_transform(self) -> matplotlib.transforms.Affine2D:
         if self._matplotlib_transform is None:
-            self._matplotlib_transform = matplotlib.transforms.Affine2D(self.get_radec2xy_matrix())
+            self._matplotlib_transform = matplotlib.transforms.Affine2D(
+                self.get_radec2xy_matrix()
+            )
         return self._matplotlib_transform
 
     def update_transform(self) -> None:
