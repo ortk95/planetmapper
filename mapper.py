@@ -56,7 +56,8 @@ def main(*args):
     o.set_r0(9)
 
     ax = o.plot_wirefeame_xy(show=False)
-    ax.imshow(o.get_lon_img(), origin='lower', zorder=0, cmap='turbo')
+    ax.imshow(o.get_radial_velocity_img(), origin='lower', zorder=0, cmap='turbo')
+    plt.colorbar()
     plt.show()
 
 
@@ -859,6 +860,16 @@ class Observation(Body):
     def get_lat_img(self) -> np.ndarray:
         return self._get_lonlat_img()[:, :, 1]
 
+    @cache_result
+    def get_radial_velocity_img(self) -> np.ndarray:
+        out = np.full((self.ny, self.nx), np.nan)
+        targvec_img = self._get_targvec_img()
+        for y, x in np.ndindex(*out.shape[:2]):
+            targvec = targvec_img[y, x]
+            if any(np.isnan(targvec)):
+                continue
+            out[y, x] = self._radial_velocity_from_targvec(targvec)
+        return out
 
 if __name__ == '__main__':
     main(*sys.argv[1:])
