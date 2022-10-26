@@ -8,57 +8,56 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tqdm
 
-# testing case where no pole is visible
-for b in range(1, 10):
-    name = f'{b}99'
-    if name == '399':
-        continue
-    body = mapper.Body(name, datetime.datetime.now())
-    ax = body.plot_wirefeame_radec(show=False)
+body = mapper.Body('moon', datetime.datetime.now())
+ax = body.plot_wirefeame_radec(show=False)
 
-    state, lt = spice.spkezr(
-        body.target,
-        body.et,
-        body.observer_frame,
-        body.aberration_correction,
-        body.observer,
-    )
-    obsvec = state[:3]
-    velocity = state[3:]
-    v_target = np.dot(obsvec, velocity) / np.linalg.norm(obsvec)
+state, lt = spice.spkezr(
+    body.target,
+    body.et,
+    body.observer_frame,
+    body.aberration_correction,
+    body.observer,
+)
+obsvec = state[:3]
+velocity = state[3:]
+v_target = np.dot(obsvec, velocity) / np.linalg.norm(obsvec)
+print(v_target)
 
-    lons = np.linspace(0, 360, 100)
-    lats = np.linspace(-80, 80, 50)
+print(spice.vdot(velocity, spice.vhat(obsvec)))
 
-    ra_vals = []
-    dec_vals = []
-    v_vals = []
 
-    for lon in tqdm.tqdm(lons):
-        for lat in lats:
-            if body.test_if_lonlat_visible_degrees(lon, lat):
-                targvec = body.lonlat2targvec(*body._degree_pair2radians(lon, lat))
-                state, lt = spice.spkcpt(
-                    trgpos=targvec,
-                    trgctr=body.target,
-                    trgref=body.target_frame,
-                    et=body.et,
-                    outref=body.observer_frame,
-                    refloc='OBSERVER',
-                    abcorr=body.aberration_correction,
-                    obsrvr=body.observer,
-                )
-                obsvec = state[:3]
-                velocity = state[3:]
+# lons = np.linspace(0, 360, 100)
+# lats = np.linspace(-80, 80, 50)
 
-                v = np.dot(obsvec, velocity) / np.linalg.norm(obsvec)
+# ra_vals = []
+# dec_vals = []
+# v_vals = []
 
-                ra, dec = body.lonlat2radec_degrees(lon, lat)
-                ra_vals.append(ra)
-                dec_vals.append(dec)
-                v_vals.append(v)
+# for lon in tqdm.tqdm(lons):
+#     for lat in lats:
+#         if body.test_if_lonlat_visible_degrees(lon, lat):
+#             targvec = body.lonlat2targvec(*body._degree_pair2radians(lon, lat))
+#             state, lt = spice.spkcpt(
+#                 trgpos=targvec,
+#                 trgctr=body.target,
+#                 trgref=body.target_frame,
+#                 et=body.et,
+#                 outref=body.observer_frame,
+#                 refloc='OBSERVER',
+#                 abcorr=body.aberration_correction,
+#                 obsrvr=body.observer,
+#             )
+#             obsvec = state[:3]
+#             velocity = state[3:]
 
-    sc = ax.scatter(ra_vals, dec_vals, c=v_vals, cmap='turbo', marker='.', zorder=0)
-    plt.colorbar(sc)
-    plt.show()
-    print('v_target', v_target, 'km/s')
+#             v = np.dot(obsvec, velocity) / np.linalg.norm(obsvec)
+
+#             ra, dec = body.lonlat2radec_degrees(lon, lat)
+#             ra_vals.append(ra)
+#             dec_vals.append(dec)
+#             v_vals.append(v)
+
+# sc = ax.scatter(ra_vals, dec_vals, c=v_vals, cmap='turbo', marker='.', zorder=0)
+# plt.colorbar(sc)
+# plt.show()
+# print('v_target', v_target, 'km/s')

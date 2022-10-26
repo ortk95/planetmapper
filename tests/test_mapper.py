@@ -27,6 +27,14 @@ class TestBody(unittest.TestCase):
         dec = self.body.subpoint_dec
         self.assertTrue(all(np.isnan(self.body.radec2lonlat(ra, dec))))
 
+    def test_distance(self):
+        self.assertAlmostEqual(
+            self.body.target_distance, np.linalg.norm(self.body._target_obsvec)
+        )
+        self.assertAlmostEqual(
+            self.body.subpoint_distance, np.linalg.norm(self.body._subpoint_rayvec)
+        )
+
 
 class TestObservation(unittest.TestCase):
     def setUp(self):

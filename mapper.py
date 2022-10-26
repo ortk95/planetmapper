@@ -46,11 +46,16 @@ KERNEL_PATH = '~/spice/naif/generic_kernels/'
 
 def main(*args):
     dtm = datetime.datetime.now()
-    o = Observation('moon', dtm)
+    o = Observation('jupiter', dtm)
     # o.rotation = np.pi / 2
     # print(o.flattening)
     # o.plot_wirefeame_xy()
-    o.plot_wirefeame_radec()
+    # o.plot_wirefeame_radec()
+
+    lon = 0
+    lat = 0
+
+    print(o.radec2lonlat_degrees(*o.lonlat2radec_degrees(lon, lat)))
 
 
 class Body:
@@ -109,8 +114,8 @@ class Body:
             self.observer,
         )
         self._target_obsvec = cast(np.ndarray, starg)[:3]
-        self.light_time = cast(float, lt)
-        self.distance = self.light_time * spice.clight()
+        self.target_light_time = cast(float, lt)
+        self.target_distance = self.target_light_time * spice.clight()
         # cast() calls are only here to make type checking play nicely with spice.spkezr
         self.target_ra, self.target_dec = self.obsvec2radec(self._target_obsvec)
 
@@ -123,6 +128,7 @@ class Body:
             self.aberration_correction,
             self.observer,
         )
+        self.subpoint_distance = np.linalg.norm(self._subpoint_rayvec)
         self.subpoint_lon, self.subpoint_lat = self.targvec2lonlat(
             self._subpoint_targvec
         )
@@ -141,19 +147,36 @@ class Body:
         """
         return spice.pgrrec(self.target, lon, lat, 0, self.r_eq, self.flattening)
 
+
     def targvec2obsvec(self, targvec: np.ndarray) -> np.ndarray:
         """
         Transform rectangular vector in target frame to rectangular vector in observer
         frame.
         """
-        # Difference in the LOS distance from the sub-obs point to this point
-        dist = np.linalg.norm(
-            self._subpoint_rayvec - self._subpoint_targvec + targvec
-        ) - np.linalg.norm(self._subpoint_rayvec)
-        ep = self._subpoint_et - dist / spice.clight()
-        # Transform to the J2000 frame corresponding to when the ray hit the detector
-        px = spice.pxfrm2(self.target_frame, self.observer_frame, ep, self.et)
-        return self._subpoint_obsvec + np.matmul(px, targvec - self._subpoint_targvec)
+        # Get the target vector from the subpoint to the point of interest
+        targvec_offset = targvec - self._subpoint_targvec
+
+        # Calculate the difference in LOS distance between observer<->subpoint and
+        # observer<->point of interest
+        dist_offset = (
+            np.linalg.norm(self._subpoint_rayvec + targvec_offset)
+            - self.subpoint_distance
+        )
+
+        # Use the calculated difference in distance relative to the subpoint to
+        # calculate the time corresponding to when the ray left the surface at the point
+        # of interest
+        targvec_et = self._subpoint_et - dist_offset / spice.clight()
+
+        # Create the transform matrix converting between the target vector at the time
+        # the ray left the point of interest -> the observer vector at the time the ray
+        # hit the detector
+        transform_matrix = spice.pxfrm2(
+            self.target_frame, self.observer_frame, targvec_et, self.et
+        )
+
+        # Use the transform matrix to perform the actual transformation
+        return self._subpoint_obsvec + np.matmul(transform_matrix, targvec_offset)
 
     def rayvec2obsvec(self, rayvec: np.ndarray, et: float) -> np.ndarray:
         """
@@ -294,7 +317,7 @@ class Body:
             rolstp,
             npts,
             4,
-            self.distance,
+            self.target_distance,
             npts,
         )
         if close_loop:
@@ -356,7 +379,7 @@ class Body:
             rolstp,
             npts,
             4,
-            self.distance,
+            self.target_distance,
             npts,
         )
         if close_loop:
@@ -625,7 +648,7 @@ class Observation(Body):
         # a = M*v + a0 - M*v0
 
         r_km = self.r_eq
-        r_radians = r_km / self.distance  # TODO do this better?
+        r_radians = r_km / self.target_distance  # TODO do this better?
 
         s = r_radians / self.get_r0()
 
