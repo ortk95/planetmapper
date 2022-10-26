@@ -23,6 +23,7 @@ from matplotlib.transforms import Transform
 from matplotlib.axes import Axes
 import numpy as np
 import spiceypy as spice
+import utils
 
 __version__ = '0.1'
 
@@ -52,6 +53,14 @@ def main(*args):
     o.set_x0(10)
     o.set_y0(10)
     o.set_r0(9)
+    
+    utils.print_progress()
+    o.get_lat_img()
+    utils.print_progress()
+    o.get_lat_img()
+    utils.print_progress()
+    o.get_lon_img()
+    utils.print_progress()
 
     ax = o.plot_wirefeame_xy(show=False)
     ax.imshow(o.get_lat_img(), origin='lower', zorder=0)
