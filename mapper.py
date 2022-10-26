@@ -53,17 +53,9 @@ def main(*args):
     o.set_x0(10)
     o.set_y0(10)
     o.set_r0(9)
-    
-    utils.print_progress()
-    o.get_lat_img()
-    utils.print_progress()
-    o.get_lat_img()
-    utils.print_progress()
-    o.get_lon_img()
-    utils.print_progress()
 
     ax = o.plot_wirefeame_xy(show=False)
-    ax.imshow(o.get_lat_img(), origin='lower', zorder=0)
+    ax.imshow(o.get_lon_img(), origin='lower', zorder=0, cmap='turbo')
     plt.show()
 
 
@@ -561,9 +553,7 @@ class Body:
             transform = transform + ax.transData
 
         for ra, dec in self.visible_latlon_grid_radec_degrees(30):
-            ax.plot(
-                ra, dec, color='silver', linestyle=':', transform=transform
-            )
+            ax.plot(ra, dec, color='silver', linestyle=':', transform=transform)
 
         ax.plot(
             *self.limb_radec_degrees(), color='k', linewidth=0.5, transform=transform
@@ -673,16 +663,21 @@ class Observation(Body):
         return f'Observation({self.target!r}, {self.utc!r})'
 
     # Cache management
-    def _get_cached(self, k: str, fn: Callable[[], T]) -> T:
-        if k not in self._cache:
-            self._cache[k] = fn()
-        return self._cache[k]
+    @staticmethod
+    def cache_result(fn:Callable) -> Callable:
+        def decorated(self, *args, **kwargs):
+            k = fn.__name__
+            if k not in self._cache:
+                self._cache[k] = fn(self, *args, **kwargs)
+            return self._cache[k]
+        return decorated
 
     def clear_cache(self):
         self._cache.clear()
 
     # Coordinate transformations
-    def calculate_xy2radec_matrix(self) -> np.ndarray:
+    @cache_result
+    def get_xy2radec_matrix(self) -> np.ndarray:
         # a = M*v + a0 - M*v0
 
         r_km = self.r_eq
@@ -705,15 +700,10 @@ class Observation(Body):
         transform_matrix_3x3[:2, 2] = offset_vector
 
         return transform_matrix_3x3
-
-    def calculate_radec2xy_matrix(self) -> np.ndarray:
-        return np.linalg.inv(self.get_xy2radec_matrix())
-
-    def get_xy2radec_matrix(self) -> np.ndarray:
-        return self._get_cached('xy2radec_matrix', self.calculate_xy2radec_matrix)
-
+    
+    @cache_result
     def get_radec2xy_matrix(self) -> np.ndarray:
-        return self._get_cached('radec2xy_matrix', self.calculate_radec2xy_matrix)
+        return np.linalg.inv(self.get_xy2radec_matrix())
 
     def xy2radec(self, x: float, y: float) -> tuple[float, float]:
         a = self.get_xy2radec_matrix() @ np.array([x, y, 1])
@@ -840,7 +830,8 @@ class Observation(Body):
         return ax
 
     # Coordinate images
-    def _calculate_targvec_img(self) -> np.ndarray:
+    @cache_result
+    def _get_targvec_img(self) -> np.ndarray:
         out = np.full((self.ny, self.nx, 3), np.nan)
         for y, x in np.ndindex(*out.shape[:2]):
             try:
@@ -850,21 +841,16 @@ class Observation(Body):
                 continue
         return out
 
-    def get_targvec_img(self) -> np.ndarray:
-        return self._get_cached('targvec_img', self._calculate_targvec_img)
-
-    def _calculate_lonlat_img(self) -> np.ndarray:
+    @cache_result
+    def _get_lonlat_img(self) -> np.ndarray:
         out = np.full((self.ny, self.nx, 2), np.nan)
-        targvec_img = self.get_targvec_img()
+        targvec_img = self._get_targvec_img()
         for y, x in np.ndindex(*out.shape[:2]):
             targvec = targvec_img[y, x]
             if any(np.isnan(targvec)):
                 continue
             out[y, x] = self.targvec2lonlat(targvec)
         return out
-
-    def _get_lonlat_img(self) -> np.ndarray:
-        return self._get_cached('lonlat_img', self._calculate_lonlat_img)
 
     def get_lon_img(self) -> np.ndarray:
         return self._get_lonlat_img()[:, :, 0]
