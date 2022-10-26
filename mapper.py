@@ -54,10 +54,12 @@ def main(*args):
     o.set_x0(10)
     o.set_y0(10)
     o.set_r0(9)
-    o.set_rotation_degrees(30)
+    o.set_rotation_degrees(10)
 
     ax = o.plot_wirefeame_xy(show=False)
-    im = ax.imshow(o.get_dec_img_degrees(), origin='lower', zorder=0, cmap='turbo')
+    im = ax.imshow(
+        o.get_phase_angle_img_degrees(), origin='lower', zorder=0, cmap='turbo'
+    )
     plt.colorbar(im)
     plt.show()
 
@@ -889,6 +891,7 @@ class Observation(Body):
 
     @cache_result
     def get_radial_velocity_img(self) -> np.ndarray:
+        """abc"""
         out = self._make_empty_img()
         for y, x, targvec in self._enumerate_targvec_img():
             out[y, x] = self._radial_velocity_from_targvec(targvec)
@@ -912,6 +915,31 @@ class Observation(Body):
 
     def get_dec_img_degrees(self) -> np.ndarray:
         return np.rad2deg(self.get_dec_img())
+
+    @cache_result
+    def _get_illumination_gie_img(self) -> np.ndarray:
+        out = self._make_empty_img(3)
+        for y, x, targvec in self._enumerate_targvec_img():
+            out[y, x] = self._illumination_angles_from_targvec(targvec)
+        return out
+
+    def get_phase_angle_img(self) -> np.ndarray:
+        return self._get_illumination_gie_img()[:, :, 0]
+
+    def get_incidence_angle_img(self) -> np.ndarray:
+        return self._get_illumination_gie_img()[:, :, 1]
+
+    def get_emission_angle_img(self) -> np.ndarray:
+        return self._get_illumination_gie_img()[:, :, 2]
+
+    def get_phase_angle_img_degrees(self) -> np.ndarray:
+        return np.rad2deg(self.get_phase_angle_img())
+
+    def get_incidence_angle_img_degrees(self) -> np.ndarray:
+        return np.rad2deg(self.get_incidence_angle_img())
+
+    def get_emission_angle_img_degrees(self) -> np.ndarray:
+        return np.rad2deg(self.get_emission_angle_img())
 
 
 if __name__ == '__main__':
