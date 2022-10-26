@@ -50,24 +50,34 @@ KERNEL_PATH = '~/spice/naif/generic_kernels/'
 
 def main(*args):
     dtm = datetime.datetime.now()
+    utils.print_progress()
+
     o = Observation('jupiter', dtm)
+    utils.print_progress('__init__')
 
     o.set_x0(10)
     o.set_y0(10)
     o.set_r0(9)
     o.set_rotation_degrees(10)
-
-    print(o.get_radial_velocity_img)
-    print(o.get_radial_velocity_img.__name__)
-    print(o.get_radial_velocity_img.__doc__)
+    utils.print_progress('set coordinates')
 
     ax = o.plot_wirefeame_xy(show=False)
+    utils.print_progress('plot wireframe')
+
+    img = o.get_distance_img()
+    utils.print_progress('get img')
+
     im = ax.imshow(
-        o.get_phase_angle_img_degrees(), origin='lower', zorder=0, cmap='turbo'
+        img,
+        origin='lower',
+        zorder=0,
+        cmap='turbo',
     )
     plt.colorbar(im)
+    utils.print_progress('plotting')
+    
     plt.show()
-
+    utils.print_progress('show plot')
 
 class Body:
     """
@@ -308,7 +318,7 @@ class Body:
 
     def _limb_targvec(
         self,
-        npts: int = 360,
+        npts: int = 100,
         close_loop: bool = True,
         method: str = 'TANGENT/ELLIPSOID',
         corloc: str = 'ELLIPSOID LIMB',
@@ -368,7 +378,7 @@ class Body:
 
     def terminator_radec(
         self,
-        npts: int = 360,
+        npts: int = 100,
         only_visible: bool = True,
         close_loop: bool = True,
         method: str = 'UMBRAL/TANGENT/ELLIPSOID',
@@ -442,7 +452,7 @@ class Body:
         return self.test_if_lonlat_illuminated(*self._degree_pair2radians(lon, lat))
 
     def visible_lon_grid_radec(
-        self, lons: list[float] | np.ndarray, npts: int = 90
+        self, lons: list[float] | np.ndarray, npts: int = 50
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         lats = np.deg2rad(np.linspace(-90, 90, npts))
         out = []
@@ -461,7 +471,7 @@ class Body:
         return [self._radian_pair2degrees(*radec) for radec in out]
 
     def visible_lat_grid_radec(
-        self, lats: list[float] | np.ndarray, npts: int = 180
+        self, lats: list[float] | np.ndarray, npts: int = 100
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         lons = np.deg2rad(np.linspace(0, 360, npts))
         out = []
@@ -507,11 +517,16 @@ class Body:
         velocity = state[3:]
         return position, velocity, lt
 
-    def _radial_velocity_from_targvec(self, targvec: np.ndarray) -> float:
-        position, velocity, lt = self._state_from_targvec(targvec)
+    def _radial_velocity_from_state(
+        self, position: np.ndarray, velocity: np.ndarray, _lt: float | None = None
+    ) -> float:
+        # TODO note how lt argument is meaningless but there for convenience when
+        # chaining with _state_from_targvec
         # dot the velocity with the normalised position vector to get radial component
-        radial_velocity = np.dot(velocity, spice.vhat(position))
-        return radial_velocity
+        return np.dot(velocity, spice.vhat(position))
+
+    def _radial_velocity_from_targvec(self, targvec: np.ndarray) -> float:
+        return self._radial_velocity_from_state(*self._state_from_targvec(targvec))
 
     def radial_velocity_from_lonlat(self, lon: float, lat: float) -> float:
         return self._radial_velocity_from_targvec(self.lonlat2targvec(lon, lat))
@@ -896,14 +911,6 @@ class Observation(Body):
         return np.rad2deg(self.get_lat_img())
 
     @cache_result
-    def get_radial_velocity_img(self) -> np.ndarray:
-        """abc"""
-        out = self._make_empty_img()
-        for y, x, targvec in self._enumerate_targvec_img():
-            out[y, x] = self._radial_velocity_from_targvec(targvec)
-        return out
-
-    @cache_result
     def _get_radec_img(self) -> np.ndarray:
         out = self._make_empty_img(2)
         for y, x in self._iterate_yx():
@@ -946,6 +953,36 @@ class Observation(Body):
 
     def get_emission_angle_img_degrees(self) -> np.ndarray:
         return np.rad2deg(self.get_emission_angle_img())
+
+    @cache_result
+    def _get_state_imgs(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        position_img = self._make_empty_img(3)
+        velocity_img = self._make_empty_img(3)
+        lt_img = self._make_empty_img()
+        for y, x, targvec in self._enumerate_targvec_img():
+            (
+                position_img[y, x],
+                velocity_img[y, x],
+                lt_img[y, x],
+            ) = self._state_from_targvec(targvec)
+        return position_img, velocity_img, lt_img
+
+    @cache_result
+    def get_radial_velocity_img(self) -> np.ndarray:
+        out = self._make_empty_img()
+        position_img, velocity_img, lt_img = self._get_state_imgs()
+        for y, x, targvec in self._enumerate_targvec_img():
+            out[y, x] = self._radial_velocity_from_state(
+                position_img[y, x], velocity_img[y, x]
+            )
+        return out
+
+    def get_distance_img(self) -> np.ndarray:
+        position_img, velocity_img, lt_img = self._get_state_imgs()
+        return lt_img * spice.clight()
+
+    def get_doppler_img(self) -> np.ndarray:
+        return self.get_radial_velocity_img() / spice.clight()
 
 
 if __name__ == '__main__':
