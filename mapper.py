@@ -56,7 +56,7 @@ def main(*args):
     o.set_r0(9)
 
     ax = o.plot_wirefeame_xy(show=False)
-    im = ax.imshow(o.get_radial_velocity_img(), origin='lower', zorder=0, cmap='turbo')
+    im = ax.imshow(o.get_lat_img_degrees(), origin='lower', zorder=0, cmap='turbo')
     plt.colorbar(im)
     plt.show()
 
@@ -835,10 +835,11 @@ class Observation(Body):
     # Coordinate images
     def _make_empty_img(self, nz:int|None=None) -> np.ndarray:
         if nz is None:
-            return np.full((self.ny, self.nx), np.nan)
+            shape = (self.ny, self.nx)
         else:
-            return np.full((self.ny, self.nx, nz), np.nan)
- 
+            shape = (self.ny, self.nx, nz)
+        return np.full(shape, np.nan)
+
     @cache_result
     def _get_targvec_img(self) -> np.ndarray:
         out = self._make_empty_img(3)
@@ -848,6 +849,7 @@ class Observation(Body):
                     targvec = self._xy2targvec(x, y)
                     out[y, x] = targvec
                 except spice.stypes.NotFoundError:
+                    # leave values as nan if pixel is not on the disc
                     continue
         return out
 
@@ -860,7 +862,6 @@ class Observation(Body):
                     # only check if first element nan for efficiency
                     continue 
                 yield y, x, targvec
-        raise StopIteration
 
     @cache_result
     def _get_lonlat_img(self) -> np.ndarray:
@@ -874,6 +875,12 @@ class Observation(Body):
 
     def get_lat_img(self) -> np.ndarray:
         return self._get_lonlat_img()[:, :, 1]
+
+    def get_lon_img_degrees(self) -> np.ndarray:
+        return np.rad2deg(self.get_lon_img())
+    
+    def get_lat_img_degrees(self) -> np.ndarray:
+        return np.rad2deg(self.get_lat_img())
 
     @cache_result
     def get_radial_velocity_img(self) -> np.ndarray:
