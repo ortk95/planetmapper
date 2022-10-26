@@ -48,13 +48,14 @@ KERNEL_PATH = '~/spice/naif/generic_kernels/'
 def main(*args):
     dtm = datetime.datetime.now()
     o = Observation('jupiter', dtm)
-    # o.rotation = np.pi / 2
-    # print(o.flattening)
-    # o.plot_wirefeame_xy()
-    # o.plot_wirefeame_radec()
 
-    lon = 0
-    lat = 0
+    o.set_x0(10)
+    o.set_y0(10)
+    o.set_r0(9)
+
+    ax = o.plot_wirefeame_xy(show=False)
+    ax.imshow(o.get_lat_img(), origin='lower', zorder=0)
+    plt.show()
 
 
 class Body:
@@ -627,13 +628,6 @@ class Body:
             spice.furnsh(kernel)
 
     @staticmethod
-    def get_angular_dist(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
-        return np.arccos(
-            np.sin(dec1) * np.sin(dec2)
-            + np.cos(dec1) * np.cos(dec2) * np.cos(ra1 - ra2)
-        )
-
-    @staticmethod
     def close_loop(arr: np.ndarray) -> np.ndarray:
         return np.append(arr, [arr[0]], axis=0)
 
@@ -653,6 +647,9 @@ class Body:
 class Observation(Body):
     def __init__(self, target: str, utc: str | datetime.datetime, *args, **kw) -> None:
         super().__init__(target, utc, *args, **kw)
+
+        self.nx: int = 25
+        self.ny: int = 20
 
         self._x0: float = 0
         self._y0: float = 0
@@ -741,6 +738,9 @@ class Observation(Body):
         x, y = zip(*[self.radec2xy(r, d) for r, d in zip(ra_arr, dec_arr)])
         return np.array(x), np.array(y)
 
+    def _xy2targvec(self, x: float, y: float) -> np.ndarray:
+        return self.obsvec_norm2targvec((self.radec2obsvec_norm(*self.xy2radec(x, y))))
+
     # Interface
     def set_x0(self, x0: float) -> None:
         self._x0 = x0
@@ -828,6 +828,39 @@ class Observation(Body):
         if show:
             plt.show()
         return ax
+
+    # Coordinate images
+    def _calculate_targvec_img(self) -> np.ndarray:
+        out = np.full((self.ny, self.nx, 3), np.nan)
+        for y, x in np.ndindex(*out.shape[:2]):
+            try:
+                targvec = self._xy2targvec(x, y)
+                out[y, x] = targvec
+            except spice.stypes.NotFoundError:
+                continue
+        return out
+
+    def get_targvec_img(self) -> np.ndarray:
+        return self._get_cached('targvec_img', self._calculate_targvec_img)
+
+    def _calculate_lonlat_img(self) -> np.ndarray:
+        out = np.full((self.ny, self.nx, 2), np.nan)
+        targvec_img = self.get_targvec_img()
+        for y, x in np.ndindex(*out.shape[:2]):
+            targvec = targvec_img[y, x]
+            if any(np.isnan(targvec)):
+                continue
+            out[y, x] = self.targvec2lonlat(targvec)
+        return out
+
+    def _get_lonlat_img(self) -> np.ndarray:
+        return self._get_cached('lonlat_img', self._calculate_lonlat_img)
+
+    def get_lon_img(self) -> np.ndarray:
+        return self._get_lonlat_img()[:, :, 0]
+
+    def get_lat_img(self) -> np.ndarray:
+        return self._get_lonlat_img()[:, :, 1]
 
 
 if __name__ == '__main__':
