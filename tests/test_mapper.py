@@ -70,9 +70,13 @@ def generate_lonlat(body: mapper.Body) -> tuple[float, float]:
     seed = (datetime.datetime.now() - datetime.datetime(2000, 1, 1)).days
     rng = np.random.default_rng(seed)
     while True:
-        lon = np.deg2rad(rng.random() * 360)
+        # Avoid lons near meridian where wraparound (e.g. 359.9999<->0.0001) can cause
+        # unit tests to incorrectly fail
+        lon = np.deg2rad(rng.random() * 358 + 1)
+        
+        # Avoid polar latitudes where singularity can break 1-to-1 conversions
         lat = np.deg2rad(rng.random() * 120 - 60)
-        # avoid polar latitudes where singularity can break 1-to-1 conversions
+        
         if body.test_if_lonlat_visible(lon, lat):
             return lon, lat
 
