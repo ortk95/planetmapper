@@ -54,9 +54,10 @@ def main(*args):
     o.set_x0(10)
     o.set_y0(10)
     o.set_r0(9)
+    o.set_rotation_degrees(30)
 
     ax = o.plot_wirefeame_xy(show=False)
-    im = ax.imshow(o.get_lat_img_degrees(), origin='lower', zorder=0, cmap='turbo')
+    im = ax.imshow(o.get_dec_img_degrees(), origin='lower', zorder=0, cmap='turbo')
     plt.colorbar(im)
     plt.show()
 
@@ -573,7 +574,8 @@ class Body:
         for lon, lat, s in self._get_poles_to_plot():
             ra, dec = self.lonlat2radec_degrees(lon, lat)
             ax.text(
-                ra, dec,
+                ra,
+                dec,
                 s,
                 ha='center',
                 va='center',
@@ -833,7 +835,7 @@ class Observation(Body):
         return ax
 
     # Coordinate images
-    def _make_empty_img(self, nz:int|None=None) -> np.ndarray:
+    def _make_empty_img(self, nz: int | None = None) -> np.ndarray:
         if nz is None:
             shape = (self.ny, self.nx)
         else:
@@ -843,25 +845,28 @@ class Observation(Body):
     @cache_result
     def _get_targvec_img(self) -> np.ndarray:
         out = self._make_empty_img(3)
+        for y, x in self._iterate_yx():
+            try:
+                targvec = self._xy2targvec(x, y)
+                out[y, x] = targvec
+            except spice.stypes.NotFoundError:
+                # leave values as nan if pixel is not on the disc
+                continue
+        return out
+
+    def _iterate_yx(self) -> Iterable[tuple[int, int]]:
         for y in range(self.ny):
             for x in range(self.nx):
-                try:
-                    targvec = self._xy2targvec(x, y)
-                    out[y, x] = targvec
-                except spice.stypes.NotFoundError:
-                    # leave values as nan if pixel is not on the disc
-                    continue
-        return out
+                yield y, x
 
     def _enumerate_targvec_img(self) -> Iterable[tuple[int, int, np.ndarray]]:
         targvec_img = self._get_targvec_img()
-        for y in range(targvec_img.shape[0]):
-            for x in range(targvec_img.shape[1]):
-                targvec = targvec_img[y,x]
-                if np.isnan(targvec[0]):
-                    # only check if first element nan for efficiency
-                    continue 
-                yield y, x, targvec
+        for y, x in self._iterate_yx():
+            targvec = targvec_img[y, x]
+            if np.isnan(targvec[0]):
+                # only check if first element nan for efficiency
+                continue
+            yield y, x, targvec
 
     @cache_result
     def _get_lonlat_img(self) -> np.ndarray:
@@ -878,7 +883,7 @@ class Observation(Body):
 
     def get_lon_img_degrees(self) -> np.ndarray:
         return np.rad2deg(self.get_lon_img())
-    
+
     def get_lat_img_degrees(self) -> np.ndarray:
         return np.rad2deg(self.get_lat_img())
 
@@ -888,6 +893,25 @@ class Observation(Body):
         for y, x, targvec in self._enumerate_targvec_img():
             out[y, x] = self._radial_velocity_from_targvec(targvec)
         return out
+
+    @cache_result
+    def _get_radec_img(self) -> np.ndarray:
+        out = self._make_empty_img(2)
+        for y, x in self._iterate_yx():
+            out[y, x] = self.xy2radec(x, y)
+        return out
+
+    def get_ra_img(self) -> np.ndarray:
+        return self._get_radec_img()[:, :, 0]
+
+    def get_dec_img(self) -> np.ndarray:
+        return self._get_radec_img()[:, :, 1]
+
+    def get_ra_img_degrees(self) -> np.ndarray:
+        return np.rad2deg(self.get_ra_img())
+
+    def get_dec_img_degrees(self) -> np.ndarray:
+        return np.rad2deg(self.get_dec_img())
 
 
 if __name__ == '__main__':
