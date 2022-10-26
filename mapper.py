@@ -15,7 +15,7 @@ import datetime
 import glob
 import os
 import sys
-from typing import Callable, TypeVar, cast
+from typing import Callable, TypeVar, cast, Any
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import matplotlib.transforms
@@ -27,6 +27,7 @@ import spiceypy as spice
 __version__ = '0.1'
 
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
+T = TypeVar('T')
 
 KERNEL_PATH = '~/spice/naif/generic_kernels/'
 
@@ -632,17 +633,15 @@ class Observation(Body):
         self._r0: float = 10
         self._rotation: float = 0
 
-        self._xy2radec_matrix: np.ndarray | None = None
-        self._radec2xy_matrix: np.ndarray | None = None
-        self._transform: matplotlib.transforms.Affine2D | None = None
+        self._cache : dict[str, Any]= {}
+        self._matplotlib_transform: matplotlib.transforms.Affine2D | None = None
 
     def __repr__(self) -> str:
         return f'Observation({self.target!r}, {self.utc!r})'
 
     # Coordinate transformations
     def set_dirty(self):
-        self._xy2radec_matrix = None
-        self._radec2xy_matrix = None
+        self._cache.clear()
 
     def calculate_xy2radec_matrix(self) -> np.ndarray:
         # a = M*v + a0 - M*v0
@@ -671,15 +670,16 @@ class Observation(Body):
     def calculate_radec2xy_matrix(self) -> np.ndarray:
         return np.linalg.inv(self.get_xy2radec_matrix())
 
+    def _get_cached(self, k: str, fn: Callable[[], T]) -> T:
+        if k not in self._cache:
+            self._cache[k] = fn()
+        return self._cache[k]
+
     def get_xy2radec_matrix(self) -> np.ndarray:
-        if self._xy2radec_matrix is None:
-            self._xy2radec_matrix = self.calculate_xy2radec_matrix()
-        return self._xy2radec_matrix
+        return self._get_cached('xy2radec_matrix', self.calculate_xy2radec_matrix)
 
     def get_radec2xy_matrix(self) -> np.ndarray:
-        if self._radec2xy_matrix is None:
-            self._radec2xy_matrix = self.calculate_radec2xy_matrix()
-        return self._radec2xy_matrix
+        return self._get_cached('radec2xy_matrix', self.calculate_radec2xy_matrix)
 
     def xy2radec(self, x: float, y: float) -> tuple[float, float]:
         a = self.get_xy2radec_matrix() @ np.array([x, y, 1])
@@ -775,9 +775,9 @@ class Observation(Body):
 
     # Other
     def get_matplotlib_radec2xy_transform(self) -> matplotlib.transforms.Affine2D:
-        if self._transform is None:
-            self._transform = matplotlib.transforms.Affine2D(self.get_radec2xy_matrix())
-        return self._transform
+        if self._matplotlib_transform is None:
+            self._matplotlib_transform = matplotlib.transforms.Affine2D(self.get_radec2xy_matrix())
+        return self._matplotlib_transform
 
     def update_transform(self) -> None:
         self.get_matplotlib_radec2xy_transform().set_matrix(self.get_radec2xy_matrix())
