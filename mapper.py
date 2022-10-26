@@ -560,6 +560,11 @@ class Body:
         else:
             transform = transform + ax.transData
 
+        for ra, dec in self.visible_latlon_grid_radec_degrees(30):
+            ax.plot(
+                ra, dec, color='silver', linestyle=':', transform=transform
+            )
+
         ax.plot(
             *self.limb_radec_degrees(), color='k', linewidth=0.5, transform=transform
         )
@@ -572,10 +577,6 @@ class Body:
 
         ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination_degrees()
         ax.plot(ra_day, dec_day, color='k', transform=transform)
-        for ra, dec in self.visible_latlon_grid_radec_degrees(30):
-            ax.plot(
-                ra, dec, color='silver', linestyle=':', zorder=0, transform=transform
-            )
 
         for lon, lat, s in self._get_poles_to_plot():
             ra, dec = self.lonlat2radec_degrees(lon, lat)
