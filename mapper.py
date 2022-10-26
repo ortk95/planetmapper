@@ -56,8 +56,8 @@ def main(*args):
     o.set_r0(9)
 
     ax = o.plot_wirefeame_xy(show=False)
-    ax.imshow(o.get_radial_velocity_img(), origin='lower', zorder=0, cmap='turbo')
-    plt.colorbar()
+    im = ax.imshow(o.get_radial_velocity_img(), origin='lower', zorder=0, cmap='turbo')
+    plt.colorbar(im)
     plt.show()
 
 
@@ -572,9 +572,9 @@ class Body:
 
         for lon, lat, s in self._get_poles_to_plot():
             ra, dec = self.lonlat2radec_degrees(lon, lat)
-            ax.annotate(
+            ax.text(
+                ra, dec,
                 s,
-                (ra, dec),
                 ha='center',
                 va='center',
                 weight='bold',
@@ -666,13 +666,14 @@ class Observation(Body):
 
     # Cache management
     @staticmethod
-    def cache_result(fn:Callable[P,T]) -> Callable[P,T]:
+    def cache_result(fn: Callable[P, T]) -> Callable[P, T]:
         def decorated(self, *args, **kwargs):
             k = fn.__name__
             if k not in self._cache:
-                self._cache[k] = fn(self, *args, **kwargs) # type: ignore
+                self._cache[k] = fn(self, *args, **kwargs)  #  type: ignore
             return self._cache[k]
-        return decorated # type: ignore
+
+        return decorated  # type: ignore
 
     def clear_cache(self):
         self._cache.clear()
@@ -702,7 +703,7 @@ class Observation(Body):
         transform_matrix_3x3[:2, 2] = offset_vector
 
         return transform_matrix_3x3
-    
+
     @cache_result
     def get_radec2xy_matrix(self) -> np.ndarray:
         return np.linalg.inv(self.get_xy2radec_matrix())
@@ -870,6 +871,7 @@ class Observation(Body):
                 continue
             out[y, x] = self._radial_velocity_from_targvec(targvec)
         return out
+
 
 if __name__ == '__main__':
     main(*sys.argv[1:])
