@@ -15,7 +15,7 @@ import datetime
 import glob
 import os
 import sys
-from typing import Callable, TypeVar, cast, Any
+from typing import Callable, TypeVar, ParamSpec, cast, Any
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import matplotlib.transforms
@@ -29,6 +29,7 @@ __version__ = '0.1'
 
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
 T = TypeVar('T')
+P = ParamSpec('P')
 
 KERNEL_PATH = '~/spice/naif/generic_kernels/'
 
@@ -664,13 +665,13 @@ class Observation(Body):
 
     # Cache management
     @staticmethod
-    def cache_result(fn:Callable) -> Callable:
+    def cache_result(fn:Callable[P,T]) -> Callable[P,T]:
         def decorated(self, *args, **kwargs):
             k = fn.__name__
             if k not in self._cache:
-                self._cache[k] = fn(self, *args, **kwargs)
+                self._cache[k] = fn(self, *args, **kwargs) # type: ignore
             return self._cache[k]
-        return decorated
+        return decorated # type: ignore
 
     def clear_cache(self):
         self._cache.clear()
