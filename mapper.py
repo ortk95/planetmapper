@@ -15,7 +15,7 @@ import datetime
 import glob
 import os
 import sys
-from typing import Callable, TypeVar, ParamSpec, cast, Any
+from typing import Callable, Iterable, TypeVar, ParamSpec, cast, Any
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import matplotlib.transforms
@@ -833,25 +833,39 @@ class Observation(Body):
         return ax
 
     # Coordinate images
+    def _make_empty_img(self, nz:int|None=None) -> np.ndarray:
+        if nz is None:
+            return np.full((self.ny, self.nx), np.nan)
+        else:
+            return np.full((self.ny, self.nx, nz), np.nan)
+ 
     @cache_result
     def _get_targvec_img(self) -> np.ndarray:
-        out = np.full((self.ny, self.nx, 3), np.nan)
-        for y, x in np.ndindex(*out.shape[:2]):
-            try:
-                targvec = self._xy2targvec(x, y)
-                out[y, x] = targvec
-            except spice.stypes.NotFoundError:
-                continue
+        out = self._make_empty_img(3)
+        for y in range(self.ny):
+            for x in range(self.nx):
+                try:
+                    targvec = self._xy2targvec(x, y)
+                    out[y, x] = targvec
+                except spice.stypes.NotFoundError:
+                    continue
         return out
+
+    def _enumerate_targvec_img(self) -> Iterable[tuple[int, int, np.ndarray]]:
+        targvec_img = self._get_targvec_img()
+        for y in range(targvec_img.shape[0]):
+            for x in range(targvec_img.shape[1]):
+                targvec = targvec_img[y,x]
+                if np.isnan(targvec[0]):
+                    # only check if first element nan for efficiency
+                    continue 
+                yield y, x, targvec
+        raise StopIteration
 
     @cache_result
     def _get_lonlat_img(self) -> np.ndarray:
-        out = np.full((self.ny, self.nx, 2), np.nan)
-        targvec_img = self._get_targvec_img()
-        for y, x in np.ndindex(*out.shape[:2]):
-            targvec = targvec_img[y, x]
-            if any(np.isnan(targvec)):
-                continue
+        out = self._make_empty_img(2)
+        for y, x, targvec in self._enumerate_targvec_img():
             out[y, x] = self.targvec2lonlat(targvec)
         return out
 
@@ -863,12 +877,8 @@ class Observation(Body):
 
     @cache_result
     def get_radial_velocity_img(self) -> np.ndarray:
-        out = np.full((self.ny, self.nx), np.nan)
-        targvec_img = self._get_targvec_img()
-        for y, x in np.ndindex(*out.shape[:2]):
-            targvec = targvec_img[y, x]
-            if any(np.isnan(targvec)):
-                continue
+        out = self._make_empty_img()
+        for y, x, targvec in self._enumerate_targvec_img():
             out[y, x] = self._radial_velocity_from_targvec(targvec)
         return out
 
