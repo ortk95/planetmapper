@@ -179,19 +179,17 @@ class InteractiveObservation:
 
     def plot_wireframe(self) -> None:
         ax = self.ax
-        transform = (
-            self.observation._get_matplotlib_radec2xy_transform_radians() + ax.transData
-        )
+        transform = self.observation.get_matplotlib_radec2xy_transform() + ax.transData
 
         ax.plot(
-            *self.observation._limb_radec_radians(),
+            *self.observation.limb_radec(),
             color='w',
             linewidth=0.5,
             transform=transform,
             zorder=5,
         )
         ax.plot(
-            *self.observation._terminator_radec_radians(),
+            *self.observation.terminator_radec(),
             color='w',
             linestyle='--',
             transform=transform,
@@ -203,7 +201,7 @@ class InteractiveObservation:
             dec_day,
             ra_night,
             dec_night,
-        ) = self.observation._limb_radec_by_illumination_radians()
+        ) = self.observation.limb_radec_by_illumination()
         ax.plot(ra_day, dec_day, color='w', transform=transform, zorder=5)
 
         for ra, dec in self.observation.visible_latlon_grid_radec(30):
@@ -215,27 +213,24 @@ class InteractiveObservation:
                 transform=transform,
                 zorder=4,
             )
-        print(ra_day[0], dec_day[0])
-        for lon, lat, s in ((0, 90, 'N'), (0, -90, 'S')):
-            if self.observation.test_if_lonlat_visible(lon, lat):
-                ra, dec = self.observation._lonlat2radec_radians(
-                    np.deg2rad(lon), np.deg2rad(lat)
-                )
-                ax.text(
-                    ra,
-                    dec,
-                    s,
-                    ha='center',
-                    va='center',
-                    weight='bold',
-                    color='k',
-                    path_effects=[
-                        path_effects.Stroke(linewidth=3, foreground='w'),
-                        path_effects.Normal(),
-                    ],
-                    transform=transform,
-                    zorder=5,
-                )  # TODO make consistent with elsewhere
+
+        for lon, lat, s in self.observation.get_poles_to_plot():
+            ra, dec = self.observation.lonlat2radec(lon, lat)
+            ax.text(
+                ra,
+                dec,
+                s,
+                ha='center',
+                va='center',
+                weight='bold',
+                color='k',
+                path_effects=[
+                    path_effects.Stroke(linewidth=3, foreground='w'),
+                    path_effects.Normal(),
+                ],
+                transform=transform,
+                zorder=5,
+            )  # TODO make consistent with elsewhere
 
     def move_up(self) -> None:
         self.observation.set_y0(self.observation.get_y0() + self.step_size)
