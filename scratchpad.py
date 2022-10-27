@@ -7,40 +7,37 @@ import spiceypy as spice
 import numpy as np
 import matplotlib.pyplot as plt
 import tqdm
+from typing import Callable, Iterable, TypeVar, ParamSpec, cast, Any
+from functools import wraps
 
-
+T = TypeVar('T')
+P = ParamSpec('P')
 
 
 class C:
-
-    def __init__(self):
-        self._cache = {}
+    DEFAULT_BACKPLANES = []
 
     @staticmethod
-    def decorator(fn):
-        def decorated(self, *args, **kwargs):
-            fn_name = fn.__name__
-            print('decorated', fn_name)
-            if fn_name not in self._cache:
-                self._cache[fn_name] = fn(self, *args, **kwargs)
-            return self._cache[fn_name]
-        return decorated
+    def backplane(name: str, description: str):
+        def decorator(fn: Callable[P, np.ndarray]) -> Callable[P, np.ndarray]:
+            C.DEFAULT_BACKPLANES.append((fn, name, description))
+            print(name)
+            @wraps(fn)
+            def wrapper(*args: P.args, **kwargs: P.kwargs):
+                return fn(*args, **kwargs)
 
+            wrapper.name = name
+            wrapper.description = description
+            return wrapper
 
-    @decorator
-    def f(self):
-        print('calling f')
-        return 1234567890
+        return decorator
 
+    @backplane('x', 'y')
+    def img(self):
+        return np.random.rand(10, 10)
 
+print(0)
 c = C()
-
-c.f()
-c.f()
-c.f()
-
-c._cache.clear()
-
-c.f()
-c.f()
-c.f()
+print(1)
+plt.imshow(c.img())
+print(c.img.description)

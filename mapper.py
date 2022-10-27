@@ -19,7 +19,7 @@ import datetime
 import glob
 import os
 import sys
-from typing import Callable, Iterable, TypeVar, ParamSpec, cast, Any
+from typing import Callable, Iterable, TypeVar, ParamSpec, NamedTuple, cast, Any
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import matplotlib.transforms
@@ -33,11 +33,17 @@ from functools import wraps
 
 __version__ = '0.1'
 
-Numeric = TypeVar('Numeric', bound=float | np.ndarray)
+KERNEL_PATH = '~/spice/naif/generic_kernels/'
+
 T = TypeVar('T')
 P = ParamSpec('P')
+Numeric = TypeVar('Numeric', bound=float | np.ndarray)
 
-KERNEL_PATH = '~/spice/naif/generic_kernels/'
+
+class Backplane(NamedTuple):
+    name: str
+    description: str
+    fn: Callable[[], np.ndarray]
 
 
 def main(*args):
@@ -63,17 +69,21 @@ def main(*args):
     o.plot_wirefeame_radec()
     utils.print_progress('plot wireframe radec')
 
-    # for k, img in o.get_backplanes().items():
-    #     utils.print_progress(k)
-    #     ax = o.plot_wirefeame_xy(show=False)
-    #     im = ax.imshow(
-    #         img,
-    #         origin='lower',
-    #         zorder=0,
-    #         cmap='turbo',
-    #     )
-    #     plt.colorbar(im, label=k)
-    #     plt.show()
+    for bp in o.backplanes:
+        utils.print_progress(bp.name)
+        img = bp.fn()
+        utils.print_progress(bp.name + ' img')
+        ax = o.plot_wirefeame_xy(show=False)
+        ax.set_title(bp.description)
+        im = ax.imshow(
+            img,
+            origin='lower',
+            zorder=0,
+            cmap='turbo',
+        )
+        plt.colorbar(im)
+        plt.show()
+        utils.print_progress(bp.name + ' plot')
 
 
 class Body:
@@ -613,6 +623,7 @@ class Body:
     def load_spice_kernels(
         kernel_path: str = KERNEL_PATH, manual_kernels: None | list[str] = None
     ) -> None:
+        # TODO do this better - don't necessarily need to keep running it every time
         if manual_kernels:
             kernels = manual_kernels
         else:
@@ -667,6 +678,33 @@ class Observation(Body):
         self._matplotlib_transform: matplotlib.transforms.Affine2D | None = None
         self._matplotlib_transform_radians: matplotlib.transforms.Affine2D | None = None
 
+        self.backplanes: list[Backplane] = [
+            Backplane('lon', 'Longitude [deg]', self.get_lon_img),
+            Backplane('lat', 'Latitude [deg]', self.get_lat_img),
+            Backplane('ra', 'Right ascension [deg]', self.get_ra_img),
+            Backplane('dec', 'Declination [deg]', self.get_dec_img),
+            Backplane('phase', 'Phase angle [deg]', self.get_phase_angle_img),
+            Backplane(
+                'incidence', 'Incidence angle [deg]', self.get_incidence_angle_img
+            ),
+            Backplane('emission', 'Emission angle [dec]', self.get_emission_angle_img),
+            Backplane('distance', 'Distance [km]', self.get_distance_img),
+            Backplane(
+                'radial_velocity',
+                'Radial velocity [km/s]',
+                self.get_radial_velocity_img,
+            ),
+            Backplane(
+                'doppler',
+                'Radial velocity/speed of light [dimensionless]',
+                self.get_doppler_img,
+            ),
+        ]
+        # TODO double check units and expand descriptions
+        # TODO maybe use register_backplane here instead for consistency (and to allow
+        # e.g. unique name checks to be run)
+        # TODO maybe move all this to a seperate function?
+
     def __repr__(self) -> str:
         return f'Observation({self.target!r}, {self.utc!r})'
 
@@ -688,8 +726,6 @@ class Observation(Body):
     # Coordinate transformations
     @cache_result
     def _get_xy2radec_matrix_radians(self) -> np.ndarray:
-        # a = M*v + a0 - M*v0
-
         r_km = self.r_eq
         r_radians = r_km / self.target_distance  # TODO do this better?
 
@@ -960,19 +996,11 @@ class Observation(Body):
     def get_doppler_img(self) -> np.ndarray:
         return self.get_radial_velocity_img() / spice.clight()
 
-    def get_backplanes(self) -> dict[str, np.ndarray]:
-        return {
-            'lon': self.get_lon_img(),
-            'lat': self.get_lat_img(),
-            'ra': self.get_ra_img(),
-            'dec': self.get_dec_img(),
-            'phase': self.get_phase_angle_img(),
-            'incidence': self.get_incidence_angle_img(),
-            'emission': self.get_emission_angle_img(),
-            'distance': self.get_distance_img(),
-            'radial_velocity': self.get_radial_velocity_img(),
-            'doppler': self.get_doppler_img(),
-        }
+    def register_backplane(
+        self, name: str, description: str, fn: Callable[[], np.ndarray]
+    ):
+        # TODO add warning if name is reused?
+        self.backplanes.append(Backplane(name=name, description=description, fn=fn))
 
 
 if __name__ == '__main__':
