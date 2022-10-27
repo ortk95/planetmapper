@@ -4,25 +4,30 @@ import numpy as np
 import datetime
 
 
-class TestBody(unittest.TestCase):
+class TestBodyRandomLocation(unittest.TestCase):
     def setUp(self):
         dtm = datetime.datetime.now()
         dtm_str = dtm.strftime('%Y-%m-%d %H:%M:%S')
         self.body = mapper.Body('jupiter', dtm_str)
 
     def test_round_trip_conversion(self):
-        """
-        Test that conversion lon/lat -> ra/dec -> lon/lat gives consistent result.
-        """
-        lon, lat = generate_lonlat(self.body)
-        lon_rt, lat_rt = self.body.radec2lonlat(*self.body.lonlat2radec(lon, lat))
-        self.assertAlmostEqual(lon, lon_rt, places=2)
-        self.assertAlmostEqual(lat, lat_rt, places=2)
+        lon0, lat0 = generate_lonlat(self.body)
+        lon1, lat1 = self.body.radec2lonlat(*self.body.lonlat2radec(lon0, lat0))
+        self.assertAlmostEqual(lon0, lon1, places=2)
+        self.assertAlmostEqual(lat0, lat1, places=2)
+
+        lon1, lat1 = self.body.targvec2lonlat(self.body.lonlat2targvec(lon0, lat0))
+        self.assertAlmostEqual(lon0, lon1, places=2)
+        self.assertAlmostEqual(lat0, lat1, places=2)
+
+    def test_subpoint_visible(self):
+        self.assertTrue(
+            self.body.test_if_lonlat_visible(
+                self.body.subpoint_lon, self.body.subpoint_lat
+            )
+        )
 
     def test_missing(self):
-        """
-        Test ra/dec that should miss the target.
-        """
         ra = self.body.subpoint_ra + 180  # this should always miss
         dec = self.body.subpoint_dec
         self.assertTrue(all(np.isnan(self.body.radec2lonlat(ra, dec))))
@@ -45,17 +50,17 @@ class TestBody(unittest.TestCase):
     def test_degrees2radians(self):
         self.assertEqual(self.body._radian_pair2degrees(0, np.pi), (0, 180))
 
+    def test_poles_to_plot(self):
+        self.assertTrue(len(self.body.get_poles_to_plot()) > 0)
 
-class TestObservation(unittest.TestCase):
+
+class TestObservationRandomLocation(unittest.TestCase):
     def setUp(self):
         dtm = datetime.datetime.now()
         dtm_str = dtm.strftime('%Y-%m-%d %H:%M:%S')
         self.observation = mapper.Observation('saturn', dtm_str)
 
     def test_round_trip_conversion(self):
-        """
-        Test that conversion lon/lat -> ra/dec -> lon/lat gives consistent result.
-        """
         lon, lat = generate_lonlat(self.observation)
         lon_rt, lat_rt = self.observation.xy2lonlat(
             *self.observation.lonlat2xy(lon, lat)
@@ -64,9 +69,6 @@ class TestObservation(unittest.TestCase):
         self.assertAlmostEqual(lat, lat_rt, places=2)
 
     def test_missing(self):
-        """
-        Test ra/dec that should miss the target.
-        """
         x = self.observation.get_x0()
         y = self.observation.get_x0()
         x = x + self.observation.get_r0() * 10

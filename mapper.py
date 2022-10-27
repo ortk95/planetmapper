@@ -498,11 +498,13 @@ class Body:
         return self._radial_velocity_from_targvec(self.lonlat2targvec(lon, lat))
 
     # Description and standardisation
-    def standardise_body_name(self, name: str) -> str:
+    @staticmethod
+    def standardise_body_name(name: str) -> str:
         name = spice.bodc2s(spice.bods2c(name))
         return name
 
-    def et2dtm(self, et: float) -> datetime.datetime:
+    @staticmethod
+    def et2dtm(et: float) -> datetime.datetime:
         s = spice.et2utc(et, 'ISOC', 6) + '+0000'
         # manually add '+0000' to string to make it timezone aware
         # i.e. this lets python know it is UTC
