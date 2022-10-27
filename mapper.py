@@ -136,7 +136,7 @@ class Body:
         self.target_light_time = cast(float, lt)
         self.target_distance = self.target_light_time * spice.clight()
         # cast() calls are only here to make type checking play nicely with spice.spkezr
-        self.target_ra, self.target_dec = self.obsvec2radec(self._target_obsvec)
+        self.target_ra, self.target_dec = self.obsvec2radec_radians(self._target_obsvec)
 
         # Find sub observer point
         self._subpoint_targvec, self._subpoint_et, self._subpoint_rayvec = spice.subpnt(
@@ -148,19 +148,19 @@ class Body:
             self.observer,
         )
         self.subpoint_distance = np.linalg.norm(self._subpoint_rayvec)
-        self.subpoint_lon, self.subpoint_lat = self.targvec2lonlat(
+        self.subpoint_lon, self.subpoint_lat = self.targvec2lonlat_radians(
             self._subpoint_targvec
         )
         self._subpoint_obsvec = self.rayvec2obsvec(
             self._subpoint_rayvec, self._subpoint_et
         )
-        self.subpoint_ra, self.subpoint_dec = self.obsvec2radec(self._subpoint_obsvec)
+        self.subpoint_ra, self.subpoint_dec = self.obsvec2radec_radians(self._subpoint_obsvec)
 
     def __repr__(self) -> str:
         return f'Body({self.target!r}, {self.utc!r})'
 
     # Coordinate transformations target -> observer direction
-    def lonlat2targvec(self, lon: float, lat: float) -> np.ndarray:
+    def lonlat2targvec_radians(self, lon: float, lat: float) -> np.ndarray:
         """
         Transform lon/lat coordinates on body to rectangular vector in target frame.
         """
@@ -204,7 +204,7 @@ class Body:
         px = spice.pxfrm2(self.target_frame, self.observer_frame, et, self.et)
         return np.matmul(px, rayvec)
 
-    def obsvec2radec(self, obsvec: np.ndarray) -> tuple[float, float]:
+    def obsvec2radec_radians(self, obsvec: np.ndarray) -> tuple[float, float]:
         """
         Transform rectangular vector in observer frame to observer ra/dec coordinates.
         """
@@ -212,7 +212,7 @@ class Body:
         return ra, dec
 
     # Coordinate transformations observer -> target direction
-    def radec2obsvec_norm(self, ra: float, dec: float) -> np.ndarray:
+    def radec2obsvec_norm_radians(self, ra: float, dec: float) -> np.ndarray:
         return spice.radrec(1, ra, dec)
 
     def obsvec_norm2targvec(self, obsvec_norm: np.ndarray) -> np.ndarray:
@@ -229,30 +229,30 @@ class Body:
         )
         return spoint
 
-    def targvec2lonlat(self, targvec: np.ndarray) -> tuple[float, float]:
+    def targvec2lonlat_radians(self, targvec: np.ndarray) -> tuple[float, float]:
         lon, lat, alt = spice.recpgr(self.target, targvec, self.r_eq, self.flattening)
         return lon, lat
 
     # Useful transformations (built from combinations of above transformations)
-    def lonlat2radec(self, lon: float, lat: float) -> tuple[float, float]:
-        return self.obsvec2radec(
+    def lonlat2radec_radians(self, lon: float, lat: float) -> tuple[float, float]:
+        return self.obsvec2radec_radians(
             self.targvec2obsvec(
-                self.lonlat2targvec(lon, lat),
+                self.lonlat2targvec_radians(lon, lat),
             )
         )
 
     def lonlat2radec_degrees(self, lon: float, lat: float) -> tuple[float, float]:
         return self._radian_pair2degrees(
-            *self.lonlat2radec(*self._degree_pair2radians(lon, lat))
+            *self.lonlat2radec_radians(*self._degree_pair2radians(lon, lat))
         )
 
-    def radec2lonlat(
+    def radec2lonlat_radians(
         self, ra: float, dec: float, not_found_nan: bool = True
     ) -> tuple[float, float]:
         try:
-            ra, dec = self.targvec2lonlat(
+            ra, dec = self.targvec2lonlat_radians(
                 self.obsvec_norm2targvec(
-                    self.radec2obsvec_norm(ra, dec),
+                    self.radec2obsvec_norm_radians(ra, dec),
                 )
             )
         except spice.stypes.NotFoundError:
@@ -265,29 +265,29 @@ class Body:
 
     def radec2lonlat_degrees(self, ra: float, dec: float, **kw) -> tuple[float, float]:
         return self._radian_pair2degrees(
-            *self.radec2lonlat(*self._degree_pair2radians(ra, dec), **kw)
+            *self.radec2lonlat_radians(*self._degree_pair2radians(ra, dec), **kw)
         )
 
-    def _targvec_arr2radec_arrs(
+    def _targvec_arr2radec_arrs_radians(
         self,
         targvec_arr: np.ndarray | list[np.ndarray],
         condition_func: None | Callable[[np.ndarray], bool] = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         if condition_func is not None:
             ra_dec = [
-                self.obsvec2radec(self.targvec2obsvec(t))
+                self.obsvec2radec_radians(self.targvec2obsvec(t))
                 if condition_func(t)
                 else (np.nan, np.nan)
                 for t in targvec_arr
             ]
         else:
-            ra_dec = [self.obsvec2radec(self.targvec2obsvec(t)) for t in targvec_arr]
+            ra_dec = [self.obsvec2radec_radians(self.targvec2obsvec(t)) for t in targvec_arr]
         ra = np.array([r for r, d in ra_dec])
         dec = np.array([d for r, d in ra_dec])
         return ra, dec
 
     # Other spice methods
-    def _illumination_angles_from_targvec(
+    def _illumination_angles_from_targvec_radians(
         self, targvec: np.ndarray
     ) -> tuple[float, float, float]:
         trgepc, srfvec, phase, incdnc, emissn = spice.ilumin(
@@ -301,15 +301,15 @@ class Body:
         )
         return phase, incdnc, emissn
 
-    def illumination_angles_from_lonlat(
+    def illumination_angles_from_lonlat_radians(
         self, lon: float, lat: float
     ) -> tuple[float, float, float]:
-        return self._illumination_angles_from_targvec(self.lonlat2targvec(lon, lat))
+        return self._illumination_angles_from_targvec_radians(self.lonlat2targvec_radians(lon, lat))
 
     def illumination_angles_from_lonlat_degrees(
         self, lon: float, lat: float
     ) -> tuple[float, float, float]:
-        phase, incdnc, emissn = self.illumination_angles_from_lonlat(
+        phase, incdnc, emissn = self.illumination_angles_from_lonlat_radians(
             *self._degree_pair2radians(lon, lat)
         )
         return np.deg2rad(phase), np.deg2rad(incdnc), np.deg2rad(emissn)
@@ -342,18 +342,18 @@ class Body:
             points = self.close_loop(points)
         return points
 
-    def limb_radec(self, **kw) -> tuple[np.ndarray, np.ndarray]:
+    def limb_radec_radians(self, **kw) -> tuple[np.ndarray, np.ndarray]:
         targvec_arr = self._limb_targvec(**kw)
-        return self._targvec_arr2radec_arrs(targvec_arr)
+        return self._targvec_arr2radec_arrs_radians(targvec_arr)
 
     def limb_radec_degrees(self, **kw) -> tuple[np.ndarray, np.ndarray]:
-        return self._radian_pair2degrees(*self.limb_radec(**kw))
+        return self._radian_pair2degrees(*self.limb_radec_radians(**kw))
 
-    def limb_radec_by_illumination(
+    def limb_radec_by_illumination_radians(
         self, **kw
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         targvec_arr = self._limb_targvec(**kw)
-        ra_day, dec_day = self._targvec_arr2radec_arrs(targvec_arr)
+        ra_day, dec_day = self._targvec_arr2radec_arrs_radians(targvec_arr)
         ra_night = ra_day.copy()
         dec_night = dec_day.copy()
         for idx, targvec in enumerate(targvec_arr):
@@ -368,13 +368,13 @@ class Body:
     def limb_radec_by_illumination_degrees(
         self, **kw
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination(**kw)
+        ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination_radians(**kw)
         return (
             *self._radian_pair2degrees(ra_day, dec_day),
             *self._radian_pair2degrees(ra_night, dec_night),
         )
 
-    def terminator_radec(
+    def terminator_radec_radians(
         self,
         npts: int = 100,
         only_visible: bool = True,
@@ -402,14 +402,14 @@ class Body:
         )
         if close_loop:
             targvec_arr = self.close_loop(targvec_arr)
-        ra, dec = self._targvec_arr2radec_arrs(
+        ra, dec = self._targvec_arr2radec_arrs_radians(
             targvec_arr,
             condition_func=self._test_if_targvec_visible if only_visible else None,
         )
         return ra, dec
 
     def terminator_radec_degrees(self, **kw) -> tuple[np.ndarray, np.ndarray]:
-        return self._radian_pair2degrees(*self.terminator_radec(**kw))
+        return self._radian_pair2degrees(*self.terminator_radec_radians(**kw))
 
     def _test_if_targvec_visible(self, targvec: np.ndarray) -> bool:
         trgepc, srfvec, phase, incdnc, emissn, visibl, lit = spice.illumf(
@@ -424,11 +424,11 @@ class Body:
         )
         return visibl
 
-    def test_if_lonlat_visible(self, lon: float, lat: float) -> bool:
-        return self._test_if_targvec_visible(self.lonlat2targvec(lon, lat))
+    def test_if_lonlat_visible_radians(self, lon: float, lat: float) -> bool:
+        return self._test_if_targvec_visible(self.lonlat2targvec_radians(lon, lat))
 
     def test_if_lonlat_visible_degrees(self, lon: float, lat: float) -> bool:
-        return self.test_if_lonlat_visible(*self._degree_pair2radians(lon, lat))
+        return self.test_if_lonlat_visible_radians(*self._degree_pair2radians(lon, lat))
 
     def _test_if_targvec_illuminated(self, targvec: np.ndarray) -> bool:
         trgepc, srfvec, phase, incdnc, emissn, visibl, lit = spice.illumf(
@@ -443,20 +443,20 @@ class Body:
         )
         return lit
 
-    def test_if_lonlat_illuminated(self, lon: float, lat: float) -> bool:
-        return self._test_if_targvec_illuminated(self.lonlat2targvec(lon, lat))
+    def test_if_lonlat_illuminated_radians(self, lon: float, lat: float) -> bool:
+        return self._test_if_targvec_illuminated(self.lonlat2targvec_radians(lon, lat))
 
     def test_if_lonlat_illuminated_degrees(self, lon: float, lat: float) -> bool:
-        return self.test_if_lonlat_illuminated(*self._degree_pair2radians(lon, lat))
+        return self.test_if_lonlat_illuminated_radians(*self._degree_pair2radians(lon, lat))
 
-    def visible_lon_grid_radec(
+    def visible_lon_grid_radec_radians(
         self, lons: list[float] | np.ndarray, npts: int = 50
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         lats = np.deg2rad(np.linspace(-90, 90, npts))
         out = []
         for lon in lons:
-            targvecs = [self.lonlat2targvec(lon, lat) for lat in lats]
-            ra, dec = self._targvec_arr2radec_arrs(
+            targvecs = [self.lonlat2targvec_radians(lon, lat) for lat in lats]
+            ra, dec = self._targvec_arr2radec_arrs_radians(
                 targvecs, condition_func=self._test_if_targvec_visible
             )
             out.append((ra, dec))
@@ -465,17 +465,17 @@ class Body:
     def visible_lon_grid_radec_degrees(
         self, lons: list[float] | np.ndarray, **kw
     ) -> list[tuple[np.ndarray, np.ndarray]]:
-        out = self.visible_lon_grid_radec(np.deg2rad(lons), **kw)
+        out = self.visible_lon_grid_radec_radians(np.deg2rad(lons), **kw)
         return [self._radian_pair2degrees(*radec) for radec in out]
 
-    def visible_lat_grid_radec(
+    def visible_lat_grid_radec_radians(
         self, lats: list[float] | np.ndarray, npts: int = 100
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         lons = np.deg2rad(np.linspace(0, 360, npts))
         out = []
         for lat in lats:
-            targvecs = [self.lonlat2targvec(lon, lat) for lon in lons]
-            ra, dec = self._targvec_arr2radec_arrs(
+            targvecs = [self.lonlat2targvec_radians(lon, lat) for lon in lons]
+            ra, dec = self._targvec_arr2radec_arrs_radians(
                 targvecs, condition_func=self._test_if_targvec_visible
             )
             out.append((ra, dec))
@@ -484,7 +484,7 @@ class Body:
     def visible_lat_grid_radec_degrees(
         self, lats: list[float] | np.ndarray, **kw
     ) -> list[tuple[np.ndarray, np.ndarray]]:
-        out = self.visible_lat_grid_radec(np.deg2rad(lats), **kw)
+        out = self.visible_lat_grid_radec_radians(np.deg2rad(lats), **kw)
         return [self._radian_pair2degrees(*radec) for radec in out]
 
     def visible_latlon_grid_radec_degrees(
@@ -526,11 +526,11 @@ class Body:
     def _radial_velocity_from_targvec(self, targvec: np.ndarray) -> float:
         return self._radial_velocity_from_state(*self._state_from_targvec(targvec))
 
-    def radial_velocity_from_lonlat(self, lon: float, lat: float) -> float:
-        return self._radial_velocity_from_targvec(self.lonlat2targvec(lon, lat))
+    def radial_velocity_from_lonlat_radians(self, lon: float, lat: float) -> float:
+        return self._radial_velocity_from_targvec(self.lonlat2targvec_radians(lon, lat))
 
     def radial_velocity_from_lonlat_degrees(self, lon: float, lat: float) -> float:
-        return self.radial_velocity_from_lonlat(*self._degree_pair2radians(lon, lat))
+        return self.radial_velocity_from_lonlat_radians(*self._degree_pair2radians(lon, lat))
 
     # Utility methods
     def standardise_body_name(self, name: str) -> str:
@@ -703,7 +703,7 @@ class Observation(Body):
 
     # Coordinate transformations
     @cache_result
-    def get_xy2radec_matrix(self) -> np.ndarray:
+    def get_xy2radec_matrix_radians(self) -> np.ndarray:
         # a = M*v + a0 - M*v0
 
         r_km = self.r_eq
@@ -711,10 +711,10 @@ class Observation(Body):
 
         s = r_radians / self.get_r0()
 
-        theta = self.get_rotation()
+        theta = self.get_rotation_radians()
 
         stretch_matrix = np.array([[-1 / np.abs(np.cos(self.target_dec)), 0], [0, 1]])
-        rotation_matrix = self.rotation_matrix(theta)
+        rotation_matrix = self.rotation_matrix_radians(theta)
         transform_matrix_2x2 = s * np.matmul(rotation_matrix, stretch_matrix)
 
         v0 = np.array([self.get_x0(), self.get_y0()])
@@ -728,44 +728,44 @@ class Observation(Body):
         return transform_matrix_3x3
 
     @cache_result
-    def get_radec2xy_matrix(self) -> np.ndarray:
-        return np.linalg.inv(self.get_xy2radec_matrix())
+    def get_radec2xy_matrix_radians(self) -> np.ndarray:
+        return np.linalg.inv(self.get_xy2radec_matrix_radians())
 
-    def xy2radec(self, x: float, y: float) -> tuple[float, float]:
-        a = self.get_xy2radec_matrix() @ np.array([x, y, 1])
+    def xy2radec_radians(self, x: float, y: float) -> tuple[float, float]:
+        a = self.get_xy2radec_matrix_radians() @ np.array([x, y, 1])
         return a[0], a[1]
 
-    def radec2xy(self, ra: float, dec: float) -> tuple[float, float]:
-        v = self.get_radec2xy_matrix() @ np.array([ra, dec, 1])
+    def radec2xy_radians(self, ra: float, dec: float) -> tuple[float, float]:
+        v = self.get_radec2xy_matrix_radians() @ np.array([ra, dec, 1])
         return v[0], v[1]
 
     @staticmethod
-    def rotation_matrix(theta: float) -> np.ndarray:
+    def rotation_matrix_radians(theta: float) -> np.ndarray:
         return np.array(
             [[np.cos(theta), np.sin(theta)], [-np.sin(theta), np.cos(theta)]]
         )
 
     # Composite transformations
-    def xy2lonlat(self, x: float, y: float) -> tuple[float, float]:
-        return self.radec2lonlat(*self.xy2radec(x, y))
+    def xy2lonlat_radians(self, x: float, y: float) -> tuple[float, float]:
+        return self.radec2lonlat_radians(*self.xy2radec_radians(x, y))
 
     def xy2lonlat_degrees(self, x: float, y: float) -> tuple[float, float]:
-        return self._radian_pair2degrees(*self.xy2lonlat(x, y))
+        return self._radian_pair2degrees(*self.xy2lonlat_radians(x, y))
 
-    def lonlat2xy(self, lon: float, lat: float) -> tuple[float, float]:
-        return self.radec2xy(*self.lonlat2radec(lon, lat))
+    def lonlat2xy_radians(self, lon: float, lat: float) -> tuple[float, float]:
+        return self.radec2xy_radians(*self.lonlat2radec_radians(lon, lat))
 
     def lonlat2xy_degrees(self, lon: float, lat: float) -> tuple[float, float]:
-        return self.lonlat2xy(*self._degree_pair2radians(lon, lat))
+        return self.lonlat2xy_radians(*self._degree_pair2radians(lon, lat))
 
-    def _radec_arrs2xy_arrs(
+    def _radec_arrs2xy_arrs_radians(
         self, ra_arr: np.ndarray, dec_arr: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
-        x, y = zip(*[self.radec2xy(r, d) for r, d in zip(ra_arr, dec_arr)])
+        x, y = zip(*[self.radec2xy_radians(r, d) for r, d in zip(ra_arr, dec_arr)])
         return np.array(x), np.array(y)
 
     def _xy2targvec(self, x: float, y: float) -> np.ndarray:
-        return self.obsvec_norm2targvec((self.radec2obsvec_norm(*self.xy2radec(x, y))))
+        return self.obsvec_norm2targvec((self.radec2obsvec_norm_radians(*self.xy2radec_radians(x, y))))
 
     # Interface
     def set_x0(self, x0: float) -> None:
@@ -789,53 +789,53 @@ class Observation(Body):
     def get_r0(self) -> float:
         return self._r0
 
-    def set_rotation(self, rotation: float) -> None:
+    def set_rotation_radians(self, rotation: float) -> None:
         self._rotation = rotation % (2 * np.pi)
         self.clear_cache()
 
-    def get_rotation(self) -> float:
+    def get_rotation_radians(self) -> float:
         return self._rotation
 
     def set_rotation_degrees(self, rotation_degrees: float) -> None:
-        self.set_rotation(np.deg2rad(rotation_degrees))
+        self.set_rotation_radians(np.deg2rad(rotation_degrees))
 
     def get_rotation_degrees(self) -> float:
-        return np.rad2deg(self.get_rotation())
+        return np.rad2deg(self.get_rotation_radians())
 
     # Illumination functions etc.
     def limb_xy(self, **kw) -> tuple[np.ndarray, np.ndarray]:
-        return self._radec_arrs2xy_arrs(*self.limb_radec(**kw))
+        return self._radec_arrs2xy_arrs_radians(*self.limb_radec_radians(**kw))
 
     def limb_xy_by_illumination(
         self, **kw
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination(**kw)
+        ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination_radians(**kw)
         return (
-            *self._radec_arrs2xy_arrs(ra_day, dec_day),
-            *self._radec_arrs2xy_arrs(ra_night, dec_night),
+            *self._radec_arrs2xy_arrs_radians(ra_day, dec_day),
+            *self._radec_arrs2xy_arrs_radians(ra_night, dec_night),
         )
 
     def terminator_xy(self, **kw) -> tuple[np.ndarray, np.ndarray]:
-        return self._radec_arrs2xy_arrs(*self.terminator_radec(**kw))
+        return self._radec_arrs2xy_arrs_radians(*self.terminator_radec_radians(**kw))
 
     def visible_latlon_grid_xy(
         self, *args, **kw
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         return [
-            self._radec_arrs2xy_arrs(*np.deg2rad(rd))
+            self._radec_arrs2xy_arrs_radians(*np.deg2rad(rd))
             for rd in self.visible_latlon_grid_radec_degrees(*args, **kw)
         ]
 
     # Other
-    def get_matplotlib_radec2xy_transform(self) -> matplotlib.transforms.Affine2D:
+    def get_matplotlib_radec2xy_transform_radians(self) -> matplotlib.transforms.Affine2D:
         if self._matplotlib_transform is None:
             self._matplotlib_transform = matplotlib.transforms.Affine2D(
-                self.get_radec2xy_matrix()
+                self.get_radec2xy_matrix_radians()
             )
         return self._matplotlib_transform
 
     def update_transform(self) -> None:
-        self.get_matplotlib_radec2xy_transform().set_matrix(self.get_radec2xy_matrix())
+        self.get_matplotlib_radec2xy_transform_radians().set_matrix(self.get_radec2xy_matrix_radians())
 
     def plot_wirefeame_xy(self, ax: Axes | None = None, show: bool = True) -> Axes:
         """
@@ -843,7 +843,7 @@ class Observation(Body):
         """
         # Generate affine transformation from radec in degrees -> xy
         transform_rad2deg = matplotlib.transforms.Affine2D().scale(np.deg2rad(1))
-        transform = transform_rad2deg + self.get_matplotlib_radec2xy_transform()
+        transform = transform_rad2deg + self.get_matplotlib_radec2xy_transform_radians()
 
         ax = self._plot_wireframe(transform=transform, ax=ax)
 
@@ -890,67 +890,67 @@ class Observation(Body):
             yield y, x, targvec
 
     @cache_result
-    def _get_lonlat_img(self) -> np.ndarray:
+    def _get_lonlat_img_radians(self) -> np.ndarray:
         out = self._make_empty_img(2)
         for y, x, targvec in self._enumerate_targvec_img():
-            out[y, x] = self.targvec2lonlat(targvec)
+            out[y, x] = self.targvec2lonlat_radians(targvec)
         return out
 
-    def get_lon_img(self) -> np.ndarray:
-        return self._get_lonlat_img()[:, :, 0]
+    def get_lon_img_radians(self) -> np.ndarray:
+        return self._get_lonlat_img_radians()[:, :, 0]
 
-    def get_lat_img(self) -> np.ndarray:
-        return self._get_lonlat_img()[:, :, 1]
+    def get_lat_img_radians(self) -> np.ndarray:
+        return self._get_lonlat_img_radians()[:, :, 1]
 
     def get_lon_img_degrees(self) -> np.ndarray:
-        return np.rad2deg(self.get_lon_img())
+        return np.rad2deg(self.get_lon_img_radians())
 
     def get_lat_img_degrees(self) -> np.ndarray:
-        return np.rad2deg(self.get_lat_img())
+        return np.rad2deg(self.get_lat_img_radians())
 
     @cache_result
-    def _get_radec_img(self) -> np.ndarray:
+    def _get_radec_img_radians(self) -> np.ndarray:
         out = self._make_empty_img(2)
         for y, x in self._iterate_yx():
-            out[y, x] = self.xy2radec(x, y)
+            out[y, x] = self.xy2radec_radians(x, y)
         return out
 
-    def get_ra_img(self) -> np.ndarray:
-        return self._get_radec_img()[:, :, 0]
+    def get_ra_img_radians(self) -> np.ndarray:
+        return self._get_radec_img_radians()[:, :, 0]
 
-    def get_dec_img(self) -> np.ndarray:
-        return self._get_radec_img()[:, :, 1]
+    def get_dec_img_radians(self) -> np.ndarray:
+        return self._get_radec_img_radians()[:, :, 1]
 
     def get_ra_img_degrees(self) -> np.ndarray:
-        return np.rad2deg(self.get_ra_img())
+        return np.rad2deg(self.get_ra_img_radians())
 
     def get_dec_img_degrees(self) -> np.ndarray:
-        return np.rad2deg(self.get_dec_img())
+        return np.rad2deg(self.get_dec_img_radians())
 
     @cache_result
-    def _get_illumination_gie_img(self) -> np.ndarray:
+    def _get_illumination_gie_img_radians(self) -> np.ndarray:
         out = self._make_empty_img(3)
         for y, x, targvec in self._enumerate_targvec_img():
-            out[y, x] = self._illumination_angles_from_targvec(targvec)
+            out[y, x] = self._illumination_angles_from_targvec_radians(targvec)
         return out
 
-    def get_phase_angle_img(self) -> np.ndarray:
-        return self._get_illumination_gie_img()[:, :, 0]
+    def get_phase_angle_img_radians(self) -> np.ndarray:
+        return self._get_illumination_gie_img_radians()[:, :, 0]
 
-    def get_incidence_angle_img(self) -> np.ndarray:
-        return self._get_illumination_gie_img()[:, :, 1]
+    def get_incidence_angle_img_radians(self) -> np.ndarray:
+        return self._get_illumination_gie_img_radians()[:, :, 1]
 
-    def get_emission_angle_img(self) -> np.ndarray:
-        return self._get_illumination_gie_img()[:, :, 2]
+    def get_emission_angle_img_radians(self) -> np.ndarray:
+        return self._get_illumination_gie_img_radians()[:, :, 2]
 
     def get_phase_angle_img_degrees(self) -> np.ndarray:
-        return np.rad2deg(self.get_phase_angle_img())
+        return np.rad2deg(self.get_phase_angle_img_radians())
 
     def get_incidence_angle_img_degrees(self) -> np.ndarray:
-        return np.rad2deg(self.get_incidence_angle_img())
+        return np.rad2deg(self.get_incidence_angle_img_radians())
 
     def get_emission_angle_img_degrees(self) -> np.ndarray:
-        return np.rad2deg(self.get_emission_angle_img())
+        return np.rad2deg(self.get_emission_angle_img_radians())
 
     @cache_result
     def _get_state_imgs(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:

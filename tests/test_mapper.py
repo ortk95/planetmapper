@@ -15,7 +15,9 @@ class TestBody(unittest.TestCase):
         Test that conversion lon/lat -> ra/dec -> lon/lat gives consistent result.
         """
         lon, lat = generate_lonlat(self.body)
-        lon_rt, lat_rt = self.body.radec2lonlat(*self.body.lonlat2radec(lon, lat))
+        lon_rt, lat_rt = self.body.radec2lonlat_radians(
+            *self.body.lonlat2radec_radians(lon, lat)
+        )
         self.assertAlmostEqual(lon, lon_rt, places=3)
         self.assertAlmostEqual(lat, lat_rt, places=3)
 
@@ -25,7 +27,7 @@ class TestBody(unittest.TestCase):
         """
         ra = self.body.subpoint_ra + np.pi  # this should always miss
         dec = self.body.subpoint_dec
-        self.assertTrue(all(np.isnan(self.body.radec2lonlat(ra, dec))))
+        self.assertTrue(all(np.isnan(self.body.radec2lonlat_radians(ra, dec))))
 
     def test_distance(self):
         self.assertAlmostEqual(
@@ -57,8 +59,8 @@ class TestObservation(unittest.TestCase):
         Test that conversion lon/lat -> ra/dec -> lon/lat gives consistent result.
         """
         lon, lat = generate_lonlat(self.observation)
-        lon_rt, lat_rt = self.observation.xy2lonlat(
-            *self.observation.lonlat2xy(lon, lat)
+        lon_rt, lat_rt = self.observation.xy2lonlat_radians(
+            *self.observation.lonlat2xy_radians(lon, lat)
         )
         self.assertAlmostEqual(lon, lon_rt, places=3)
         self.assertAlmostEqual(lat, lat_rt, places=3)
@@ -71,7 +73,7 @@ class TestObservation(unittest.TestCase):
         y = self.observation.get_x0()
         x = x + self.observation.get_r0() * 10
 
-        self.assertTrue(all(np.isnan(self.observation.xy2lonlat(x, y))))
+        self.assertTrue(all(np.isnan(self.observation.xy2lonlat_radians(x, y))))
 
 
 def generate_lonlat(body: mapper.Body) -> tuple[float, float]:
@@ -87,7 +89,7 @@ def generate_lonlat(body: mapper.Body) -> tuple[float, float]:
         # Avoid polar latitudes where singularity can break 1-to-1 conversions
         lat = np.deg2rad(rng.random() * 120 - 60)
 
-        if body.test_if_lonlat_visible(lon, lat):
+        if body.test_if_lonlat_visible_radians(lon, lat):
             return lon, lat
 
 

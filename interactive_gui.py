@@ -33,7 +33,7 @@ class InteractiveObservation:
         self.observation.set_x0(self.image.shape[0] / 2)
         self.observation.set_y0(self.image.shape[1] / 2)
         self.observation.set_r0(self.image.shape[0] / 4)
-        self.observation.set_rotation(0)
+        self.observation.set_rotation_radians(0)
 
         self.step_size = 10
 
@@ -179,17 +179,19 @@ class InteractiveObservation:
 
     def plot_wireframe(self) -> None:
         ax = self.ax
-        transform = self.observation.get_matplotlib_radec2xy_transform() + ax.transData
+        transform = (
+            self.observation.get_matplotlib_radec2xy_transform_radians() + ax.transData
+        )
 
         ax.plot(
-            *self.observation.limb_radec(),
+            *self.observation.limb_radec_radians(),
             color='w',
             linewidth=0.5,
             transform=transform,
             zorder=5,
         )
         ax.plot(
-            *self.observation.terminator_radec(),
+            *self.observation.terminator_radec_radians(),
             color='w',
             linestyle='--',
             transform=transform,
@@ -201,7 +203,7 @@ class InteractiveObservation:
             dec_day,
             ra_night,
             dec_night,
-        ) = self.observation.limb_radec_by_illumination()
+        ) = self.observation.limb_radec_by_illumination_radians()
         ax.plot(ra_day, dec_day, color='w', transform=transform, zorder=5)
 
         for ra, dec in self.observation.visible_latlon_grid_radec_degrees(30):
@@ -216,7 +218,7 @@ class InteractiveObservation:
         print(ra_day[0], dec_day[0])
         for lon, lat, s in ((0, 90, 'N'), (0, -90, 'S')):
             if self.observation.test_if_lonlat_visible_degrees(lon, lat):
-                ra, dec = self.observation.lonlat2radec(
+                ra, dec = self.observation.lonlat2radec_radians(
                     np.deg2rad(lon), np.deg2rad(lat)
                 )
                 ax.text(
