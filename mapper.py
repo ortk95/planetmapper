@@ -727,7 +727,7 @@ class Observation(Body):
     @cache_result
     def _get_xy2radec_matrix_radians(self) -> np.ndarray:
         r_km = self.r_eq
-        r_radians = r_km / self.target_distance  # TODO do this better?
+        r_radians = np.arcsin(r_km/self.target_distance)
 
         s = r_radians / self.get_r0()
 
