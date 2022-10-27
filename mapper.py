@@ -678,32 +678,8 @@ class Observation(Body):
         self._matplotlib_transform: matplotlib.transforms.Affine2D | None = None
         self._matplotlib_transform_radians: matplotlib.transforms.Affine2D | None = None
 
-        self.backplanes: list[Backplane] = [
-            Backplane('lon', 'Longitude [deg]', self.get_lon_img),
-            Backplane('lat', 'Latitude [deg]', self.get_lat_img),
-            Backplane('ra', 'Right ascension [deg]', self.get_ra_img),
-            Backplane('dec', 'Declination [deg]', self.get_dec_img),
-            Backplane('phase', 'Phase angle [deg]', self.get_phase_angle_img),
-            Backplane(
-                'incidence', 'Incidence angle [deg]', self.get_incidence_angle_img
-            ),
-            Backplane('emission', 'Emission angle [dec]', self.get_emission_angle_img),
-            Backplane('distance', 'Distance [km]', self.get_distance_img),
-            Backplane(
-                'radial_velocity',
-                'Radial velocity [km/s]',
-                self.get_radial_velocity_img,
-            ),
-            Backplane(
-                'doppler',
-                'Radial velocity/speed of light [dimensionless]',
-                self.get_doppler_img,
-            ),
-        ]
-        # TODO double check units and expand descriptions
-        # TODO maybe use register_backplane here instead for consistency (and to allow
-        # e.g. unique name checks to be run)
-        # TODO maybe move all this to a seperate function?
+        self.backplanes: list[Backplane] = []
+        self._register_default_backplanes()
 
     def __repr__(self) -> str:
         return f'Observation({self.target!r}, {self.utc!r})'
@@ -727,7 +703,7 @@ class Observation(Body):
     @cache_result
     def _get_xy2radec_matrix_radians(self) -> np.ndarray:
         r_km = self.r_eq
-        r_radians = np.arcsin(r_km/self.target_distance)
+        r_radians = np.arcsin(r_km / self.target_distance)
 
         s = r_radians / self.get_r0()
 
@@ -996,11 +972,37 @@ class Observation(Body):
     def get_doppler_img(self) -> np.ndarray:
         return self.get_radial_velocity_img() / spice.clight()
 
+    # Backplane management
     def register_backplane(
-        self, name: str, description: str, fn: Callable[[], np.ndarray]
-    ):
-        # TODO add warning if name is reused?
+        self, fn: Callable[[], np.ndarray], name: str, description: str
+    ) -> None:
+        # TODO add checks for name/description lengths?
+        if any(bp.name == name for bp in self.backplanes):
+            raise ValueError(f'Backplane named {name!r} is already registered')
         self.backplanes.append(Backplane(name=name, description=description, fn=fn))
+
+    def _register_default_backplanes(self) -> None:
+        # TODO double check units and expand descriptions
+        self.register_backplane(self.get_lon_img, 'lon', 'Longitude [deg]')
+        self.register_backplane(self.get_lat_img, 'lat', 'Latitude [deg]')
+        self.register_backplane(self.get_ra_img, 'ra', 'Right ascension [deg]')
+        self.register_backplane(self.get_dec_img, 'dec', 'Declination [deg]')
+        self.register_backplane(self.get_phase_angle_img, 'phase', 'Phase angle [deg]')
+        self.register_backplane(
+            self.get_incidence_angle_img, 'incidence', 'Incidence angle [deg]'
+        )
+        self.register_backplane(
+            self.get_emission_angle_img, 'emission', 'Emission angle [dec]'
+        )
+        self.register_backplane(self.get_distance_img, 'distance', 'Distance [km]')
+        self.register_backplane(
+            self.get_radial_velocity_img, 'radial_velocity', 'Radial velocity [km/s]'
+        )
+        self.register_backplane(
+            self.get_doppler_img,
+            'doppler',
+            'Radial velocity/speed of light [dimensionless]',
+        )
 
 
 if __name__ == '__main__':
