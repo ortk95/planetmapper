@@ -23,6 +23,7 @@ from typing import Callable, Iterable, TypeVar, ParamSpec, cast, Any
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import matplotlib.transforms
+import matplotlib.patches
 from matplotlib.transforms import Transform
 from matplotlib.axes import Axes
 import numpy as np
@@ -52,20 +53,27 @@ def main(*args):
     o.set_rotation(-30)
     utils.print_progress('set coordinates')
 
-    ax = o.plot_wirefeame_xy()
-    utils.print_progress('plot wireframe')
+    ax = o.plot_wirefeame_xy(show=False)
+    circle = matplotlib.patches.Circle(
+        (o.get_x0(), o.get_y0()), radius=o.get_r0(), fc='none', ec='r'
+    )
+    ax.add_patch(circle)
+    plt.show()
+    utils.print_progress('plot wireframe xy')
+    o.plot_wirefeame_radec()
+    utils.print_progress('plot wireframe radec')
 
-    for k, img in o.get_backplanes().items():
-        utils.print_progress(k)
-        ax = o.plot_wirefeame_xy(show=False)
-        im = ax.imshow(
-            img,
-            origin='lower',
-            zorder=0,
-            cmap='turbo',
-        )
-        plt.colorbar(im, label=k)
-        plt.show()
+    # for k, img in o.get_backplanes().items():
+    #     utils.print_progress(k)
+    #     ax = o.plot_wirefeame_xy(show=False)
+    #     im = ax.imshow(
+    #         img,
+    #         origin='lower',
+    #         zorder=0,
+    #         cmap='turbo',
+    #     )
+    #     plt.colorbar(im, label=k)
+    #     plt.show()
 
 
 class Body:
@@ -636,11 +644,19 @@ class Body:
 
 
 class Observation(Body):
-    def __init__(self, target: str, utc: str | datetime.datetime, *args, **kw) -> None:
+    def __init__(
+        self,
+        target: str,
+        utc: str | datetime.datetime,
+        path: str | None = None,
+        *args,
+        **kw,
+    ) -> None:
         super().__init__(target, utc, *args, **kw)
+        self.path = path
 
-        self.nx: int = 25
-        self.ny: int = 20
+        self._nx: int = 25
+        self._ny: int = 20
 
         self._x0: float = 0
         self._y0: float = 0
@@ -841,9 +857,9 @@ class Observation(Body):
     # Coordinate images
     def _make_empty_img(self, nz: int | None = None) -> np.ndarray:
         if nz is None:
-            shape = (self.ny, self.nx)
+            shape = (self._ny, self._nx)
         else:
-            shape = (self.ny, self.nx, nz)
+            shape = (self._ny, self._nx, nz)
         return np.full(shape, np.nan)
 
     @cache_result
@@ -859,8 +875,8 @@ class Observation(Body):
         return out
 
     def _iterate_yx(self) -> Iterable[tuple[int, int]]:
-        for y in range(self.ny):
-            for x in range(self.nx):
+        for y in range(self._ny):
+            for x in range(self._nx):
                 yield y, x
 
     def _enumerate_targvec_img(self) -> Iterable[tuple[int, int, np.ndarray]]:

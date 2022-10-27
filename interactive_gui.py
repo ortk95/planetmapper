@@ -135,7 +135,7 @@ class InteractiveObservation:
         # ent.pack()
         # ent.insert(0, '1345')
 
-        fig = plt.figure(figsize=(5, 4), dpi=200)
+        fig = plt.figure(figsize=(5, 5), dpi=100)
         self.ax = fig.add_subplot()
         self.ax.imshow(self.image, origin='lower', zorder=0)
         self.plot_wireframe()
@@ -181,16 +181,18 @@ class InteractiveObservation:
         ax = self.ax
         transform = self.observation.get_matplotlib_radec2xy_transform() + ax.transData
 
+        limb_color = 'w'
+
         ax.plot(
             *self.observation.limb_radec(),
-            color='w',
+            color=limb_color,
             linewidth=0.5,
             transform=transform,
             zorder=5,
         )
         ax.plot(
             *self.observation.terminator_radec(),
-            color='w',
+            color=limb_color,
             linestyle='--',
             transform=transform,
             zorder=5,
@@ -202,12 +204,12 @@ class InteractiveObservation:
             ra_night,
             dec_night,
         ) = self.observation.limb_radec_by_illumination()
-        ax.plot(ra_day, dec_day, color='w', transform=transform, zorder=5)
+        ax.plot(ra_day, dec_day, color=limb_color, transform=transform, zorder=5)
 
         for ra, dec in self.observation.visible_latlon_grid_radec(30):
             ax.plot(
-                np.deg2rad(ra),
-                np.deg2rad(dec),
+                ra,
+                dec,
                 color='k',
                 linestyle=':',
                 transform=transform,
