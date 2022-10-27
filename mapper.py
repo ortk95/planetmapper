@@ -35,19 +35,6 @@ P = ParamSpec('P')
 KERNEL_PATH = '~/spice/naif/generic_kernels/'
 
 
-"""TODO
-- Make option stirngs 'CN' etc. customisable
-- Make stuff work with generic observer location
-- Replace all EARTH references with self.observer
-- Standardise rad/deg coordinates for longlat/radec
-- Add non-affine transformations
-- Add non body centre observer locations?
-- Ring system
-- Mark custom ra/dec and lon/lat
-- Click (/mouseover?) image to get values
-"""
-
-
 def main(*args):
     dtm = datetime.datetime.now()
     utils.print_progress()
@@ -154,7 +141,9 @@ class Body:
         self._subpoint_obsvec = self.rayvec2obsvec(
             self._subpoint_rayvec, self._subpoint_et
         )
-        self.subpoint_ra, self.subpoint_dec = self.obsvec2radec_radians(self._subpoint_obsvec)
+        self.subpoint_ra, self.subpoint_dec = self.obsvec2radec_radians(
+            self._subpoint_obsvec
+        )
 
     def __repr__(self) -> str:
         return f'Body({self.target!r}, {self.utc!r})'
@@ -281,7 +270,9 @@ class Body:
                 for t in targvec_arr
             ]
         else:
-            ra_dec = [self.obsvec2radec_radians(self.targvec2obsvec(t)) for t in targvec_arr]
+            ra_dec = [
+                self.obsvec2radec_radians(self.targvec2obsvec(t)) for t in targvec_arr
+            ]
         ra = np.array([r for r, d in ra_dec])
         dec = np.array([d for r, d in ra_dec])
         return ra, dec
@@ -304,7 +295,9 @@ class Body:
     def illumination_angles_from_lonlat_radians(
         self, lon: float, lat: float
     ) -> tuple[float, float, float]:
-        return self._illumination_angles_from_targvec_radians(self.lonlat2targvec_radians(lon, lat))
+        return self._illumination_angles_from_targvec_radians(
+            self.lonlat2targvec_radians(lon, lat)
+        )
 
     def illumination_angles_from_lonlat_degrees(
         self, lon: float, lat: float
@@ -368,7 +361,9 @@ class Body:
     def limb_radec_by_illumination_degrees(
         self, **kw
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination_radians(**kw)
+        ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination_radians(
+            **kw
+        )
         return (
             *self._radian_pair2degrees(ra_day, dec_day),
             *self._radian_pair2degrees(ra_night, dec_night),
@@ -447,7 +442,9 @@ class Body:
         return self._test_if_targvec_illuminated(self.lonlat2targvec_radians(lon, lat))
 
     def test_if_lonlat_illuminated_degrees(self, lon: float, lat: float) -> bool:
-        return self.test_if_lonlat_illuminated_radians(*self._degree_pair2radians(lon, lat))
+        return self.test_if_lonlat_illuminated_radians(
+            *self._degree_pair2radians(lon, lat)
+        )
 
     def visible_lon_grid_radec_radians(
         self, lons: list[float] | np.ndarray, npts: int = 50
@@ -530,7 +527,9 @@ class Body:
         return self._radial_velocity_from_targvec(self.lonlat2targvec_radians(lon, lat))
 
     def radial_velocity_from_lonlat_degrees(self, lon: float, lat: float) -> float:
-        return self.radial_velocity_from_lonlat_radians(*self._degree_pair2radians(lon, lat))
+        return self.radial_velocity_from_lonlat_radians(
+            *self._degree_pair2radians(lon, lat)
+        )
 
     # Utility methods
     def standardise_body_name(self, name: str) -> str:
@@ -765,7 +764,9 @@ class Observation(Body):
         return np.array(x), np.array(y)
 
     def _xy2targvec(self, x: float, y: float) -> np.ndarray:
-        return self.obsvec_norm2targvec((self.radec2obsvec_norm_radians(*self.xy2radec_radians(x, y))))
+        return self.obsvec_norm2targvec(
+            (self.radec2obsvec_norm_radians(*self.xy2radec_radians(x, y)))
+        )
 
     # Interface
     def set_x0(self, x0: float) -> None:
@@ -809,7 +810,9 @@ class Observation(Body):
     def limb_xy_by_illumination(
         self, **kw
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination_radians(**kw)
+        ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination_radians(
+            **kw
+        )
         return (
             *self._radec_arrs2xy_arrs_radians(ra_day, dec_day),
             *self._radec_arrs2xy_arrs_radians(ra_night, dec_night),
@@ -827,7 +830,9 @@ class Observation(Body):
         ]
 
     # Other
-    def get_matplotlib_radec2xy_transform_radians(self) -> matplotlib.transforms.Affine2D:
+    def get_matplotlib_radec2xy_transform_radians(
+        self,
+    ) -> matplotlib.transforms.Affine2D:
         if self._matplotlib_transform is None:
             self._matplotlib_transform = matplotlib.transforms.Affine2D(
                 self.get_radec2xy_matrix_radians()
@@ -835,7 +840,9 @@ class Observation(Body):
         return self._matplotlib_transform
 
     def update_transform(self) -> None:
-        self.get_matplotlib_radec2xy_transform_radians().set_matrix(self.get_radec2xy_matrix_radians())
+        self.get_matplotlib_radec2xy_transform_radians().set_matrix(
+            self.get_radec2xy_matrix_radians()
+        )
 
     def plot_wirefeame_xy(self, ax: Axes | None = None, show: bool = True) -> Axes:
         """
