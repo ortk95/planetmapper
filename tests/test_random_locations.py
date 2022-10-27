@@ -6,9 +6,7 @@ import datetime
 
 class TestBodyRandomLocation(unittest.TestCase):
     def setUp(self):
-        dtm = datetime.datetime.now()
-        dtm_str = dtm.strftime('%Y-%m-%d %H:%M:%S')
-        self.body = mapper.Body('jupiter', dtm_str)
+        self.body = mapper.Body('jupiter', generate_dtm_str())
 
     def test_round_trip_conversion(self):
         lon0, lat0 = generate_lonlat(self.body)
@@ -56,9 +54,7 @@ class TestBodyRandomLocation(unittest.TestCase):
 
 class TestObservationRandomLocation(unittest.TestCase):
     def setUp(self):
-        dtm = datetime.datetime.now()
-        dtm_str = dtm.strftime('%Y-%m-%d %H:%M:%S')
-        self.observation = mapper.Observation('saturn', dtm_str)
+        self.observation = mapper.Observation('saturn', generate_dtm_str())
 
     def test_round_trip_conversion(self):
         lon, lat = generate_lonlat(self.observation)
@@ -74,6 +70,11 @@ class TestObservationRandomLocation(unittest.TestCase):
         x = x + self.observation.get_r0() * 10
 
         self.assertTrue(all(np.isnan(self.observation.xy2lonlat(x, y))))
+
+def generate_dtm_str() -> str:
+    """Create datetime string such that tests are reproducable on same day"""
+    dtm = datetime.datetime.now()
+    return dtm.strftime('%Y-%m-%d 00:00:00')
 
 
 def generate_lonlat(body: mapper.Body) -> tuple[float, float]:
