@@ -122,6 +122,7 @@ class SpiceTool:
     def _encode_str(s: str) -> bytes:
         return s.encode('UTF-8')
 
+
 class Body(SpiceTool):
     """
     Class representing spice data about an observation of an astronomical body.
@@ -174,6 +175,7 @@ class Body(SpiceTool):
         self.et = spice.utc2et(self.utc)
         self.dtm = self.et2dtm(self.et)
         self.target_frame = 'IAU_' + self.target
+        self._target_frame_encoded = self._encode_str(self.target_frame)
         self.target_body_id: int = spice.bodn2c(self.target)
 
         self.radii = spice.bodvar(self.target_body_id, 'RADII', 3)
@@ -227,7 +229,9 @@ class Body(SpiceTool):
         """
         Transform lon/lat coordinates on body to rectangular vector in target frame.
         """
-        return spice.pgrrec(self.target, lon, lat, 0, self.r_eq, self.flattening)
+        return spice.pgrrec(
+            self._target_encoded, lon, lat, 0, self.r_eq, self.flattening
+        )
 
     def _targvec2obsvec(self, targvec: np.ndarray) -> np.ndarray:
         """
@@ -253,7 +257,10 @@ class Body(SpiceTool):
         # the ray left the point of interest -> the observer vector at the time the ray
         # hit the detector
         transform_matrix = spice.pxfrm2(
-            self.target_frame, self.observer_frame, targvec_et, self.et
+            self._target_frame_encoded,
+            self._observer_frame_encoded,
+            targvec_et,
+            self.et,
         )
 
         # Use the transform matrix to perform the actual transformation
@@ -264,7 +271,9 @@ class Body(SpiceTool):
         Transform rectangular vector from point to observer in target frame to
         rectangular vector of point in observer frame.
         """
-        px = spice.pxfrm2(self.target_frame, self.observer_frame, et, self.et)
+        px = spice.pxfrm2(
+            self._target_frame_encoded, self._observer_frame_encoded, et, self.et
+        )
         return np.matmul(px, rayvec)
 
     def _obsvec2radec_radians(self, obsvec: np.ndarray) -> tuple[float, float]:
@@ -281,19 +290,21 @@ class Body(SpiceTool):
     def _obsvec_norm2targvec(self, obsvec_norm: np.ndarray) -> np.ndarray:
         """TODO add note about raising NotFoundError"""
         spoint, trgepc, srfvec = spice.sincpt(
-            self.surface_method,
-            self.target,
+            self._surface_method_encoded,
+            self._target_encoded,
             self.et,
-            self.target_frame,
-            self.aberration_correction,
-            self.observer,
-            self.observer_frame,
+            self._target_frame_encoded,
+            self._aberration_correction_encoded,
+            self._observer_encoded,
+            self._observer_frame_encoded,
             obsvec_norm,
         )
         return spoint
 
     def _targvec2lonlat_radians(self, targvec: np.ndarray) -> tuple[float, float]:
-        lon, lat, alt = spice.recpgr(self.target, targvec, self.r_eq, self.flattening)
+        lon, lat, alt = spice.recpgr(
+            self._target_encoded, targvec, self.r_eq, self.flattening
+        )
         return lon, lat
 
     # Useful transformations (built from combinations of above transformations)

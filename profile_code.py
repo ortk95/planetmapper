@@ -18,6 +18,6 @@ stats = pstats.Stats(pr)
 
 stats.strip_dirs()
 stats.sort_stats('time')
-# stats.print_stats('spiceypy.py:')
+stats.print_stats('support_types.py:')
 stats.print_stats(0.1)
 # stats.print_callers(0.1)
