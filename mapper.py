@@ -54,24 +54,11 @@ class Backplane(NamedTuple):
 def main(*args):
     dtm = datetime.datetime.now()
     utils.print_progress()
-    # o = Observation('jupiter', dtm, 10, 10)
-    # o = Observation.from_image('jupiter_test.jpg', 'jupiter', dtm)
-    p = '/Users/ortk1/Dropbox/PhD/data/reduced/sphere_irdis/europa/combined/SPHER.2014-12-09T075436.092_irdis.fits.gz'
-    o = Observation.from_fits(p)
-    print(o)
-    utils.print_progress('__init__')
-    # o.set_rotation(0)
-    utils.print_progress('set coordinates')
 
-    o.plot_wirefeame_xy()
-    utils.print_progress('wireframe')
-
-    ax = o.plot_wirefeame_xy(show=False)
+    o = BodyXY(
+        'Jupiter', '2022-01-01', nx=100, ny=100
+    )
     img = o.get_lon_img()
-    im = ax.imshow(img, origin='lower', cmap='turbo')
-    plt.colorbar(im)
-    plt.show()
-
 
 class Body:
     """
