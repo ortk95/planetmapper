@@ -53,14 +53,21 @@ def main(*args):
     o = BodyXY('jupiter', dtm, 10, 10)
     print(o)
     utils.print_progress('__init__')
-    return
-    o.set_x0(10)
-    o.set_y0(10)
-    o.set_r0(9)
-    o.set_rotation(0)
+    # o.set_x0(10)
+    # o.set_y0(10)
+    # o.set_r0(9)
+    # o.set_rotation(0)
+    # o.set_r0(10)
     utils.print_progress('set coordinates')
 
     ax = o.plot_wirefeame_xy()
+    utils.print_progress('wireframe')
+
+    ax = o.plot_wirefeame_xy(show=False)
+    img = o.get_lon_img()
+    im = ax.imshow(img, origin='lower', cmap='turbo')
+    plt.colorbar(im)
+    plt.show()
 
 
 class Body:
@@ -577,6 +584,7 @@ class Body:
                     path_effects.Normal(),
                 ],
                 transform=transform,
+                clip_on=True,
             )
         ax.set_title(self.get_description(newline=True))
         return ax
@@ -778,13 +786,13 @@ class BodyXY(Body):
     def get_rotation(self) -> float:
         return np.rad2deg(self._get_rotation_radians())
 
-    def set_img_size(self, nx:int|None=None, ny:int|None=None) -> None:
+    def set_img_size(self, nx: int | None = None, ny: int | None = None) -> None:
         if nx is not None:
             self._nx = nx
         if ny is not None:
             self._ny = ny
         self.clear_cache()
-    
+
     def get_img_size(self) -> tuple[int, int]:
         return (self._nx, self._ny)
 
@@ -844,8 +852,9 @@ class BodyXY(Body):
         transform = self.get_matplotlib_radec2xy_transform()
         ax = self._plot_wireframe(transform=transform, ax=ax)
 
-        ax.set_xlim(-0.5, self._nx + 0.5)
-        ax.set_ylim(-0.5, self._ny + 0.5)
+        if self._test_if_img_size_valid():
+            ax.set_xlim(-0.5, self._nx - 0.5)
+            ax.set_ylim(-0.5, self._ny - 0.5)
         ax.set_xlabel('x (pixels)')
         ax.set_ylabel('y (pixels)')
         ax.set_aspect(1, adjustable='box')
@@ -855,15 +864,12 @@ class BodyXY(Body):
         return ax
 
     # Coordinate images
-    def _check_nx_ny(self) -> None:
-        if self._nx <= 0:
-            raise ValueError('nx must be positive to create a backplane image')
-        if self._ny <= 0:
-            raise ValueError('ny must be positive to create a backplane image')
-
+    def _test_if_img_size_valid(self) -> bool:
+        return (self._nx > 0) and (self._ny > 0)
 
     def _make_empty_img(self, nz: int | None = None) -> np.ndarray:
-        self._check_nx_ny()
+        if not self._test_if_img_size_valid():
+            raise ValueError('nx and ny must be positive to create a backplane image')
         if nz is None:
             shape = (self._ny, self._nx)
         else:
