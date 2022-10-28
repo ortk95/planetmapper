@@ -17,6 +17,7 @@ values.
 """
 import datetime
 import glob
+import math
 import os
 import sys
 from typing import Callable, Iterable, TypeVar, ParamSpec, NamedTuple, cast, Any
@@ -920,7 +921,7 @@ class BodyXY(Body):
         targvec_img = self._get_targvec_img()
         for y, x in self._iterate_yx():
             targvec = targvec_img[y, x]
-            if np.isnan(targvec[0]):
+            if math.isnan(targvec[0]):
                 # only check if first element nan for efficiency
                 continue
             yield y, x, targvec

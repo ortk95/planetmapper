@@ -24,15 +24,11 @@ number = 100  # Number of times statement is called in each timing loop
 import numpy as np
 import spiceypy as spice
 
-a = np.random.rand(3)
-b = np.random.rand(3)
-
+x = 1
 # Define code snippets as a list of strings to execute here...
 statements = [
-    'a.dot(b)',
-    'a@b',
-    'np.dot(a,b)',
-    'sum(a*b)',
+    'np.isnan(x)',
+    'math.isnan(x)',
 ]
 
 
