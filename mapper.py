@@ -56,15 +56,11 @@ def main(*args):
     o.set_x0(10)
     o.set_y0(10)
     o.set_r0(9)
-    o.set_rotation(-30)
+    o.set_rotation(0)
     utils.print_progress('set coordinates')
 
-    ax = o.plot_wirefeame_xy(show=False)
-    circle = matplotlib.patches.Circle(
-        (o.get_x0(), o.get_y0()), radius=o.get_r0(), fc='none', ec='r'
-    )
-    ax.add_patch(circle)
-    plt.show()
+    ax = o.plot_wirefeame_xy()
+    return
     utils.print_progress('plot wireframe xy')
     o.plot_wirefeame_radec()
     utils.print_progress('plot wireframe radec')
@@ -858,9 +854,11 @@ class Observation(Body):
         transform = self.get_matplotlib_radec2xy_transform()
         ax = self._plot_wireframe(transform=transform, ax=ax)
 
+        ax.set_xlim(-0.5, self._nx + 0.5)
+        ax.set_ylim(-0.5, self._ny + 0.5)
         ax.set_xlabel('x (pixels)')
         ax.set_ylabel('y (pixels)')
-        ax.set_aspect(1, adjustable='datalim')
+        ax.set_aspect(1, adjustable='box')
 
         if show:
             plt.show()
