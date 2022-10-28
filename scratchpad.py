@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Script for testing stuff during development"""
+"""Script for testing stuff during development (TODO delete in final version)"""
 import mapper
 import datetime
 import spiceypy as spice
@@ -13,9 +13,11 @@ from functools import wraps
 T = TypeVar('T')
 P = ParamSpec('P')
 
+
 class A:
-    def __init__(self, x:int):
+    def __init__(self, x: int):
         print(x)
+
 
 class B(A):
     def __init__(self, x):
