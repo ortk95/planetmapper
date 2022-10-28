@@ -49,10 +49,9 @@ class Backplane(NamedTuple):
 def main(*args):
     dtm = datetime.datetime.now()
     utils.print_progress()
-
-    o = Observation('jupiter', dtm)
+    o = Observation('jupiter', dtm, nx=10, ny=10)
     utils.print_progress('__init__')
-
+    return
     o.set_x0(10)
     o.set_y0(10)
     o.set_r0(9)
@@ -60,26 +59,6 @@ def main(*args):
     utils.print_progress('set coordinates')
 
     ax = o.plot_wirefeame_xy()
-    return
-    utils.print_progress('plot wireframe xy')
-    o.plot_wirefeame_radec()
-    utils.print_progress('plot wireframe radec')
-
-    for bp in o.backplanes:
-        utils.print_progress(bp.name)
-        img = bp.fn()
-        utils.print_progress(bp.name + ' img')
-        ax = o.plot_wirefeame_xy(show=False)
-        ax.set_title(bp.description)
-        im = ax.imshow(
-            img,
-            origin='lower',
-            zorder=0,
-            cmap='turbo',
-        )
-        plt.colorbar(im)
-        plt.show()
-        utils.print_progress(bp.name + ' plot')
 
 
 class Body:
@@ -656,14 +635,25 @@ class Observation(Body):
         target: str,
         utc: str | datetime.datetime,
         path: str | None = None,
+        nx: int | None = None,
+        ny: int | None = None,
         *args,
         **kw,
     ) -> None:
-        super().__init__(target, utc, *args, **kw)
         self.path = path
+        if self.path is None:
+            if nx is None:
+                raise ValueError('nx must be specified if path is None')
+            if ny is None:
+                raise ValueError('ny must be specified if path is None')
+        else:
+            # TODO load image file here and dynamically get nx and ny
+            raise NotImplementedError
 
-        self._nx: int = 25
-        self._ny: int = 20
+        super().__init__(target, utc, *args, **kw)
+
+        self.nx: int = nx
+        self.ny: int = ny
 
         self._x0: float = 0
         self._y0: float = 0
@@ -678,7 +668,7 @@ class Observation(Body):
         self._register_default_backplanes()
 
     def __repr__(self) -> str:
-        return f'Observation({self.target!r}, {self.utc!r})'
+        return f'Observation({self.target!r}, {self.utc!r}, {self.path!r})'
 
     # Cache management
     @staticmethod
@@ -854,8 +844,8 @@ class Observation(Body):
         transform = self.get_matplotlib_radec2xy_transform()
         ax = self._plot_wireframe(transform=transform, ax=ax)
 
-        ax.set_xlim(-0.5, self._nx + 0.5)
-        ax.set_ylim(-0.5, self._ny + 0.5)
+        ax.set_xlim(-0.5, self.nx + 0.5)
+        ax.set_ylim(-0.5, self.ny + 0.5)
         ax.set_xlabel('x (pixels)')
         ax.set_ylabel('y (pixels)')
         ax.set_aspect(1, adjustable='box')
@@ -867,9 +857,9 @@ class Observation(Body):
     # Coordinate images
     def _make_empty_img(self, nz: int | None = None) -> np.ndarray:
         if nz is None:
-            shape = (self._ny, self._nx)
+            shape = (self.ny, self.nx)
         else:
-            shape = (self._ny, self._nx, nz)
+            shape = (self.ny, self.nx, nz)
         return np.full(shape, np.nan)
 
     @cache_result
@@ -885,8 +875,8 @@ class Observation(Body):
         return out
 
     def _iterate_yx(self) -> Iterable[tuple[int, int]]:
-        for y in range(self._ny):
-            for x in range(self._nx):
+        for y in range(self.ny):
+            for x in range(self.nx):
                 yield y, x
 
     def _enumerate_targvec_img(self) -> Iterable[tuple[int, int, np.ndarray]]:
