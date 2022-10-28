@@ -26,19 +26,26 @@ import spiceypy as spice
 
 v = np.random.rand(3)
 
+
+def normalise(v):
+    return v / np.sqrt(sum(v * v))
+
+
 # Define code snippets as a list of strings to execute here...
 statements = [
-    'np.linalg.norm(v)',
-    'spice.vnorm(v)',
+    'normalise(v)',
+    'spice.vhat(v)',
+    'v/np.linalg.norm(v)',
 ]
 
 for square in ['v*v', 'v**2']:
     for summation in ['np.sum({x})', 'sum({x})', '({x}).sum()']:
         for sqrt in ['np.sqrt({x})', '({x})**0.5']:
             s = sqrt.format(x=summation.format(x=square))
-            statements.append(s)
+            statements.append('v/' + s)
 
 statements = ['out = ' + s for s in statements]
+# statements = [f'out = str({s})' for s in statements]
 # statements = ['out = sum(' + s + ')' for s in statements]
 # statements = ['out = np.sum(' + s + ')' for s in statements]
 # statements = [f'out = list(({s})[:2])' for s in statements]
@@ -73,6 +80,8 @@ for s in statements:
         gv = global_vals.copy()
         exec(s, gv)
         out = gv['out']
+        if isinstance(out, np.ndarray):
+            out = str(out)  # hack to work with numpy array comparison
         print(f'{t:.5e} | {s:{max(len(s) for s in statements)}s} | ', end='')
         if out_old is None:
             fg = None
@@ -81,9 +90,9 @@ for s in statements:
         else:
             fg = 'r'
             try:
-                if math.isclose(out, out_old):
+                if math.isclose(out, out_old):  # type: ignore
                     fg = 'c'
-                elif math.isclose(out, out_old, rel_tol=1e-6, abs_tol=1e-9):
+                elif math.isclose(out, out_old, rel_tol=1e-6, abs_tol=1e-9):  # type: ignore
                     fg = 'm'
             except TypeError:
                 pass
