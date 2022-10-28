@@ -18,7 +18,7 @@ import numpy as np
 # Adjust repeat & number as needed to ensure the timing doesn't take too long. Higher
 # values will take longer but will generally give more reliable results.
 repeat = 10  # Number of times to repeat timing loop
-number = 100  # Number of times statement is called in each timing loop
+number = 1000  # Number of times statement is called in each timing loop
 
 
 # Define any variables, module imports etc. to use in the snippets here...
