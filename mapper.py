@@ -120,6 +120,7 @@ class SpiceTool:
 
     @staticmethod
     def _encode_str(s: str) -> bytes:
+        # TODO make this optional
         return s.encode('UTF-8')
 
 
@@ -184,11 +185,11 @@ class Body(SpiceTool):
         self.flattening = (self.r_eq - self.r_polar) / self.r_eq
 
         starg, lt = spice.spkezr(
-            target,
+            self._target_encoded,  # type: ignore
             self.et,
-            self.observer_frame,
-            self.aberration_correction,
-            self.observer,
+            self._observer_frame_encoded,  # type: ignore
+            self._aberration_correction_encoded,  # type: ignore
+            self._observer_encoded,  # type: ignore
         )
         self._target_obsvec = cast(np.ndarray, starg)[:3]
         self.target_light_time = cast(float, lt)
@@ -203,12 +204,12 @@ class Body(SpiceTool):
 
         # Find sub observer point
         self._subpoint_targvec, self._subpoint_et, self._subpoint_rayvec = spice.subpnt(
-            self.subpoint_method,
-            self.target,
+            self._subpoint_method_encoded,  # type: ignore
+            self._target_encoded,  # type: ignore
             self.et,
-            self.target_frame,
-            self.aberration_correction,
-            self.observer,
+            self._target_frame_encoded,  # type: ignore
+            self._aberration_correction_encoded,  # type: ignore
+            self._observer_encoded,  # type: ignore
         )
         self.subpoint_distance = np.linalg.norm(self._subpoint_rayvec)
         self.subpoint_lon, self.subpoint_lat = self.targvec2lonlat(
@@ -230,7 +231,12 @@ class Body(SpiceTool):
         Transform lon/lat coordinates on body to rectangular vector in target frame.
         """
         return spice.pgrrec(
-            self._target_encoded, lon, lat, 0, self.r_eq, self.flattening
+            self._target_encoded,  # type: ignore
+            lon,
+            lat,
+            0,
+            self.r_eq,
+            self.flattening,
         )
 
     def _targvec2obsvec(self, targvec: np.ndarray) -> np.ndarray:
@@ -239,7 +245,9 @@ class Body(SpiceTool):
         frame.
         """
         # Get the target vector from the subpoint to the point of interest
-        targvec_offset = targvec - self._subpoint_targvec
+        targvec_offset = targvec - self._subpoint_targvec  # type: ignore
+        # ^ ignoring type warning due to numpy bug (TODO remove type: ingore in future)
+        # https://github.com/numpy/numpy/issues/22437
 
         # Calculate the difference in LOS distance between observer<->subpoint and
         # observer<->point of interest
@@ -257,8 +265,8 @@ class Body(SpiceTool):
         # the ray left the point of interest -> the observer vector at the time the ray
         # hit the detector
         transform_matrix = spice.pxfrm2(
-            self._target_frame_encoded,
-            self._observer_frame_encoded,
+            self._target_frame_encoded,  # type: ignore
+            self._observer_frame_encoded,  # type: ignore
             targvec_et,
             self.et,
         )
@@ -272,7 +280,10 @@ class Body(SpiceTool):
         rectangular vector of point in observer frame.
         """
         px = spice.pxfrm2(
-            self._target_frame_encoded, self._observer_frame_encoded, et, self.et
+            self._target_frame_encoded,  # type: ignore
+            self._observer_frame_encoded,  # type: ignore
+            et,
+            self.et,
         )
         return np.matmul(px, rayvec)
 
@@ -303,7 +314,10 @@ class Body(SpiceTool):
 
     def _targvec2lonlat_radians(self, targvec: np.ndarray) -> tuple[float, float]:
         lon, lat, alt = spice.recpgr(
-            self._target_encoded, targvec, self.r_eq, self.flattening
+            self._target_encoded,  # type: ignore
+            targvec,
+            self.r_eq,
+            self.flattening,
         )
         return lon, lat
 
@@ -382,13 +396,13 @@ class Body(SpiceTool):
         self, targvec: np.ndarray
     ) -> tuple[float, float, float, bool, bool]:
         trgepc, srfvec, phase, incdnc, emissn, visibl, lit = spice.illumf(
-            self.surface_method,
-            self.target,
-            self.illumination_source,
+            self._surface_method_encoded,  # type: ignore
+            self._target_encoded,  # type: ignore
+            self._illumination_source_encoded,  # type: ignore
             self.et,
-            self.target_frame,
-            self.aberration_correction,
-            self.observer,
+            self._target_frame_encoded,  # type: ignore
+            self._aberration_correction_encoded,  # type: ignore
+            self._observer_encoded,  # type: ignore
             targvec,
         )
         return phase, incdnc, emissn, visibl, lit
@@ -545,13 +559,13 @@ class Body(SpiceTool):
     ) -> tuple[np.ndarray, np.ndarray, float]:
         state, lt = spice.spkcpt(
             trgpos=targvec,
-            trgctr=self.target,
-            trgref=self.target_frame,
+            trgctr=self._target_encoded,  # type: ignore
+            trgref=self._target_frame_encoded,  # type: ignore
             et=self.et,
-            outref=self.observer_frame,
+            outref=self._observer_frame_encoded,  # type: ignore
             refloc='OBSERVER',
-            abcorr=self.aberration_correction,
-            obsrvr=self.observer,
+            abcorr=self._aberration_correction_encoded,  # type: ignore
+            obsrvr=self._observer_encoded,  # type: ignore
         )
         position = state[:3]
         velocity = state[3:]
