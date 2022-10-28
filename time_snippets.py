@@ -24,11 +24,22 @@ number = 100  # Number of times statement is called in each timing loop
 import numpy as np
 import spiceypy as spice
 
-x = 1
+x = np.random.rand()
+y = np.random.rand()
+v = np.array([x, y, 1])
+M = np.array(
+    [
+        [-2.39241677e-08, 0.00000000e00, 2.53104194e00],
+        [0.00000000e00, 2.31338449e-08, 2.57749394e-01],
+        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+    ]
+)
 # Define code snippets as a list of strings to execute here...
 statements = [
-    'np.isnan(x)',
-    'math.isnan(x)',
+    'M@v',
+    'np.matmul(M, v)',
+    'np.dot(M,v)',
+    'M.dot(v)',
 ]
 
 

@@ -11,6 +11,7 @@ import mapper
 
 print_progress('setting up...')
 
+# FUNCTION TO TIME ---------------------------------------------------------------------
 
 def fn():
     p = '/Users/ortk1/Dropbox/PhD/data/reduced/sphere_irdis/europa/combined/SPHER.2014-12-09T075436.092_irdis.fits.gz'
@@ -21,18 +22,20 @@ def fn():
     img = o.get_lon_img()
     utils.print_progress('lon')
 
-    img = o.get_ra_img()
-    utils.print_progress('ra')
+    # img = o.get_ra_img()
+    # utils.print_progress('ra')
 
-    img = o.get_doppler_img()
-    utils.print_progress('doppler')
+    # img = o.get_doppler_img()
+    # utils.print_progress('doppler')
 
+# SETTINGS -----------------------------------------------------------------------------
 
 output_unit = 1
 stripzeros = True
 cutoff = 0.5
 
-###
+# TIMING INTERNALS ---------------------------------------------------------------------
+
 lp = line_profiler.LineProfiler()
 
 objects_to_profile = [

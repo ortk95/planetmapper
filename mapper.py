@@ -722,11 +722,11 @@ class BodyXY(Body):
         return np.linalg.inv(self._get_xy2radec_matrix_radians())
 
     def _xy2radec_radians(self, x: float, y: float) -> tuple[float, float]:
-        a = self._get_xy2radec_matrix_radians() @ np.array([x, y, 1])
+        a = self._get_xy2radec_matrix_radians().dot(np.array([x, y, 1]))
         return a[0], a[1]
 
     def _radec2xy_radians(self, ra: float, dec: float) -> tuple[float, float]:
-        v = self._get_radec2xy_matrix_radians() @ np.array([ra, dec, 1])
+        v = self._get_radec2xy_matrix_radians().dot(np.array([ra, dec, 1]))
         return v[0], v[1]
 
     @staticmethod
