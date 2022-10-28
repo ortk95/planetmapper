@@ -66,11 +66,11 @@ def main(*args):
     o.plot_wirefeame_xy()
     utils.print_progress('wireframe')
 
-    # ax = o.plot_wirefeame_xy(show=False)
-    # img = o.get_lon_img()
-    # im = ax.imshow(img, origin='lower', cmap='turbo')
-    # plt.colorbar(im)
-    # plt.show()
+    ax = o.plot_wirefeame_xy(show=False)
+    img = o.get_lon_img()
+    im = ax.imshow(img, origin='lower', cmap='turbo')
+    plt.colorbar(im)
+    plt.show()
 
 
 class Body:
@@ -88,7 +88,7 @@ class Body:
         *,
         observer_frame: str = 'J2000',
         illumination_source: str = 'SUN',
-        aberration_correction: str = 'CN',
+        aberration_correction: str = 'CN+S',
         subpoint_method: str = 'INTERCEPT/ELLIPSOID',
         surface_method: str = 'ELLIPSOID',
         load_kernels: bool = True,

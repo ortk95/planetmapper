@@ -24,22 +24,24 @@ number = 100  # Number of times statement is called in each timing loop
 import numpy as np
 import spiceypy as spice
 
-x = np.random.rand()
-y = np.random.rand()
-v = np.array([x, y, 1])
-M = np.array(
-    [
-        [-2.39241677e-08, 0.00000000e00, 2.53104194e00],
-        [0.00000000e00, 2.31338449e-08, 2.57749394e-01],
-        [0.00000000e00, 0.00000000e00, 1.00000000e00],
-    ]
-)
+
+def fn():
+    spoint, trgepc, srfvec = spice.sincpt(
+        'ELLIPSOID',
+        'JUPITER',
+        720239408.9007025,
+        'IAU_JUPITER',
+        'CN+S',
+        'EARTH',
+        'J2000',
+        np.array([6.14248967e08, 3.25492730e06, -1.69053304e07]),
+    )
+    return spoint
+
+
 # Define code snippets as a list of strings to execute here...
 statements = [
-    'M@v',
-    'np.matmul(M, v)',
-    'np.dot(M,v)',
-    'M.dot(v)',
+    'fn()',
 ]
 
 

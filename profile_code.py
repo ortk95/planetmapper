@@ -13,14 +13,25 @@ print_progress('setting up...')
 
 # FUNCTION TO TIME ---------------------------------------------------------------------
 
-def fn():
-    p = '/Users/ortk1/Dropbox/PhD/data/reduced/sphere_irdis/europa/combined/SPHER.2014-12-09T075436.092_irdis.fits.gz'
-    
-    o = mapper.Observation.from_fits(p)
-    utils.print_progress('__init__')
 
-    img = o.get_lon_img()
-    utils.print_progress('lon')
+def fn():
+    # p = '/Users/ortk1/Dropbox/PhD/data/reduced/sphere_irdis/europa/combined/SPHER.2014-12-09T075436.092_irdis.fits.gz'
+    # o = mapper.Observation.from_fits(p)
+    utils.print_progress()
+    for abcorr in ['NONE', 'CN', 'CN+S', 'LT', 'LT+S']:
+        o = mapper.BodyXY(
+            'Jupiter', '2022-01-01', nx=100, ny=100, aberration_correction=abcorr
+        )
+        img = o.get_lon_img()
+        utils.print_progress(abcorr)
+
+    # o = mapper.BodyXY('Jupiter', '2022-01-01', nx=100, ny=100)
+    # img = o.get_lon_img()
+    # utils.print_progress('lon')
+
+    # o = mapper.BodyXY('Jupiter', '2022-01-01', nx=100, ny=100, aberration_correction='LT')
+    # img = o.get_lon_img()
+    # utils.print_progress('lon')
 
     # img = o.get_ra_img()
     # utils.print_progress('ra')
@@ -28,11 +39,12 @@ def fn():
     # img = o.get_doppler_img()
     # utils.print_progress('doppler')
 
+
 # SETTINGS -----------------------------------------------------------------------------
 
 output_unit = 1
 stripzeros = True
-cutoff = 0.5
+cutoff = 10
 
 # TIMING INTERNALS ---------------------------------------------------------------------
 
