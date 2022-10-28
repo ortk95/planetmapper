@@ -28,6 +28,7 @@ from matplotlib.transforms import Transform
 from matplotlib.axes import Axes
 import numpy as np
 import spiceypy as spice
+from spiceypy.utils.exceptions import NotFoundError
 import utils
 from functools import wraps
 
@@ -49,7 +50,7 @@ class Backplane(NamedTuple):
 def main(*args):
     dtm = datetime.datetime.now()
     utils.print_progress()
-    o = Observation('jupiter', dtm, nx=10, ny=10)
+    o = BodyXY('jupiter', dtm, nx=10, ny=10)
     utils.print_progress('__init__')
     return
     o.set_x0(10)
@@ -248,7 +249,7 @@ class Body:
                     self._radec2obsvec_norm_radians(ra, dec),
                 )
             )
-        except spice.stypes.NotFoundError:
+        except NotFoundError:
             if not_found_nan:
                 ra = np.nan
                 dec = np.nan
@@ -629,7 +630,7 @@ class Body:
         return np.deg2rad(degrees0), np.deg2rad(degrees1)  # type: ignore
 
 
-class Observation(Body):
+class BodyXY(Body):
     def __init__(
         self,
         target: str,
@@ -869,7 +870,7 @@ class Observation(Body):
             try:
                 targvec = self._xy2targvec(x, y)
                 out[y, x] = targvec
-            except spice.stypes.NotFoundError:
+            except NotFoundError:
                 # leave values as nan if pixel is not on the disc
                 continue
         return out

@@ -4,72 +4,73 @@ import numpy as np
 import datetime
 
 
-class TestBodyRandomLocation(unittest.TestCase):
+class TestBody(unittest.TestCase):
     def setUp(self):
-        self.body = mapper.Body('jupiter', generate_dtm_str())
+        self.obj = mapper.Body('jupiter', generate_dtm_str())
 
     def test_round_trip_conversion(self):
-        lon0, lat0 = generate_lonlat(self.body)
-        lon1, lat1 = self.body.radec2lonlat(*self.body.lonlat2radec(lon0, lat0))
+        lon0, lat0 = generate_lonlat(self.obj)
+        lon1, lat1 = self.obj.radec2lonlat(*self.obj.lonlat2radec(lon0, lat0))
         self.assertAlmostEqual(lon0, lon1, places=2)
         self.assertAlmostEqual(lat0, lat1, places=2)
 
-        lon1, lat1 = self.body.targvec2lonlat(self.body.lonlat2targvec(lon0, lat0))
+        lon1, lat1 = self.obj.targvec2lonlat(self.obj.lonlat2targvec(lon0, lat0))
         self.assertAlmostEqual(lon0, lon1, places=2)
         self.assertAlmostEqual(lat0, lat1, places=2)
 
     def test_subpoint_visible(self):
         self.assertTrue(
-            self.body.test_if_lonlat_visible(
-                self.body.subpoint_lon, self.body.subpoint_lat
+            self.obj.test_if_lonlat_visible(
+                self.obj.subpoint_lon, self.obj.subpoint_lat
             )
         )
 
     def test_missing(self):
-        ra = self.body.subpoint_ra + 180  # this should always miss
-        dec = self.body.subpoint_dec
-        self.assertTrue(all(np.isnan(self.body.radec2lonlat(ra, dec))))
+        ra = self.obj.subpoint_ra + 180  # this should always miss
+        dec = self.obj.subpoint_dec
+        self.assertTrue(all(np.isnan(self.obj.radec2lonlat(ra, dec))))
 
     def test_distance(self):
         self.assertAlmostEqual(
-            self.body.target_distance,
-            np.linalg.norm(self.body._target_obsvec),
+            self.obj.target_distance,
+            np.linalg.norm(self.obj._target_obsvec),
             places=3,
         )
         self.assertAlmostEqual(
-            self.body.subpoint_distance,
-            np.linalg.norm(self.body._subpoint_rayvec),
+            self.obj.subpoint_distance,
+            np.linalg.norm(self.obj._subpoint_rayvec),
             places=3,
         )
 
     def test_radians2degrees(self):
-        self.assertEqual(self.body._degree_pair2radians(0, 180), (0, np.pi))
+        self.assertEqual(self.obj._degree_pair2radians(0, 180), (0, np.pi))
 
     def test_degrees2radians(self):
-        self.assertEqual(self.body._radian_pair2degrees(0, np.pi), (0, 180))
+        self.assertEqual(self.obj._radian_pair2degrees(0, np.pi), (0, 180))
 
     def test_poles_to_plot(self):
-        self.assertTrue(len(self.body.get_poles_to_plot()) > 0)
+        self.assertTrue(len(self.obj.get_poles_to_plot()) > 0)
 
 
-class TestObservationRandomLocation(unittest.TestCase):
+class TestBodyXY(unittest.TestCase):
     def setUp(self):
-        self.observation = mapper.Observation('saturn', generate_dtm_str())
+        self.obj = mapper.BodyXY('saturn', generate_dtm_str())
 
     def test_round_trip_conversion(self):
-        lon, lat = generate_lonlat(self.observation)
-        lon_rt, lat_rt = self.observation.xy2lonlat(
-            *self.observation.lonlat2xy(lon, lat)
+        lon, lat = generate_lonlat(self.obj)
+        lon_rt, lat_rt = self.obj.xy2lonlat(
+            *self.obj.lonlat2xy(lon, lat)
         )
         self.assertAlmostEqual(lon, lon_rt, places=2)
         self.assertAlmostEqual(lat, lat_rt, places=2)
 
     def test_missing(self):
-        x = self.observation.get_x0()
-        y = self.observation.get_x0()
-        x = x + self.observation.get_r0() * 10
+        x = self.obj.get_x0()
+        y = self.obj.get_x0()
+        x = x + self.obj.get_r0() * 10
 
-        self.assertTrue(all(np.isnan(self.observation.xy2lonlat(x, y))))
+        self.assertTrue(all(np.isnan(self.obj.xy2lonlat(x, y))))
+
 
 def generate_dtm_str() -> str:
     """Create datetime string such that tests are reproducable on same day"""

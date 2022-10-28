@@ -25,7 +25,7 @@ class InteractiveObservation:
         self.handles = []
 
         p = 'jupiter_test.jpg'
-        self.observation = mapper.Observation(
+        self.observation = mapper.BodyXY(
             'jupiter', datetime.datetime(2020, 8, 25, 12)
         )
         self.image = np.flipud(plt.imread(p))
