@@ -52,9 +52,9 @@ class TestBody(unittest.TestCase):
         self.assertTrue(len(self.obj.get_poles_to_plot()) > 0)
 
 
-class TestBodyXY(unittest.TestCase):
+class TestBodyXY_ZeroSize(unittest.TestCase):
     def setUp(self):
-        self.obj = mapper.BodyXY('saturn', generate_dtm_str())
+        self.obj = mapper.BodyXY('saturn', generate_dtm_str(), nx=0, ny=0)
 
     def test_round_trip_conversion(self):
         lon, lat = generate_lonlat(self.obj)
@@ -68,9 +68,35 @@ class TestBodyXY(unittest.TestCase):
         x = self.obj.get_x0()
         y = self.obj.get_x0()
         x = x + self.obj.get_r0() * 10
-
         self.assertTrue(all(np.isnan(self.obj.xy2lonlat(x, y))))
 
+    def test_backplane_error(self):
+        with self.assertRaises(ValueError):
+            self.obj.get_ra_img()
+
+class TestBodyXY_Sized(unittest.TestCase):
+    def setUp(self):
+        self.nx = 5
+        self.ny = 10
+        self.obj = mapper.BodyXY('neptune', generate_dtm_str(), nx=self.nx, ny=self.ny)
+
+    def test_round_trip_conversion(self):
+        lon, lat = generate_lonlat(self.obj)
+        lon_rt, lat_rt = self.obj.xy2lonlat(
+            *self.obj.lonlat2xy(lon, lat)
+        )
+        self.assertAlmostEqual(lon, lon_rt, places=2)
+        self.assertAlmostEqual(lat, lat_rt, places=2)
+
+    def test_missing(self):
+        x = self.obj.get_x0()
+        y = self.obj.get_x0()
+        x = x + self.obj.get_r0() * 10
+        self.assertTrue(all(np.isnan(self.obj.xy2lonlat(x, y))))
+
+    def test_backplane(self):
+        img = self.obj.get_ra_img()
+        self.assertTupleEqual(img.shape, (self.ny, self.nx))
 
 def generate_dtm_str() -> str:
     """Create datetime string such that tests are reproducable on same day"""

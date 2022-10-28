@@ -50,7 +50,8 @@ class Backplane(NamedTuple):
 def main(*args):
     dtm = datetime.datetime.now()
     utils.print_progress()
-    o = BodyXY('jupiter', dtm, nx=10, ny=10)
+    o = BodyXY('jupiter', dtm, 10, 10)
+    print(o)
     utils.print_progress('__init__')
     return
     o.set_x0(10)
@@ -74,6 +75,7 @@ class Body:
         target: str,
         utc: str | datetime.datetime,
         observer: str = 'EARTH',
+        *,
         observer_frame: str = 'J2000',
         illumination_source: str = 'SUN',
         aberration_correction: str = 'CN',
@@ -635,26 +637,13 @@ class BodyXY(Body):
         self,
         target: str,
         utc: str | datetime.datetime,
-        path: str | None = None,
-        nx: int | None = None,
-        ny: int | None = None,
-        *args,
+        nx: int = 0,
+        ny: int = 0,
         **kw,
     ) -> None:
-        self.path = path
-        if self.path is None:
-            if nx is None:
-                raise ValueError('nx must be specified if path is None')
-            if ny is None:
-                raise ValueError('ny must be specified if path is None')
-        else:
-            # TODO load image file here and dynamically get nx and ny
-            raise NotImplementedError
-
-        super().__init__(target, utc, *args, **kw)
-
-        self.nx: int = nx
-        self.ny: int = ny
+        super().__init__(target, utc, **kw)
+        self._nx: int = nx
+        self._ny: int = ny
 
         self._x0: float = 0
         self._y0: float = 0
@@ -669,7 +658,7 @@ class BodyXY(Body):
         self._register_default_backplanes()
 
     def __repr__(self) -> str:
-        return f'Observation({self.target!r}, {self.utc!r}, {self.path!r})'
+        return f'BodyXY({self.target!r}, {self.utc!r}, {self._nx!r}, {self._ny!r})'
 
     # Cache management
     @staticmethod
@@ -789,6 +778,16 @@ class BodyXY(Body):
     def get_rotation(self) -> float:
         return np.rad2deg(self._get_rotation_radians())
 
+    def set_img_size(self, nx:int|None=None, ny:int|None=None) -> None:
+        if nx is not None:
+            self._nx = nx
+        if ny is not None:
+            self._ny = ny
+        self.clear_cache()
+    
+    def get_img_size(self) -> tuple[int, int]:
+        return (self._nx, self._ny)
+
     # Illumination functions etc. # TODO remove these?
     def limb_xy(self, **kw) -> tuple[np.ndarray, np.ndarray]:
         return self._radec_arrs2xy_arrs(*self.limb_radec(**kw))
@@ -845,8 +844,8 @@ class BodyXY(Body):
         transform = self.get_matplotlib_radec2xy_transform()
         ax = self._plot_wireframe(transform=transform, ax=ax)
 
-        ax.set_xlim(-0.5, self.nx + 0.5)
-        ax.set_ylim(-0.5, self.ny + 0.5)
+        ax.set_xlim(-0.5, self._nx + 0.5)
+        ax.set_ylim(-0.5, self._ny + 0.5)
         ax.set_xlabel('x (pixels)')
         ax.set_ylabel('y (pixels)')
         ax.set_aspect(1, adjustable='box')
@@ -856,11 +855,19 @@ class BodyXY(Body):
         return ax
 
     # Coordinate images
+    def _check_nx_ny(self) -> None:
+        if self._nx <= 0:
+            raise ValueError('nx must be positive to create a backplane image')
+        if self._ny <= 0:
+            raise ValueError('ny must be positive to create a backplane image')
+
+
     def _make_empty_img(self, nz: int | None = None) -> np.ndarray:
+        self._check_nx_ny()
         if nz is None:
-            shape = (self.ny, self.nx)
+            shape = (self._ny, self._nx)
         else:
-            shape = (self.ny, self.nx, nz)
+            shape = (self._ny, self._nx, nz)
         return np.full(shape, np.nan)
 
     @cache_result
@@ -876,8 +883,8 @@ class BodyXY(Body):
         return out
 
     def _iterate_yx(self) -> Iterable[tuple[int, int]]:
-        for y in range(self.ny):
-            for x in range(self.nx):
+        for y in range(self._ny):
+            for x in range(self._nx):
                 yield y, x
 
     def _enumerate_targvec_img(self) -> Iterable[tuple[int, int, np.ndarray]]:
