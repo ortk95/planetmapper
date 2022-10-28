@@ -52,13 +52,13 @@ class Backplane(NamedTuple):
 
 
 def main(*args):
-    dtm = datetime.datetime.now()
     utils.print_progress()
+    o = BodyXY('Jupiter', '2022-01-01', nx=10, ny=10)
+    utils.print_progress('__init__')
 
-    o = BodyXY(
-        'Jupiter', '2022-01-01', nx=100, ny=100
-    )
     img = o.get_lon_img()
+    utils.print_progress('img')
+
 
 class Body:
     """
@@ -95,6 +95,16 @@ class Body:
         self.subpoint_method = subpoint_method
         self.surface_method = surface_method
 
+        # Encode strings which are regularly passed to spice (for speed)
+        self._target_encoded = self._encode_str(self.target)
+        self._observer_encoded = self._encode_str(self.observer)
+        self._observer_frame_encoded = self._encode_str(self.observer_frame)
+        self._illumination_source_encoded = self._encode_str(self.illumination_source)
+        self._aberration_correction_encoded = self._encode_str(aberration_correction)
+        self._subpoint_method_encoded = self._encode_str(subpoint_method)
+        self._surface_method_encoded = self._encode_str(surface_method)
+
+        # Load kernels
         if load_kernels:
             self.load_spice_kernels(
                 kernel_path=kernel_path, manual_kernels=manual_kernels
@@ -633,6 +643,9 @@ class Body:
     def unit_vector(v: np.ndarray) -> np.ndarray:
         # Fastest method
         return v / (sum(v * v)) ** 0.5
+
+    def _encode_str(self, s: str) -> bytes:
+        return s.encode('UTF-8')
 
 
 class BodyXY(Body):

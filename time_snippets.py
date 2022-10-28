@@ -25,23 +25,11 @@ import numpy as np
 import spiceypy as spice
 
 
-def fn():
-    spoint, trgepc, srfvec = spice.sincpt(
-        'ELLIPSOID',
-        'JUPITER',
-        720239408.9007025,
-        'IAU_JUPITER',
-        'CN+S',
-        'EARTH',
-        'J2000',
-        np.array([6.14248967e08, 3.25492730e06, -1.69053304e07]),
-    )
-    return spoint
-
+s = 'test123'
 
 # Define code snippets as a list of strings to execute here...
 statements = [
-    'fn()',
+    's.encode("UTF-8")',
 ]
 
 

@@ -51,6 +51,13 @@ class TestBody(unittest.TestCase):
     def test_poles_to_plot(self):
         self.assertTrue(len(self.obj.get_poles_to_plot()) > 0)
 
+    def test_encoded_strings_for_spice(self):
+        for k, v in self.obj.__dict__.items():
+            if k.startswith('_') and k.endswith('_encoded'):
+                self.assertIsInstance(v, bytes)
+                s = getattr(self.obj, k[1 : -len('_encoded')])
+                self.assertEqual(v, self.obj._encode_str(s))
+
 
 class TestBodyXY_ZeroSize(unittest.TestCase):
     def setUp(self):
@@ -58,9 +65,7 @@ class TestBodyXY_ZeroSize(unittest.TestCase):
 
     def test_round_trip_conversion(self):
         lon, lat = generate_lonlat(self.obj)
-        lon_rt, lat_rt = self.obj.xy2lonlat(
-            *self.obj.lonlat2xy(lon, lat)
-        )
+        lon_rt, lat_rt = self.obj.xy2lonlat(*self.obj.lonlat2xy(lon, lat))
         self.assertAlmostEqual(lon, lon_rt, places=2)
         self.assertAlmostEqual(lat, lat_rt, places=2)
 
@@ -74,6 +79,7 @@ class TestBodyXY_ZeroSize(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.obj.get_ra_img()
 
+
 class TestBodyXY_Sized(unittest.TestCase):
     def setUp(self):
         self.nx = 5
@@ -82,9 +88,7 @@ class TestBodyXY_Sized(unittest.TestCase):
 
     def test_round_trip_conversion(self):
         lon, lat = generate_lonlat(self.obj)
-        lon_rt, lat_rt = self.obj.xy2lonlat(
-            *self.obj.lonlat2xy(lon, lat)
-        )
+        lon_rt, lat_rt = self.obj.xy2lonlat(*self.obj.lonlat2xy(lon, lat))
         self.assertAlmostEqual(lon, lon_rt, places=2)
         self.assertAlmostEqual(lat, lat_rt, places=2)
 
@@ -97,6 +101,7 @@ class TestBodyXY_Sized(unittest.TestCase):
     def test_backplane(self):
         img = self.obj.get_ra_img()
         self.assertTupleEqual(img.shape, (self.ny, self.nx))
+
 
 def generate_dtm_str() -> str:
     """Create datetime string such that tests are reproducable on same day"""

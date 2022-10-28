@@ -15,43 +15,28 @@ print_progress('setting up...')
 
 
 def fn():
-    # p = '/Users/ortk1/Dropbox/PhD/data/reduced/sphere_irdis/europa/combined/SPHER.2014-12-09T075436.092_irdis.fits.gz'
-    # o = mapper.Observation.from_fits(p)
+    nn = 100
     utils.print_progress()
-    o = mapper.BodyXY(
-        'Jupiter', '2022-01-01', nx=100, ny=100
-    )
+    o = mapper.BodyXY('Jupiter', '2022-01-01', nx=nn, ny=nn)
+    utils.print_progress('__init__')
     img = o.get_lon_img()
-
-    # o = mapper.BodyXY('Jupiter', '2022-01-01', nx=100, ny=100)
-    # img = o.get_lon_img()
-    # utils.print_progress('lon')
-
-    # o = mapper.BodyXY('Jupiter', '2022-01-01', nx=100, ny=100, aberration_correction='LT')
-    # img = o.get_lon_img()
-    # utils.print_progress('lon')
-
-    # img = o.get_ra_img()
-    # utils.print_progress('ra')
-
-    # img = o.get_doppler_img()
-    # utils.print_progress('doppler')
+    utils.print_progress('img')
 
 
 # SETTINGS -----------------------------------------------------------------------------
 
 output_unit = 1
 stripzeros = True
-cutoff = 10
+cutoff = 0
 
 # TIMING INTERNALS ---------------------------------------------------------------------
 
 lp = line_profiler.LineProfiler()
-
+lp.add_function(mapper.spice.stypes.string_to_char_p)
 objects_to_profile = [
-    mapper.Body,
-    mapper.BodyXY,
-    mapper.Observation,
+    # mapper.Body,
+    # mapper.BodyXY,
+    # mapper.Observation,
 ]
 
 for obj in objects_to_profile:
@@ -70,10 +55,12 @@ total_time = lambda x: sum(l[2] for l in x)
 
 print_progress('printing stats...')
 
+skipped = 0
 for (fn, lineno, name), timings in sorted(
     stats.timings.items(), key=lambda x: total_time(x[1])
 ):
     if total_time(timings) * stats.unit < cutoff:
+        skipped += 1
         continue
     line_profiler.show_func(
         fn,
@@ -84,3 +71,6 @@ for (fn, lineno, name), timings in sorted(
         output_unit=output_unit,
         stripzeros=stripzeros,
     )
+
+if skipped:
+    utils.cprint(f'{skipped} functions skipped due to cutoff', fg='m')
