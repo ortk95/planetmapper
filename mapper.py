@@ -930,10 +930,17 @@ class BodyXY(Body):
             shape = (self._ny, self._nx, nz)
         return np.full(shape, np.nan)
 
+    def _get_pixel_radius(self) -> float:
+        # TODO this should explicitly test all the radii for the largest
+        return self.get_r0()
+
     @cache_result
     def _get_targvec_img(self) -> np.ndarray:
         out = self._make_empty_img(3)
         for y, x in self._iterate_yx():
+            if np.sqrt((x - self.get_x0())**2 + (y - self.get_y0())**2) > 1.1*self._get_pixel_radius() + 1:
+                # TODO optimize this
+                continue
             try:
                 targvec = self._xy2targvec(x, y)
                 out[y, x] = targvec
