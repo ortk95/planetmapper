@@ -494,7 +494,7 @@ class Body:
         # TODO note how lt argument is meaningless but there for convenience when
         # chaining with _state_from_targvec
         # dot the velocity with the normalised position vector to get radial component
-        return np.dot(velocity, self.unit_vector(position))
+        return velocity.dot(self.unit_vector(position))
 
     def _radial_velocity_from_targvec(self, targvec: np.ndarray) -> float:
         return self._radial_velocity_from_state(*self._state_from_targvec(targvec))
@@ -642,7 +642,7 @@ class Body:
         return np.deg2rad(degrees0), np.deg2rad(degrees1)  # type: ignore
 
     @staticmethod
-    def unit_vector(v: np.ndarray):
+    def unit_vector(v: np.ndarray) -> np.ndarray:
         # Fastest method
         return v / (sum(v * v)) ** 0.5
 

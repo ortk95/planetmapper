@@ -14,15 +14,23 @@ print_progress('setting up...')
 
 def fn():
     p = '/Users/ortk1/Dropbox/PhD/data/reduced/sphere_irdis/europa/combined/SPHER.2014-12-09T075436.092_irdis.fits.gz'
+    
     o = mapper.Observation.from_fits(p)
+    utils.print_progress('__init__')
+
     img = o.get_lon_img()
+    utils.print_progress('lon')
+
     img = o.get_ra_img()
+    utils.print_progress('ra')
+
     img = o.get_doppler_img()
+    utils.print_progress('doppler')
 
 
 output_unit = 1
 stripzeros = True
-cutoff = 1
+cutoff = 0.5
 
 ###
 lp = line_profiler.LineProfiler()

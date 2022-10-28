@@ -24,25 +24,17 @@ number = 100  # Number of times statement is called in each timing loop
 import numpy as np
 import spiceypy as spice
 
-v = np.random.rand(3)
-
-
-def normalise(v):
-    return v / np.sqrt(sum(v * v))
-
+a = np.random.rand(3)
+b = np.random.rand(3)
 
 # Define code snippets as a list of strings to execute here...
 statements = [
-    'normalise(v)',
-    'spice.vhat(v)',
-    'v/np.linalg.norm(v)',
+    'a.dot(b)',
+    'a@b',
+    'np.dot(a,b)',
+    'sum(a*b)',
 ]
 
-for square in ['v*v', 'v**2']:
-    for summation in ['np.sum({x})', 'sum({x})', '({x}).sum()']:
-        for sqrt in ['np.sqrt({x})', '({x})**0.5']:
-            s = sqrt.format(x=summation.format(x=square))
-            statements.append('v/' + s)
 
 statements = ['out = ' + s for s in statements]
 # statements = [f'out = str({s})' for s in statements]
