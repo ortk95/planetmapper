@@ -12,26 +12,42 @@ how long they take to execute `number` times, and the fastest time from
 import timeit
 import math
 import utils
+import numpy as np
 
 # SETUP --------------------------------------------------------------------------------
 # Adjust repeat & number as needed to ensure the timing doesn't take too long. Higher
 # values will take longer but will generally give more reliable results.
-repeat = 100  # Number of times to repeat timing loop
+repeat = 10  # Number of times to repeat timing loop
 number = 100  # Number of times statement is called in each timing loop
 
 
 # Define any variables, module imports etc. to use in the snippets here...
-import numpy as np
-import spiceypy as spice
+from mapper import Body
+
+target = 'jupiter'
+observer_frame = 'J2000'
+aberration_correction = 'CN+S'
+observer = 'earth'
 
 
-s = 'test123'
+class BodySlow(Body):
+    @staticmethod
+    def _encode_str(s: str):
+        return s
+
+
+body_fast = Body('jupiter', '2022-01-01')
+body_slow = BodySlow('jupiter', '2022-01-01')
+
+
+ra = body_fast.subpoint_ra
+dec = body_fast.subpoint_dec
 
 # Define code snippets as a list of strings to execute here...
 statements = [
-    's.encode("UTF-8")',
+    'body_fast.radec2lonlat(ra, dec)',
+    'body_slow.radec2lonlat(ra, dec)',
 ]
-
 
 statements = ['out = ' + s for s in statements]
 # statements = [f'out = str({s})' for s in statements]
