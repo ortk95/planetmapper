@@ -13,31 +13,10 @@ from functools import wraps
 T = TypeVar('T')
 P = ParamSpec('P')
 
+class A:
+    def __init__(self, x:int):
+        print(x)
 
-class C:
-    DEFAULT_BACKPLANES = []
-
-    @staticmethod
-    def backplane(name: str, description: str):
-        def decorator(fn: Callable[P, np.ndarray]) -> Callable[P, np.ndarray]:
-            C.DEFAULT_BACKPLANES.append((fn, name, description))
-            print(name)
-            @wraps(fn)
-            def wrapper(*args: P.args, **kwargs: P.kwargs):
-                return fn(*args, **kwargs)
-
-            wrapper.name = name
-            wrapper.description = description
-            return wrapper
-
-        return decorator
-
-    @backplane('x', 'y')
-    def img(self):
-        return np.random.rand(10, 10)
-
-print(0)
-c = C()
-print(1)
-plt.imshow(c.img())
-print(c.img.description)
+class B(A):
+    def __init__(self, x):
+        super().__init__(x=x)

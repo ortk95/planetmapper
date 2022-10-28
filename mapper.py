@@ -31,6 +31,9 @@ import spiceypy as spice
 from spiceypy.utils.exceptions import NotFoundError
 import utils
 from functools import wraps
+import PIL.Image
+from astropy.io import fits
+
 
 __version__ = '0.1'
 
@@ -50,24 +53,23 @@ class Backplane(NamedTuple):
 def main(*args):
     dtm = datetime.datetime.now()
     utils.print_progress()
-    o = BodyXY('jupiter', dtm, 10, 10)
+    # o = Observation('jupiter', dtm, 10, 10)
+    # o = Observation.from_image('jupiter_test.jpg', 'jupiter', dtm)
+    p = '/Users/ortk1/Dropbox/PhD/data/reduced/sphere_irdis/europa/combined/SPHER.2014-12-09T075436.092_irdis.fits.gz'
+    o = Observation.from_fits(p)
     print(o)
     utils.print_progress('__init__')
-    # o.set_x0(10)
-    # o.set_y0(10)
-    # o.set_r0(9)
     # o.set_rotation(0)
-    # o.set_r0(10)
     utils.print_progress('set coordinates')
 
-    ax = o.plot_wirefeame_xy()
+    o.plot_wirefeame_xy()
     utils.print_progress('wireframe')
 
-    ax = o.plot_wirefeame_xy(show=False)
-    img = o.get_lon_img()
-    im = ax.imshow(img, origin='lower', cmap='turbo')
-    plt.colorbar(im)
-    plt.show()
+    # ax = o.plot_wirefeame_xy(show=False)
+    # img = o.get_lon_img()
+    # im = ax.imshow(img, origin='lower', cmap='turbo')
+    # plt.colorbar(im)
+    # plt.show()
 
 
 class Body:
@@ -752,6 +754,22 @@ class BodyXY(Body):
         )
 
     # Interface
+    def set_params(
+        self,
+        x0: float | None = None,
+        y0: float | None = None,
+        r0: float | None = None,
+        rotation: float | None = None,
+    ) -> None:
+        if x0 is not None:
+            self.set_x0(x0)
+        if y0 is not None:
+            self.set_y0(y0)
+        if r0 is not None:
+            self.set_r0(r0)
+        if rotation is not None:
+            self.set_rotation(rotation)
+
     def set_x0(self, x0: float) -> None:
         self._x0 = x0
         self.clear_cache()
@@ -1005,6 +1023,50 @@ class BodyXY(Body):
             'doppler',
             'Radial velocity/speed of light [dimensionless]',
         )
+
+
+class Observation(BodyXY):
+    def __init__(self, path: str | None, data: np.ndarray, *args, **kw) -> None:
+        data = np.asarray(data)
+        nx = data.shape[2]
+        ny = data.shape[1]
+
+        super().__init__(*args, nx=nx, ny=ny, **kw)
+
+        self.path = path
+        self.data = data
+
+        self.centre_disc()
+
+    @classmethod
+    def from_image(cls, path: str, *args, **kwargs):
+        image = np.array(PIL.Image.open(path))
+        if len(image.shape) == 2:
+            image = np.array([image])
+        else:
+            image = np.moveaxis(image, 2, 0)
+        return cls(path, image, *args, **kwargs)
+
+    @classmethod
+    def from_fits(cls, path: str, **kwargs):
+        data: np.ndarray
+        hdr: fits.Header
+        data, hdr = fits.getdata(path, header=True)  # type: ignore
+
+        target = hdr['OBJECT']
+        dtm = hdr['DATE-OBS']
+
+        return cls(path, data, target=target, utc=dtm, **kwargs)
+
+    def __repr__(self) -> str:
+        return f'Observation({self.path!r})'  # TODO
+
+    # Auto disc id
+    def centre_disc(self) -> None:
+        """Centre disc and make it fill ~90% of the observation"""
+        self.set_x0(self._nx / 2)
+        self.set_y0(self._ny / 2)
+        self.set_r0(0.9 * (min(self.get_x0(), self.get_y0())))
 
 
 if __name__ == '__main__':
