@@ -60,12 +60,72 @@ def main(*args):
     utils.print_progress('img')
 
 
-class Body:
+class SpiceTool:
     """
-    Class representing spice data about an observation of an astronomical body.
+    Basic class containing methods to interface with spice and basic tools.
     """
 
     DEFAULT_DTM_FORMAT_STRING = '%Y-%m-%dT%H:%M:%S.%f'
+
+    @staticmethod
+    def standardise_body_name(name: str) -> str:
+        name = spice.bodc2s(spice.bods2c(name))
+        return name
+
+    @staticmethod
+    def et2dtm(et: float) -> datetime.datetime:
+        s = spice.et2utc(et, 'ISOC', 6) + '+0000'
+        # manually add '+0000' to string to make it timezone aware
+        # i.e. this lets python know it is UTC
+        return datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%f%z')
+
+    @staticmethod
+    def load_spice_kernels(
+        kernel_path: str = KERNEL_PATH, manual_kernels: None | list[str] = None
+    ) -> None:
+        # TODO do this better - don't necessarily need to keep running it every time
+        if manual_kernels:
+            kernels = manual_kernels
+        else:
+            kernel_path = os.path.expanduser(kernel_path)
+            pcks = sorted(glob.glob(kernel_path + 'pck/*.tpc'))
+            spks1 = sorted(glob.glob(kernel_path + 'spk/planets/de*.bsp'))
+            spks2 = sorted(glob.glob(kernel_path + 'spk/satellites/*.bsp'))
+            fks = sorted(glob.glob(kernel_path + 'fk/planets/*.tf'))
+            lsks = sorted(glob.glob(kernel_path + 'lsk/naif*.tls'))
+            kernels = [pcks[-1], spks1[-1], *spks2, lsks[-1]]
+        for kernel in kernels:
+            spice.furnsh(kernel)
+
+    @staticmethod
+    def close_loop(arr: np.ndarray) -> np.ndarray:
+        return np.append(arr, [arr[0]], axis=0)
+
+    @staticmethod
+    def _radian_pair2degrees(
+        radians0: Numeric, radians1: Numeric
+    ) -> tuple[Numeric, Numeric]:
+        return np.rad2deg(radians0), np.rad2deg(radians1)  # type: ignore
+
+    @staticmethod
+    def _degree_pair2radians(
+        degrees0: Numeric, degrees1: Numeric
+    ) -> tuple[Numeric, Numeric]:
+        return np.deg2rad(degrees0), np.deg2rad(degrees1)  # type: ignore
+
+    @staticmethod
+    def unit_vector(v: np.ndarray) -> np.ndarray:
+        # Fastest method
+        return v / (sum(v * v)) ** 0.5
+
+    @staticmethod
+    def _encode_str(s: str) -> bytes:
+        return s.encode('UTF-8')
+
+class Body(SpiceTool):
+    """
+    Class representing spice data about an observation of an astronomical body.
+    """
 
     def __init__(
         self,
@@ -500,19 +560,7 @@ class Body:
     def radial_velocity_from_lonlat(self, lon: float, lat: float) -> float:
         return self._radial_velocity_from_targvec(self.lonlat2targvec(lon, lat))
 
-    # Description and standardisation
-    @staticmethod
-    def standardise_body_name(name: str) -> str:
-        name = spice.bodc2s(spice.bods2c(name))
-        return name
-
-    @staticmethod
-    def et2dtm(et: float) -> datetime.datetime:
-        s = spice.et2utc(et, 'ISOC', 6) + '+0000'
-        # manually add '+0000' to string to make it timezone aware
-        # i.e. this lets python know it is UTC
-        return datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%f%z')
-
+    # Description
     def get_description(self, newline: bool = True) -> str:
         return '{t} ({tid}){nl}from {o} at {d}'.format(
             t=self.target,
@@ -603,49 +651,6 @@ class Body:
         if show:
             plt.show()
         return ax
-
-    # Utility
-    @staticmethod
-    def load_spice_kernels(
-        kernel_path: str = KERNEL_PATH, manual_kernels: None | list[str] = None
-    ) -> None:
-        # TODO do this better - don't necessarily need to keep running it every time
-        if manual_kernels:
-            kernels = manual_kernels
-        else:
-            kernel_path = os.path.expanduser(kernel_path)
-            pcks = sorted(glob.glob(kernel_path + 'pck/*.tpc'))
-            spks1 = sorted(glob.glob(kernel_path + 'spk/planets/de*.bsp'))
-            spks2 = sorted(glob.glob(kernel_path + 'spk/satellites/*.bsp'))
-            fks = sorted(glob.glob(kernel_path + 'fk/planets/*.tf'))
-            lsks = sorted(glob.glob(kernel_path + 'lsk/naif*.tls'))
-            kernels = [pcks[-1], spks1[-1], *spks2, lsks[-1]]
-        for kernel in kernels:
-            spice.furnsh(kernel)
-
-    @staticmethod
-    def close_loop(arr: np.ndarray) -> np.ndarray:
-        return np.append(arr, [arr[0]], axis=0)
-
-    @staticmethod
-    def _radian_pair2degrees(
-        radians0: Numeric, radians1: Numeric
-    ) -> tuple[Numeric, Numeric]:
-        return np.rad2deg(radians0), np.rad2deg(radians1)  # type: ignore
-
-    @staticmethod
-    def _degree_pair2radians(
-        degrees0: Numeric, degrees1: Numeric
-    ) -> tuple[Numeric, Numeric]:
-        return np.deg2rad(degrees0), np.deg2rad(degrees1)  # type: ignore
-
-    @staticmethod
-    def unit_vector(v: np.ndarray) -> np.ndarray:
-        # Fastest method
-        return v / (sum(v * v)) ** 0.5
-
-    def _encode_str(self, s: str) -> bytes:
-        return s.encode('UTF-8')
 
 
 class BodyXY(Body):
