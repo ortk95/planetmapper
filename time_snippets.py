@@ -17,36 +17,55 @@ import numpy as np
 # SETUP --------------------------------------------------------------------------------
 # Adjust repeat & number as needed to ensure the timing doesn't take too long. Higher
 # values will take longer but will generally give more reliable results.
-repeat = 10  # Number of times to repeat timing loop
-number = 1000  # Number of times statement is called in each timing loop
+repeat = 100  # Number of times to repeat timing loop
+number = 100  # Number of times statement is called in each timing loop
 
 
 # Define any variables, module imports etc. to use in the snippets here...
-from mapper import Body
+import math
 
-target = 'jupiter'
-observer_frame = 'J2000'
-aberration_correction = 'CN+S'
-observer = 'earth'
+x, y, x0, y0 = np.random.rand(4)
+r2 = np.random.rand() ** 2
 
 
-class BodySlow(Body):
-    @staticmethod
-    def _encode_str(s: str):
-        return s
+def f1():
+    return (x - x0) ** 2 + (y - y0) ** 2 > r2
 
 
-body_fast = Body('jupiter', '2022-01-01')
-body_slow = BodySlow('jupiter', '2022-01-01')
+def f2():
+    return (x - x0) * (x - x0) + (y - y0) * (y - y0) > r2
 
 
-ra = body_fast.subpoint_ra
-dec = body_fast.subpoint_dec
+def f3():
+    dx = x - x0
+    dy = y - y0
+    return dx * dx + dy * dy > r2
+
+
+def f4():
+    dx = x - x0
+    if dx*dx > r2:
+        return True
+    dy = y - y0
+    if dy*dy > r2:
+        return True
+    return dx * dx + dy * dy > r2
+
+
+def f5():
+    dx = x - x0
+    dy = y - y0
+    return dx * dx > r2 or dy * dy > r2 or dx * dx + dy * dy > r2
+
 
 # Define code snippets as a list of strings to execute here...
 statements = [
-    'body_fast.radec2lonlat(ra, dec)',
-    'body_slow.radec2lonlat(ra, dec)',
+    '(x - x0)**2 + (y - y0)**2 > r2',
+    'f1()',
+    'f2()',
+    'f3()',
+    'f4()',
+    'f5()',
 ]
 
 statements = ['out = ' + s for s in statements]

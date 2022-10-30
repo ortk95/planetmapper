@@ -32,7 +32,7 @@ cutoff = 0
 # TIMING INTERNALS ---------------------------------------------------------------------
 
 lp = line_profiler.LineProfiler()
-lp.add_function(mapper.spice.stypes.string_to_char_p)
+lp.add_function(mapper.BodyXY._get_targvec_img)
 objects_to_profile = [
     # mapper.Body,
     # mapper.BodyXY,

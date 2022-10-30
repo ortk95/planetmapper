@@ -703,6 +703,8 @@ class BodyXY(Body):
         self.backplanes: dict[str, Backplane] = {}
         self._register_default_backplanes()
 
+        self._do_pixel_radius_short_circuit = True
+
     def __repr__(self) -> str:
         return f'BodyXY({self.target!r}, {self.utc!r}, {self._nx!r}, {self._ny!r})'
 
@@ -930,23 +932,34 @@ class BodyXY(Body):
             shape = (self._ny, self._nx, nz)
         return np.full(shape, np.nan)
 
-    def _get_pixel_radius(self) -> float:
-        # TODO this should explicitly test all the radii for the largest
-        return self.get_r0()
+    def _get_max_pixel_radius(self) -> float:
+        # r0 corresponds to r_eq, but for the radius here we want to make sure we have
+        # the largest radius
+        r = self.get_r0() * max(self.radii) / self.r_eq
+        return r
 
     @cache_result
     def _get_targvec_img(self) -> np.ndarray:
         out = self._make_empty_img(3)
+
+        # Precalculate short circuit stuff here for speed
+        r_cutoff = self._get_max_pixel_radius() * 1.05 + 1
+        r2 = r_cutoff**2  # square here to save having to run sqrt every loop
+        x0 = self.get_x0()
+        y0 = self.get_y0()
+
         for y, x in self._iterate_yx():
-            if np.sqrt((x - self.get_x0())**2 + (y - self.get_y0())**2) > 1.1*self._get_pixel_radius() + 1:
-                # TODO optimize this
+            if (
+                self._do_pixel_radius_short_circuit
+                and ((x - x0) *(x - x0) + (y - y0) *(y - y0)) > r2
+            ):
+                # ^ manual multiplication is faster than using power e.g. (x - x0)**2
                 continue
             try:
                 targvec = self._xy2targvec(x, y)
                 out[y, x] = targvec
             except NotFoundError:
-                # leave values as nan if pixel is not on the disc
-                continue
+                continue # leave values as nan if pixel is not on the disc
         return out
 
     def _iterate_yx(self) -> Iterable[tuple[int, int]]:
@@ -1071,7 +1084,9 @@ class BodyXY(Body):
     def get_backplane_img(self, name: str) -> np.ndarray:
         return self.backplanes[name].fn()
 
-    def plot_backplane(self, name: str, ax:Axes|None=None, show:bool=True, **kw) -> Axes:
+    def plot_backplane(
+        self, name: str, ax: Axes | None = None, show: bool = True, **kw
+    ) -> Axes:
         backplane = self.backplanes[name]
         ax = self.plot_wirefeame_xy(ax, show=False)
         im = ax.imshow(backplane.fn(), origin='lower', **kw)

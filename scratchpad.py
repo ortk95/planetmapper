@@ -8,16 +8,18 @@ import time
 import spiceypy as spice
 import numpy as np
 import ctypes
+import datetime
+import utils
 
 
 target = 'jupiter'
-dates = ('2022-10-31 00:00:00', '2022-10-31 01:00:00')
+sz = 100
 
 backplane = 'lon'
-sz = 50
-for d in dates:
-    body = mapper.BodyXY(target, d, nx=sz, ny=sz)
-    body.set_params(x0=0.5 * sz, y0=0.5 * sz, r0=0.45 * sz)
-    body.plot_backplane(backplane)
+for b in (True, False):
+    utils.print_progress()
+    body = mapper.BodyXY(target, datetime.datetime.now(), nx=sz, ny=sz)
+    body._do_pixel_radius_short_circuit = b
+    body.set_params(x0=0.5 * sz, y0=0.5 * sz, r0=0.1 * sz)
     im = body.get_backplane_img(backplane)
-    print(np.nanmean(im))
+    utils.print_progress(str(b))
