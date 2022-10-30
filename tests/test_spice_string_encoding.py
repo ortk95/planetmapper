@@ -10,6 +10,7 @@ P = ParamSpec('P')
 class TestForConsistentResults(unittest.TestCase):
     def setUp(self):
         mapper.SpiceTool.load_spice_kernels()
+        self.spice_tool = mapper.SpiceTool(optimize_speed=True)
 
     def compare_function_outputs(
         self, fn: Callable[P, Any], *args: P.args, **kw: P.kwargs
@@ -17,7 +18,7 @@ class TestForConsistentResults(unittest.TestCase):
         assert len(kw) == 0
         string_functions = [
             lambda x: x,
-            mapper.SpiceTool._encode_str,
+            self.spice_tool._encode_str,
         ]
         outputs = []
         for f in string_functions:

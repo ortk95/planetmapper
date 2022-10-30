@@ -67,6 +67,10 @@ class SpiceTool:
 
     DEFAULT_DTM_FORMAT_STRING = '%Y-%m-%dT%H:%M:%S.%f'
 
+    def __init__(self, optimize_speed: bool = True) -> None:
+        super().__init__()
+        self._optimize_speed = optimize_speed
+
     @staticmethod
     def standardise_body_name(name: str) -> str:
         name = spice.bodc2s(spice.bods2c(name))
@@ -118,10 +122,11 @@ class SpiceTool:
         # Fastest method
         return v / (sum(v * v)) ** 0.5
 
-    @staticmethod
-    def _encode_str(s: str) -> bytes:
-        # TODO make this optional
-        return s.encode('UTF-8')
+    def _encode_str(self, s: str) -> bytes | str:
+        if self._optimize_speed:
+            return s.encode('UTF-8')
+        else:
+            return s
 
 
 class Body(SpiceTool):
@@ -143,7 +148,11 @@ class Body(SpiceTool):
         load_kernels: bool = True,
         kernel_path: str = KERNEL_PATH,
         manual_kernels: None | list[str] = None,
+        **kw,
     ) -> None:
+        super().__init__(**kw)
+
+        # Process inputs
         self.target = self.standardise_body_name(target)
         if isinstance(utc, datetime.datetime):
             # convert input datetime to UTC, then to a string compatible with spice
@@ -703,7 +712,6 @@ class BodyXY(Body):
         self.backplanes: dict[str, Backplane] = {}
         self._register_default_backplanes()
 
-        self._do_pixel_radius_short_circuit = True
 
     def __repr__(self) -> str:
         return f'BodyXY({self.target!r}, {self.utc!r}, {self._nx!r}, {self._ny!r})'
@@ -950,16 +958,23 @@ class BodyXY(Body):
 
         for y, x in self._iterate_yx():
             if (
-                self._do_pixel_radius_short_circuit
-                and ((x - x0) *(x - x0) + (y - y0) *(y - y0)) > r2
+                self._optimize_speed
+                and ((x - x0) * (x - x0) + (y - y0) * (y - y0)) > r2
             ):
-                # ^ manual multiplication is faster than using power e.g. (x - x0)**2
+                # The spice calculations in _xy2targvec are slow, so to optimize speed
+                # we can skip the spice calculation step completely for pixels which we
+                # know aren't on the disc, by calculating if the distance from the 
+                # centre of the disc (x0,y0) is greater than the radius (+ a buffer).
+                # The distance calculation uses manual multiplication rather than using
+                # power (e.g. (x - x0)**2) to square the x and y distances as this is 
+                # faster.
                 continue
+
             try:
                 targvec = self._xy2targvec(x, y)
                 out[y, x] = targvec
             except NotFoundError:
-                continue # leave values as nan if pixel is not on the disc
+                continue  # leave values as nan if pixel is not on the disc
         return out
 
     def _iterate_yx(self) -> Iterable[tuple[int, int]]:

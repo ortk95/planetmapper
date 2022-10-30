@@ -11,15 +11,17 @@ import ctypes
 import datetime
 import utils
 
+import glob
+import os
 
-target = 'jupiter'
-sz = 100
+kernel_path = mapper.KERNEL_PATH
 
-backplane = 'lon'
-for b in (True, False):
-    utils.print_progress()
-    body = mapper.BodyXY(target, datetime.datetime.now(), nx=sz, ny=sz)
-    body._do_pixel_radius_short_circuit = b
-    body.set_params(x0=0.5 * sz, y0=0.5 * sz, r0=0.1 * sz)
-    im = body.get_backplane_img(backplane)
-    utils.print_progress(str(b))
+kernel_path = os.path.expanduser(kernel_path)
+pcks = sorted(glob.glob(kernel_path + 'pck/*.tpc'))
+spks1 = sorted(glob.glob(kernel_path + 'spk/planets/de*.bsp'))
+spks2 = sorted(glob.glob(kernel_path + 'spk/satellites/*.bsp'))
+fks = sorted(glob.glob(kernel_path + 'fk/planets/*.tf'))
+lsks = sorted(glob.glob(kernel_path + 'lsk/naif*.tls'))
+kernels = [pcks[-1], spks1[-1], *spks2, lsks[-1]]
+for kernel in kernels:
+    print(kernel)
