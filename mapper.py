@@ -700,7 +700,7 @@ class BodyXY(Body):
         self._matplotlib_transform: matplotlib.transforms.Affine2D | None = None
         self._matplotlib_transform_radians: matplotlib.transforms.Affine2D | None = None
 
-        self.backplanes: list[Backplane] = []
+        self.backplanes: dict[str, Backplane] = {}
         self._register_default_backplanes()
 
     def __repr__(self) -> str:
@@ -1040,9 +1040,10 @@ class BodyXY(Body):
         self, fn: Callable[[], np.ndarray], name: str, description: str
     ) -> None:
         # TODO add checks for name/description lengths?
-        if any(bp.name == name for bp in self.backplanes):
+        # TODO casefold name?
+        if name in self.backplanes:
             raise ValueError(f'Backplane named {name!r} is already registered')
-        self.backplanes.append(Backplane(name=name, description=description, fn=fn))
+        self.backplanes[name] = Backplane(name=name, description=description, fn=fn)
 
     def _register_default_backplanes(self) -> None:
         # TODO double check units and expand descriptions
@@ -1066,6 +1067,18 @@ class BodyXY(Body):
             'doppler',
             'Radial velocity/speed of light [dimensionless]',
         )
+
+    def get_backplane_img(self, name: str) -> np.ndarray:
+        return self.backplanes[name].fn()
+
+    def plot_backplane(self, name: str, ax:Axes|None=None, show:bool=True, **kw) -> Axes:
+        backplane = self.backplanes[name]
+        ax = self.plot_wirefeame_xy(ax, show=False)
+        im = ax.imshow(backplane.fn(), origin='lower', **kw)
+        plt.colorbar(im, label=backplane.description)
+        if show:
+            plt.show()
+        return ax
 
 
 class Observation(BodyXY):

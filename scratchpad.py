@@ -11,16 +11,13 @@ import ctypes
 
 
 target = 'jupiter'
-observer_frame = 'J2000'
-aberration_correction = 'CN+S'
-observer = 'earth'
+dates = ('2022-10-31 00:00:00', '2022-10-31 01:00:00')
 
-
-class BodySlow(mapper.Body):
-    @staticmethod
-    def _encode_str(s: str):
-        return s
-
-
-body1 = mapper.Body('jupiter', '2022-01-01')
-body2 = BodySlow('jupiter', '2022-01-01')
+backplane = 'lon'
+sz = 50
+for d in dates:
+    body = mapper.BodyXY(target, d, nx=sz, ny=sz)
+    body.set_params(x0=0.5 * sz, y0=0.5 * sz, r0=0.45 * sz)
+    body.plot_backplane(backplane)
+    im = body.get_backplane_img(backplane)
+    print(np.nanmean(im))
