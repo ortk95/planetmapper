@@ -72,5 +72,17 @@ class TestBodyXY(unittest.TestCase):
             self.obj.get_lon_img()
 
 
+class TestObservation(unittest.TestCase):
+    def setUp(self):
+        self.obj = mapper.Observation(data=np.random.rand(1, 5,5), target='Jupiter', utc='2022-01-01')
+
+    def test_input_validation(self):
+        with self.assertRaises(ValueError):
+            mapper.Observation()
+
+        with self.assertRaises(ValueError):
+            mapper.Observation(path='test', data=np.zeros((2,2)))
+
+
 if __name__ == '__main__':
     unittest.main()

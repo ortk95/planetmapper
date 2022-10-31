@@ -725,6 +725,7 @@ class BodyXY(Body):
         self._r0: float = 10
         self._rotation_radians: float = 0
         self.set_disc_method('default')
+        self._default_disc_method = 'manual'
 
         if self._nx > 0 and self._ny > 0:
             # centre disc if dimensions provided
@@ -893,7 +894,7 @@ class BodyXY(Body):
         self._cache['disc method'] = method
 
     def get_disc_method(self) -> str:
-        return self._cache.get('disc method', 'manual')
+        return self._cache.get('disc method', self._default_disc_method)
 
     # Illumination functions etc. # TODO remove these?
     def limb_xy(self, **kw) -> tuple[np.ndarray, np.ndarray]:
@@ -1180,7 +1181,8 @@ class Observation(BodyXY):
             if header is not None:
                 raise ValueError('`path` and `header` are mutually exclusive')
             self._load_data_from_path()
-
+        
+        # TODO validate/standardise shape of data here (cube etc.)
         self.data = np.asarray(self.data)
         if self.header is not None:
             # use values from header to fill in arguments (e.g. target) which aren't
