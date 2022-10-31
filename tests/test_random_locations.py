@@ -11,12 +11,12 @@ class TestBody(unittest.TestCase):
     def test_round_trip_conversion(self):
         lon0, lat0 = generate_lonlat(self.obj)
         lon1, lat1 = self.obj.radec2lonlat(*self.obj.lonlat2radec(lon0, lat0))
-        self.assertAlmostEqual(lon0, lon1, places=2)
-        self.assertAlmostEqual(lat0, lat1, places=2)
+        self.assertAlmostEqual(lon0, lon1, delta=0.1)
+        self.assertAlmostEqual(lat0, lat1, delta=0.1)
 
         lon1, lat1 = self.obj.targvec2lonlat(self.obj.lonlat2targvec(lon0, lat0))
-        self.assertAlmostEqual(lon0, lon1, places=2)
-        self.assertAlmostEqual(lat0, lat1, places=2)
+        self.assertAlmostEqual(lon0, lon1,delta=0.1)
+        self.assertAlmostEqual(lat0, lat1,delta=0.1)
 
     def test_subpoint_visible(self):
         self.assertTrue(
@@ -66,8 +66,8 @@ class TestBodyXY_ZeroSize(unittest.TestCase):
     def test_round_trip_conversion(self):
         lon, lat = generate_lonlat(self.obj)
         lon_rt, lat_rt = self.obj.xy2lonlat(*self.obj.lonlat2xy(lon, lat))
-        self.assertAlmostEqual(lon, lon_rt, places=1)
-        self.assertAlmostEqual(lat, lat_rt, places=1)
+        self.assertAlmostEqual(lon, lon_rt, delta=0.1)
+        self.assertAlmostEqual(lat, lat_rt, delta=0.1)
 
     def test_missing(self):
         x = self.obj.get_x0()
