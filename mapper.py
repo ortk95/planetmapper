@@ -1099,44 +1099,50 @@ class BodyXY(Body):
         return self.get_radial_velocity_img() / spice.clight()
 
     # Backplane management
+    @staticmethod
+    def standardise_backplane_name(name: str) -> str:
+        return name.strip().upper()
+
     def register_backplane(
         self, fn: Callable[[], np.ndarray], name: str, description: str
     ) -> None:
         # TODO add checks for name/description lengths?
-        # TODO casefold name?
+        name = self.standardise_backplane_name(name)
         if name in self.backplanes:
             raise ValueError(f'Backplane named {name!r} is already registered')
         self.backplanes[name] = Backplane(name=name, description=description, fn=fn)
 
     def _register_default_backplanes(self) -> None:
         # TODO double check units and expand descriptions
-        self.register_backplane(self.get_lon_img, 'lon', 'Longitude [deg]')
-        self.register_backplane(self.get_lat_img, 'lat', 'Latitude [deg]')
-        self.register_backplane(self.get_ra_img, 'ra', 'Right ascension [deg]')
-        self.register_backplane(self.get_dec_img, 'dec', 'Declination [deg]')
+        self.register_backplane(self.get_lon_img, 'LON', 'Longitude [deg]')
+        self.register_backplane(self.get_lat_img, 'LAT', 'Latitude [deg]')
+        self.register_backplane(self.get_ra_img, 'RA', 'Right ascension [deg]')
+        self.register_backplane(self.get_dec_img, 'DEC', 'Declination [deg]')
         self.register_backplane(self.get_phase_angle_img, 'phase', 'Phase angle [deg]')
         self.register_backplane(
-            self.get_incidence_angle_img, 'incidence', 'Incidence angle [deg]'
+            self.get_incidence_angle_img, 'INCIDENCE', 'Incidence angle [deg]'
         )
         self.register_backplane(
-            self.get_emission_angle_img, 'emission', 'Emission angle [dec]'
+            self.get_emission_angle_img, 'EMISSION', 'Emission angle [dec]'
         )
-        self.register_backplane(self.get_distance_img, 'distance', 'Distance [km]')
+        self.register_backplane(self.get_distance_img, 'DISTANCE', 'Distance [km] from observer')
         self.register_backplane(
-            self.get_radial_velocity_img, 'radial_velocity', 'Radial velocity [km/s]'
+            self.get_radial_velocity_img, 'RADIAL_VELOCITY', 'Radial velocity [km/s] relative to observer'
         )
         self.register_backplane(
             self.get_doppler_img,
-            'doppler',
-            'Radial velocity/speed of light [dimensionless]',
+            'DOPPLER',
+            '(Radial velocity)/(speed of light) [dimensionless]',
         )
 
     def get_backplane_img(self, name: str) -> np.ndarray:
+        name = self.standardise_backplane_name(name)
         return self.backplanes[name].fn()
 
     def plot_backplane(
         self, name: str, ax: Axes | None = None, show: bool = True, **kw
     ) -> Axes:
+        name = self.standardise_backplane_name(name)
         backplane = self.backplanes[name]
         ax = self.plot_wireframe_xy(ax, show=False)
         im = ax.imshow(backplane.fn(), origin='lower', **kw)
