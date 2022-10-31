@@ -53,13 +53,13 @@ class Backplane(NamedTuple):
 
 def main(*args):
     utils.print_progress()
-    o = Observation()
-
     o = Observation('data/europa.fits.gz')
     print(o)
     utils.print_progress('__init__')
-    o.plot_backplane('radial_velocity')
-    utils.print_progress('plot')
+    # o.plot_backplane('radial_velocity')
+    # utils.print_progress('plot')
+    o.save('data/test_out.fits.gz')
+    utils.print_progress('saved')
 
 
 class SpiceTool:
@@ -1207,6 +1207,21 @@ class Observation(BodyXY):
         self.set_x0(self._nx / 2)
         self.set_y0(self._ny / 2)
         self.set_r0(0.9 * (min(self.get_x0(), self.get_y0())))
+
+    def save(self, path: str) -> None:
+        """Save fits file with backplanes"""
+        # TODO add basic hader if self.header is None
+        # TODO add metadata to primary header
+        hdu = fits.PrimaryHDU(data=self.data, header=self.header)
+        hdul = fits.HDUList([hdu])
+
+        for name, backplane in self.backplanes.items():
+            utils.print_progress(name)
+            img = backplane.fn()
+            # TODO create header with description
+            hdu = fits.ImageHDU(data=img, name=name)
+            hdul.append(hdu)
+        hdul.writeto(path, overwrite=True)
 
 
 if __name__ == '__main__':
