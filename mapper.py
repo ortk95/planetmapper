@@ -1154,7 +1154,7 @@ class Observation(BodyXY):
 
         target = hdr['OBJECT']
         dtm = hdr['DATE-OBS']
-
+        # TODO deal with more FITS files (e.g. DATE-OBS doesn't work for JWST)
         return cls(path, data, target=target, utc=dtm, **kwargs)
 
     def __repr__(self) -> str:
