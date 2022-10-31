@@ -1126,9 +1126,13 @@ class BodyXY(Body):
         self.register_backplane(
             self.get_emission_angle_img, 'EMISSION', 'Emission angle [dec]'
         )
-        self.register_backplane(self.get_distance_img, 'DISTANCE', 'Distance [km] from observer')
         self.register_backplane(
-            self.get_radial_velocity_img, 'RADIAL_VELOCITY', 'Radial velocity [km/s] relative to observer'
+            self.get_distance_img, 'DISTANCE', 'Distance [km] from observer'
+        )
+        self.register_backplane(
+            self.get_radial_velocity_img,
+            'RADIAL_VELOCITY',
+            'Radial velocity [km/s] relative to observer',
         )
         self.register_backplane(
             self.get_doppler_img,
@@ -1181,7 +1185,7 @@ class Observation(BodyXY):
             if header is not None:
                 raise ValueError('`path` and `header` are mutually exclusive')
             self._load_data_from_path()
-        
+
         # TODO validate/standardise shape of data here (cube etc.)
         self.data = np.asarray(self.data)
         if self.header is not None:
