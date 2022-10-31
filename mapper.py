@@ -705,13 +705,18 @@ class BodyXY(Body):
         self._r0: float = 10
         self._rotation_radians: float = 0
 
+        if self._nx > 0 and self._ny > 0:
+            # centre disc if dimensions provided
+            self._x0 = self._nx / 2 - 0.5
+            self._y0 = self._ny / 2 - 0.5
+            self._r0 = 0.9 * (min(self._x0, self._y0))
+
         self._cache: dict[str, Any] = {}
         self._matplotlib_transform: matplotlib.transforms.Affine2D | None = None
         self._matplotlib_transform_radians: matplotlib.transforms.Affine2D | None = None
 
         self.backplanes: dict[str, Backplane] = {}
         self._register_default_backplanes()
-
 
     def __repr__(self) -> str:
         return f'BodyXY({self.target!r}, {self.utc!r}, {self._nx!r}, {self._ny!r})'
@@ -963,10 +968,10 @@ class BodyXY(Body):
             ):
                 # The spice calculations in _xy2targvec are slow, so to optimize speed
                 # we can skip the spice calculation step completely for pixels which we
-                # know aren't on the disc, by calculating if the distance from the 
+                # know aren't on the disc, by calculating if the distance from the
                 # centre of the disc (x0,y0) is greater than the radius (+ a buffer).
                 # The distance calculation uses manual multiplication rather than using
-                # power (e.g. (x - x0)**2) to square the x and y distances as this is 
+                # power (e.g. (x - x0)**2) to square the x and y distances as this is
                 # faster.
                 continue
 
