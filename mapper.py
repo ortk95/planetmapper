@@ -97,7 +97,8 @@ class SpiceTool:
             spks2 = sorted(glob.glob(kernel_path + 'spk/satellites/*.bsp'))
             fks = sorted(glob.glob(kernel_path + 'fk/planets/*.tf'))
             lsks = sorted(glob.glob(kernel_path + 'lsk/naif*.tls'))
-            kernels = [pcks[-1], spks1[-1], *spks2, lsks[-1]]
+            jwst = sorted(glob.glob(kernel_path + '../../jwst/*.bsp'))
+            kernels = [pcks[-1], spks1[-1], *spks2, lsks[-1], *jwst]
         for kernel in kernels:
             spice.furnsh(kernel)
 
@@ -596,7 +597,7 @@ class Body(SpiceTool):
 
     # Description
     def get_description(self, newline: bool = True) -> str:
-        return '{t} ({tid}){nl}from {o} at {d}'.format(
+        return '{t} ({tid}){nl}from {o}{nl}at {d}'.format(
             t=self.target,
             tid=self.target_body_id,
             nl=('\n' if newline else ' '),

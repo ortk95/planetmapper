@@ -4,5 +4,8 @@
 import mapper
 
 
-body = mapper.BodyXY('jupiter', '2022-07-28T06:03:59.373', nx=10, ny=10)
+body = mapper.BodyXY(
+    'jupiter', '2022-07-28T06:03:59.373', nx=25, ny=25, observer='JWST'
+)
 ax = body.plot_backplane('radial_velocity')
+ax = body.plot_backplane('doppler')
