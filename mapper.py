@@ -37,6 +37,8 @@ from astropy.io import fits
 import warnings
 
 __version__ = '0.1'
+__author__ = 'Oliver King'
+__url__ = 'https://github.com/ortk95/planet_mapper'
 
 KERNEL_PATH = '~/spice/naif/generic_kernels/'
 
@@ -1256,6 +1258,7 @@ class Observation(BodyXY):
 
     def add_header_metadata(self):
         self.append_to_header('VERSION', __version__, 'Planet Mapper version.')
+        self.append_to_header('URL', __url__, 'Webpage.')
         self.append_to_header(
             'DATE',
             datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
