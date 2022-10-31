@@ -34,7 +34,7 @@ import utils
 from functools import wraps
 import PIL.Image
 from astropy.io import fits
-
+import warnings
 
 __version__ = '0.1'
 
@@ -58,7 +58,11 @@ def main(*args):
     utils.print_progress('__init__')
     # o.plot_backplane('radial_velocity')
     # utils.print_progress('plot')
-    o.save('data/test_out.fits.gz')
+    o.add_header_metadata()
+    lines = o.header.tostring(sep='\n', endcard=False).strip().splitlines()
+    print(*lines[-25:], sep='\n')
+
+    # o.save('data/test_out.fits.gz')
     utils.print_progress('saved')
 
 
@@ -714,6 +718,7 @@ class BodyXY(Body):
         self._y0: float = 0
         self._r0: float = 10
         self._rotation_radians: float = 0
+        self._disc_method: str = 'default'
 
         if self._nx > 0 and self._ny > 0:
             # centre disc if dimensions provided
@@ -874,6 +879,14 @@ class BodyXY(Body):
 
     def get_img_size(self) -> tuple[int, int]:
         return (self._nx, self._ny)
+
+    def set_disc_method(self, method:str|None=None):
+        if method is None:
+            method = 'manual'
+        self._disc_method = method
+
+    def get_disc_method(self) -> str:
+        return self._disc_method
 
     # Illumination functions etc. # TODO remove these?
     def limb_xy(self, **kw) -> tuple[np.ndarray, np.ndarray]:
@@ -1129,6 +1142,7 @@ class BodyXY(Body):
 class Observation(BodyXY):
     FITS_FILE_EXTENSIONS = ('.fits', '.fits.gz')
     IMAGE_FILE_EXTENSIONS = ('.png', '.jpg', '.jpeg')
+    FITS_KEYWORD = 'PLANMAP'
 
     def __init__(
         self,
@@ -1139,9 +1153,10 @@ class Observation(BodyXY):
         **kw,
     ) -> None:
         self.path = path
-        self.header = header
+        self.header: fits.Header = None  # type: ignore
         self.data: np.ndarray
 
+        # TODO add warning about header being modified in place? Or copy header?
         if self.path is None:
             if data is None:
                 raise ValueError('Either `path` or `data` must be provided')
@@ -1160,6 +1175,13 @@ class Observation(BodyXY):
             self._add_kw_from_header(kw)
         super().__init__(nx=self.data.shape[2], ny=self.data.shape[1], **kw)
 
+        if self.header is None:
+            self.header = fits.Header(
+                {
+                    'OBJECT': self.target,
+                    'DATE-OBS': self.utc,
+                }
+            )
         self.centre_disc()
 
     def _load_data_from_path(self):
@@ -1191,7 +1213,6 @@ class Observation(BodyXY):
         self.data = image
 
     def _add_kw_from_header(self, kw: dict):
-        assert self.header is not None
         # fill in kwargs with values from header (if they aren't specified by the user)
         # TODO deal with more FITS files (e.g. DATE-OBS doesn't work for JWST)
         # TODO deal with missing values
@@ -1207,11 +1228,121 @@ class Observation(BodyXY):
         self.set_x0(self._nx / 2)
         self.set_y0(self._ny / 2)
         self.set_r0(0.9 * (min(self.get_x0(), self.get_y0())))
+        self.set_disc_method('centre_disc')
+
+    # Output
+    def append_to_header(
+        self,
+        keyword: str,
+        value: str | float | bool | complex,
+        comment: str | None = None,
+        hierarch_keyword: bool = True,
+    ):
+        if hierarch_keyword:
+            keyword = f'HIERARCH {self.FITS_KEYWORD} {keyword}'
+        with warnings.catch_warnings():
+            # Suppress warning about comments being truncated
+            warnings.filterwarnings(
+                'ignore',
+                message='Card is too long, comment will be truncated.',
+                module='astropy.io.fits.card',
+            )
+            self.header.append(fits.Card(keyword=keyword, value=value, comment=comment))
+
+    def add_header_metadata(self):
+        self.append_to_header('VERSION', __version__, 'Planet Mapper version.')
+        self.append_to_header(
+            'DATE',
+            datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
+            'File generation datetime',
+        )
+        if self.path is not None:
+            self.append_to_header(
+                'INFILE',
+                os.path.split(self.path)[1],
+                'Input file name.',
+            )
+        self.append_to_header(
+            'DISC X0', self.get_x0(), '[pixels] x coordinate of disc centre.'
+        )
+        self.append_to_header(
+            'DISC Y0', self.get_y0(), '[pixels] y coordinate of disc centre.'
+        )
+        self.append_to_header(
+            'DISC R0', self.get_r0(), '[pixels] equatorial radius of disc.'
+        )
+        self.append_to_header(
+            'DISC ROT', self.get_rotation(), '[degrees] rotation of disc.'
+        )
+        self.append_to_header(
+            'DISC METHOD', self.get_disc_method(), 'Method used to find disc.'
+        )
+        self.append_to_header(
+            'ET-OBS', self.et, 'J2000 ephemeris seconds of observation.'
+        )
+        self.append_to_header(
+            'TARGET',
+            self.target,
+            'Target body name used in SPICE.',
+        )
+        self.append_to_header(
+            'TARGET-ID', self.target_body_id, 'Target body ID from SPICE.'
+        )
+        self.append_to_header(
+            'R EQ', self.r_eq, '[km] Target equatorial radius from SPICE.'
+        )
+        self.append_to_header(
+            'R POLAR', self.r_polar, '[km] Target polar radius from SPICE.'
+        )
+        self.append_to_header(
+            'LIGHT-TIME',
+            self.target_light_time,
+            '[seconds] Light time to target from SPICE.',
+        )
+        self.append_to_header(
+            'DISTANCE', self.target_distance, '[km] Distance to target from SPICE.'
+        )
+        self.append_to_header(
+            'OBSERVER',
+            self.observer,
+            'Observer name used in SPICE.',
+        )
+        self.append_to_header(
+            'TARGET-FRAME',
+            self.target_frame,
+            'Target frame used in SPICE.',
+        )
+        self.append_to_header(
+            'OBSERVER-FRAME',
+            self.observer_frame,
+            'Observer frame used in SPICE.',
+        )
+        self.append_to_header(
+            'ILLUMINATION',
+            self.illumination_source,
+            'Illumination source used in SPICE.',
+        )
+        self.append_to_header(
+            'ABCORR', self.aberration_correction, 'Aberration correction used in SPICE.'
+        )
+        self.append_to_header(
+            'SUBPOINT-METHOD', self.subpoint_method, 'Subpoint method used in SPICE.'
+        )
+        self.append_to_header(
+            'SURFACE-METHOD',
+            self.surface_method,
+            'Surface intercept method used in SPICE.',
+        )
+        self.append_to_header(
+            'OPTIMIZATION-USED', self._optimize_speed, 'Speed optimizations used.'
+        )
 
     def save(self, path: str) -> None:
         """Save fits file with backplanes"""
         # TODO add basic hader if self.header is None
         # TODO add metadata to primary header
+        self.add_header_metadata()
+
         hdu = fits.PrimaryHDU(data=self.data, header=self.header)
         hdul = fits.HDUList([hdu])
 
