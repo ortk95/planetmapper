@@ -169,8 +169,9 @@ class TestObservation(unittest.TestCase):
             ),
         }
         for k, img_expected in backplanes_expected.items():
-            img_output = self.obj.get_backplane_img(k)
-            self.assertTrue(np.allclose(img_output, img_expected, equal_nan=True))
+            with self.subTest(k):
+                img_output = self.obj.get_backplane_img(k)
+                self.assertTrue(np.allclose(img_output, img_expected, equal_nan=True))
 
 
 if __name__ == '__main__':

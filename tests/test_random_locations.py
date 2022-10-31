@@ -10,13 +10,14 @@ class TestBody(unittest.TestCase):
 
     def test_round_trip_conversion(self):
         lon0, lat0 = generate_lonlat(self.obj)
-        lon1, lat1 = self.obj.radec2lonlat(*self.obj.lonlat2radec(lon0, lat0))
-        self.assertAlmostEqual(lon0, lon1, delta=0.1)
-        self.assertAlmostEqual(lat0, lat1, delta=0.1)
-
-        lon1, lat1 = self.obj.targvec2lonlat(self.obj.lonlat2targvec(lon0, lat0))
-        self.assertAlmostEqual(lon0, lon1,delta=0.1)
-        self.assertAlmostEqual(lat0, lat1,delta=0.1)
+        with self.subTest('radec'):
+            lon1, lat1 = self.obj.radec2lonlat(*self.obj.lonlat2radec(lon0, lat0))
+            self.assertAlmostEqual(lon0, lon1, delta=0.1)
+            self.assertAlmostEqual(lat0, lat1, delta=0.1)
+        with self.subTest('targvec'):
+            lon1, lat1 = self.obj.targvec2lonlat(self.obj.lonlat2targvec(lon0, lat0))
+            self.assertAlmostEqual(lon0, lon1, delta=0.1)
+            self.assertAlmostEqual(lat0, lat1, delta=0.1)
 
     def test_subpoint_visible(self):
         self.assertTrue(
@@ -54,9 +55,10 @@ class TestBody(unittest.TestCase):
     def test_encoded_strings_for_spice(self):
         for k, v in self.obj.__dict__.items():
             if k.startswith('_') and k.endswith('_encoded'):
-                self.assertIsInstance(v, bytes)
-                s = getattr(self.obj, k[1 : -len('_encoded')])
-                self.assertEqual(v, self.obj._encode_str(s))
+                with self.subTest(k):
+                    self.assertIsInstance(v, bytes)
+                    s = getattr(self.obj, k[1 : -len('_encoded')])
+                    self.assertEqual(v, self.obj._encode_str(s))
 
 
 class TestBodyXY_ZeroSize(unittest.TestCase):

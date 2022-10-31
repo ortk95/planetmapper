@@ -29,19 +29,20 @@ class TestBodyXY(unittest.TestCase):
         self.assertAlmostEqual(self.obj.get_rotation(), v)
 
     def test_params(self):
-        x0, y0, r0, rotation = np.random.rand(4) * 100
-        self.obj.set_params(x0, y0, r0, rotation)
-        self.assertEqual(self.obj.get_x0(), x0)
-        self.assertEqual(self.obj.get_y0(), y0)
-        self.assertEqual(self.obj.get_r0(), r0)
-        self.assertAlmostEqual(self.obj.get_rotation(), rotation)
-
-        x0, y0, r0, rotation = np.random.rand(4) * 100
-        self.obj.set_params(x0=x0, y0=y0, r0=r0, rotation=rotation)
-        self.assertEqual(self.obj.get_x0(), x0)
-        self.assertEqual(self.obj.get_y0(), y0)
-        self.assertEqual(self.obj.get_r0(), r0)
-        self.assertAlmostEqual(self.obj.get_rotation(), rotation)
+        with self.subTest('args'):
+            x0, y0, r0, rotation = np.random.rand(4) * 100
+            self.obj.set_params(x0, y0, r0, rotation)
+            self.assertEqual(self.obj.get_x0(), x0)
+            self.assertEqual(self.obj.get_y0(), y0)
+            self.assertEqual(self.obj.get_r0(), r0)
+            self.assertAlmostEqual(self.obj.get_rotation(), rotation)
+        with self.subTest('kwargs'):
+            x0, y0, r0, rotation = np.random.rand(4) * 100
+            self.obj.set_params(x0=x0, y0=y0, r0=r0, rotation=rotation)
+            self.assertEqual(self.obj.get_x0(), x0)
+            self.assertEqual(self.obj.get_y0(), y0)
+            self.assertEqual(self.obj.get_r0(), r0)
+            self.assertAlmostEqual(self.obj.get_rotation(), rotation)
 
     def test_img_size(self):
         nx = np.random.randint(1, 100)
@@ -60,9 +61,10 @@ class TestBodyXY(unittest.TestCase):
             self.obj.set_y0,
             self.obj.set_rotation,
         ):
-            self.obj._cache[' test '] = None
-            fn(np.random.rand())
-            self.assertEqual(len(self.obj._cache), 0)
+            with self.subTest(fn.__name__):
+                self.obj._cache[' test '] = None
+                fn(np.random.rand())
+                self.assertEqual(len(self.obj._cache), 0)
 
     def test_nx_ny_error(self):
         self.obj.set_img_size(0, 0)

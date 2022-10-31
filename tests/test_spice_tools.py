@@ -47,7 +47,8 @@ class TestSpiceTool(unittest.TestCase):
             ),
         )
         for et, dtm in pairs:
-            self.assertEqual(self.obj.et2dtm(et), dtm)
+            with self.subTest(f'et = {et}'):
+                self.assertEqual(self.obj.et2dtm(et), dtm)
 
     def test_close_loop(self):
         self.assertTrue(
