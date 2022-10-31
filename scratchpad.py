@@ -4,33 +4,36 @@
 import mapper
 import numpy as np
 import utils
+from functools import wraps
 
-# utils.print_progress()
-# body = mapper.BodyXY(
-#     'jupiter',
-#     '2022-07-28T06:03:59.373',
-#     sz=50,
-#     observer='JWST',
-# )
-# ax = body.plot_backplane('radial_velocity')
-# ax = body.plot_backplane('doppler')
 
-# img = body.get_backplane_img('doppler')
+class C:
+    @staticmethod
+    def add_method(fn):
+        # @wraps(
+        #     fn,
+        # )
+        def wrapped(
+            self,
+            *args,
+            method='spam',
+            **kwargs,
+        ):
+            print(args, kwargs)
+            self.set_method(method)
+            return fn(self, *args, **kwargs)
 
-# fmt = '.3e'
-# print('Avg doppler shift:', format(np.nanmean(img), fmt))
-# print('Min doppler shift:', format(np.nanmin(img), fmt))
-# print('Max doppler shift:', format(np.nanmax(img), fmt))
+        return wrapped
 
-body = mapper.BodyXY('saturn', '2001-02-03', nx=4, ny=6)
-body.set_x0(2)
-body.set_y0(4.5)
-body.set_r0(3.14)
-body.set_rotation(42)
+    @add_method
+    def set_x0(self, x0: float):
+        print('> setting x0', x0)
 
-for bp in body.backplanes:
-    s = '{bp}: {img},'.format(
-        bp=repr(bp),
-        img=repr(body.get_backplane_img(bp))
-    )
-    print(s)
+    def set_method(self, method):
+        print('method', method)
+
+
+c = C()
+
+
+c.set_x0(123, method='123')

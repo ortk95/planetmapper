@@ -60,7 +60,7 @@ def main(*args):
     # utils.print_progress('plot')
     o.add_header_metadata()
     lines = o.header.tostring(sep='\n', endcard=False).strip().splitlines()
-    print(*lines[-25:], sep='\n')
+    print(*lines[-30:], sep='\n')
 
     # o.save('data/test_out.fits.gz')
     utils.print_progress('saved')
@@ -705,12 +705,16 @@ class BodyXY(Body):
         sz: int | None = None,
         **kw,
     ) -> None:
-        super().__init__(target, utc, **kw)
         if sz is not None:
             if nx != 0 or ny != 0:
-                raise ValueError('sz cannot be used if nx and/or ny are nonzero')
+                raise ValueError('`sz` cannot be used if `nx` and/or `ny` are nonzero')
             nx = sz
             ny = sz
+
+        super().__init__(target, utc, **kw)
+
+        self._cache: dict[str, Any] = {}
+
         self._nx: int = nx
         self._ny: int = ny
 
@@ -718,7 +722,7 @@ class BodyXY(Body):
         self._y0: float = 0
         self._r0: float = 10
         self._rotation_radians: float = 0
-        self._disc_method: str = 'default'
+        self.set_disc_method('default')
 
         if self._nx > 0 and self._ny > 0:
             # centre disc if dimensions provided
@@ -726,7 +730,6 @@ class BodyXY(Body):
             self._y0 = self._ny / 2 - 0.5
             self._r0 = 0.9 * (min(self._x0, self._y0))
 
-        self._cache: dict[str, Any] = {}
         self._matplotlib_transform: matplotlib.transforms.Affine2D | None = None
         self._matplotlib_transform_radians: matplotlib.transforms.Affine2D | None = None
 
@@ -880,13 +883,15 @@ class BodyXY(Body):
     def get_img_size(self) -> tuple[int, int]:
         return (self._nx, self._ny)
 
-    def set_disc_method(self, method:str|None=None):
-        if method is None:
-            method = 'manual'
-        self._disc_method = method
+    def set_disc_method(self, method: str):
+        # Save disc method to the cahce. It will then be wiped automatically whenever
+        # the disc is moved. The key used in the cache contains a space, so will never
+        # collide with an auto-generated key from a function name (when @cache_result is
+        # used).
+        self._cache['disc method'] = method
 
     def get_disc_method(self) -> str:
-        return self._disc_method
+        return self._cache.get('disc method', 'manual')
 
     # Illumination functions etc. # TODO remove these?
     def limb_xy(self, **kw) -> tuple[np.ndarray, np.ndarray]:
