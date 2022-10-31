@@ -53,8 +53,14 @@ class Backplane(NamedTuple):
 
 def main(*args):
     utils.print_progress()
-    o = Observation.from_fits('data/europa.fits.gz')
-    o.plot_wireframe_xy()
+    o = Observation()
+
+    o = Observation('data/europa.fits.gz')
+    print(o)
+    utils.print_progress('__init__')
+    o.plot_backplane('radial_velocity')
+    utils.print_progress('plot')
+
 
 class SpiceTool:
     """
@@ -1121,40 +1127,79 @@ class BodyXY(Body):
 
 
 class Observation(BodyXY):
-    def __init__(self, path: str | None, data: np.ndarray, *args, **kw) -> None:
-        data = np.asarray(data)
-        nx = data.shape[2]
-        ny = data.shape[1]
+    FITS_FILE_EXTENSIONS = ('.fits', '.fits.gz')
+    IMAGE_FILE_EXTENSIONS = ('.png', '.jpg', '.jpeg')
 
-        super().__init__(*args, nx=nx, ny=ny, **kw)
-
+    def __init__(
+        self,
+        path: str | None = None,
+        *,
+        data: np.ndarray | None = None,
+        header: fits.Header | None = None,
+        **kw,
+    ) -> None:
         self.path = path
-        self.data = data
+        self.header = header
+        self.data: np.ndarray
+
+        if self.path is None:
+            if data is None:
+                raise ValueError('Either `path` or `data` must be provided')
+            self.data = data
+        else:
+            if data is not None:
+                raise ValueError('`path` and `data` are mutually exclusive')
+            if header is not None:
+                raise ValueError('`path` and `header` are mutually exclusive')
+            self._load_data_from_path()
+
+        self.data = np.asarray(self.data)
+        if self.header is not None:
+            # use values from header to fill in arguments (e.g. target) which aren't
+            # specified by the user
+            self._add_kw_from_header(kw)
+        super().__init__(nx=self.data.shape[2], ny=self.data.shape[1], **kw)
 
         self.centre_disc()
 
-    @classmethod
-    def from_image(cls, path: str, *args, **kwargs):
-        image = np.array(PIL.Image.open(path))
+    def _load_data_from_path(self):
+        assert self.path is not None
+        if any(self.path.endswith(ext) for ext in self.FITS_FILE_EXTENSIONS):
+            self._load_fits_data()
+        elif any(self.path.endswith(ext) for ext in self.IMAGE_FILE_EXTENSIONS):
+            self._load_image_data()
+        else:
+            raise ValueError(f'Unexpected file type for {self.path!r}')
+
+    def _load_fits_data(self):
+        assert self.path is not None
+        self.data, self.header = fits.getdata(self.path, header=True)  #  type: ignore
+        # TODO add check data is a cube
+
+    def _load_image_data(self):
+        assert self.path is not None
+        image = np.array(PIL.Image.open(self.path))
+
         if len(image.shape) == 2:
+            # If greyscale image, add another dimension so that it is an image cube with
+            # a single frame. This will ensure that data will always be a cube.
             image = np.array([image])
         else:
+            # If RGB image, change the axis order so wavelength is the first axis (i.e.
+            # consistent with FITS)
             image = np.moveaxis(image, 2, 0)
-        return cls(path, image, *args, **kwargs)
+        self.data = image
 
-    @classmethod
-    def from_fits(cls, path: str, **kwargs):
-        data: np.ndarray
-        hdr: fits.Header
-        data, hdr = fits.getdata(path, header=True)  # type: ignore
-
-        target = hdr['OBJECT']
-        dtm = hdr['DATE-OBS']
+    def _add_kw_from_header(self, kw: dict):
+        assert self.header is not None
+        # fill in kwargs with values from header (if they aren't specified by the user)
         # TODO deal with more FITS files (e.g. DATE-OBS doesn't work for JWST)
-        return cls(path, data, target=target, utc=dtm, **kwargs)
+        # TODO deal with missing values
+        kw.setdefault('target', self.header['OBJECT'])
+        kw.setdefault('utc', self.header['DATE-OBS'])
 
     def __repr__(self) -> str:
-        return f'Observation({self.path!r})'  # TODO
+        return f'Observation({self.path!r})'  # TODO make more explicit?
 
     # Auto disc id
     def centre_disc(self) -> None:
