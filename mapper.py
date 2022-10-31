@@ -53,12 +53,8 @@ class Backplane(NamedTuple):
 
 def main(*args):
     utils.print_progress()
-    o = BodyXY('Jupiter', '2022-01-01', nx=10, ny=10)
-    utils.print_progress('__init__')
-
-    img = o.get_lon_img()
-    utils.print_progress('img')
-
+    o = Observation.from_fits('data/europa.fits.gz')
+    o.plot_wireframe_xy()
 
 class SpiceTool:
     """
@@ -672,7 +668,7 @@ class Body(SpiceTool):
         ax.set_title(self.get_description(newline=True))
         return ax
 
-    def plot_wirefeame_radec(self, ax: Axes | None = None, show: bool = True) -> Axes:
+    def plot_wireframe_radec(self, ax: Axes | None = None, show: bool = True) -> Axes:
         """
         Plot basic wireframe representation of the observation
         """
@@ -921,7 +917,7 @@ class BodyXY(Body):
         )
 
     # Plotting
-    def plot_wirefeame_xy(self, ax: Axes | None = None, show: bool = True) -> Axes:
+    def plot_wireframe_xy(self, ax: Axes | None = None, show: bool = True) -> Axes:
         """
         Plot basic wireframe representation of the observation
         """
@@ -1116,7 +1112,7 @@ class BodyXY(Body):
         self, name: str, ax: Axes | None = None, show: bool = True, **kw
     ) -> Axes:
         backplane = self.backplanes[name]
-        ax = self.plot_wirefeame_xy(ax, show=False)
+        ax = self.plot_wireframe_xy(ax, show=False)
         im = ax.imshow(backplane.fn(), origin='lower', **kw)
         plt.colorbar(im, label=backplane.description)
         if show:
