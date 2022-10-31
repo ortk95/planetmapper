@@ -695,9 +695,16 @@ class BodyXY(Body):
         utc: str | datetime.datetime,
         nx: int = 0,
         ny: int = 0,
+        *,
+        sz: int | None = None,
         **kw,
     ) -> None:
         super().__init__(target, utc, **kw)
+        if sz is not None:
+            if nx != 0 or ny != 0:
+                raise ValueError('sz cannot be used if nx and/or ny are nonzero')
+            nx = sz
+            ny = sz
         self._nx: int = nx
         self._ny: int = ny
 
