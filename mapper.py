@@ -38,7 +38,7 @@ import warnings
 
 __version__ = '0.1'
 __author__ = 'Oliver King'
-__url__ = 'https://github.com/ortk95/planet_mapper'
+__url__ = 'https://github.com/ortk95/planetmapper'
 
 KERNEL_PATH = '~/spice/naif/generic_kernels/'
 
