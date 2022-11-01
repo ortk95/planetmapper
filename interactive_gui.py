@@ -40,6 +40,7 @@ class InteractiveObservation:
     def run(self) -> None:
         self.build_gui()
         self.root.mainloop()
+        # TODO do something when closed to kill figure etc.?
 
     # GUI Building
     def build_gui(self) -> None:
@@ -84,42 +85,46 @@ class InteractiveObservation:
             command=self.set_step_size,
         ).pack()
 
-        pos_controls = ttk.LabelFrame(frame, text='Position')
-        pos_controls.pack(fill='x')
+        pos_frame = ttk.LabelFrame(frame, text='Position')
+        pos_frame.pack(fill='x')
 
-        rot_controls = ttk.LabelFrame(frame, text='Rotation')
-        rot_controls.pack(fill='x')
+        rot_frame = ttk.LabelFrame(frame, text='Rotation')
+        rot_frame.pack(fill='x')
 
-        sz_controls = ttk.LabelFrame(frame, text='Size')
-        sz_controls.pack(fill='x')
+        sz_frame = ttk.LabelFrame(frame, text='Size')
+        sz_frame.pack(fill='x')
 
-        for s, fn in (
-            ('up ↑', self.move_up),
-            ('down ↓', self.move_down),
-            ('left ←', self.move_left),
-            ('right →', self.move_right),
+        for arrow, hint, fn, column, row in (
+            ('↑', 'up', self.move_up, 1, 0),
+            ('↗', 'up and right', self.move_up_right, 2,0),
+            ('→', 'right', self.move_right, 2, 1),
+            ('↘', 'down and right', self.move_down_right, 2,2),
+            ('↓', 'down', self.move_down, 1, 2),
+        ('↙', 'down and left', self.move_down_left, 0,2),
+            ('←', 'left', self.move_left, 0, 1),
+            ('↖', 'up and left', self.move_up_left, 0, 0)
         ):
             self.add_tooltip(
-                ttk.Button(pos_controls, text=s.capitalize(), command=fn),
-                f'Move fitted disc {s}',
-            ).pack()
+                ttk.Button(pos_frame, text=arrow.capitalize(), command=fn),
+                f'Move fitted disc {hint}',
+            ).grid(column=column, row=row)
 
-        for s, fn in (
+        for arrow, fn in (
             ('clockwise ↻', self.rotate_right),
             ('anticlockwise ↺', self.rotate_left),
         ):
             self.add_tooltip(
-                ttk.Button(rot_controls, text=s.capitalize(), command=fn),
-                f'Rotate fitted disc {s}',
+                ttk.Button(rot_frame, text=arrow.capitalize(), command=fn),
+                f'Rotate fitted disc {arrow}',
             ).pack()
 
-        for s, fn in (
+        for arrow, fn in (
             ('increase +', self.increase_radius),
             ('decrease -', self.decrease_radius),
         ):
             self.add_tooltip(
-                ttk.Button(sz_controls, text=s.capitalize(), command=fn),
-                f'{s.capitalize()} fitted disc radius',
+                ttk.Button(sz_frame, text=arrow.capitalize(), command=fn),
+                f'{arrow.capitalize()} fitted disc radius',
             ).pack()
 
     def build_settings_controls(self) -> None:
@@ -139,9 +144,7 @@ class InteractiveObservation:
         self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
 
     def build_help_hint(self) -> None:
-        self.help_hint = tk.Label(
-            self.hint_frame, text='', foreground='black'
-        )
+        self.help_hint = tk.Label(self.hint_frame, text='', foreground='black')
         self.help_hint.pack(side='left')
 
     def add_tooltip(self, widget: Widget, msg: str) -> Widget:
@@ -231,17 +234,29 @@ class InteractiveObservation:
         self.observation.set_y0(self.observation.get_y0() + self.step_size)
         self.update_plot()
 
-    def move_down(self) -> None:
-        self.observation.set_y0(self.observation.get_y0() - self.step_size)
-        self.update_plot()
+    def move_up_right(self) -> None:
+        raise NotImplementedError
 
     def move_right(self) -> None:
         self.observation.set_x0(self.observation.get_x0() + self.step_size)
         self.update_plot()
 
+    def move_down_right(self) -> None:
+        raise NotImplementedError
+
+
+    def move_down(self) -> None:
+        self.observation.set_y0(self.observation.get_y0() - self.step_size)
+        self.update_plot()
+    def move_down_left(self) -> None:
+        raise NotImplementedError
+
+
     def move_left(self) -> None:
         self.observation.set_x0(self.observation.get_x0() - self.step_size)
         self.update_plot()
+    def move_up_left(self) -> None:
+        raise NotImplementedError
 
     def rotate_left(self) -> None:
         self.observation.set_rotation(self.observation.get_rotation() - self.step_size)
