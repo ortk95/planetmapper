@@ -36,7 +36,7 @@ import PIL.Image
 from astropy.io import fits
 import warnings
 
-__version__ = '0.1'
+__version__ = '0.1.1'
 __author__ = 'Oliver King'
 __url__ = 'https://github.com/ortk95/planetmapper'
 
@@ -74,6 +74,7 @@ class SpiceTool:
     """
 
     DEFAULT_DTM_FORMAT_STRING = '%Y-%m-%dT%H:%M:%S.%f'
+    _KERNELS_LOADED = False
 
     def __init__(self, optimize_speed: bool = True) -> None:
         super().__init__()
@@ -91,11 +92,14 @@ class SpiceTool:
         # i.e. this lets python know it is UTC
         return datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%f%z')
 
-    @staticmethod
+    @classmethod
     def load_spice_kernels(
-        kernel_path: str = KERNEL_PATH, manual_kernels: None | list[str] = None
+        cls, kernel_path: str = KERNEL_PATH, manual_kernels: None | list[str] = None, only_if_needed:bool=True,
     ) -> None:
         # TODO do this better - don't necessarily need to keep running it every time
+        if only_if_needed and cls._KERNELS_LOADED:
+            return
+
         if manual_kernels:
             kernels = manual_kernels
         else:
@@ -109,6 +113,7 @@ class SpiceTool:
             kernels = [pcks[-1], spks1[-1], *spks2, lsks[-1], *jwst]
         for kernel in kernels:
             spice.furnsh(kernel)
+        cls._KERNELS_LOADED = True
 
     @staticmethod
     def close_loop(arr: np.ndarray) -> np.ndarray:
