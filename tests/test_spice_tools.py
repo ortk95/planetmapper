@@ -1,5 +1,5 @@
 import unittest
-import mapper
+from planetmapper import mapper
 import datetime
 import numpy as np
 from numpy import array, nan

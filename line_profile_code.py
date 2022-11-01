@@ -3,13 +3,9 @@
 """Script for profiling code during development (TODO delete in final version)"""
 import line_profiler
 from inspect import isclass, isfunction
-import utils
+from planetmapper import utils, mapper
 
 print_progress = lambda x='': utils.print_progress(x, c1='c')
-print_progress('importing...')
-import mapper
-
-print_progress('setting up...')
 
 # FUNCTION TO TIME ---------------------------------------------------------------------
 

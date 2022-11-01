@@ -1,5 +1,5 @@
 import unittest
-import mapper
+from planetmapper import mapper
 import numpy as np
 from test_random_locations import generate_dtm_str
 

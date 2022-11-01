@@ -30,15 +30,12 @@ from matplotlib.axes import Axes
 import numpy as np
 import spiceypy as spice
 from spiceypy.utils.exceptions import NotFoundError
-import utils
 from functools import wraps
 import PIL.Image
 from astropy.io import fits
 import warnings
-
-__version__ = '0.2'
-__author__ = 'Oliver King'
-__url__ = 'https://github.com/ortk95/planetmapper'
+from . import utils
+from . import common
 
 KERNEL_PATH = '~/spice/naif/generic_kernels/'
 
@@ -1271,8 +1268,10 @@ class Observation(BodyXY):
             self.header.append(fits.Card(keyword=keyword, value=value, comment=comment))
 
     def add_header_metadata(self):
-        self.append_to_header('VERSION', __version__, 'Planet Mapper version.')
-        self.append_to_header('URL', __url__, 'Webpage.')
+        self.append_to_header(
+            'VERSION', common.__version__, 'Planet Mapper version.'
+        )
+        self.append_to_header('URL', common.__url__, 'Webpage.')
         self.append_to_header(
             'DATE',
             datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),

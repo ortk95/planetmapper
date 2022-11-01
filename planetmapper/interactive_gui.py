@@ -11,9 +11,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import mapper
 import functools
-import utils
+from . import utils
+from . import mapper
+
 
 Widget = TypeVar('Widget', bound=tk.Widget)
 

@@ -3,8 +3,7 @@
 """Script for profiling code during development (TODO delete in final version)"""
 import cProfile
 import pstats
-import mapper
-import utils
+from planetmapper import utils, mapper
 
 nn = 50
 with cProfile.Profile() as pr:

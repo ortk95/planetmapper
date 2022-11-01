@@ -11,8 +11,8 @@ how long they take to execute `number` times, and the fastest time from
 """
 import timeit
 import math
-import utils
 import numpy as np
+from planetmapper import utils
 
 # SETUP --------------------------------------------------------------------------------
 # Adjust repeat & number as needed to ensure the timing doesn't take too long. Higher
