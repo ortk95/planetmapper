@@ -24,6 +24,8 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 autodoc_member_order = 'bysource'
 autoclass_content = 'both'
 # autodoc_typehints = 'both'
+# autodoc_typehints_description_target = 'documented_params'
+autodoc_inherit_docstrings = False
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output

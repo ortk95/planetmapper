@@ -5,23 +5,5 @@ from planetmapper import utils, mapper
 import numpy as np
 from functools import wraps
 
-
-class C:
-    CONST = False
-
-    @classmethod
-    def set_const(cls, v):
-        cls.CONST = v
-
-    def get_const(self):
-        return self.CONST
-
-
-a = C()
-b = C()
-print(a.get_const())
-print(b.get_const())
-
-a.set_const('abcdef')
-print(a.get_const())
-print(b.get_const())
+st = mapper.SpiceTool()
+st.standardise_body_name('bob')

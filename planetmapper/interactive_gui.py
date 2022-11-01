@@ -71,7 +71,7 @@ class InteractiveObservation:
     def build_gui(self) -> None:
         self.root = tk.Tk()
         self.root.geometry(self.DEFAULT_GEOMETRY)
-        self.root.title(self.observation.get_description(newline=False))
+        self.root.title(self.observation.get_description(multiline=False))
         self.configure_style()
 
         self.hint_frame = tk.Frame(self.root)

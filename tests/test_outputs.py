@@ -22,8 +22,8 @@ class TestBody(unittest.TestCase):
         self.assertEqual(self.obj.flattening, 0.0648743915403122)
 
     def test_subpoint(self):
-        self.assertAlmostEqual(self.obj.subpoint_ra, 23.853442709917307)
-        self.assertAlmostEqual(self.obj.subpoint_dec, 8.586656737972165)
+        self.assertAlmostEqual(self.obj._subpoint_ra, 23.853442709917307)
+        self.assertAlmostEqual(self.obj._subpoint_dec, 8.586656737972165)
         self.assertAlmostEqual(self.obj.subpoint_lat, 3.3106136262222714)
         self.assertAlmostEqual(self.obj.subpoint_lon, 340.18465394706067)
         self.assertAlmostEqual(self.obj.subpoint_distance, 690086737.7625527)
