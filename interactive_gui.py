@@ -233,20 +233,28 @@ class InteractiveObservation:
     # Keybindings
     def bind_keyboard(self) -> None:
         self.root.bind('<Key>', self.handle_keypress)
-
-    def handle_keypress(self, event) -> None:
-        # TODO add keybindings when creating buttons?
-        # TODO add keybinginds to hint?
-        # TODO build shortcuts dict elsewhere?
-        shortcuts: dict[str, Callable[[], Any]] = {
+        self.shortcuts: dict[str, Callable[[], Any]] = {
             'Up': self.move_up,
             'Right': self.move_right,
             'Down': self.move_down,
             'Left': self.move_left,
+            'period': self.rotate_right,
+            'greater': self.rotate_right,
+            'comma': self.rotate_left,
+            'less': self.rotate_left,
+            'equal': self.increase_radius,
+            'plus': self.increase_radius,
+            'minus': self.decrease_radius,
         }
+        # TODO add keybindings when creating buttons?
+        # TODO add keybinginds to hint?
+
+    def handle_keypress(self, event) -> None:
         sym = event.keysym
-        if sym in shortcuts:
-            shortcuts[sym]()
+        if sym in self.shortcuts:
+            self.shortcuts[sym]()
+        else:
+            print(sym)  # TODO delete this
 
     # Buttons
     def move_up(self) -> None:
