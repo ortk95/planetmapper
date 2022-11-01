@@ -17,10 +17,10 @@ class filter_fits_comment_warning(warnings.catch_warnings):
     def __enter__(self):
         out = super().__enter__()
         warnings.filterwarnings(
-                'ignore',
-                message='Card is too long, comment will be truncated.',
-                module='astropy.io.fits.card',
-            )
+            'ignore',
+            message='Card is too long, comment will be truncated.',
+            module='astropy.io.fits.card',
+        )
         return out
 
 

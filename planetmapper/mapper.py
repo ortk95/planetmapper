@@ -175,7 +175,7 @@ class SpiceTool:
         Args:
             arr: Array of values of length `n`.
 
-        Returns
+        Returns:
             Array of values of length `n+1` where the final value is the same as the
             first value.
         """
@@ -224,20 +224,25 @@ class Body(SpiceTool):
     that are passed to SPICE functions which can almost always be left as their default
     values.
 
+    This class inherits from :class:`SpiceTool` so the methods described above are also
+    available.
+
     Args:
         target: Name of target body.
-        utc: Time of observation.
-        observer: Name of observing body.
+        utc: Time of observation. This can be any string datetime representation
+            compatible with SPICE (e.g. '2000-12-31T23:59:59') or a Python datetime
+            object. The time is assumed to be UTC unless otherwise specified (e.g. by
+            using a timezone aware Python datetime). For the string formats accepted by
+            SPICE, see
+            https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/utc2et_c.html.
+        observer: Name of observing body. Defaults to 'EARTH'.
         observer_frame: Observer reference frame.
-        illumination_source: Illumination source (this is almost always the sun).
+        illumination_source: Illumination source (e.g. the sun).
         aberration_correction: Aberration correction used to correct light travel time
             in SPICE.
         subpoint_method: Method used to calculate the sub-observer point in SPICE.
         surface_method: Method used to calculate surface intercepts in SPICE.
         **kw: Additional arguments are passed to :class:`SpiceTool`.
-
-    This class inherits from :class:`SpiceTool` so the methods described above can also
-    be used.
     """
 
     def __init__(

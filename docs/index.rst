@@ -29,17 +29,17 @@ Mapper
    :members:
    :undoc-members:
 
-GUI
----
+.. GUI
+.. ---
 
-.. automodule:: planetmapper.interactive_gui
-   :show-inheritance:
-   :members:
-   :undoc-members:
+.. .. automodule:: planetmapper.interactive_gui
+..    :show-inheritance:
+..    :members:
+..    :undoc-members:
 
-Utils
------
-.. automodule:: planetmapper.utils
-   :show-inheritance:
-   :members:
-   :undoc-members:
+.. Utils
+.. -----
+.. .. automodule:: planetmapper.utils
+..    :show-inheritance:
+..    :members:
+..    :undoc-members:
