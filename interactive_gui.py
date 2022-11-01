@@ -11,6 +11,7 @@ import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import mapper
+import functools
 
 Widget = TypeVar('Widget', bound=tk.Widget)
 
@@ -232,29 +233,24 @@ class InteractiveObservation:
 
     # Keybindings
     def bind_keyboard(self) -> None:
-        self.root.bind('<Key>', self.handle_keypress)
-        self.shortcuts: dict[str, Callable[[], Any]] = {
-            'Up': self.move_up,
-            'Right': self.move_right,
-            'Down': self.move_down,
-            'Left': self.move_left,
-            'period': self.rotate_right,
-            'greater': self.rotate_right,
-            'comma': self.rotate_left,
-            'less': self.rotate_left,
-            'equal': self.increase_radius,
-            'plus': self.increase_radius,
-            'minus': self.decrease_radius,
+        self.shortcuts: dict[Callable[[], Any], list[str]] = {
+            self.move_up: ['<Up>', 'w'],
+            self.move_down: ['<Down>', 's'],
+            self.move_right: ['<Right>', 'd'],
+            self.move_left: ['<Left>', 'a'],
+            self.rotate_right: ['>', '.'],
+            self.rotate_left: ['<less>', ','],
+            self.increase_radius: ['+', '='],
+            self.decrease_radius: ['-', '_'],
+            # self.observation.centre_disc: ['<Control-c>'],
         }
+        for fn, events in self.shortcuts.items():
+            handler = lambda e, f=fn: f()
+            for event in events:
+                print(event)
+                self.root.bind(event, handler)
         # TODO add keybindings when creating buttons?
         # TODO add keybinginds to hint?
-
-    def handle_keypress(self, event) -> None:
-        sym = event.keysym
-        if sym in self.shortcuts:
-            self.shortcuts[sym]()
-        else:
-            print(sym)  # TODO delete this
 
     # Buttons
     def move_up(self) -> None:
