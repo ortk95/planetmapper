@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""    
+"""
 ## Coordinate systems # TODO add units
 - `xy` - image pixel coordinates [only used in subclass?] # TODO
 - `radec` - observer frame RA/Dec coordinates
@@ -36,7 +36,7 @@ import PIL.Image
 from astropy.io import fits
 import warnings
 
-__version__ = '0.1.1'
+__version__ = '0.2'
 __author__ = 'Oliver King'
 __url__ = 'https://github.com/ortk95/planetmapper'
 
@@ -1382,7 +1382,6 @@ class Observation(BodyXY):
             date=self.dtm.strftime('%Y-%m-%dT%H%M%S'),
             extension=extension,
         )
-
 
 
 if __name__ == '__main__':

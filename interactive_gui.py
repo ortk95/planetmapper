@@ -19,11 +19,11 @@ Widget = TypeVar('Widget', bound=tk.Widget)
 
 
 def main(*args):
-
     io = InteractiveObservation(
-        'data/jupiter_small.jpg',
-        target='jupiter',
-        utc=datetime.datetime(2020, 8, 25, 12),
+        # 'data/europa.fits.gz'
+        # 'data/jupiter_small.jpg',
+        # target='jupiter',
+        # utc=datetime.datetime(2020, 8, 25, 12),
     )
     io.run()
 
@@ -31,11 +31,16 @@ def main(*args):
 class InteractiveObservation:
     DEFAULT_GEOMETRY = '800x600+10+10'
 
-    def __init__(self, *args, **kwargs) -> None:
-        self.handles = []
+    def __init__(self, path: str | None = None, *args, **kwargs) -> None:
+        if path is None:
+            path = tkinter.filedialog.askopenfilename(title='Open FITS file')
+            # TODO add configuration for target, date etc.
+        self.observation = mapper.Observation(path, *args, **kwargs)
 
-        self.observation = mapper.Observation(*args, **kwargs)
         self.image = np.flipud(np.moveaxis(self.observation.data, 0, 2))
+        if self.image.shape[2] != 3:
+            self.image = np.nansum(self.image, axis=2)
+            # TODO get image better
 
         self.step_size = 10
 
@@ -50,6 +55,7 @@ class InteractiveObservation:
             self.decrease_radius: ['-', '_'],
             # self.observation.centre_disc: ['<Control-c>'],
         }
+        self.handles = []
 
     def __repr__(self) -> str:
         return f'InteractiveObservation()'
@@ -87,21 +93,15 @@ class InteractiveObservation:
         self.notebook = ttk.Notebook(self.controls_frame)
         self.notebook.pack(fill='both', expand=True)
         self.build_main_controls()
-        self.build_settings_controls()
+        # self.build_settings_controls()
 
     def build_main_controls(self):
         frame = ttk.Frame(self.notebook)
         frame.pack()
         self.notebook.add(frame, text='Controls')
 
-        ttk.Scale(
-            frame,
-            orient='horizontal',
-            from_=0.1,
-            to=10,
-            value=10,
-            command=self.set_step_size,
-        ).pack()
+        step_size_frame = ttk.LabelFrame(frame, text='Step size')
+        step_size_frame.pack(fill='x')
 
         pos_frame = ttk.LabelFrame(frame, text='Position')
         pos_frame.pack(fill='x')
@@ -114,6 +114,15 @@ class InteractiveObservation:
 
         save_frame = ttk.LabelFrame(frame, text='Output')
         save_frame.pack(fill='x')
+
+        ttk.Scale(
+            step_size_frame,
+            orient='horizontal',
+            from_=0.1,
+            to=10,
+            value=10,
+            command=self.set_step_size,
+        ).pack()
 
         pos_button_frame = ttk.Frame(pos_frame)
         pos_button_frame.pack()
