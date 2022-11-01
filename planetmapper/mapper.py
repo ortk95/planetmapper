@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-## Coordinate systems # TODO add units
-- `xy` - image pixel coordinates [only used in subclass?] # TODO
+Coordinate systems:
+- `xy` - image pixel coordinates
 - `radec` - observer frame RA/Dec coordinates
 - `obsvec` - observer frame (e.g. J2000) rectangular vector
 - `obsvec_norm` - normalised observer frame rectangular vector
-    i.e. magnitude is meaningless and only direction matters for `obsvec_norm`
 - `rayvec` - target frame rectangular vector from observer to point
 - `targvec` - target frame rectangular vector
 - `lonlat` - planetary coordinates on target
@@ -44,12 +43,6 @@ P = ParamSpec('P')
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
 
 
-class Backplane(NamedTuple):
-    name: str
-    description: str
-    fn: Callable[[], np.ndarray]
-
-
 def main(*args):
     utils.print_progress()
     o = Observation('data/europa.fits.gz')
@@ -68,23 +61,39 @@ def main(*args):
 
 class SpiceTool:
     """
-    Basic class containing methods to interface with spice and basic tools.
+    Class containing methods to interface with spice and manipulate coordinates.
     """
 
     DEFAULT_DTM_FORMAT_STRING = '%Y-%m-%dT%H:%M:%S.%f'
     _KERNELS_LOADED = False
 
     def __init__(self, optimize_speed: bool = True) -> None:
+        """
+        Args:
+            optimize_speed: Toggle speed optimizations. For typical observations, the
+                optimizations can make code significantly faster with no effect on
+                accuracy, so should generally be left enabled.
+        """
         super().__init__()
         self._optimize_speed = optimize_speed
 
     @staticmethod
     def standardise_body_name(name: str) -> str:
+        """
+        Return a standardised version of the name of a SPICE body.
+
+        e.g. 'jupiter', 'JUPITER', '599' and 'Jupiter' are all standardised to 'JUPITER'
+        """
         name = spice.bodc2s(spice.bods2c(name))
         return name
 
     @staticmethod
     def et2dtm(et: float) -> datetime.datetime:
+        """
+        Convert ephemeris time seconds to a Python datetime object.
+
+        The returned datetime is timezone aware (in the UTC timezone).
+        """
         s = spice.et2utc(et, 'ISOC', 6) + '+0000'
         # manually add '+0000' to string to make it timezone aware
         # i.e. this lets python know it is UTC
@@ -97,6 +106,16 @@ class SpiceTool:
         manual_kernels: None | list[str] = None,
         only_if_needed: bool = True,
     ) -> None:
+        """
+        Attempt to intelligently SPICE kernels using `spice.furnsh`.
+
+        Args:
+            kernel_path: Path to directory where generic_kernels are stored.
+            manual_kernels: Optional manual list of paths to kernels to load instead of
+                using `kernel_path`.
+            only_if_needed: If this is `True`, kernels will only be loaded once per
+                session.
+        """
         # TODO do this better - don't necessarily need to keep running it every time
         if only_if_needed and cls._KERNELS_LOADED:
             return
@@ -117,7 +136,25 @@ class SpiceTool:
 
     @staticmethod
     def close_loop(arr: np.ndarray) -> np.ndarray:
+        """
+        Return copy of array with first element appended to the end.
+
+        This is useful for cases like plotting the limb of a planet where the array of
+        values should be closed into a continuous loop.
+        """
         return np.append(arr, [arr[0]], axis=0)
+
+    @staticmethod
+    def unit_vector(v: np.ndarray) -> np.ndarray:
+        """Return normalised copy of a vector."""
+        # Fastest method
+        return v / (sum(v * v)) ** 0.5
+
+    def _encode_str(self, s: str) -> bytes | str:
+        if self._optimize_speed:
+            return s.encode('UTF-8')
+        else:
+            return s
 
     @staticmethod
     def _radian_pair2degrees(
@@ -131,21 +168,10 @@ class SpiceTool:
     ) -> tuple[Numeric, Numeric]:
         return np.deg2rad(degrees0), np.deg2rad(degrees1)  # type: ignore
 
-    @staticmethod
-    def unit_vector(v: np.ndarray) -> np.ndarray:
-        # Fastest method
-        return v / (sum(v * v)) ** 0.5
-
-    def _encode_str(self, s: str) -> bytes | str:
-        if self._optimize_speed:
-            return s.encode('UTF-8')
-        else:
-            return s
-
 
 class Body(SpiceTool):
     """
-    Class representing spice data about an observation of an astronomical body.
+    Class representing an astronomical body observed at a specific time.
     """
 
     def __init__(
@@ -164,6 +190,13 @@ class Body(SpiceTool):
         manual_kernels: None | list[str] = None,
         **kw,
     ) -> None:
+        """
+        Args:
+            target: Name of target body.
+            utc: Time of observation.
+            observer: Name of observing body.
+        Additional arguments are used to specify parameters used in SPICE functions.
+        """
         super().__init__(**kw)
 
         # Process inputs
@@ -353,6 +386,10 @@ class Body(SpiceTool):
         )
 
     def lonlat2radec(self, lon: float, lat: float) -> tuple[float, float]:
+        """
+        Convert longitide/latitude coordinates on the target body to RA/Dec sky
+        coordinates for the observer.
+        """
         return self._radian_pair2degrees(
             *self._lonlat2radec_radians(*self._degree_pair2radians(lon, lat))
         )
@@ -375,14 +412,26 @@ class Body(SpiceTool):
         return ra, dec
 
     def radec2lonlat(self, ra: float, dec: float, **kw) -> tuple[float, float]:
+        """
+        Convert RA/Dec sky coordinates for the observer to longitude/latitude
+        coordinates on the target body.
+        """
         return self._radian_pair2degrees(
             *self._radec2lonlat_radians(*self._degree_pair2radians(ra, dec), **kw)
         )
 
     def lonlat2targvec(self, lon: float, lat: float) -> np.ndarray:
+        """
+        Convert longitude/latitude coordinates on the target body to rectangular vector
+        centred in the target frame.
+        """
         return self._lonlat2targvec_radians(*self._degree_pair2radians(lon, lat))
 
     def targvec2lonlat(self, targvec: np.ndarray) -> tuple[float, float]:
+        """
+        Convert rectangular vector centred in the target frame to longitude/latitude
+        coordinates on the target body.
+        """
         return self._radian_pair2degrees(*self._targvec2lonlat_radians(targvec))
 
     def _targvec_arr2radec_arrs_radians(
@@ -460,11 +509,35 @@ class Body(SpiceTool):
         return points
 
     def limb_radec(self, **kw) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Calculate the RA/Dec coordinates of the target body's limb.
+
+        Args:
+            npts: Number of points in the generated limb.
+
+        Returns:
+            Tuple of RA/DEC coordinate arrays `(ra, dec)`.
+        """
         return self._targvec_arr2radec_arrs(self._limb_targvec(**kw))
 
     def limb_radec_by_illumination(
         self, **kw
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Calculate RA/Dec coordinates of the dayside and nightside parts of the target
+        body's limb.
+
+        Output arrays are like the outputs of `limb_radec`, but the dayside coordinate
+        arrays have non-illuminated locations replaced with NaN and the nightside arrays
+        have illuminated locations replaced with NaN.
+
+        Args:
+            npts: Number of points in the generated limbs.
+
+        Returns:
+            RA/Dec coordinate arrays of the dayside and nightside parts of the limb
+            `(ra_day, dec_day, ra_night, dec_night)`.
+        """
         targvec_arr = self._limb_targvec(**kw)
         ra_day, dec_day = self._targvec_arr2radec_arrs(targvec_arr)
         ra_night = ra_day.copy()
@@ -484,18 +557,27 @@ class Body(SpiceTool):
         return visibl
 
     def test_if_lonlat_visible(self, lon: float, lat: float) -> bool:
+        """Test if longitude/latitude coordinate on the target body are visible."""
         return self._test_if_targvec_visible(self.lonlat2targvec(lon, lat))
 
     # Illumination
     def _illumination_angles_from_targvec_radians(
         self, targvec: np.ndarray
     ) -> tuple[float, float, float]:
+
         phase, incdnc, emissn, visibl, lit = self._illumf_from_targvec_radians(targvec)
         return phase, incdnc, emissn
 
     def illumination_angles_from_lonlat(
         self, lon: float, lat: float
     ) -> tuple[float, float, float]:
+        """
+        Calculate the illimination angles of a longitude/latitude coordinate on the
+        target body.
+
+        Returns:
+            A tuple containing the illumination angles `(phase, incidence, emission)`.
+        """
         phase, incdnc, emissn = self._illumination_angles_from_targvec_radians(
             self.lonlat2targvec(lon, lat)
         )
@@ -509,6 +591,18 @@ class Body(SpiceTool):
         method: str = 'UMBRAL/TANGENT/ELLIPSOID',
         corloc: str = 'ELLIPSOID TERMINATOR',
     ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Calcilate the RA/Dec coordinates of the terminator (line between day and night)
+        on the target body. By default, only the visible part of the terminator is 
+        returned (this can be changed with `only_visible`).
+
+        Args:
+            npts: Number of points in generated terminator.
+            only_visible: Toggle only returning visible part of terminator.
+
+        Returns:
+            Tuple of RA/DEC coordinate arrays `(ra, dec)`.
+        """
         refvec = [0, 0, 1]
         rolstp = 2 * np.pi / npts
         _, targvec_arr, epochs, trmvcs = spice.termpt(
@@ -540,6 +634,7 @@ class Body(SpiceTool):
         return lit
 
     def test_if_lonlat_illuminated(self, lon: float, lat: float) -> bool:
+        """Test if longitide/latitude cooridnate on the target body is illuminated."""
         return self._test_if_targvec_illuminated(self.lonlat2targvec(lon, lat))
 
     # Lonlat grid
@@ -1268,9 +1363,7 @@ class Observation(BodyXY):
             self.header.append(fits.Card(keyword=keyword, value=value, comment=comment))
 
     def add_header_metadata(self):
-        self.append_to_header(
-            'VERSION', common.__version__, 'Planet Mapper version.'
-        )
+        self.append_to_header('VERSION', common.__version__, 'Planet Mapper version.')
         self.append_to_header('URL', common.__url__, 'Webpage.')
         self.append_to_header(
             'DATE',
@@ -1381,6 +1474,22 @@ class Observation(BodyXY):
             date=self.dtm.strftime('%Y-%m-%dT%H%M%S'),
             extension=extension,
         )
+
+
+class Backplane(NamedTuple):
+    """
+    NamedTuple containing information about a backplane.
+
+    Args:
+        name (str): Short name identifying the backplane.
+        description (str): More detailed description of the backplane.
+        fn (Callable[[], np.ndarray]): Function which returns the backplane image when
+            called.
+    """
+
+    name: str
+    description: str
+    fn: Callable[[], np.ndarray]
 
 
 if __name__ == '__main__':
