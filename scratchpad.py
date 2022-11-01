@@ -8,32 +8,21 @@ from functools import wraps
 
 
 class C:
-    @staticmethod
-    def add_method(fn):
-        # @wraps(
-        #     fn,
-        # )
-        def wrapped(
-            self,
-            *args,
-            method='spam',
-            **kwargs,
-        ):
-            print(args, kwargs)
-            self.set_method(method)
-            return fn(self, *args, **kwargs)
+    CONST = False
 
-        return wrapped
+    @classmethod
+    def set_const(cls, v):
+        cls.CONST = v
 
-    @add_method
-    def set_x0(self, x0: float):
-        print('> setting x0', x0)
-
-    def set_method(self, method):
-        print('method', method)
+    def get_const(self):
+        return self.CONST
 
 
-c = C()
+a = C()
+b = C()
+print(a.get_const())
+print(b.get_const())
 
-
-c.set_x0(123, method='123')
+a.set_const('abcdef')
+print(a.get_const())
+print(b.get_const())

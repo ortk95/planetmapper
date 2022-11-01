@@ -22,50 +22,31 @@ number = 100  # Number of times statement is called in each timing loop
 
 
 # Define any variables, module imports etc. to use in the snippets here...
-import math
-
-x, y, x0, y0 = np.random.rand(4)
-r2 = np.random.rand() ** 2
+d = {'a': 1, 'b': 2, 'c': 3, 'd': 4}
+k = 'z'
 
 
-def f1():
-    return (x - x0) ** 2 + (y - y0) ** 2 > r2
+def f_get():
+    return d.get(k, None)
 
 
-def f2():
-    return (x - x0) * (x - x0) + (y - y0) * (y - y0) > r2
+def f_try():
+    try:
+        return d[k]
+    except KeyError:
+        pass
 
 
-def f3():
-    dx = x - x0
-    dy = y - y0
-    return dx * dx + dy * dy > r2
-
-
-def f4():
-    dx = x - x0
-    if dx*dx > r2:
-        return True
-    dy = y - y0
-    if dy*dy > r2:
-        return True
-    return dx * dx + dy * dy > r2
-
-
-def f5():
-    dx = x - x0
-    dy = y - y0
-    return dx * dx > r2 or dy * dy > r2 or dx * dx + dy * dy > r2
+def f_in():
+    if k in d:
+        return d[k]
 
 
 # Define code snippets as a list of strings to execute here...
 statements = [
-    '(x - x0)**2 + (y - y0)**2 > r2',
-    'f1()',
-    'f2()',
-    'f3()',
-    'f4()',
-    'f5()',
+    'f_get()',
+    'f_try()',
+    'f_in()',
 ]
 
 statements = ['out = ' + s for s in statements]

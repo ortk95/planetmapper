@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""    
+"""
 ## Coordinate systems # TODO add units
 - `xy` - image pixel coordinates [only used in subclass?] # TODO
 - `radec` - observer frame RA/Dec coordinates
@@ -36,7 +36,9 @@ import PIL.Image
 from astropy.io import fits
 import warnings
 
-__version__ = '0.1'
+__version__ = '0.2'
+__author__ = 'Oliver King'
+__url__ = 'https://github.com/ortk95/planetmapper'
 
 KERNEL_PATH = '~/spice/naif/generic_kernels/'
 
@@ -55,6 +57,7 @@ def main(*args):
     utils.print_progress()
     o = Observation('data/europa.fits.gz')
     print(o)
+    print(o.make_filename())
     utils.print_progress('__init__')
     # o.plot_backplane('radial_velocity')
     # utils.print_progress('plot')
@@ -72,6 +75,7 @@ class SpiceTool:
     """
 
     DEFAULT_DTM_FORMAT_STRING = '%Y-%m-%dT%H:%M:%S.%f'
+    _KERNELS_LOADED = False
 
     def __init__(self, optimize_speed: bool = True) -> None:
         super().__init__()
@@ -89,11 +93,17 @@ class SpiceTool:
         # i.e. this lets python know it is UTC
         return datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%f%z')
 
-    @staticmethod
+    @classmethod
     def load_spice_kernels(
-        kernel_path: str = KERNEL_PATH, manual_kernels: None | list[str] = None
+        cls,
+        kernel_path: str = KERNEL_PATH,
+        manual_kernels: None | list[str] = None,
+        only_if_needed: bool = True,
     ) -> None:
         # TODO do this better - don't necessarily need to keep running it every time
+        if only_if_needed and cls._KERNELS_LOADED:
+            return
+
         if manual_kernels:
             kernels = manual_kernels
         else:
@@ -101,12 +111,12 @@ class SpiceTool:
             pcks = sorted(glob.glob(kernel_path + 'pck/*.tpc'))
             spks1 = sorted(glob.glob(kernel_path + 'spk/planets/de*.bsp'))
             spks2 = sorted(glob.glob(kernel_path + 'spk/satellites/*.bsp'))
-            fks = sorted(glob.glob(kernel_path + 'fk/planets/*.tf'))
             lsks = sorted(glob.glob(kernel_path + 'lsk/naif*.tls'))
             jwst = sorted(glob.glob(kernel_path + '../../jwst/*.bsp'))
             kernels = [pcks[-1], spks1[-1], *spks2, lsks[-1], *jwst]
         for kernel in kernels:
             spice.furnsh(kernel)
+        cls._KERNELS_LOADED = True
 
     @staticmethod
     def close_loop(arr: np.ndarray) -> np.ndarray:
@@ -723,6 +733,7 @@ class BodyXY(Body):
         self._r0: float = 10
         self._rotation_radians: float = 0
         self.set_disc_method('default')
+        self._default_disc_method = 'manual'
 
         if self._nx > 0 and self._ny > 0:
             # centre disc if dimensions provided
@@ -891,7 +902,7 @@ class BodyXY(Body):
         self._cache['disc method'] = method
 
     def get_disc_method(self) -> str:
-        return self._cache.get('disc method', 'manual')
+        return self._cache.get('disc method', self._default_disc_method)
 
     # Illumination functions etc. # TODO remove these?
     def limb_xy(self, **kw) -> tuple[np.ndarray, np.ndarray]:
@@ -1097,44 +1108,54 @@ class BodyXY(Body):
         return self.get_radial_velocity_img() / spice.clight()
 
     # Backplane management
+    @staticmethod
+    def standardise_backplane_name(name: str) -> str:
+        return name.strip().upper()
+
     def register_backplane(
         self, fn: Callable[[], np.ndarray], name: str, description: str
     ) -> None:
         # TODO add checks for name/description lengths?
-        # TODO casefold name?
+        name = self.standardise_backplane_name(name)
         if name in self.backplanes:
             raise ValueError(f'Backplane named {name!r} is already registered')
         self.backplanes[name] = Backplane(name=name, description=description, fn=fn)
 
     def _register_default_backplanes(self) -> None:
         # TODO double check units and expand descriptions
-        self.register_backplane(self.get_lon_img, 'lon', 'Longitude [deg]')
-        self.register_backplane(self.get_lat_img, 'lat', 'Latitude [deg]')
-        self.register_backplane(self.get_ra_img, 'ra', 'Right ascension [deg]')
-        self.register_backplane(self.get_dec_img, 'dec', 'Declination [deg]')
+        self.register_backplane(self.get_lon_img, 'LON', 'Longitude [deg]')
+        self.register_backplane(self.get_lat_img, 'LAT', 'Latitude [deg]')
+        self.register_backplane(self.get_ra_img, 'RA', 'Right ascension [deg]')
+        self.register_backplane(self.get_dec_img, 'DEC', 'Declination [deg]')
         self.register_backplane(self.get_phase_angle_img, 'phase', 'Phase angle [deg]')
         self.register_backplane(
-            self.get_incidence_angle_img, 'incidence', 'Incidence angle [deg]'
+            self.get_incidence_angle_img, 'INCIDENCE', 'Incidence angle [deg]'
         )
         self.register_backplane(
-            self.get_emission_angle_img, 'emission', 'Emission angle [dec]'
+            self.get_emission_angle_img, 'EMISSION', 'Emission angle [dec]'
         )
-        self.register_backplane(self.get_distance_img, 'distance', 'Distance [km]')
         self.register_backplane(
-            self.get_radial_velocity_img, 'radial_velocity', 'Radial velocity [km/s]'
+            self.get_distance_img, 'DISTANCE', 'Distance [km] to observer'
+        )
+        self.register_backplane(
+            self.get_radial_velocity_img,
+            'RADIAL_VELOCITY',
+            'Radial velocity [km/s] from observer',
         )
         self.register_backplane(
             self.get_doppler_img,
-            'doppler',
-            'Radial velocity/speed of light [dimensionless]',
+            'DOPPLER',
+            '(Radial velocity)/(speed of light)',
         )
 
     def get_backplane_img(self, name: str) -> np.ndarray:
+        name = self.standardise_backplane_name(name)
         return self.backplanes[name].fn()
 
     def plot_backplane(
         self, name: str, ax: Axes | None = None, show: bool = True, **kw
     ) -> Axes:
+        name = self.standardise_backplane_name(name)
         backplane = self.backplanes[name]
         ax = self.plot_wireframe_xy(ax, show=False)
         im = ax.imshow(backplane.fn(), origin='lower', **kw)
@@ -1173,6 +1194,7 @@ class Observation(BodyXY):
                 raise ValueError('`path` and `header` are mutually exclusive')
             self._load_data_from_path()
 
+        # TODO validate/standardise shape of data here (cube etc.)
         self.data = np.asarray(self.data)
         if self.header is not None:
             # use values from header to fill in arguments (e.g. target) which aren't
@@ -1245,17 +1267,12 @@ class Observation(BodyXY):
     ):
         if hierarch_keyword:
             keyword = f'HIERARCH {self.FITS_KEYWORD} {keyword}'
-        with warnings.catch_warnings():
-            # Suppress warning about comments being truncated
-            warnings.filterwarnings(
-                'ignore',
-                message='Card is too long, comment will be truncated.',
-                module='astropy.io.fits.card',
-            )
+        with utils.filter_fits_comment_warning():
             self.header.append(fits.Card(keyword=keyword, value=value, comment=comment))
 
     def add_header_metadata(self):
         self.append_to_header('VERSION', __version__, 'Planet Mapper version.')
+        self.append_to_header('URL', __url__, 'Webpage.')
         self.append_to_header(
             'DATE',
             datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
@@ -1344,19 +1361,27 @@ class Observation(BodyXY):
 
     def save(self, path: str) -> None:
         """Save fits file with backplanes"""
-        self.add_header_metadata()
+        with utils.filter_fits_comment_warning():
+            self.add_header_metadata()
 
-        hdu = fits.PrimaryHDU(data=self.data, header=self.header)
-        hdul = fits.HDUList([hdu])
+            hdu = fits.PrimaryHDU(data=self.data, header=self.header)
+            hdul = fits.HDUList([hdu])
 
-        for name, backplane in self.backplanes.items():
-            utils.print_progress(name)
-            img = backplane.fn()
-            header = fits.Header([('ABOUT', backplane.description)])
-            header.add_comment('Backplane generated by Planet Mapper software.')
-            hdu = fits.ImageHDU(data=img, header=header, name=name)
-            hdul.append(hdu)
-        hdul.writeto(path, overwrite=True)
+            for name, backplane in self.backplanes.items():
+                utils.print_progress(name)
+                img = backplane.fn()
+                header = fits.Header([('ABOUT', backplane.description)])
+                header.add_comment('Backplane generated by Planet Mapper software.')
+                hdu = fits.ImageHDU(data=img, header=header, name=name)
+                hdul.append(hdu)
+            hdul.writeto(path, overwrite=True)
+
+    def make_filename(self, extension='.fits.gz') -> str:
+        return '{target}_{date}{extension}'.format(
+            target=self.target,
+            date=self.dtm.strftime('%Y-%m-%dT%H%M%S'),
+            extension=extension,
+        )
 
 
 if __name__ == '__main__':

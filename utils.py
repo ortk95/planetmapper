@@ -9,7 +9,19 @@ import os
 import traceback
 import subprocess
 import numpy as np
+import warnings
 from datetime import datetime, timedelta
+
+
+class filter_fits_comment_warning(warnings.catch_warnings):
+    def __enter__(self):
+        out = super().__enter__()
+        warnings.filterwarnings(
+                'ignore',
+                message='Card is too long, comment will be truncated.',
+                module='astropy.io.fits.card',
+            )
+        return out
 
 
 def cprint(*msg, fg=None, bg=None, style=None, skip_print=False, sep=' ', **kwargs):
