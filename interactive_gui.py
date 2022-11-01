@@ -4,6 +4,7 @@ import datetime
 import sys
 import tkinter as tk
 from tkinter import ttk
+import tkinter.filedialog
 from typing import TypeVar, Callable, Any
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
@@ -12,6 +13,7 @@ from matplotlib.axes import Axes
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import mapper
 import functools
+import utils
 
 Widget = TypeVar('Widget', bound=tk.Widget)
 
@@ -19,7 +21,9 @@ Widget = TypeVar('Widget', bound=tk.Widget)
 def main(*args):
 
     io = InteractiveObservation(
-        'data/jupiter.jpg', target='jupiter', utc=datetime.datetime(2020, 8, 25, 12)
+        'data/jupiter_small.jpg',
+        target='jupiter',
+        utc=datetime.datetime(2020, 8, 25, 12),
     )
     io.run()
 
@@ -34,6 +38,18 @@ class InteractiveObservation:
         self.image = np.flipud(np.moveaxis(self.observation.data, 0, 2))
 
         self.step_size = 10
+
+        self.shortcuts: dict[Callable[[], Any], list[str]] = {
+            self.move_up: ['<Up>', 'w'],
+            self.move_down: ['<Down>', 's'],
+            self.move_right: ['<Right>', 'd'],
+            self.move_left: ['<Left>', 'a'],
+            self.rotate_right: ['>', '.'],
+            self.rotate_left: ['<less>', ','],
+            self.increase_radius: ['+', '='],
+            self.decrease_radius: ['-', '_'],
+            # self.observation.centre_disc: ['<Control-c>'],
+        }
 
     def __repr__(self) -> str:
         return f'InteractiveObservation()'
@@ -96,6 +112,11 @@ class InteractiveObservation:
         sz_frame = ttk.LabelFrame(frame, text='Size')
         sz_frame.pack(fill='x')
 
+        save_frame = ttk.LabelFrame(frame, text='Output')
+        save_frame.pack(fill='x')
+
+        pos_button_frame = ttk.Frame(pos_frame)
+        pos_button_frame.pack()
         for arrow, hint, fn, column, row in (
             ('↑', 'up', self.move_up, 1, 0),
             ('↗', 'up and right', self.move_up_right, 2, 0),
@@ -107,9 +128,9 @@ class InteractiveObservation:
             ('↖', 'up and left', self.move_up_left, 0, 0),
         ):
             self.add_tooltip(
-                ttk.Button(pos_frame, text=arrow, command=fn, width=5),
+                ttk.Button(pos_button_frame, text=arrow, command=fn, width=2),
                 f'Move fitted disc {hint}',
-            ).grid(column=column, row=row)
+            ).grid(column=column, row=row, ipadx=5, ipady=5)
 
         for arrow, fn in (
             ('clockwise ↻', self.rotate_right),
@@ -128,6 +149,11 @@ class InteractiveObservation:
                 ttk.Button(sz_frame, text=arrow.capitalize(), command=fn),
                 f'{arrow.capitalize()} fitted disc radius',
             ).pack()
+
+        self.add_tooltip(
+            ttk.Button(save_frame, text='Save', command=self.save),
+            f'Save FITS file with backplane data',
+        ).pack()
 
     def build_settings_controls(self) -> None:
         settings = ttk.Frame(self.notebook)
@@ -233,21 +259,9 @@ class InteractiveObservation:
 
     # Keybindings
     def bind_keyboard(self) -> None:
-        self.shortcuts: dict[Callable[[], Any], list[str]] = {
-            self.move_up: ['<Up>', 'w'],
-            self.move_down: ['<Down>', 's'],
-            self.move_right: ['<Right>', 'd'],
-            self.move_left: ['<Left>', 'a'],
-            self.rotate_right: ['>', '.'],
-            self.rotate_left: ['<less>', ','],
-            self.increase_radius: ['+', '='],
-            self.decrease_radius: ['-', '_'],
-            # self.observation.centre_disc: ['<Control-c>'],
-        }
         for fn, events in self.shortcuts.items():
             handler = lambda e, f=fn: f()
             for event in events:
-                print(event)
                 self.root.bind(event, handler)
         # TODO add keybindings when creating buttons?
         # TODO add keybinginds to hint?
@@ -308,6 +322,24 @@ class InteractiveObservation:
     def set_step_size(self, value: str) -> None:
         print(f'>> Setting step size to {value}')
         self.step_size = float(value)
+
+    def save(self) -> None:
+        path = tkinter.filedialog.asksaveasfilename(
+            title='Save FITS file',
+            parent=self.root,
+            # defaultextension='.fits',
+            initialfile=self.observation.make_filename(),
+            # filetypes=[
+            #     ('FITS', '*.fits'),
+            #     ('Compressed FITS', '*.fits.gz')
+            # ],
+        )
+        # TODO add some validation
+        # TODO add some progress UI
+        print(path)
+        utils.print_progress(c1='c')
+        self.observation.save(path)
+        utils.print_progress('saved', c1='c')
 
 
 if __name__ == '__main__':
