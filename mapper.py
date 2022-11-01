@@ -107,7 +107,6 @@ class SpiceTool:
             pcks = sorted(glob.glob(kernel_path + 'pck/*.tpc'))
             spks1 = sorted(glob.glob(kernel_path + 'spk/planets/de*.bsp'))
             spks2 = sorted(glob.glob(kernel_path + 'spk/satellites/*.bsp'))
-            fks = sorted(glob.glob(kernel_path + 'fk/planets/*.tf'))
             lsks = sorted(glob.glob(kernel_path + 'lsk/naif*.tls'))
             jwst = sorted(glob.glob(kernel_path + '../../jwst/*.bsp'))
             kernels = [pcks[-1], spks1[-1], *spks2, lsks[-1], *jwst]

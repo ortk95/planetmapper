@@ -16,90 +16,81 @@ Widget = TypeVar('Widget', bound=tk.Widget)
 
 
 def main(*args):
-    io = InteractiveObservation()
+
+    io = InteractiveObservation(
+        'data/jupiter.jpg', target='jupiter', utc=datetime.datetime(2020, 8, 25, 12)
+    )
     io.run()
 
 
 class InteractiveObservation:
-    def __init__(self) -> None:
+    DEFAULT_GEOMETRY = '800x600+10+10'
+
+    def __init__(self, *args, **kwargs) -> None:
         self.handles = []
 
-        p = 'jupiter_test.jpg'
-        self.observation = mapper.BodyXY(
-            'jupiter', datetime.datetime(2020, 8, 25, 12)
-        )
-        self.image = np.flipud(plt.imread(p))
-
-        self.observation.set_x0(self.image.shape[0] / 2)
-        self.observation.set_y0(self.image.shape[1] / 2)
-        self.observation.set_r0(self.image.shape[0] / 4)
-        self.observation._set_rotation_radians(0)
+        self.observation = mapper.Observation(*args, **kwargs)
+        self.image = np.flipud(np.moveaxis(self.observation.data, 0, 2))
 
         self.step_size = 10
-
-        self.ax: Axes
-        self.canvas: FigureCanvasTkAgg
-        # print(self.observation.get_x0())
-        # print(self.observation.get_y0())
-        # print(self.observation.get_r0())
-        # print(self.observation.get_rotation())
 
     def __repr__(self) -> str:
         return f'InteractiveObservation()'
 
     def run(self) -> None:
-        root = tk.Tk()
-        style = ttk.Style(root)
-        style.theme_use('default')
+        self.build_gui()
+        self.root.mainloop()
 
-        panel_bottom = tk.Frame(root)
-        panel_bottom.pack(side='bottom', fill='x')
-        help_hint = tk.Label(panel_bottom, text='', foreground='black')
-        help_hint.pack()
-        self.help_hint = help_hint
+    # GUI Building
+    def build_gui(self) -> None:
+        self.root = tk.Tk()
+        self.root.geometry(self.DEFAULT_GEOMETRY)
+        self.root.title(self.observation.get_description(newline=False))
+        self.configure_style()
 
-        panel_right = tk.Frame(root)
-        panel_right.pack(side='right', fill='y')
+        self.hint_frame = tk.Frame(self.root)
+        self.hint_frame.pack(side='bottom', fill='x')
+        self.build_help_hint()
 
-        notebook = ttk.Notebook(panel_right)
-        notebook.pack(fill='both', expand=True)
+        self.controls_frame = tk.Frame(self.root)
+        self.controls_frame.pack(side='left', fill='y')
+        self.build_controls()
 
-        controls = ttk.Frame(notebook)
-        controls.pack()
-        notebook.add(controls, text='Controls')
+        self.plot_frame = tk.Frame(self.root)
+        self.plot_frame.pack(side='top', fill='both', expand=True)
+        self.build_plot()
 
-        settings = ttk.Frame(notebook)
-        settings.pack()
-        notebook.add(settings, text='Settings')
+    def configure_style(self) -> None:
+        self.style = ttk.Style(self.root)
+        self.style.theme_use('default')
 
-        # ttk.Scale(
-        #     controls,
-        #     orient='horizontal',
-        #     # label='Step size',
-        #     from_=-2,
-        #     to=2,
-        #     # resolution=1,
-        #     # showvalue=False,
-        # ).pack()
-        # ttk.Spinbox(controls, values=('0.01', '0.1', '1', '10', '100')).pack()
+    def build_controls(self) -> None:
+        self.notebook = ttk.Notebook(self.controls_frame)
+        self.notebook.pack(fill='both', expand=True)
+        self.build_main_controls()
+        self.build_settings_controls()
+
+    def build_main_controls(self):
+        frame = ttk.Frame(self.notebook)
+        frame.pack()
+        self.notebook.add(frame, text='Controls')
+
         ttk.Scale(
-            controls,
+            frame,
             orient='horizontal',
-            # label='Step size',
             from_=0.1,
             to=10,
             value=10,
-            # resolution=1,
             command=self.set_step_size,
         ).pack()
 
-        pos_controls = ttk.LabelFrame(controls, text='Position')
+        pos_controls = ttk.LabelFrame(frame, text='Position')
         pos_controls.pack(fill='x')
 
-        rot_controls = ttk.LabelFrame(controls, text='Rotation')
+        rot_controls = ttk.LabelFrame(frame, text='Rotation')
         rot_controls.pack(fill='x')
 
-        sz_controls = ttk.LabelFrame(controls, text='Size')
+        sz_controls = ttk.LabelFrame(frame, text='Size')
         sz_controls.pack(fill='x')
 
         for s, fn in (
@@ -131,26 +122,27 @@ class InteractiveObservation:
                 f'{s.capitalize()} fitted disc radius',
             ).pack()
 
-        # ent = ttk.Entry(pos_controls, validate='key')
-        # ent.pack()
-        # ent.insert(0, '1345')
+    def build_settings_controls(self) -> None:
+        settings = ttk.Frame(self.notebook)
+        settings.pack()
+        self.notebook.add(settings, text='Settings')
 
-        fig = plt.figure(figsize=(5, 5), dpi=100)
-        self.ax = fig.add_subplot()
+    def build_plot(self) -> None:
+        self.fig = plt.figure(figsize=(5, 5), dpi=100)
+        self.ax = self.fig.add_subplot()
+
         self.ax.imshow(self.image, origin='lower', zorder=0)
         self.plot_wireframe()
 
-        self.canvas = FigureCanvasTkAgg(fig, master=root)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
         self.canvas.draw()
-
         self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
 
-        root.geometry('800x600+10+10')
-        root.title(self.observation.get_description(newline=False))
-
-        # self.replot()
-        fig.tight_layout()
-        root.mainloop()
+    def build_help_hint(self) -> None:
+        self.help_hint = tk.Label(
+            self.hint_frame, text='', foreground='black'
+        )
+        self.help_hint.pack(side='left')
 
     def add_tooltip(self, widget: Widget, msg: str) -> Widget:
         def f_enter(event):
@@ -163,7 +155,7 @@ class InteractiveObservation:
         widget.bind('<Leave>', f_leave)
         return widget
 
-    def replot(self) -> None:
+    def update_plot(self) -> None:
         while self.handles:
             self.handles.pop().remove()
         self.observation.update_transform()
@@ -234,37 +226,38 @@ class InteractiveObservation:
                 zorder=5,
             )  # TODO make consistent with elsewhere
 
+    # Buttons
     def move_up(self) -> None:
         self.observation.set_y0(self.observation.get_y0() + self.step_size)
-        self.replot()
+        self.update_plot()
 
     def move_down(self) -> None:
         self.observation.set_y0(self.observation.get_y0() - self.step_size)
-        self.replot()
+        self.update_plot()
 
     def move_right(self) -> None:
         self.observation.set_x0(self.observation.get_x0() + self.step_size)
-        self.replot()
+        self.update_plot()
 
     def move_left(self) -> None:
         self.observation.set_x0(self.observation.get_x0() - self.step_size)
-        self.replot()
+        self.update_plot()
 
     def rotate_left(self) -> None:
         self.observation.set_rotation(self.observation.get_rotation() - self.step_size)
-        self.replot()
+        self.update_plot()
 
     def rotate_right(self) -> None:
         self.observation.set_rotation(self.observation.get_rotation() + self.step_size)
-        self.replot()
+        self.update_plot()
 
     def increase_radius(self) -> None:
         self.observation.set_r0(self.observation.get_r0() + self.step_size)
-        self.replot()
+        self.update_plot()
 
     def decrease_radius(self) -> None:
         self.observation.set_r0(self.observation.get_r0() - self.step_size)
-        self.replot()
+        self.update_plot()
 
     def set_step_size(self, value: str) -> None:
         print(f'>> Setting step size to {value}')
