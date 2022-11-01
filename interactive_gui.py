@@ -4,7 +4,7 @@ import datetime
 import sys
 import tkinter as tk
 from tkinter import ttk
-from typing import TypeVar
+from typing import TypeVar, Callable, Any
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import numpy as np
@@ -39,6 +39,7 @@ class InteractiveObservation:
 
     def run(self) -> None:
         self.build_gui()
+        self.bind_keyboard()
         self.root.mainloop()
         # TODO do something when closed to kill figure etc.?
 
@@ -96,16 +97,16 @@ class InteractiveObservation:
 
         for arrow, hint, fn, column, row in (
             ('↑', 'up', self.move_up, 1, 0),
-            ('↗', 'up and right', self.move_up_right, 2,0),
+            ('↗', 'up and right', self.move_up_right, 2, 0),
             ('→', 'right', self.move_right, 2, 1),
-            ('↘', 'down and right', self.move_down_right, 2,2),
+            ('↘', 'down and right', self.move_down_right, 2, 2),
             ('↓', 'down', self.move_down, 1, 2),
-        ('↙', 'down and left', self.move_down_left, 0,2),
+            ('↙', 'down and left', self.move_down_left, 0, 2),
             ('←', 'left', self.move_left, 0, 1),
-            ('↖', 'up and left', self.move_up_left, 0, 0)
+            ('↖', 'up and left', self.move_up_left, 0, 0),
         ):
             self.add_tooltip(
-                ttk.Button(pos_frame, text=arrow.capitalize(), command=fn),
+                ttk.Button(pos_frame, text=arrow, command=fn, width=5),
                 f'Move fitted disc {hint}',
             ).grid(column=column, row=row)
 
@@ -229,34 +230,60 @@ class InteractiveObservation:
                 zorder=5,
             )  # TODO make consistent with elsewhere
 
+    # Keybindings
+    def bind_keyboard(self) -> None:
+        self.root.bind('<Key>', self.handle_keypress)
+
+    def handle_keypress(self, event) -> None:
+        # TODO add keybindings when creating buttons?
+        # TODO add keybinginds to hint?
+        # TODO build shortcuts dict elsewhere?
+        shortcuts: dict[str, Callable[[], Any]] = {
+            'Up': self.move_up,
+            'Right': self.move_right,
+            'Down': self.move_down,
+            'Left': self.move_left,
+        }
+        sym = event.keysym
+        if sym in shortcuts:
+            shortcuts[sym]()
+
     # Buttons
     def move_up(self) -> None:
         self.observation.set_y0(self.observation.get_y0() + self.step_size)
         self.update_plot()
 
     def move_up_right(self) -> None:
-        raise NotImplementedError
+        self.observation.set_y0(self.observation.get_y0() + self.step_size)
+        self.observation.set_x0(self.observation.get_x0() + self.step_size)
+        self.update_plot()
 
     def move_right(self) -> None:
         self.observation.set_x0(self.observation.get_x0() + self.step_size)
         self.update_plot()
 
     def move_down_right(self) -> None:
-        raise NotImplementedError
-
+        self.observation.set_y0(self.observation.get_y0() - self.step_size)
+        self.observation.set_x0(self.observation.get_x0() + self.step_size)
+        self.update_plot()
 
     def move_down(self) -> None:
         self.observation.set_y0(self.observation.get_y0() - self.step_size)
         self.update_plot()
-    def move_down_left(self) -> None:
-        raise NotImplementedError
 
+    def move_down_left(self) -> None:
+        self.observation.set_y0(self.observation.get_y0() - self.step_size)
+        self.observation.set_x0(self.observation.get_x0() - self.step_size)
+        self.update_plot()
 
     def move_left(self) -> None:
         self.observation.set_x0(self.observation.get_x0() - self.step_size)
         self.update_plot()
+
     def move_up_left(self) -> None:
-        raise NotImplementedError
+        self.observation.set_y0(self.observation.get_y0() + self.step_size)
+        self.observation.set_x0(self.observation.get_x0() - self.step_size)
+        self.update_plot()
 
     def rotate_left(self) -> None:
         self.observation.set_rotation(self.observation.get_rotation() - self.step_size)
