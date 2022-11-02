@@ -5,5 +5,19 @@ from planetmapper import utils, mapper
 import numpy as np
 from functools import wraps
 
-st = mapper.SpiceTool()
-st.standardise_body_name('bob')
+times = [
+    '2022-07-28T06:03:59.373',
+    '2022-07-28T08:03:59.373',
+]
+for t in times:
+    body = mapper.BodyXY(
+        'jupiter',
+        t,
+        observer='JWST',
+        sz=50,
+    )
+    ax = body.plot_backplane('doppler')
+    print(body.radial_velocity_from_lonlat(30, 0), body.radial_velocity_from_lonlat(30+12, 0))
+
+
+mapper.SpiceTool.unit_vector(np.array([0,0,0]))

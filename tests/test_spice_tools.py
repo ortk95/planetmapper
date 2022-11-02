@@ -12,6 +12,8 @@ class TestSpiceTool(unittest.TestCase):
 
     def test_standardise(self):
         self.assertEqual(self.obj.standardise_body_name(' JuPiTeR   '), 'JUPITER')
+        self.assertEqual(self.obj.standardise_body_name('599'), 'JUPITER')
+        self.assertEqual(self.obj.standardise_body_name(599), 'JUPITER')
 
     def test_time(self):
         pairs = (
