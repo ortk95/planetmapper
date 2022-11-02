@@ -31,14 +31,14 @@ class TestBodyXY(unittest.TestCase):
     def test_params(self):
         with self.subTest('args'):
             x0, y0, r0, rotation = np.random.rand(4) * 100
-            self.obj.set_params(x0, y0, r0, rotation)
+            self.obj.set_disc_params(x0, y0, r0, rotation)
             self.assertEqual(self.obj.get_x0(), x0)
             self.assertEqual(self.obj.get_y0(), y0)
             self.assertEqual(self.obj.get_r0(), r0)
             self.assertAlmostEqual(self.obj.get_rotation(), rotation)
         with self.subTest('kwargs'):
             x0, y0, r0, rotation = np.random.rand(4) * 100
-            self.obj.set_params(x0=x0, y0=y0, r0=r0, rotation=rotation)
+            self.obj.set_disc_params(x0=x0, y0=y0, r0=r0, rotation=rotation)
             self.assertEqual(self.obj.get_x0(), x0)
             self.assertEqual(self.obj.get_y0(), y0)
             self.assertEqual(self.obj.get_r0(), r0)
@@ -52,7 +52,7 @@ class TestBodyXY(unittest.TestCase):
 
     def test_clear_cache(self):
         self.obj._cache[' test '] = None
-        self.obj.clear_cache()
+        self.obj._clear_cache()
         self.assertEqual(len(self.obj._cache), 0)
 
         for fn in (
