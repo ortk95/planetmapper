@@ -98,7 +98,8 @@ class SpiceTool:
 
         This converts the provided `name` into the SPICE ID code, then back into a
         string, standardises to the version of the name preferred by SPICE. For example,
-        'jupiter', 'JUPITER', '599' and 'Jupiter   ' are all standardised to 'JUPITER'
+        `'jupiter'`, `'JuPiTeR'`, `' Jupiter '`, `'599'` and `599` are all standardised
+        to `'JUPITER'`
 
         Args:
             name: The name of a body (e.g. a planet). This can also be the numeric ID
@@ -170,13 +171,14 @@ class SpiceTool:
         Return copy of array with first element appended to the end.
 
         This is useful for cases like plotting the limb of a planet where the array of
-        values forms a loop where the first and last value in `arr` are adjacent.
+        values forms a loop with the first and last values in `arr` adjacent to each 
+        other.
 
         Args:
-            arr: Array of values of length `n`.
+            arr: Array of values of length :math:`n`.
 
         Returns:
-            Array of values of length `n+1` where the final value is the same as the
+            Array of values of length :math:`n + 1` where the final value is the same as the
             first value.
         """
         return np.append(arr, [arr[0]], axis=0)
@@ -185,6 +187,9 @@ class SpiceTool:
     def unit_vector(v: np.ndarray) -> np.ndarray:
         """
         Return normalised copy of a vector.
+
+        For an input vector :math:`\\vec{v}`, return the unit vector
+        :math:`\\hat{v} = \\frac{\\vec{v}}{|\\vec{v}|}`.
 
         Args:
             v: Input vector to normalise.
@@ -242,7 +247,7 @@ class Body(SpiceTool):
             in SPICE.
         subpoint_method: Method used to calculate the sub-observer point in SPICE.
         surface_method: Method used to calculate surface intercepts in SPICE.
-        **kw: Additional arguments are passed to :class:`SpiceTool`.
+        **kw: Additional arguments are passed to `SpiceTool`.
     """
 
     def __init__(
@@ -823,7 +828,8 @@ class Body(SpiceTool):
                 :func:`visible_lat_grid_radec`.
 
         Returns:
-            List of `(ra, dec)` tuples, each of which corresponds to a gridline.
+            List of `(ra, dec)` tuples, each of which corresponds to a gridline. `ra`
+            and `dec` are arrays of RA/Dec coodinate values for that gridline.
         """
 
         lon_radec = self.visible_lon_grid_radec(np.arange(0, 360, interval), **kw)
@@ -847,7 +853,8 @@ class Body(SpiceTool):
             npts: Number of points in each full line of constant longitude.
 
         Returns:
-            List of `(ra, dec)` tuples, corresponding to the list of input `lons`.
+            List of `(ra, dec)` tuples, corresponding to the list of input `lons`. `ra`
+            and `dec` are arrays of RA/Dec coodinate values for that gridline.
         """
         lats = np.linspace(-90, 90, npts)
         out = []
@@ -871,7 +878,8 @@ class Body(SpiceTool):
             npts: Number of points in each full line of constant latitude.
 
         Returns:
-            List of `(ra, dec)` tuples, corresponding to the list of input `lats`.
+            List of `(ra, dec)` tuples, corresponding to the list of input `lats`. `ra`
+            and `dec` are arrays of RA/Dec coodinate values for that gridline.
         """
         lons = np.linspace(0, 360, npts)
         out = []
