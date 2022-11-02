@@ -1,5 +1,5 @@
 import unittest
-import mapper
+from planetmapper import mapper
 import numpy as np
 import spiceypy as spice
 from typing import Callable, ParamSpec, Any

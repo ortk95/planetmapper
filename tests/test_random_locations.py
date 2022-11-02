@@ -1,5 +1,5 @@
 import unittest
-import mapper
+from planetmapper import mapper
 import numpy as np
 import datetime
 
@@ -27,8 +27,8 @@ class TestBody(unittest.TestCase):
         )
 
     def test_missing(self):
-        ra = self.obj.subpoint_ra + 180  # this should always miss
-        dec = self.obj.subpoint_dec
+        ra = self.obj._subpoint_ra + 180  # this should always miss
+        dec = self.obj._subpoint_dec
         self.assertTrue(all(np.isnan(self.obj.radec2lonlat(ra, dec))))
 
     def test_distance(self):
