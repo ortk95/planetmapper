@@ -16,8 +16,9 @@ for t in times:
         observer='JWST',
         sz=50,
     )
-    ax = body.plot_backplane('doppler')
-    print(body.radial_velocity_from_lonlat(30, 0), body.radial_velocity_from_lonlat(30+12, 0))
-
-
-mapper.SpiceTool.unit_vector(np.array([0,0,0]))
+    # ax = body.plot_backplane('doppler')
+    ax = body.plot_backplane('lon')
+    print(
+        body.radial_velocity_from_lonlat(30, 0),
+        body.radial_velocity_from_lonlat(30 + 12, 0),
+    )

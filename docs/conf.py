@@ -31,7 +31,7 @@ default_role = 'code'
 
 # Autodoc
 autodoc_member_order = 'bysource'
-autoclass_content = 'both'
+# autoclass_content = 'both'
 # autodoc_typehints = 'both'
 # autodoc_typehints_description_target = 'documented_params'
 autodoc_inherit_docstrings = False
