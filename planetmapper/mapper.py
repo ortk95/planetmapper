@@ -486,7 +486,7 @@ class Body(SpiceTool):
 
     def lonlat2radec(self, lon: float, lat: float) -> tuple[float, float]:
         """
-        Convert longitide/latitude coordinates on the target body to RA/Dec sky
+        Convert longitude/latitude coordinates on the target body to RA/Dec sky
         coordinates for the observer.
 
         Args:
@@ -732,7 +732,7 @@ class Body(SpiceTool):
         self, lon: float, lat: float
     ) -> tuple[float, float, float]:
         """
-        Calculate the illimination angles of a longitude/latitude coordinate on the
+        Calculate the illumination angles of a longitude/latitude coordinate on the
         target body.
 
         Args:
@@ -756,7 +756,7 @@ class Body(SpiceTool):
         corloc: str = 'ELLIPSOID TERMINATOR',
     ) -> tuple[np.ndarray, np.ndarray]:
         """
-        Calcilate the RA/Dec coordinates of the terminator (line between day and night)
+        Calculate the RA/Dec coordinates of the terminator (line between day and night)
         on the target body. By default, only the visible part of the terminator is
         returned (this can be changed with `only_visible`).
 
@@ -818,8 +818,8 @@ class Body(SpiceTool):
         self, interval: float = 30, **kwargs
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
-        Conveience function to calculate a grid of equally spaced lines of constant
-        longitude and latitude for use in plottitng lon/lat grids.
+        Convenience function to calculate a grid of equally spaced lines of constant
+        longitude and latitude for use in plotting lon/lat grids.
 
         This function effectively combines :func:`visible_lon_grid_radec` and
         :func:`visible_lat_grid_radec` to produce both longitude and latitude gridlines.
@@ -838,7 +838,7 @@ class Body(SpiceTool):
 
         Returns:
             List of `(ra, dec)` tuples, each of which corresponds to a gridline. `ra`
-            and `dec` are arrays of RA/Dec coodinate values for that gridline.
+            and `dec` are arrays of RA/Dec coordinate values for that gridline.
         """
 
         lon_radec = self.visible_lon_grid_radec(np.arange(0, 360, interval), **kwargs)
@@ -863,7 +863,7 @@ class Body(SpiceTool):
 
         Returns:
             List of `(ra, dec)` tuples, corresponding to the list of input `lons`. `ra`
-            and `dec` are arrays of RA/Dec coodinate values for that gridline.
+            and `dec` are arrays of RA/Dec coordinate values for that gridline.
         """
         lats = np.linspace(-90, 90, npts)
         out = []
@@ -888,7 +888,7 @@ class Body(SpiceTool):
 
         Returns:
             List of `(ra, dec)` tuples, corresponding to the list of input `lats`. `ra`
-            and `dec` are arrays of RA/Dec coodinate values for that gridline.
+            and `dec` are arrays of RA/Dec coordinate values for that gridline.
         """
         lons = np.linspace(0, 360, npts)
         out = []
@@ -1861,7 +1861,7 @@ class BodyXY(Body):
 
         Args:
             name: Name of the desired backplane. This is standardised with
-                :func:`standardise_backplane_name` and used to choose a registered 
+                :func:`standardise_backplane_name` and used to choose a registered
                 backplane from :attr:`backplanes`.
 
         Returns:
@@ -2126,10 +2126,10 @@ class Backplane(NamedTuple):
     NamedTuple containing information about a backplane.
 
     Args:
-        name (str): Short name identifying the backplane.
-        description (str): More detailed description of the backplane.
-        fn (Callable[[], np.ndarray]): Function which returns the backplane image when
-            called.
+        name: Short name identifying the backplane.
+        description: More detailed description of the backplane.
+        fn: Function which takes no arguments returns a numpy array containing a
+            backplane image when called.
     """
 
     name: str
