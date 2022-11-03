@@ -33,6 +33,8 @@ class InteractiveObservation:
         self.step_size = 10
 
         self.shortcuts: dict[Callable[[], Any], list[str]] = {
+            self.increase_step: [']'],
+            self.decrease_step: ['['],
             self.move_up: ['<Up>', 'w'],
             self.move_down: ['<Down>', 's'],
             self.move_right: ['<Right>', 'd'],
@@ -88,8 +90,8 @@ class InteractiveObservation:
         frame.pack()
         self.notebook.add(frame, text='Controls')
 
-        step_size_frame = ttk.LabelFrame(frame, text='Step size')
-        step_size_frame.pack(fill='x')
+        # step_size_frame = ttk.LabelFrame(frame, text='Step size')
+        # step_size_frame.pack(fill='x')
 
         pos_frame = ttk.LabelFrame(frame, text='Position')
         pos_frame.pack(fill='x')
@@ -103,14 +105,14 @@ class InteractiveObservation:
         save_frame = ttk.LabelFrame(frame, text='Output')
         save_frame.pack(fill='x')
 
-        ttk.Scale(
-            step_size_frame,
-            orient='horizontal',
-            from_=0.1,
-            to=10,
-            value=10,
-            command=self.set_step_size,
-        ).pack()
+        # ttk.Scale(
+        #     step_size_frame,
+        #     orient='horizontal',
+        #     from_=0.1,
+        #     to=10,
+        #     value=10,
+        #     command=self.set_step_size,
+        # ).pack()
 
         pos_button_frame = ttk.Frame(pos_frame)
         pos_button_frame.pack()
@@ -162,6 +164,8 @@ class InteractiveObservation:
         self.ax = self.fig.add_subplot()
 
         self.ax.imshow(self.image, origin='lower', zorder=0)
+        self.ax.set_xlim(-0.5, self.observation._nx - 0.5)
+        self.ax.set_ylim(-0.5, self.observation._ny - 0.5)
         self.plot_wireframe()
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
@@ -171,6 +175,7 @@ class InteractiveObservation:
     def build_help_hint(self) -> None:
         self.help_hint = tk.Label(self.hint_frame, text='', foreground='black')
         self.help_hint.pack(side='left')
+        # TODO add keybinginds to hint
 
     def add_tooltip(self, widget: Widget, msg: str) -> Widget:
         def f_enter(event):
@@ -189,11 +194,11 @@ class InteractiveObservation:
         self.observation.update_transform()
         self.canvas.draw()
         print(
-            'x0={x0}, y0={y0}, r0={r0}, rot={rot}'.format(
+            'x0={x0}, y0={y0}, r0={r0}, rotation={rotation}'.format(
                 x0=self.observation.get_x0(),
                 y0=self.observation.get_y0(),
                 r0=self.observation.get_r0(),
-                rot=self.observation.get_rotation(),
+                rotation=self.observation.get_rotation(),
             )
         )
 
@@ -252,7 +257,50 @@ class InteractiveObservation:
                 ],
                 transform=transform,
                 zorder=5,
-            )  # TODO make consistent with elsewhere
+            )
+
+        for lon, lat in self.observation.coordinates_of_interest_lonlat:
+            if self.observation.test_if_lonlat_visible(lon, lat):
+                ra, dec = self.observation.lonlat2radec(lon, lat)
+                ax.scatter(
+                    ra,
+                    dec,
+                    marker='x',  # type: ignore
+                    color='k',
+                    transform=transform,
+                )
+                
+        for ra, dec in self.observation.coordinates_of_interest_radec:
+            ax.scatter(
+                ra,
+                dec,
+                marker='+',  # type: ignore
+                color='k',
+                transform=transform,
+            )
+
+        for body in self.observation.other_bodies_of_interest:
+            ra = body.target_ra
+            dec = body.target_dec
+            ax.text(
+                ra,
+                dec,
+                body.target + '\n',
+                size='small',
+                ha='center',
+                va='center',
+                color='grey',
+                transform=transform,
+                clip_on=True,
+            )
+            ax.scatter(
+                ra,
+                dec,
+                marker='+',  # type: ignore
+                color='w',
+                transform=transform,
+            )
+        # TODO make this code consistent with elsewhere?
 
     # Keybindings
     def bind_keyboard(self) -> None:
@@ -260,10 +308,16 @@ class InteractiveObservation:
             handler = lambda e, f=fn: f()
             for event in events:
                 self.root.bind(event, handler)
-        # TODO add keybindings when creating buttons?
-        # TODO add keybinginds to hint?
 
     # Buttons
+    def increase_step(self) -> None:
+        self.step_size *= 10
+        print(self.step_size)
+
+    def decrease_step(self) -> None:
+        self.step_size /= 10
+        print(self.step_size)
+
     def move_up(self) -> None:
         self.observation.set_y0(self.observation.get_y0() + self.step_size)
         self.update_plot()
@@ -315,10 +369,6 @@ class InteractiveObservation:
     def decrease_radius(self) -> None:
         self.observation.set_r0(self.observation.get_r0() - self.step_size)
         self.update_plot()
-
-    def set_step_size(self, value: str) -> None:
-        print(f'>> Setting step size to {value}')
-        self.step_size = float(value)
 
     def save(self) -> None:
         path = tkinter.filedialog.asksaveasfilename(

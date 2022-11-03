@@ -3,23 +3,17 @@
 """Script for testing stuff during development (TODO delete in final version)"""
 import planetmapper
 import numpy as np
-from functools import wraps
 import tools
+import datetime
 
-times = [
-    '2022-07-28T06:03:59.373',
-    '2022-07-28T08:03:59.373',
-]
-for t in times:
-    body = planetmapper.BodyXY(
-        'jupiter',
-        t,
-        observer='JWST',
-        sz=50,
-    )
-    # ax = body.plot_backplane('doppler')
-    ax = body.plot_backplane('lon')
-    print(
-        body.radial_velocity_from_lonlat(30, 0),
-        body.radial_velocity_from_lonlat(30 + 12, 0),
-    )
+# obs = planetmapper.gui.InteractiveObservation('data/europa.fits.gz')
+obs = planetmapper.gui.InteractiveObservation(
+    'data/jupiter_small.jpg',
+    target='jupiter',
+    utc='2020-08-25 02:30:40',
+)
+obs.observation.add_other_bodies_of_interest('Io', 'Europa', 'Ganymede', 'Callisto')
+obs.observation.set_disc_params(x0=137.0, y0=119.0, r0=80.0, rotation=354.0)
+obs.observation.plot_wireframe_xy()
+# obs.run()
+

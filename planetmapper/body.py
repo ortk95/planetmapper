@@ -85,6 +85,28 @@ class Body(PlanetMapperTool):
         """Longitude of the sub-observer point on the target."""
         self.subpoint_lat: float
         """Latitude of the sub-observer point on the target."""
+        self.coordinates_of_interest_lonlat: list[tuple[float, float]]
+        """
+        List of `(lon, lat)` coordinates of interest on the surface of the target body
+        to mark when plotting (points which are not visible will not be plotted). To add
+        a new point of interest, simply append a coordinate pair to this list: ::
+
+            body.coordinates_of_interest_lonlat.append((0, -22))
+        """
+        self.coordinates_of_interest_radec: list[tuple[float, float]]
+        """
+        List of `(ra, dec)` sky coordinates of interest to mark when plotting (e.g. 
+        background stars). To add new point of interest, simply append a coordinate pair
+        to this list: ::
+
+            body.coordinates_of_interest_radec.append((200, -45))
+        """
+
+        self.other_bodies_of_interest: list[Body]
+        """
+        List of other bodies of interest to mark when plotting. Add to this list using 
+        :func:`add_other_bodies_of_interest`.
+        """
 
         # Process inputs
         self.target = self.standardise_body_name(target)
@@ -161,8 +183,59 @@ class Body(PlanetMapperTool):
             *self._obsvec2radec_radians(self._subpoint_obsvec)
         )
 
+        # Create empty lists
+        self.other_bodies_of_interest = []
+        self.coordinates_of_interest_lonlat = []
+        self.coordinates_of_interest_radec = []
+
     def __repr__(self) -> str:
         return f'Body({self.target!r}, {self.utc!r})'
+
+    def create_other_body(self, other_target: str) -> 'Body':
+        """
+        Create a :class:`Body` instance using identical parameters but just with a
+        different target. For example, the `europa` body created here will have
+        identical parameters (see below) to the `jupiter` body, just with a different
+        target. ::
+
+            jupiter = Body('Jupiter', '2000-01-01', observer='Moon')
+            europa = jupiter.create_other_body('Europa')
+
+        The parameters kept the same are `utc`, `observer`, `observer_frame`,
+        `illumination_source`, `aberration_correction`, `subpoint_method`, and
+        `surface_method`.
+
+        Args:
+            other_target: Name of the other target, passed to :class:`Body`
+
+        Returns:
+            :class:`Body` instance which corresponds to `other_target`.
+        """
+        return Body(
+            target=other_target,
+            utc=self.utc,
+            observer=self.observer,
+            observer_frame=self.observer_frame,
+            illumination_source=self.illumination_source,
+            aberration_correction=self.aberration_correction,
+            subpoint_method=self.subpoint_method,
+            surface_method=self.surface_method,
+        )
+
+    def add_other_bodies_of_interest(self, *other_targets: str):
+        """
+        Add targets to the list of :attr:`other_bodies_of_interest` of interest to mark
+        when plotting. The other targets are created using :func:`create_other_body`.
+        For example, to add the Galilean moons as other targets to a Jupiter body, 
+        use ::
+
+            body.add_other_bodies_of_interest('Io', 'Europa', 'Ganymede', 'Callisto')
+
+        Args:
+            *other_targets: Names of the other targets, passed to :class:`Body`
+        """
+        for other_target in other_targets:
+            self.other_bodies_of_interest.append(self.create_other_body(other_target))
 
     # Coordinate transformations target -> observer direction
     def _lonlat2targvec_radians(self, lon: float, lat: float) -> np.ndarray:
@@ -819,6 +892,47 @@ class Body(PlanetMapperTool):
                 ],
                 transform=transform,
                 clip_on=True,
+            )
+
+        for lon, lat in self.coordinates_of_interest_lonlat:
+            if self.test_if_lonlat_visible(lon, lat):
+                ra, dec = self.lonlat2radec(lon, lat)
+                ax.scatter(
+                    ra,
+                    dec,
+                    marker='x',  # type: ignore
+                    color='k',
+                    transform=transform,
+                )
+        for ra, dec in self.coordinates_of_interest_radec:
+            ax.scatter(
+                ra,
+                dec,
+                marker='+',  # type: ignore
+                color='k',
+                transform=transform,
+            )
+
+        for body in self.other_bodies_of_interest:
+            ra = body.target_ra
+            dec = body.target_dec
+            ax.text(
+                ra,
+                dec,
+                body.target + '\n',
+                size='small',
+                ha='center',
+                va='center',
+                color='grey',
+                transform=transform,
+                clip_on=True,
+            )
+            ax.scatter(
+                ra,
+                dec,
+                marker='+',  # type: ignore
+                color='k',
+                transform=transform,
             )
         ax.set_title(self.get_description(multiline=True))
         return ax
