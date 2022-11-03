@@ -91,6 +91,35 @@ class PlanetMapperTool:
         """
         return spice.clight()
 
+    def calculate_doppler_factor(self, radial_velocity: Numeric) -> Numeric:
+        """
+        Calculates the doppler factor caused by a target's radial velocity relative to
+        the observer. This doppler factor, :math:`D` can be used to calculate the
+        doppler shift caused by this velocity as :math:`\\lambda_r = \\lambda_e D`
+        where :math:`\\lambda_r` is the wavelength recieved by the observer and
+        :math:`\\lambda_e` is the wavelength emitted at the target.
+
+        This doppler factor is calculated as
+        :math:`D = \\sqrt{\\frac{1 + v/c}{1 - v/c}}` where :math:`v` is the input
+        `radial_velocity` and :math:`c` is the speed of light.
+
+        See also
+        https://en.wikipedia.org/wiki/Relativistic_Doppler_effect#Relativistic_longitudinal_Doppler_effect
+
+        Args:
+            radial_velocity: Radial velocity in km/s with positive values corresponding
+                to motion away from the observer. This can be a single float value or a
+                numpy array containing multiple velocity values.
+
+        Returns:
+            Doppler factor calculated from input radial velocity. If the input
+            `radial_velocity` is a single value, then a `float` is returned. If the
+            input `radial_velocity` is a numpy array, then a numpy array of doppler
+            factors is returned.
+        """
+        beta = radial_velocity / self.speed_of_light()
+        return np.sqrt((1 + beta) / (1 - beta))  #  type: ignore
+
     @classmethod
     def load_spice_kernels(
         cls,

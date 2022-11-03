@@ -15,6 +15,7 @@ from .body import Body
 T = TypeVar('T')
 P = ParamSpec('P')
 
+
 class Backplane(NamedTuple):
     """
     NamedTuple containing information about a backplane.
@@ -105,7 +106,7 @@ class BodyXY(Body):
             # Retrieve the image containing longitdude values
             lon_image = body.backplanes['LON'].fn()
 
-            # Print the description of the doppler backplane
+            # Print the description of the doppler factor backplane
             print(body.backplanes['DOPPLER'].description)
 
             # Remove the distance backplane from an instance
@@ -743,12 +744,11 @@ class BodyXY(Body):
     def get_doppler_img(self) -> np.ndarray:
         """
         Returns:
-            Array containing the observer-target radial velocity divided by the speed of
-            light for each pixel in the image. Calculated from
-            :func:`get_radial_velocity_img` for use in doppler shift equations. Points
-            off the disc have a value of NaN.
+            Array containing the doppler factor for each pixel in the image, calculated
+            using :func:`PlanetMapperTool.calculate_doppler_factor` on velocities from
+            :func:`get_radial_velocity_img`. Points off the disc have a value of NaN.
         """
-        return self.get_radial_velocity_img() / self.speed_of_light()
+        return self.calculate_doppler_factor(self.get_radial_velocity_img())
 
     # Backplane management
     @staticmethod
@@ -810,12 +810,12 @@ class BodyXY(Body):
         self.register_backplane(
             self.get_radial_velocity_img,
             'RADIAL_VELOCITY',
-            'Radial velocity [km/s] from observer',
+            'Radial velocity [km/s] away from observer',
         )
         self.register_backplane(
             self.get_doppler_img,
             'DOPPLER',
-            '(Radial velocity)/(speed of light)',
+            'Doppler factor, sqrt((1 + v/c)/(1 - v/c)) where v is radial velocity',
         )
 
     def get_backplane_img(self, name: str) -> np.ndarray:
@@ -868,4 +868,3 @@ class BodyXY(Body):
         if show:
             plt.show()
         return ax
-
