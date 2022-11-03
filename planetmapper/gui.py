@@ -33,6 +33,8 @@ class InteractiveObservation:
         self.step_size = 10
 
         self.shortcuts: dict[Callable[[], Any], list[str]] = {
+            self.increase_step: [']'],
+            self.decrease_step: ['['],
             self.move_up: ['<Up>', 'w'],
             self.move_down: ['<Down>', 's'],
             self.move_right: ['<Right>', 'd'],
@@ -88,8 +90,8 @@ class InteractiveObservation:
         frame.pack()
         self.notebook.add(frame, text='Controls')
 
-        step_size_frame = ttk.LabelFrame(frame, text='Step size')
-        step_size_frame.pack(fill='x')
+        # step_size_frame = ttk.LabelFrame(frame, text='Step size')
+        # step_size_frame.pack(fill='x')
 
         pos_frame = ttk.LabelFrame(frame, text='Position')
         pos_frame.pack(fill='x')
@@ -103,14 +105,14 @@ class InteractiveObservation:
         save_frame = ttk.LabelFrame(frame, text='Output')
         save_frame.pack(fill='x')
 
-        ttk.Scale(
-            step_size_frame,
-            orient='horizontal',
-            from_=0.1,
-            to=10,
-            value=10,
-            command=self.set_step_size,
-        ).pack()
+        # ttk.Scale(
+        #     step_size_frame,
+        #     orient='horizontal',
+        #     from_=0.1,
+        #     to=10,
+        #     value=10,
+        #     command=self.set_step_size,
+        # ).pack()
 
         pos_button_frame = ttk.Frame(pos_frame)
         pos_button_frame.pack()
@@ -171,6 +173,7 @@ class InteractiveObservation:
     def build_help_hint(self) -> None:
         self.help_hint = tk.Label(self.hint_frame, text='', foreground='black')
         self.help_hint.pack(side='left')
+        # TODO add keybinginds to hint
 
     def add_tooltip(self, widget: Widget, msg: str) -> Widget:
         def f_enter(event):
@@ -260,10 +263,16 @@ class InteractiveObservation:
             handler = lambda e, f=fn: f()
             for event in events:
                 self.root.bind(event, handler)
-        # TODO add keybindings when creating buttons?
-        # TODO add keybinginds to hint?
 
     # Buttons
+    def increase_step(self) -> None:
+        self.step_size *= 10
+        print(self.step_size)
+    
+    def decrease_step(self) -> None:
+        self.step_size /=10
+        print(self.step_size)
+
     def move_up(self) -> None:
         self.observation.set_y0(self.observation.get_y0() + self.step_size)
         self.update_plot()
@@ -316,9 +325,6 @@ class InteractiveObservation:
         self.observation.set_r0(self.observation.get_r0() - self.step_size)
         self.update_plot()
 
-    def set_step_size(self, value: str) -> None:
-        print(f'>> Setting step size to {value}')
-        self.step_size = float(value)
 
     def save(self) -> None:
         path = tkinter.filedialog.asksaveasfilename(
