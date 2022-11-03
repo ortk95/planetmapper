@@ -88,10 +88,10 @@ class Body(PlanetMapperTool):
         self.coordinates_of_interest: list[tuple[float, float]]
         """List of `(lon, lat)` coordinats of interest to mark when plotting. Add to 
         this list using :func:`add_coordinate_of_interest`."""
-        self.other_bodies: list[Body]
+        self.other_bodies_of_interest: list[Body]
         """
         List of other bodies of interest to mark when plotting. Add to this list using 
-        :func:`add_other_bodies`.
+        :func:`add_other_bodies_of_interest`.
         """
 
         # Process inputs
@@ -170,7 +170,7 @@ class Body(PlanetMapperTool):
         )
 
         # Create empty lists
-        self.other_bodies = []
+        self.other_bodies_of_interest = []
         self.coordinates_of_interest = []
 
     def __repr__(self) -> str:
@@ -207,19 +207,20 @@ class Body(PlanetMapperTool):
             surface_method=self.surface_method,
         )
 
-    def add_other_bodies(self, *other_targets: str):
+    def add_other_bodies_of_interest(self, *other_targets: str):
         """
-        Add targets to the list of :attr:`other_bodies` of interest to mark when
-        plotting. The other targets are created using :func:`create_other_body`. For
-        example, to add the Galilean moons as other targets to a Jupiter body, use ::
+        Add targets to the list of :attr:`other_bodies_of_interest` of interest to mark
+        when plotting. The other targets are created using :func:`create_other_body`.
+        For example, to add the Galilean moons as other targets to a Jupiter body, 
+        use ::
 
-            body.add_other_bodies('Io', 'Europa', 'Ganymede', 'Callisto')
+            body.add_other_bodies_of_interest('Io', 'Europa', 'Ganymede', 'Callisto')
 
         Args:
             *other_targets: Names of the other targets, passed to :class:`Body`
         """
         for other_target in other_targets:
-            self.other_bodies.append(self.create_other_body(other_target))
+            self.other_bodies_of_interest.append(self.create_other_body(other_target))
 
     def add_coordinate_of_interest(self, lon: float, lat: float) -> None:
         """
@@ -900,7 +901,7 @@ class Body(PlanetMapperTool):
                     transform=transform,
                 )
 
-        for body in self.other_bodies:
+        for body in self.other_bodies_of_interest:
             ra = body.target_ra
             dec = body.target_dec
             ax.text(

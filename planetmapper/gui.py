@@ -258,7 +258,7 @@ class InteractiveObservation:
                 transform=transform,
                 zorder=5,
             )
-        
+
         for lon, lat in self.observation.coordinates_of_interest:
             if self.observation.test_if_lonlat_visible(lon, lat):
                 ra, dec = self.observation.lonlat2radec(lon, lat)
@@ -270,7 +270,7 @@ class InteractiveObservation:
                     transform=transform,
                 )
 
-        for body in self.observation.other_bodies:
+        for body in self.observation.other_bodies_of_interest:
             ra = body.target_ra
             dec = body.target_dec
             ax.text(
