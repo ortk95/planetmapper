@@ -9,7 +9,8 @@ import tools
 obs = planetmapper.gui.InteractiveObservation(
     'data/jupiter_small.jpg',
     target='jupiter',
-    utc='2020-08-25T00:00:00',
+    utc='2020-08-25 02:30:40',
 )
-obs.observation.add_other_bodies('Io', 'Europa')
+obs.observation.add_other_bodies('Io', 'Europa', 'Ganymede', 'Callisto')
+obs.observation.set_disc_params(x0=137.0, y0=119.0, r0=80.0, rotation=354.0)
 obs.run()

@@ -194,11 +194,11 @@ class InteractiveObservation:
         self.observation.update_transform()
         self.canvas.draw()
         print(
-            'x0={x0}, y0={y0}, r0={r0}, rot={rot}'.format(
+            'x0={x0}, y0={y0}, r0={r0}, rotation={rotation}'.format(
                 x0=self.observation.get_x0(),
                 y0=self.observation.get_y0(),
                 r0=self.observation.get_r0(),
-                rot=self.observation.get_rotation(),
+                rotation=self.observation.get_rotation(),
             )
         )
 

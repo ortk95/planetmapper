@@ -356,6 +356,7 @@ class BodyXY(Body):
         Args:
             r0: New equatorial radius in pixels of the target body.
         """
+        # TODO add some validation here?
         self._r0 = r0
         self._clear_cache()
 
@@ -802,7 +803,9 @@ class BodyXY(Body):
         name = self.standardise_backplane_name(name)
         if name in self.backplanes:
             raise ValueError(f'Backplane named {name!r} is already registered')
-        self.backplanes[name] = Backplane(name=name, description=description, get_img=fn)
+        self.backplanes[name] = Backplane(
+            name=name, description=description, get_img=fn
+        )
 
     def print_backplanes(self) -> None:
         """
