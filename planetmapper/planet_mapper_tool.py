@@ -15,6 +15,8 @@ class PlanetMapperTool:
     """
     Class containing methods to interface with spice and manipulate coordinates.
 
+    This is the base class for all the main classes used in planetmapper.
+
     Args:
         optimize_speed: Toggle speed optimizations. For typical observations, the
             optimizations can make code significantly faster with no effect on accuracy,
