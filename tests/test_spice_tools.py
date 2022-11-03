@@ -1,5 +1,5 @@
 import unittest
-from planetmapper import mapper
+import planetmapper
 import datetime
 import numpy as np
 from numpy import array, nan
@@ -7,7 +7,7 @@ from numpy import array, nan
 
 class TestSpiceTool(unittest.TestCase):
     def setUp(self):
-        self.obj = mapper.SpiceTool()
+        self.obj = planetmapper.SpiceTool()
         self.obj.load_spice_kernels()
 
     def test_standardise(self):

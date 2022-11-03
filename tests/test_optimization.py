@@ -1,5 +1,5 @@
 import unittest
-from planetmapper import mapper
+import planetmapper
 import numpy as np
 from test_random_locations import generate_dtm_str
 
@@ -8,8 +8,8 @@ class TestOptimization(unittest.TestCase):
     def setUp(self):
         body = 'jupiter'
         utc = generate_dtm_str()
-        self.fast = mapper.BodyXY(body, utc, optimize_speed=True)
-        self.slow = mapper.BodyXY(body, utc, optimize_speed=False)
+        self.fast = planetmapper.BodyXY(body, utc, optimize_speed=True)
+        self.slow = planetmapper.BodyXY(body, utc, optimize_speed=False)
 
         for obj in (self.fast, self.slow):
             obj.set_img_size(10, 11)

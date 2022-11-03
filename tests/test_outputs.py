@@ -1,5 +1,5 @@
 import unittest
-from planetmapper import mapper
+import planetmapper
 import datetime
 import numpy as np
 from numpy import array, nan
@@ -7,7 +7,7 @@ from numpy import array, nan
 
 class TestBody(unittest.TestCase):
     def setUp(self):
-        self.obj = mapper.Body('jupiter', '2000-01-01')
+        self.obj = planetmapper.Body('jupiter', '2000-01-01')
 
     def test_setup(self):
         self.assertEqual(self.obj.target_body_id, 599)
@@ -59,7 +59,7 @@ class TestBody(unittest.TestCase):
 
 class TestObservation(unittest.TestCase):
     def setUp(self):
-        self.obj = mapper.BodyXY('saturn', '2001-02-03', nx=4, ny=6)
+        self.obj = planetmapper.BodyXY('saturn', '2001-02-03', nx=4, ny=6)
         self.obj.set_x0(2)
         self.obj.set_y0(4.5)
         self.obj.set_r0(3.14)
