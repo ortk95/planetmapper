@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 import datetime
 import sys
 import tkinter as tk
@@ -17,16 +15,6 @@ from . import mapper
 
 
 Widget = TypeVar('Widget', bound=tk.Widget)
-
-
-def main(*args):
-    io = InteractiveObservation(
-        # 'data/europa.fits.gz'
-        # 'data/jupiter_small.jpg',
-        # target='jupiter',
-        # utc=datetime.datetime(2020, 8, 25, 12),
-    )
-    io.run()
 
 
 class InteractiveObservation:
@@ -350,7 +338,3 @@ class InteractiveObservation:
         utils.print_progress(c1='c')
         self.observation.save(path)
         utils.print_progress('saved', c1='c')
-
-
-if __name__ == '__main__':
-    main(*sys.argv[1:])

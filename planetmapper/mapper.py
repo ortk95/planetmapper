@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Coordinate systems:
 
@@ -45,22 +43,6 @@ KERNEL_PATH = '~/spice/naif/generic_kernels/'
 T = TypeVar('T')
 P = ParamSpec('P')
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
-
-
-def main(*args):
-    utils.print_progress()
-    o = Observation('data/europa.fits.gz')
-    print(o)
-    print(o.make_filename())
-    utils.print_progress('__init__')
-    # o.plot_backplane('radial_velocity')
-    # utils.print_progress('plot')
-    o.add_header_metadata()
-    lines = o.header.tostring(sep='\n', endcard=False).strip().splitlines()
-    print(*lines[-30:], sep='\n')
-
-    o.save('data/test_out.fits.gz')
-    utils.print_progress('saved')
 
 
 class SpiceTool:
@@ -2247,6 +2229,3 @@ class Backplane(NamedTuple):
     description: str
     fn: Callable[[], np.ndarray]
 
-
-if __name__ == '__main__':
-    main(*sys.argv[1:])
