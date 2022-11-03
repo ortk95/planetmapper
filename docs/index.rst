@@ -19,12 +19,9 @@
 
 
 
-.. API Reference
-.. =============
-
-Mapper
-------
-.. automodule:: planetmapper.mapper
+API Reference
+=============
+.. automodule:: planetmapper
    :show-inheritance:
    :members:
    :undoc-members:

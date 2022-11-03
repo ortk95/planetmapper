@@ -22,17 +22,17 @@ class TestBody(unittest.TestCase):
         self.assertEqual(self.obj.flattening, 0.0648743915403122)
 
     def test_subpoint(self):
-        self.assertAlmostEqual(self.obj._subpoint_ra, 23.853442709917307)
-        self.assertAlmostEqual(self.obj._subpoint_dec, 8.586656737972165)
-        self.assertAlmostEqual(self.obj.subpoint_lat, 3.3106136262222714)
-        self.assertAlmostEqual(self.obj.subpoint_lon, 340.18465394706067)
-        self.assertAlmostEqual(self.obj.subpoint_distance, 690086737.7625527)
+        self.assertAlmostEqual(self.obj._subpoint_ra, 23.853442709917307, delta=0.0001)
+        self.assertAlmostEqual(self.obj._subpoint_dec, 8.586656737972165, delta=0.0001)
+        self.assertAlmostEqual(self.obj.subpoint_lat, 3.3106136262222714, delta=0.01)
+        self.assertAlmostEqual(self.obj.subpoint_lon, 340.18465394706067, delta=0.01)
+        self.assertAlmostEqual(self.obj.subpoint_distance, 690086737.7625527, delta=10)
 
     def test_target(self):
-        self.assertAlmostEqual(self.obj.target_ra, 23.8534426134383)
-        self.assertAlmostEqual(self.obj.target_dec, 8.586656685345513)
-        self.assertAlmostEqual(self.obj.target_distance, 690158217.238101)
-        self.assertAlmostEqual(self.obj.target_light_time, 2302.1200127659686)
+        self.assertAlmostEqual(self.obj.target_ra, 23.8534426134383, delta=0.001)
+        self.assertAlmostEqual(self.obj.target_dec, 8.586656685345513, delta=0.001)
+        self.assertAlmostEqual(self.obj.target_distance, 690158217.238101, delta=10)
+        self.assertAlmostEqual(self.obj.target_light_time, 2302.1200127659686, delta=0.01)
 
     def test_limb(self):
         output = self.obj.limb_radec_by_illumination(npts=5)
@@ -54,7 +54,7 @@ class TestBody(unittest.TestCase):
     def test_state(self):
         output = self.obj.radial_velocity_from_lonlat(3, 4)
         expected = 21.95717775230934
-        self.assertAlmostEqual(output, expected)
+        self.assertAlmostEqual(output, expected, delta=0.001)
 
 
 class TestObservation(unittest.TestCase):

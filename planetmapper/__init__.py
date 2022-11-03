@@ -16,11 +16,31 @@ to/from SPICE values.
 For more detail about SPICE, see:
 https://spiceypy.readthedocs.io/en/main/documentation.html
 https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/
+
+.. warning::
+
+    This code is in active development, and may break/change/not work at all.
+
+    Bugs can be reported at https://github.com/ortk95/planetmapper/issues/new
 """
+print(
+    'WARNING: planetmapper in active development, and may break/change/not work at all'
+)
+print('Bugs can be reported at https://github.com/ortk95/planetmapper/issues/new')
 from .common import __version__, __author__, __url__
-from .planet_mapper_tool import KERNEL_PATH, PlanetMapperTool
+from .planet_mapper_tool import PlanetMapperTool
 from .body import Body
 from .body_xy import Backplane, BodyXY
 from .observation import Observation
 from . import gui
 from . import utils
+
+__all__ = [
+    'PlanetMapperTool',
+    'Body',
+    'Backplane',
+    'BodyXY',
+    'Observation',
+    'gui',
+    'utils',
+]
