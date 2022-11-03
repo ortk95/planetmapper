@@ -1,12 +1,12 @@
 import unittest
-from planetmapper import mapper
+import planetmapper
 import datetime
 import numpy as np
 
 
 class TestBodyXY(unittest.TestCase):
     def setUp(self):
-        self.obj = mapper.BodyXY('jupiter', '2000-01-01')
+        self.obj = planetmapper.BodyXY('jupiter', '2000-01-01')
 
     def test_x0(self):
         v = np.random.rand() * 100
@@ -74,16 +74,16 @@ class TestBodyXY(unittest.TestCase):
 
 class TestObservation(unittest.TestCase):
     def setUp(self):
-        self.obj = mapper.Observation(
+        self.obj = planetmapper.Observation(
             data=np.random.rand(1, 5, 5), target='Jupiter', utc='2022-01-01'
         )
 
     def test_input_validation(self):
         with self.assertRaises(ValueError):
-            mapper.Observation()
+            planetmapper.Observation()
 
         with self.assertRaises(ValueError):
-            mapper.Observation(path='test', data=np.zeros((2, 2)))
+            planetmapper.Observation(path='test', data=np.zeros((2, 2)))
 
 
 if __name__ == '__main__':

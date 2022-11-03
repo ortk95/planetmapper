@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 import datetime
 import sys
 import tkinter as tk
@@ -13,20 +11,9 @@ from matplotlib.axes import Axes
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import functools
 from . import utils
-from . import mapper
-
+from .observation import Observation
 
 Widget = TypeVar('Widget', bound=tk.Widget)
-
-
-def main(*args):
-    io = InteractiveObservation(
-        # 'data/europa.fits.gz'
-        # 'data/jupiter_small.jpg',
-        # target='jupiter',
-        # utc=datetime.datetime(2020, 8, 25, 12),
-    )
-    io.run()
 
 
 class InteractiveObservation:
@@ -36,7 +23,7 @@ class InteractiveObservation:
         if path is None:
             path = tkinter.filedialog.askopenfilename(title='Open FITS file')
             # TODO add configuration for target, date etc.
-        self.observation = mapper.Observation(path, *args, **kwargs)
+        self.observation = Observation(path, *args, **kwargs)
 
         self.image = np.flipud(np.moveaxis(self.observation.data, 0, 2))
         if self.image.shape[2] != 3:
@@ -350,7 +337,3 @@ class InteractiveObservation:
         utils.print_progress(c1='c')
         self.observation.save(path)
         utils.print_progress('saved', c1='c')
-
-
-if __name__ == '__main__':
-    main(*sys.argv[1:])

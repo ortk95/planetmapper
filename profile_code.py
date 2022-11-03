@@ -3,12 +3,13 @@
 """Script for profiling code during development (TODO delete in final version)"""
 import cProfile
 import pstats
-from planetmapper import utils, mapper
+import planetmapper
+from planetmapper import utils
 
 nn = 50
 with cProfile.Profile() as pr:
     utils.print_progress()
-    o = mapper.BodyXY('Jupiter', '2022-01-01', nx=nn, ny=nn)
+    o = planetmapper.BodyXY('Jupiter', '2022-01-01', nx=nn, ny=nn)
     o.set_r0(10)
     utils.print_progress('__init__')
     img = o.get_lon_img()

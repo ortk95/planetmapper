@@ -3,8 +3,8 @@
 """Script for profiling code during development (TODO delete in final version)"""
 import line_profiler
 from inspect import isclass, isfunction
-from planetmapper import utils, mapper
-
+import planetmapper
+from planetmapper import utils
 print_progress = lambda x='': utils.print_progress(x, c1='c')
 
 # FUNCTION TO TIME ---------------------------------------------------------------------
@@ -13,7 +13,7 @@ print_progress = lambda x='': utils.print_progress(x, c1='c')
 def fn():
     nn = 100
     utils.print_progress()
-    o = mapper.BodyXY('Jupiter', '2022-01-01', nx=nn, ny=nn)
+    o = planetmapper.BodyXY('Jupiter', '2022-01-01', nx=nn, ny=nn)
     utils.print_progress('__init__')
     img = o.get_lon_img()
     utils.print_progress('img')
@@ -28,7 +28,7 @@ cutoff = 0
 # TIMING INTERNALS ---------------------------------------------------------------------
 
 lp = line_profiler.LineProfiler()
-lp.add_function(mapper.BodyXY._get_targvec_img)
+lp.add_function(planetmapper.BodyXY._get_targvec_img)
 objects_to_profile = [
     # mapper.Body,
     # mapper.BodyXY,

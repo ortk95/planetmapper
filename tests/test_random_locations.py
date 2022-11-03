@@ -1,12 +1,12 @@
 import unittest
-from planetmapper import mapper
+import planetmapper
 import numpy as np
 import datetime
 
 
 class TestBody(unittest.TestCase):
     def setUp(self):
-        self.obj = mapper.Body('jupiter', generate_dtm_str())
+        self.obj = planetmapper.Body('jupiter', generate_dtm_str())
 
     def test_round_trip_conversion(self):
         lon0, lat0 = generate_lonlat(self.obj)
@@ -63,7 +63,7 @@ class TestBody(unittest.TestCase):
 
 class TestBodyXY_ZeroSize(unittest.TestCase):
     def setUp(self):
-        self.obj = mapper.BodyXY('saturn', generate_dtm_str(), nx=0, ny=0)
+        self.obj = planetmapper.BodyXY('saturn', generate_dtm_str(), nx=0, ny=0)
 
     def test_round_trip_conversion(self):
         lon, lat = generate_lonlat(self.obj)
@@ -86,7 +86,7 @@ class TestBodyXY_Sized(unittest.TestCase):
     def setUp(self):
         self.nx = 5
         self.ny = 10
-        self.obj = mapper.BodyXY('neptune', generate_dtm_str(), nx=self.nx, ny=self.ny)
+        self.obj = planetmapper.BodyXY('neptune', generate_dtm_str(), nx=self.nx, ny=self.ny)
 
     def test_round_trip_conversion(self):
         lon, lat = generate_lonlat(self.obj)
@@ -111,7 +111,7 @@ def generate_dtm_str() -> str:
     return dtm.strftime('%Y-%m-%d 00:00:00')
 
 
-def generate_lonlat(body: mapper.Body) -> tuple[float, float]:
+def generate_lonlat(body: planetmapper.Body) -> tuple[float, float]:
     """Choose a random point on the surface that's visible"""
     # Use deterministic seed so tests are reproducable (on the same day)
     seed = (datetime.datetime.now() - datetime.datetime(2000, 1, 1)).days

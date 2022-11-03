@@ -12,7 +12,7 @@ how long they take to execute `number` times, and the fastest time from
 import timeit
 import math
 import numpy as np
-from planetmapper import utils
+import tools
 
 # SETUP --------------------------------------------------------------------------------
 # Adjust repeat & number as needed to ensure the timing doesn't take too long. Higher
@@ -102,9 +102,9 @@ for s in statements:
             except TypeError:
                 pass
         out_old = out
-        utils.cprint(f'{repr(out)}', fg=fg, style='b', flush=True)
+        tools.cprint(f'{repr(out)}', fg=fg, style='b', flush=True)
     else:
         print(f'{t:.5e} | {s}', flush=True)
 
 print()
-utils.print_bar_chart(statements, times, sort=True)
+tools.print_bar_chart(statements, times, sort=True)
