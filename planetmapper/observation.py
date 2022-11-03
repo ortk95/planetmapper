@@ -1,23 +1,11 @@
 import datetime
-import glob
-import math
 import os
-import sys
-from typing import Callable, Iterable, TypeVar, ParamSpec, NamedTuple, cast, Any
-import matplotlib.patheffects as path_effects
-import matplotlib.pyplot as plt
-import matplotlib.transforms
-import matplotlib.patches
-from matplotlib.transforms import Transform
-from matplotlib.axes import Axes
+
 import numpy as np
-import spiceypy as spice
-from spiceypy.utils.exceptions import NotFoundError
-from functools import wraps
 import PIL.Image
 from astropy.io import fits
-from . import utils
-from . import common
+
+from . import common, utils
 from .body_xy import BodyXY
 
 
