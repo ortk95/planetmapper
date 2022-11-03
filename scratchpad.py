@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Script for testing stuff during development (TODO delete in final version)"""
-import planetmapper 
+import planetmapper
 import numpy as np
 from functools import wraps
 import tools

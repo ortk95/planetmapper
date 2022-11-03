@@ -111,7 +111,6 @@ class PlanetMapperTool:
         # TODO do this better - don't necessarily need to keep running it every time
         if only_if_needed and cls._KERNELS_LOADED:
             return
-
         if manual_kernels:
             kernels = manual_kernels
         else:
@@ -120,7 +119,9 @@ class PlanetMapperTool:
             spks1 = sorted(glob.glob(kernel_path + 'spk/planets/de*.bsp'))
             spks2 = sorted(glob.glob(kernel_path + 'spk/satellites/*.bsp'))
             lsks = sorted(glob.glob(kernel_path + 'lsk/naif*.tls'))
-            jwst = sorted(glob.glob(kernel_path + '../../jwst/*.bsp'))
+            jwst = sorted(
+                glob.glob(kernel_path + '../../jwst/**/*.bsp', recursive=True)
+            )
             kernels = [pcks[-1], spks1[-1], *spks2, lsks[-1], *jwst]
         for kernel in kernels:
             spice.furnsh(kernel)
@@ -160,7 +161,7 @@ class PlanetMapperTool:
         """
         # Fastest method
         return v / (sum(v * v)) ** 0.5
-    
+
     def _encode_str(self, s: str) -> bytes | str:
         if self._optimize_speed:
             return s.encode('UTF-8')
