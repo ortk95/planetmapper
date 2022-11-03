@@ -7,7 +7,7 @@ import os
 import sphinx_rtd_theme
 
 sys.path.append(os.path.join(os.path.split(__file__)[0], '..'))
-from planetmapper import __version__
+from planetmapper.common import __version__
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
