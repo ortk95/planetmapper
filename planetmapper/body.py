@@ -85,9 +85,23 @@ class Body(PlanetMapperTool):
         """Longitude of the sub-observer point on the target."""
         self.subpoint_lat: float
         """Latitude of the sub-observer point on the target."""
-        self.coordinates_of_interest: list[tuple[float, float]]
-        """List of `(lon, lat)` coordinats of interest to mark when plotting. Add to 
-        this list using :func:`add_coordinate_of_interest`."""
+        self.coordinates_of_interest_lonlat: list[tuple[float, float]]
+        """
+        List of `(lon, lat)` coordinates of interest on the surface of the target body
+        to mark when plotting (points which are not visible will not be plotted). To add
+        a new point of interest, simply append a coordinate pair to this list: ::
+
+            body.coordinates_of_interest_lonlat.append((0, -22))
+        """
+        self.coordinates_of_interest_radec: list[tuple[float, float]]
+        """
+        List of `(ra, dec)` sky coordinates of interest to mark when plotting (e.g. 
+        background stars). To add new point of interest, simply append a coordinate pair
+        to this list: ::
+
+            body.coordinates_of_interest_radec.append((200, -45))
+        """
+
         self.other_bodies_of_interest: list[Body]
         """
         List of other bodies of interest to mark when plotting. Add to this list using 
@@ -171,7 +185,8 @@ class Body(PlanetMapperTool):
 
         # Create empty lists
         self.other_bodies_of_interest = []
-        self.coordinates_of_interest = []
+        self.coordinates_of_interest_lonlat = []
+        self.coordinates_of_interest_radec = []
 
     def __repr__(self) -> str:
         return f'Body({self.target!r}, {self.utc!r})'
@@ -221,17 +236,6 @@ class Body(PlanetMapperTool):
         """
         for other_target in other_targets:
             self.other_bodies_of_interest.append(self.create_other_body(other_target))
-
-    def add_coordinate_of_interest(self, lon: float, lat: float) -> None:
-        """
-        Add coordinates of a point of interest on the surface of of the target body to
-        :attr:`coordinates_of_interest`.
-
-        Args:
-            lon: Longitude of point on target body.
-            lat: Latitude of point on target body.
-        """
-        self.coordinates_of_interest.append((lon, lat))
 
     # Coordinate transformations target -> observer direction
     def _lonlat2targvec_radians(self, lon: float, lat: float) -> np.ndarray:
@@ -890,7 +894,7 @@ class Body(PlanetMapperTool):
                 clip_on=True,
             )
 
-        for lon, lat in self.coordinates_of_interest:
+        for lon, lat in self.coordinates_of_interest_lonlat:
             if self.test_if_lonlat_visible(lon, lat):
                 ra, dec = self.lonlat2radec(lon, lat)
                 ax.scatter(
@@ -900,6 +904,14 @@ class Body(PlanetMapperTool):
                     color='k',
                     transform=transform,
                 )
+        for ra, dec in self.coordinates_of_interest_radec:
+            ax.scatter(
+                ra,
+                dec,
+                marker='+',  # type: ignore
+                color='k',
+                transform=transform,
+            )
 
         for body in self.other_bodies_of_interest:
             ra = body.target_ra
