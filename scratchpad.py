@@ -12,5 +12,4 @@ obs = planetmapper.gui.InteractiveObservation(
     utc='2020-08-25T00:00:00',
 )
 obs.observation.add_other_bodies('Io', 'Europa')
-obs.observation.plot_wireframe_radec()
-# obs.run()
+obs.run()

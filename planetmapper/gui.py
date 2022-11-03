@@ -164,6 +164,8 @@ class InteractiveObservation:
         self.ax = self.fig.add_subplot()
 
         self.ax.imshow(self.image, origin='lower', zorder=0)
+        self.ax.set_xlim(-0.5, self.observation._nx - 0.5)
+        self.ax.set_ylim(-0.5, self.observation._ny - 0.5)
         self.plot_wireframe()
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
@@ -255,7 +257,29 @@ class InteractiveObservation:
                 ],
                 transform=transform,
                 zorder=5,
-            )  # TODO make consistent with elsewhere
+            )
+        for body in self.observation.other_bodies:
+            ra = body.target_ra
+            dec = body.target_dec
+            ax.text(
+                ra,
+                dec,
+                body.target + '\n',
+                size='small',
+                ha='center',
+                va='center',
+                color='grey',
+                transform=transform,
+                clip_on=True,
+            )
+            ax.scatter(
+                ra,
+                dec,
+                marker='+',  # type: ignore
+                color='w',
+                transform=transform,
+            )
+        # TODO make this code consistent with elsewhere?
 
     # Keybindings
     def bind_keyboard(self) -> None:
@@ -268,9 +292,9 @@ class InteractiveObservation:
     def increase_step(self) -> None:
         self.step_size *= 10
         print(self.step_size)
-    
+
     def decrease_step(self) -> None:
-        self.step_size /=10
+        self.step_size /= 10
         print(self.step_size)
 
     def move_up(self) -> None:
@@ -324,7 +348,6 @@ class InteractiveObservation:
     def decrease_radius(self) -> None:
         self.observation.set_r0(self.observation.get_r0() - self.step_size)
         self.update_plot()
-
 
     def save(self) -> None:
         path = tkinter.filedialog.asksaveasfilename(
