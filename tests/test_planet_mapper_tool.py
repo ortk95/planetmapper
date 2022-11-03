@@ -8,7 +8,12 @@ from numpy import array, nan
 class TestSpiceTool(unittest.TestCase):
     def setUp(self):
         self.obj = planetmapper.PlanetMapperTool()
-        self.obj.load_spice_kernels()
+
+    def test_speed_of_light(self):
+        self.assertEqual(
+            self.obj.speed_of_light(),
+            299792.458
+        )
 
     def test_standardise(self):
         self.assertEqual(self.obj.standardise_body_name(' JuPiTeR   '), 'JUPITER')
