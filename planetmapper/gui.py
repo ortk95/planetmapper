@@ -11,8 +11,7 @@ from matplotlib.axes import Axes
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import functools
 from . import utils
-from . import mapper
-
+from .observation import Observation
 
 Widget = TypeVar('Widget', bound=tk.Widget)
 
@@ -24,7 +23,7 @@ class InteractiveObservation:
         if path is None:
             path = tkinter.filedialog.askopenfilename(title='Open FITS file')
             # TODO add configuration for target, date etc.
-        self.observation = mapper.Observation(path, *args, **kwargs)
+        self.observation = Observation(path, *args, **kwargs)
 
         self.image = np.flipud(np.moveaxis(self.observation.data, 0, 2))
         if self.image.shape[2] != 3:
