@@ -26,7 +26,7 @@ P = ParamSpec('P')
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
 
 
-class MapperTool:
+class PlanetMapperTool:
     """
     Class containing methods to interface with spice and manipulate coordinates.
 

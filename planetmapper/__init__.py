@@ -18,6 +18,6 @@ https://spiceypy.readthedocs.io/en/main/documentation.html
 https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/
 """
 from .common import __version__, __author__, __url__
-from .mapper import KERNEL_PATH, MapperTool, Body, BodyXY, Observation, Backplane
+from .mapper import KERNEL_PATH, PlanetMapperTool, Body, BodyXY, Observation, Backplane
 from . import gui
 from . import utils

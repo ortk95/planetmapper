@@ -18,9 +18,10 @@ import PIL.Image
 from astropy.io import fits
 from . import utils
 from . import common
-from .mapper import MapperTool
+from .mapper import PlanetMapperTool
 
-class Body(MapperTool):
+
+class Body(PlanetMapperTool):
     """
     Class representing an astronomical body observed at a specific time.
 
@@ -30,7 +31,7 @@ class Body(MapperTool):
     that are passed to SPICE functions which can almost always be left as their default
     values.
 
-    This class inherits from :class:`MapperTool` so the methods described above are also
+    This class inherits from :class:`PlanetMapperTool` so the methods described above are also
     available.
 
     Args:
@@ -48,7 +49,7 @@ class Body(MapperTool):
             in SPICE.
         subpoint_method: Method used to calculate the sub-observer point in SPICE.
         surface_method: Method used to calculate surface intercepts in SPICE.
-        **kwargs: Additional arguments are passed to `MapperTool`.
+        **kwargs: Additional arguments are passed to `PlanetMapperTool`.
     """
 
     def __init__(
@@ -854,4 +855,3 @@ class Body(MapperTool):
         if show:
             plt.show()
         return ax
-
