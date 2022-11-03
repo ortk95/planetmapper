@@ -24,3 +24,14 @@ from .body_xy import Backplane, BodyXY
 from .observation import Observation
 from . import gui
 from . import utils
+
+__all__ = [
+    'KERNEL_PATH',
+    'PlanetMapperTool',
+    'Body',
+    'Backplane',
+    'BodyXY',
+    'Observation',
+    'gui',
+    'utils',
+]
