@@ -7,7 +7,6 @@ import matplotlib.patches
 import matplotlib.pyplot as plt
 import matplotlib.transforms
 import numpy as np
-import spiceypy as spice
 from matplotlib.axes import Axes
 from spiceypy.utils.exceptions import NotFoundError
 
@@ -723,7 +722,7 @@ class BodyXY(Body):
         """
 
         position_img, velocity_img, lt_img = self._get_state_imgs()
-        return lt_img * spice.clight()
+        return lt_img * self.speed_of_light()
 
     @_cache_result
     def get_radial_velocity_img(self) -> np.ndarray:
@@ -749,7 +748,7 @@ class BodyXY(Body):
             :func:`get_radial_velocity_img` for use in doppler shift equations. Points
             off the disc have a value of NaN.
         """
-        return self.get_radial_velocity_img() / spice.clight()
+        return self.get_radial_velocity_img() / self.speed_of_light()
 
     # Backplane management
     @staticmethod

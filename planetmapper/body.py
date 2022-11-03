@@ -133,7 +133,7 @@ class Body(PlanetMapperTool):
         self._target_obsvec = cast(np.ndarray, starg)[:3]
         self.target_light_time = cast(float, lt)
         # cast() calls are only here to make type checking play nicely with spice.spkezr
-        self.target_distance = self.target_light_time * spice.clight()
+        self.target_distance = self.target_light_time * self.speed_of_light()
         self._target_ra_radians, self._target_dec_radians = self._obsvec2radec_radians(
             self._target_obsvec
         )
@@ -198,7 +198,7 @@ class Body(PlanetMapperTool):
         # Use the calculated difference in distance relative to the subpoint to
         # calculate the time corresponding to when the ray left the surface at the point
         # of interest
-        targvec_et = self._subpoint_et - dist_offset / spice.clight()
+        targvec_et = self._subpoint_et - dist_offset / self.speed_of_light()
 
         # Create the transform matrix converting between the target vector at the time
         # the ray left the point of interest -> the observer vector at the time the ray

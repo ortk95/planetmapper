@@ -42,8 +42,7 @@ class PlanetMapperTool:
                 kernel_path=kernel_path, manual_kernels=manual_kernels
             )
 
-    @staticmethod
-    def standardise_body_name(name: str | int) -> str:
+    def standardise_body_name(self, name: str | int) -> str:
         """
         Return a standardised version of the name of a SPICE body.
 
@@ -65,8 +64,7 @@ class PlanetMapperTool:
         name = spice.bodc2s(spice.bods2c(str(name)))
         return name
 
-    @staticmethod
-    def et2dtm(et: float) -> datetime.datetime:
+    def et2dtm(self, et: float) -> datetime.datetime:
         """
         Convert ephemeris time to a Python datetime object.
 
@@ -80,6 +78,16 @@ class PlanetMapperTool:
         # manually add '+0000' to string to make it timezone aware
         # i.e. this lets python know it is UTC
         return datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%f%z')
+
+    def speed_of_light(self) -> float:
+        """
+        Return the speed of light in km/s. This is a convenience function to call
+        `spice.clight()`.
+
+        Returns:
+            Speed of light in km/s.
+        """
+        return spice.clight()
 
     @classmethod
     def load_spice_kernels(
@@ -150,7 +158,7 @@ class PlanetMapperTool:
         """
         # Fastest method
         return v / (sum(v * v)) ** 0.5
-
+    
     def _encode_str(self, s: str) -> bytes | str:
         if self._optimize_speed:
             return s.encode('UTF-8')
