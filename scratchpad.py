@@ -13,4 +13,6 @@ obs = planetmapper.gui.InteractiveObservation(
 )
 obs.observation.add_other_bodies('Io', 'Europa', 'Ganymede', 'Callisto')
 obs.observation.set_disc_params(x0=137.0, y0=119.0, r0=80.0, rotation=354.0)
+obs.observation.add_coordinate_of_interest(60, -22)
+# obs.observation.plot_wireframe_xy()
 obs.run()

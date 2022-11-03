@@ -258,6 +258,18 @@ class InteractiveObservation:
                 transform=transform,
                 zorder=5,
             )
+        
+        for lon, lat in self.observation.coordinates_of_interest:
+            if self.observation.test_if_lonlat_visible(lon, lat):
+                ra, dec = self.observation.lonlat2radec(lon, lat)
+                ax.scatter(
+                    ra,
+                    dec,
+                    marker='x',  # type: ignore
+                    color='k',
+                    transform=transform,
+                )
+
         for body in self.observation.other_bodies:
             ra = body.target_ra
             dec = body.target_dec
