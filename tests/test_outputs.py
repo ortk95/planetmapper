@@ -32,7 +32,9 @@ class TestBody(unittest.TestCase):
         self.assertAlmostEqual(self.obj.target_ra, 23.8534426134383, delta=0.001)
         self.assertAlmostEqual(self.obj.target_dec, 8.586656685345513, delta=0.001)
         self.assertAlmostEqual(self.obj.target_distance, 690158217.238101, delta=10)
-        self.assertAlmostEqual(self.obj.target_light_time, 2302.1200127659686, delta=0.01)
+        self.assertAlmostEqual(
+            self.obj.target_light_time, 2302.1200127659686, delta=0.01
+        )
 
     def test_limb(self):
         output = self.obj.limb_radec_by_illumination(npts=5)
@@ -161,17 +163,20 @@ class TestObservation(unittest.TestCase):
                 [
                     [nan, nan, nan, nan],
                     [nan, nan, nan, nan],
-                    [nan, 1.03412257e-04, 1.10407097e-04, 1.17401567e-04],
-                    [9.00672963e-05, 9.70624771e-05, 1.04057305e-04, 1.11051856e-04],
-                    [8.37172325e-05, 9.07124097e-05, 9.77072951e-05, 1.04701922e-04],
-                    [7.73669388e-05, 8.43621773e-05, 9.13571328e-05, 9.83518299e-05],
+                    [nan, 1.00010342, 1.00011041, 1.00011741],
+                    [1.00009007, 1.00009707, 1.00010406, 1.00011106],
+                    [1.00008372, 1.00009072, 1.00009771, 1.00010471],
+                    [1.00007737, 1.00008437, 1.00009136, 1.00009836],
                 ]
             ),
         }
         for k, img_expected in backplanes_expected.items():
             with self.subTest(k):
                 img_output = self.obj.get_backplane_img(k)
-                self.assertTrue(np.allclose(img_output, img_expected, equal_nan=True))
+                self.assertTrue(
+                    np.allclose(img_output, img_expected, equal_nan=True),
+                    msg='output:\n' + repr(img_output),
+                )
 
 
 if __name__ == '__main__':
