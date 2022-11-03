@@ -1,22 +1,3 @@
-"""
-Coordinate systems:
-
-- `xy` - image pixel coordinates
-- `radec` - observer frame RA/Dec coordinates
-- `obsvec` - observer frame (e.g. J2000) rectangular vector
-- `obsvec_norm` - normalised observer frame rectangular vector
-- `rayvec` - target frame rectangular vector from observer to point
-- `targvec` - target frame rectangular vector
-- `lonlat` - planetary coordinates on target
-
-By default, all angles should be degrees unless using a function explicitly named with
-`_radians`. Note that angles in SPICE are radians, so care should be taken converting
-to/from SPICE values.
-
-For more detail about SPICE, see:
-https://spiceypy.readthedocs.io/en/main/documentation.html
-https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/
-"""
 import datetime
 import glob
 import math
@@ -45,7 +26,7 @@ P = ParamSpec('P')
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
 
 
-class SpiceTool:
+class MapperTool:
     """
     Class containing methods to interface with spice and manipulate coordinates.
 
@@ -210,7 +191,7 @@ class SpiceTool:
         )
 
 
-class Body(SpiceTool):
+class Body(MapperTool):
     """
     Class representing an astronomical body observed at a specific time.
 
@@ -220,7 +201,7 @@ class Body(SpiceTool):
     that are passed to SPICE functions which can almost always be left as their default
     values.
 
-    This class inherits from :class:`SpiceTool` so the methods described above are also
+    This class inherits from :class:`MapperTool` so the methods described above are also
     available.
 
     Args:
@@ -238,7 +219,7 @@ class Body(SpiceTool):
             in SPICE.
         subpoint_method: Method used to calculate the sub-observer point in SPICE.
         surface_method: Method used to calculate surface intercepts in SPICE.
-        **kwargs: Additional arguments are passed to `SpiceTool`.
+        **kwargs: Additional arguments are passed to `MapperTool`.
     """
 
     def __init__(
@@ -1891,7 +1872,7 @@ class Observation(BodyXY):
 
     This is a subclass of :class:`BodyXY`, with additional methods to interact with the
     observed data, such as by saving a FITS file containing calculated backplane data.
-    All methods described in :class:`BodyXY`, :class:`Body` and :class:`SpiceTool` are
+    All methods described in :class:`BodyXY`, :class:`Body` and :class:`MapperTool` are
     therefore available in instances of this class.
 
     This class can be created by either providing a `path` to a data file to be loaded,
@@ -1904,8 +1885,8 @@ class Observation(BodyXY):
     values in the header. This allows an instance of this class to be created with a
     single argument specifying the `path` to the FITS file e.g.
     `Observation('path/to/file.fits')`. Manually specified parameters will take
-    precedence, so `Observation('path/to/file.fits', target='JUPITER')` will have Jupiter
-    as a target, regardless of any values saying otherwise in the FITS header.
+    precedence, so `Observation('path/to/file.fits', target='JUPITER')` will have
+    Jupiter as a target, regardless of any values saying otherwise in the FITS header.
 
     If a FITS header is not provided (e.g. if the input path corresponds to an image
     file), then at least the `target` and `utc` parameters need to be specified.
@@ -2228,4 +2209,3 @@ class Backplane(NamedTuple):
     name: str
     description: str
     fn: Callable[[], np.ndarray]
-

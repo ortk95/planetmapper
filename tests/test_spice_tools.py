@@ -7,7 +7,7 @@ from numpy import array, nan
 
 class TestSpiceTool(unittest.TestCase):
     def setUp(self):
-        self.obj = planetmapper.SpiceTool()
+        self.obj = planetmapper.MapperTool()
         self.obj.load_spice_kernels()
 
     def test_standardise(self):
