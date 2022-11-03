@@ -10,16 +10,14 @@ times = [
     '2022-07-28T06:03:59.373',
     '2022-07-28T08:03:59.373',
 ]
-for t in times:
-    body = planetmapper.BodyXY(
-        'jupiter',
-        t,
-        observer='JWST',
-        sz=50,
-    )
-    # ax = body.plot_backplane('doppler')
-    ax = body.plot_backplane('lon')
-    print(
-        body.radial_velocity_from_lonlat(30, 0),
-        body.radial_velocity_from_lonlat(30 + 12, 0),
-    )
+body = planetmapper.BodyXY(
+    'jupiter',
+    times[0],
+    observer='JWST',
+    sz=50,
+)
+body.print_backplanes()
+
+print(f'{len(body.backplanes)} backplanes currently registered:')
+for bp in body.backplanes.values():
+    print(f'    {bp.name}: {bp.description}')

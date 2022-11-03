@@ -20,16 +20,26 @@ class Backplane(NamedTuple):
     """
     NamedTuple containing information about a backplane.
 
+    Backplanes provide a way to generate and save additional information about an
+    observation, such as the longitudes/latitudes corresponding to each pixel in the
+    observed image. This class provides a standardised way to store a backplane
+    generation function, along with some metadata (`name` and `description`) which
+    describes what the backplane represents.
+
+    See also :attr:`BodyXY.backplanes`.
+
     Args:
-        name: Short name identifying the backplane.
-        description: More detailed description of the backplane.
-        fn: Function which takes no arguments returns a numpy array containing a
-            backplane image when called.
+        name: Short name identifying the backplane. This is used as the `EXTNAME` for
+            the backplane when saving FITS files in :func:`Observation.save`.
+        description: More detailed description of the backplane (e.g. including units).
+        get_img: Function which takes no arguments returns a numpy array containing a
+            backplane image when called. This should generally be a method such as
+            :func:`BodyXY.get_lon_img`.
     """
 
     name: str
     description: str
-    fn: Callable[[], np.ndarray]
+    get_img: Callable[[], np.ndarray]
 
 
 class BodyXY(Body):
@@ -97,14 +107,16 @@ class BodyXY(Body):
         in the image.
 
         Generated backplane images can be easily retrieved using 
-        :func:`get_backplane_img` and plotted using :func:`plot_backplane`. New
-        backplanes can easily be added using :func:`register_backplane`.
+        :func:`get_backplane_img` and plotted using :func:`plot_backplane`. Several
+        backplanes are included by default, and can be summarised using 
+        :func:`print_backplanes`. Custom backplanes can be added using 
+        :func:`register_backplane`.
 
         This dictionary of backplanes can also be used directly if more customisation is
         needed: ::
 
             # Retrieve the image containing longitdude values
-            lon_image = body.backplanes['LON'].fn()
+            lon_image = body.backplanes['LON'].get_img()
 
             # Print the description of the doppler factor backplane
             print(body.backplanes['DOPPLER'].description)
@@ -113,16 +125,17 @@ class BodyXY(Body):
             del body.backplanes['DISTANCE']
             
             # Print summary of all registered backplanes
+            print(f'{len(body.backplanes)} backplanes currently registered:')
             for bp in body.backplanes.values():
-                print(bp.name, bp.description)
+                print(f'    {bp.name}: {bp.description}')
         
         See :class:`Backplane` for more detail about interacting with the backplanes
         directly.
 
         Note that a generated backplane image will depend on the disc parameters 
         `(x0, y0, r0, rotation)` at the time the backplane is generated (e.g. calling 
-        `body.backplanes['LON'].fn()` or using :func:`get_backplane_img`). Generating 
-        the same backplane when there are different disc parameter values will
+        `body.backplanes['LON'].get_img()` or using :func:`get_backplane_img`).
+        Generating the same backplane when there are different disc parameter values will
         produce a different image.
 
         This dictionary is used to define the backplanes saved to the output FITS file
@@ -789,12 +802,23 @@ class BodyXY(Body):
         name = self.standardise_backplane_name(name)
         if name in self.backplanes:
             raise ValueError(f'Backplane named {name!r} is already registered')
-        self.backplanes[name] = Backplane(name=name, description=description, fn=fn)
+        self.backplanes[name] = Backplane(name=name, description=description, get_img=fn)
+
+    def print_backplanes(self) -> None:
+        """
+        Prints a basic summary of currently registered :attr:`backplanes`.
+        """
+        for bp in self.backplanes.values():
+            print(f'{bp.name}: {bp.description}')
 
     def _register_default_backplanes(self) -> None:
         # TODO double check units and expand descriptions
-        self.register_backplane(self.get_lon_img, 'LON', 'Longitude [deg]')
-        self.register_backplane(self.get_lat_img, 'LAT', 'Latitude [deg]')
+        self.register_backplane(
+            self.get_lon_img, 'LON', 'Planetographic longitude [deg]'
+        )
+        self.register_backplane(
+            self.get_lat_img, 'LAT', 'Planetographic latitude [deg]'
+        )
         self.register_backplane(self.get_ra_img, 'RA', 'Right ascension [deg]')
         self.register_backplane(self.get_dec_img, 'DEC', 'Declination [deg]')
         self.register_backplane(self.get_phase_angle_img, 'phase', 'Phase angle [deg]')
@@ -805,12 +829,12 @@ class BodyXY(Body):
             self.get_emission_angle_img, 'EMISSION', 'Emission angle [dec]'
         )
         self.register_backplane(
-            self.get_distance_img, 'DISTANCE', 'Distance [km] to observer'
+            self.get_distance_img, 'DISTANCE', 'Distance to observer [km]'
         )
         self.register_backplane(
             self.get_radial_velocity_img,
             'RADIAL_VELOCITY',
-            'Radial velocity [km/s] away from observer',
+            'Radial velocity away from observer [km/s]',
         )
         self.register_backplane(
             self.get_doppler_img,
@@ -827,6 +851,10 @@ class BodyXY(Body):
         same backplane when there are different disc parameter values will produce a
         different image.
 
+        This method is equivilent to ::
+
+            body.backplanes[body.standardise_backplane_name(name)].get_img()
+
         Args:
             name: Name of the desired backplane. This is standardised with
                 :func:`standardise_backplane_name` and used to choose a registered
@@ -835,8 +863,7 @@ class BodyXY(Body):
         Returns:
             Array containing the backplane's values for each pixel in the image.
         """
-        name = self.standardise_backplane_name(name)
-        return self.backplanes[name].fn()
+        return self.backplanes[self.standardise_backplane_name(name)].get_img()
 
     def plot_backplane(
         self, name: str, ax: Axes | None = None, show: bool = True, **kwargs
@@ -863,7 +890,7 @@ class BodyXY(Body):
         name = self.standardise_backplane_name(name)
         backplane = self.backplanes[name]
         ax = self.plot_wireframe_xy(ax, show=False)
-        im = ax.imshow(backplane.fn(), origin='lower', **kwargs)
+        im = ax.imshow(backplane.get_img(), origin='lower', **kwargs)
         plt.colorbar(im, label=backplane.description)
         if show:
             plt.show()
