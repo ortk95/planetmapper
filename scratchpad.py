@@ -6,9 +6,11 @@ import numpy as np
 import tools
 
 # obs = planetmapper.gui.InteractiveObservation('data/europa.fits.gz')
-obs = planetmapper.gui.InteractiveObservation('data/jupiter_small.jpg',
-target='jupiter',
-utc='August 25, 2020',
+obs = planetmapper.gui.InteractiveObservation(
+    'data/jupiter_small.jpg',
+    target='jupiter',
+    utc='2020-08-25T00:00:00',
 )
-
-obs.run()
+obs.observation.add_other_bodies('Io', 'Europa')
+obs.observation.plot_wireframe_radec()
+# obs.run()

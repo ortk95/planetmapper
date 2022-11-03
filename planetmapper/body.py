@@ -34,6 +34,9 @@ class Body(PlanetMapperTool):
             SPICE, see
             https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/utc2et_c.html.
         observer: Name of observing body. Defaults to 'EARTH'.
+        other_targets: Optionally specify a list of other targets of interest (e.g.
+            moons) to mark when plotting wireframes. This list of targets will be used
+            to create the list of :attr:`other_bodies`.
         observer_frame: Observer reference frame.
         illumination_source: Illumination source (e.g. the sun).
         aberration_correction: Aberration correction used to correct light travel time
@@ -49,6 +52,7 @@ class Body(PlanetMapperTool):
         utc: str | datetime.datetime,
         observer: str = 'EARTH',
         *,
+        other_targets: list[str] | None = None,
         observer_frame: str = 'J2000',
         illumination_source: str = 'SUN',
         aberration_correction: str = 'CN+S',
@@ -85,6 +89,12 @@ class Body(PlanetMapperTool):
         """Longitude of the sub-observer point on the target."""
         self.subpoint_lat: float
         """Latitude of the sub-observer point on the target."""
+        self.other_bodies: list[Body]
+        """
+        List of other bodies of interest to mark when plotting. Created using the
+        provided list of `other_targets`. Add new bodies to this list using 
+        :func:`add_other_bodies`.
+        """
 
         # Process inputs
         self.target = self.standardise_body_name(target)
@@ -94,6 +104,7 @@ class Body(PlanetMapperTool):
             utc = utc.strftime(self._DEFAULT_DTM_FORMAT_STRING)
         self.utc = utc
         self.observer = self.standardise_body_name(observer)
+        self._other_targets = other_targets
         self.observer_frame = observer_frame
         self.illumination_source = illumination_source
         self.aberration_correction = aberration_correction
@@ -161,8 +172,55 @@ class Body(PlanetMapperTool):
             *self._obsvec2radec_radians(self._subpoint_obsvec)
         )
 
+        # Create list of other bodies
+        self.other_bodies = []
+        if self._other_targets is not None:
+            for target in self._other_targets:
+                self.add_other_bodies(target)
+
     def __repr__(self) -> str:
         return f'Body({self.target!r}, {self.utc!r})'
+
+    def create_other_body(self, other_target: str) -> 'Body':
+        """
+        Create a :class:`Body` instance using identical parameters but just with a
+        different target. For example, the `europa` body created here will have
+        identical parameters (observation time, observer, etc.) to the `jupiter` body,
+        just with a different target. ::
+
+            jupiter = Body('Jupiter', '2000-01-01', observer='Moon')
+            europa = jupiter.create_other_body('Europa')
+
+        Args:
+            other_target: Name of the other target, passed to :class:`Body`
+
+        Returns:
+            :class:`Body` instance which corresponds to `other_target`.
+        """
+        return Body(
+            target=other_target,
+            utc=self.utc,
+            observer=self.observer,
+            observer_frame=self.observer_frame,
+            illumination_source=self.illumination_source,
+            aberration_correction=self.aberration_correction,
+            subpoint_method=self.subpoint_method,
+            surface_method=self.surface_method,
+        )
+
+    def add_other_bodies(self, *other_targets: str):
+        """
+        Add targets to the list of :attr:`other_bodies` of interest to mark when
+        plotting. The other targets are created using :func:`create_other_body`. For
+        example, to add the Galilean moons as other targets to a Jupiter body, use ::
+
+            body.add_other_bodies('Io', 'Europa', 'Ganymede', 'Callisto')
+
+        Args:
+            *other_targets: Names of the other targets, passed to :class:`Body`
+        """
+        for other_target in other_targets:
+            self.other_bodies.append(self.create_other_body(other_target))
 
     # Coordinate transformations target -> observer direction
     def _lonlat2targvec_radians(self, lon: float, lat: float) -> np.ndarray:
@@ -819,6 +877,28 @@ class Body(PlanetMapperTool):
                 ],
                 transform=transform,
                 clip_on=True,
+            )
+
+        for body in self.other_bodies:
+            ra = body.target_ra
+            dec = body.target_dec
+            ax.text(
+                ra,
+                dec,
+                body.target + '\n',
+                size='small',
+                ha='center',
+                va='center',
+                color='grey',
+                transform=transform,
+                clip_on=True,
+            )
+            ax.scatter(
+                ra,
+                dec,
+                marker='+', # type: ignore
+                color='k',
+                transform=transform,
             )
         ax.set_title(self.get_description(multiline=True))
         return ax
