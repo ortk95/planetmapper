@@ -58,15 +58,6 @@ class BodyXY(Body):
     backplane image generatiton) will produce different results before and after these
     values are adjusted.
 
-    The size of the image can be specified by using the `nx` and `ny` parameters to
-    specify the number of pixels in the x and y dimensions of the image respectively.
-    If `nx` and `ny` are equal (i.e. the image is square), then the parameter `sz` can
-    be used instead to set both `nx` and `ny`, where `BodyXY(..., sz=50)` is equivilent
-    to `BodyXY(..., nx=50, ny=50)`.
-
-    If `nx` and `ny` are not set, then some functionality (such as generating backplane
-    images) will not be available and will raise a `ValueError` if called.
-
     For larger images, the generation of backplane images can be computationally
     intensive and take a large amount of time to execute. Therefore, intermediate
     results are cached to make sure that the slowest parts of code are only called when
@@ -82,7 +73,7 @@ class BodyXY(Body):
         # The intermediate results used in generating the longitude backplane are
         # cached, speeding up any future calculations which use these intermediate
         # results:
-        body.get_backplane_img('LON') # Takes ~15s to execute
+        body.get_backplane_img('LON') # Takes ~10s to execute
         body.get_backplane_img('LON') # Executes instantly
         body.get_backplane_img('LAT') # Executes instantly
 
@@ -90,8 +81,17 @@ class BodyXY(Body):
         # changes so the cache is automatically cleared (as the cached intermediate
         # results are no longer valid):
         body.set_r0(190) # This automatically clears the cache
-        body.get_backplane_img('LAT') # Takes ~15s to execute
+        body.get_backplane_img('LAT') # Takes ~10s to execute
         body.get_backplane_img('LON') # Executes instantly
+
+    The size of the image can be specified by using the `nx` and `ny` parameters to
+    specify the number of pixels in the x and y dimensions of the image respectively.
+    If `nx` and `ny` are equal (i.e. the image is square), then the parameter `sz` can
+    be used instead to set both `nx` and `ny`, where `BodyXY(..., sz=50)` is equivilent
+    to `BodyXY(..., nx=50, ny=50)`.
+
+    If `nx` and `ny` are not set, then some functionality (such as generating backplane
+    images) will not be available and will raise a `ValueError` if called.
 
     Args:
         target: Name of target body, passed to :class:`Body`.
