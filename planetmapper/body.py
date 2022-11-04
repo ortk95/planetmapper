@@ -535,9 +535,9 @@ class Body(PlanetMapperTool):
         Calculate RA/Dec coordinates of the dayside and nightside parts of the target
         body's limb.
 
-        Output arrays are like the outputs of `limb_radec`, but the dayside coordinate
-        arrays have non-illuminated locations replaced with NaN and the nightside arrays
-        have illuminated locations replaced with NaN.
+        Output arrays are like the outputs of :func:`limb_radec`, but the dayside
+        coordinate arrays have non-illuminated locations replaced with NaN and the
+        nightside arrays have illuminated locations replaced with NaN.
 
         Args:
             npts: Number of points in the generated limbs.
@@ -581,7 +581,6 @@ class Body(PlanetMapperTool):
     def _illumination_angles_from_targvec_radians(
         self, targvec: np.ndarray
     ) -> tuple[float, float, float]:
-
         phase, incdnc, emissn, visibl, lit = self._illumf_from_targvec_radians(targvec)
         return phase, incdnc, emissn
 
