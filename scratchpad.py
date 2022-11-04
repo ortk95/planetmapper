@@ -23,15 +23,27 @@ import spiceypy as spice
 # x = spice.bodvcd(699, 'RING1', 10)
 # print(x)
 
+planetmapper.utils.print_progress()
 
-body = planetmapper.Body('saturn', '2022-01-01T00:00:00')
-lonlat = (90, 0)
-body.coordinates_of_interest_lonlat.append(lonlat)
 
-body.plot_wireframe_radec()
+body = planetmapper.BodyXY('Jupiter', '2000-01-01', sz=500)
+body.set_disc_params(x0=250, y0=250, r0=200)
+planetmapper.utils.print_progress()
+body.get_backplane_img('LON') # Takes ~15s to execute
+planetmapper.utils.print_progress()
+body.get_backplane_img('LAT') # Executes instantly
+planetmapper.utils.print_progress()
 
-targvec = body.lonlat2targvec(*lonlat)*10
+# This changes the disc location, so the cache is cleared
+body.set_r0(190)
 
-phase, incdnc, emissn, visibl, lit = body._illumf_from_targvec_radians(targvec)
 
-print(visibl)
+planetmapper.utils.print_progress()
+
+body.get_backplane_img('LAT') # Takes ~15s to execute
+
+
+planetmapper.utils.print_progress()
+
+
+

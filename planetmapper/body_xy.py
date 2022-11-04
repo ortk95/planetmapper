@@ -13,8 +13,7 @@ from spiceypy.utils.exceptions import NotFoundError
 from .body import Body
 
 T = TypeVar('T')
-P = ParamSpec('P')
-
+S = TypeVar('S')
 
 class Backplane(NamedTuple):
     """
@@ -67,6 +66,32 @@ class BodyXY(Body):
 
     If `nx` and `ny` are not set, then some functionality (such as generating backplane
     images) will not be available and will raise a `ValueError` if called.
+
+    For larger images, the generation of backplane images can be computationally
+    intensive and take a large amount of time to execute. Therefore, intermediate
+    results are cached to make sure that the slowest parts of code are only called when
+    needed. This cache is managed automatically, so the user never needs to worry about
+    dealing with it. The cache behaviour can be seen in apparently similar lines of
+    code having very different execution times: ::
+
+        # Create a new object
+        body = planetmapper.BodyXY('Jupiter', '2000-01-01', sz=500)
+        body.set_disc_params(x0=250, y0=250, r0=200)
+        # At this point, the cache is completely empty
+
+        # The intermediate results used in generating the longitude backplane are
+        # cached, speeding up any future calculations which use these intermediate
+        # results:
+        body.get_backplane_img('LON') # Takes ~15s to execute
+        body.get_backplane_img('LON') # Executes instantly
+        body.get_backplane_img('LAT') # Executes instantly
+
+        # When any of the disc parameters are changed, the xy <-> radec conversion
+        # changes so the cache is automatically cleared (as the cached intermediate
+        # results are no longer valid):
+        body.set_r0(190) # This automatically clears the cache
+        body.get_backplane_img('LAT') # Takes ~15s to execute
+        body.get_backplane_img('LON') # Executes instantly
 
     Args:
         target: Name of target body, passed to :class:`Body`.
@@ -172,17 +197,27 @@ class BodyXY(Body):
 
     # Cache management
     @staticmethod
-    def _cache_result(fn: Callable[P, T]) -> Callable[P, T]:
+    def _cache_result(fn: Callable[[S], T]) -> Callable[[S], T]:
+        """
+        Decorator to cache the output of a method call.
+
+        This requires that the class has a `self._cache` dict which can be used to store
+        the cached result. The dictionary key is derived from the name of the decorated
+        function.
+        """
         @wraps(fn)
-        def decorated(self, *args, **kwargs):
+        def decorated(self):
             k = fn.__name__
             if k not in self._cache:
-                self._cache[k] = fn(self, *args, **kwargs)  #  type: ignore
+                self._cache[k] = fn(self)
             return self._cache[k]
 
-        return decorated  # type: ignore
+        return decorated
 
     def _clear_cache(self):
+        """
+        Clear cached results from `_cache_result`.
+        """
         self._cache.clear()
 
     # Coordinate transformations
