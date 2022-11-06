@@ -15,7 +15,7 @@ class Observation(BodyXY):
 
     This is a subclass of :class:`BodyXY`, with additional methods to interact with the
     observed data, such as by saving a FITS file containing calculated backplane data.
-    All methods described in :class:`BodyXY`, :class:`Body` and :class:`PlanetMapperTool` are
+    All methods described in :class:`BodyXY`, :class:`Body` and :class:`SpiceBase` are
     therefore available in instances of this class.
 
     This class can be created by either providing a `path` to a data file to be loaded,

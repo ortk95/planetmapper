@@ -9,10 +9,10 @@ from matplotlib.axes import Axes
 from matplotlib.transforms import Transform
 from spiceypy.utils.exceptions import NotFoundError
 
-from .planet_mapper_tool import PlanetMapperTool
+from .base import SpiceBase
 
 
-class Body(PlanetMapperTool):
+class Body(SpiceBase):
     """
     Class representing an astronomical body observed at a specific time.
 
@@ -22,7 +22,7 @@ class Body(PlanetMapperTool):
     that are passed to SPICE functions which can almost always be left as their default
     values.
 
-    This class inherits from :class:`PlanetMapperTool` so the methods described above are also
+    This class inherits from :class:`SpiceBase` so the methods described above are also
     available.
 
     Args:
@@ -40,7 +40,7 @@ class Body(PlanetMapperTool):
             in SPICE.
         subpoint_method: Method used to calculate the sub-observer point in SPICE.
         surface_method: Method used to calculate surface intercepts in SPICE.
-        **kwargs: Additional arguments are passed to `PlanetMapperTool`.
+        **kwargs: Additional arguments are passed to `SpiceBase`.
     """
 
     def __init__(
@@ -837,7 +837,6 @@ class Body(PlanetMapperTool):
         Returns:
             `(ra, dec)` tuple of coordinate arrays.
         """
-        # TODO make only_visible work
         lons = np.deg2rad(np.linspace(0, 360, npts))
         alt = radius - self.r_eq
         targvecs = [self._lonlat2targvec_radians(lon, 0, alt) for lon in lons]

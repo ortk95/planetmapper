@@ -15,6 +15,7 @@ from .body import Body
 T = TypeVar('T')
 S = TypeVar('S')
 
+
 class Backplane(NamedTuple):
     """
     NamedTuple containing information about a backplane.
@@ -35,6 +36,7 @@ class Backplane(NamedTuple):
             backplane image when called. This should generally be a method such as
             :func:`BodyXY.get_lon_img`.
     """
+
     # TODO should get_img have self argument?
     name: str
     description: str
@@ -205,6 +207,7 @@ class BodyXY(Body):
         the cached result. The dictionary key is derived from the name of the decorated
         function.
         """
+
         @wraps(fn)
         def decorated(self):
             k = fn.__name__
@@ -544,7 +547,7 @@ class BodyXY(Body):
             for rd in self.visible_latlon_grid_radec(*args, **kwargs)
         ]
 
-    def ring_xy(self, radius:float, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+    def ring_xy(self, radius: float, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         """
         Pixel coordinate version of :func:`Body.ring_radec`.
 
@@ -807,7 +810,7 @@ class BodyXY(Body):
         """
         Returns:
             Array containing the doppler factor for each pixel in the image, calculated
-            using :func:`PlanetMapperTool.calculate_doppler_factor` on velocities from
+            using :func:`SpiceBase.calculate_doppler_factor` on velocities from
             :func:`get_radial_velocity_img`. Points off the disc have a value of NaN.
         """
         return self.calculate_doppler_factor(self.get_radial_velocity_img())

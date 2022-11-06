@@ -28,7 +28,7 @@ print(
 )
 print('Bugs can be reported at https://github.com/ortk95/planetmapper/issues/new')
 from .common import __version__, __author__, __url__
-from .planet_mapper_tool import PlanetMapperTool
+from .base import SpiceBase
 from .body import Body
 from .body_xy import Backplane, BodyXY
 from .observation import Observation
@@ -36,7 +36,7 @@ from . import gui
 from . import utils
 
 __all__ = [
-    'PlanetMapperTool',
+    'SpiceBase',
     'Body',
     'Backplane',
     'BodyXY',

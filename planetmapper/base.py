@@ -11,7 +11,7 @@ KERNEL_PATH = '~/spice/naif/generic_kernels/'
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
 
 
-class PlanetMapperTool:
+class SpiceBase:
     """
     Class containing methods to interface with spice and manipulate coordinates.
 
