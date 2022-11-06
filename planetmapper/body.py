@@ -10,6 +10,7 @@ from matplotlib.transforms import Transform
 from spiceypy.utils.exceptions import NotFoundError
 
 from .base import SpiceBase
+from . import data_loader
 
 
 class Body(SpiceBase):
@@ -202,6 +203,13 @@ class Body(SpiceBase):
         self.other_bodies_of_interest = []
         self.coordinates_of_interest_lonlat = []
         self.coordinates_of_interest_radec = []
+
+        # Run custom setup
+        if self.target == 'SATURN':
+            ring_data = data_loader.get_ring_radii()['SATURN']
+            for k in ['A', 'B', 'C']:
+                for r in ring_data.get(k, []):
+                    self.ring_radii.add(r)
 
     def __repr__(self) -> str:
         return f'Body({self.target!r}, {self.utc!r})'
@@ -818,7 +826,7 @@ class Body(SpiceBase):
         return self._radial_velocity_from_targvec(self.lonlat2targvec(lon, lat))
 
     def ring_radec(
-        self, radius: float, npts: int = 100, only_visible: bool = True
+        self, radius: float, npts: int = 360, only_visible: bool = True
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Calculate RA/Dec coordinates of a ring around the target body.
