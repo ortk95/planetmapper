@@ -6,6 +6,11 @@ import planetmapper
 import numpy as np
 import datetime
 
-body = planetmapper.Body('SATURN', datetime.datetime.now())
+body = planetmapper.Body('JUPITER', datetime.datetime.now())
+body.plot_wireframe_radec()
+body.ring_radii.add(122500)
+body.ring_radii.add(129000)
+body.plot_wireframe_radec()
 
+body = planetmapper.Body('SATURN', datetime.datetime.now())
 body.plot_wireframe_radec()
