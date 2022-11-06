@@ -9,8 +9,8 @@ P = ParamSpec('P')
 
 class TestForConsistentResults(unittest.TestCase):
     def setUp(self):
-        planetmapper.PlanetMapperTool.load_spice_kernels()
-        self.obj = planetmapper.PlanetMapperTool(optimize_speed=True)
+        planetmapper.SpiceBase.load_spice_kernels()
+        self.obj = planetmapper.SpiceBase(optimize_speed=True)
 
     def compare_function_outputs(
         self, fn: Callable[P, Any], *args: P.args, **kw: P.kwargs

@@ -11,7 +11,7 @@ KERNEL_PATH = '~/spice/naif/generic_kernels/'
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
 
 
-class PlanetMapperTool:
+class SpiceBase:
     """
     Class containing methods to interface with spice and manipulate coordinates.
 
@@ -188,8 +188,25 @@ class PlanetMapperTool:
         Returns:
             Normalised vector which is parallel to `v` and has a magnitude of 1.
         """
-        # Fastest method
+        # Profiling suggests this is the quickest method
         return v / (sum(v * v)) ** 0.5
+
+    @staticmethod
+    def vector_magnitude(v: np.ndarray) -> float:
+        """
+        Return the magnitude of a vector.
+
+        For an input vector :math:`\\vec{v}`, return magnitude
+        :math:`|\\vec{v}| = \\sqrt{\\sum{v_i^2}}`.
+
+        Args:
+            v: Input vector.
+
+        Returns:
+            Magnitude (length) of vector.
+        """
+        # Profiling suggests this is the quickest method
+        return (sum(v * v)) ** 0.5
 
     def _encode_str(self, s: str) -> bytes | str:
         if self._optimize_speed:

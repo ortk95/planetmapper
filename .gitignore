@@ -5,6 +5,7 @@
 !*.md
 !*.rst
 !*.yaml
+!*.json
 
 # Allowed paths
 !requirements.txt

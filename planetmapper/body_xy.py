@@ -13,7 +13,7 @@ from spiceypy.utils.exceptions import NotFoundError
 from .body import Body
 
 T = TypeVar('T')
-P = ParamSpec('P')
+S = TypeVar('S')
 
 
 class Backplane(NamedTuple):
@@ -37,6 +37,7 @@ class Backplane(NamedTuple):
             :func:`BodyXY.get_lon_img`.
     """
 
+    # TODO should get_img have self argument?
     name: str
     description: str
     get_img: Callable[[], np.ndarray]
@@ -58,6 +59,32 @@ class BodyXY(Body):
     important to note that conversions involving `xy` image pixel coordinates (e.g.
     backplane image generatiton) will produce different results before and after these
     values are adjusted.
+
+    For larger images, the generation of backplane images can be computationally
+    intensive and take a large amount of time to execute. Therefore, intermediate
+    results are cached to make sure that the slowest parts of code are only called when
+    needed. This cache is managed automatically, so the user never needs to worry about
+    dealing with it. The cache behaviour can be seen in apparently similar lines of
+    code having very different execution times: ::
+
+        # Create a new object
+        body = planetmapper.BodyXY('Jupiter', '2000-01-01', sz=500)
+        body.set_disc_params(x0=250, y0=250, r0=200)
+        # At this point, the cache is completely empty
+
+        # The intermediate results used in generating the longitude backplane are
+        # cached, speeding up any future calculations which use these intermediate
+        # results:
+        body.get_backplane_img('LON') # Takes ~10s to execute
+        body.get_backplane_img('LON') # Executes instantly
+        body.get_backplane_img('LAT') # Executes instantly
+
+        # When any of the disc parameters are changed, the xy <-> radec conversion
+        # changes so the cache is automatically cleared (as the cached intermediate
+        # results are no longer valid):
+        body.set_r0(190) # This automatically clears the cache
+        body.get_backplane_img('LAT') # Takes ~10s to execute
+        body.get_backplane_img('LON') # Executes instantly
 
     The size of the image can be specified by using the `nx` and `ny` parameters to
     specify the number of pixels in the x and y dimensions of the image respectively.
@@ -172,17 +199,28 @@ class BodyXY(Body):
 
     # Cache management
     @staticmethod
-    def _cache_result(fn: Callable[P, T]) -> Callable[P, T]:
+    def _cache_result(fn: Callable[[S], T]) -> Callable[[S], T]:
+        """
+        Decorator to cache the output of a method call.
+
+        This requires that the class has a `self._cache` dict which can be used to store
+        the cached result. The dictionary key is derived from the name of the decorated
+        function.
+        """
+
         @wraps(fn)
-        def decorated(self, *args, **kwargs):
+        def decorated(self):
             k = fn.__name__
             if k not in self._cache:
-                self._cache[k] = fn(self, *args, **kwargs)  #  type: ignore
+                self._cache[k] = fn(self)
             return self._cache[k]
 
-        return decorated  # type: ignore
+        return decorated
 
     def _clear_cache(self):
+        """
+        Clear cached results from `_cache_result`.
+        """
         self._cache.clear()
 
     # Coordinate transformations
@@ -509,6 +547,19 @@ class BodyXY(Body):
             for rd in self.visible_latlon_grid_radec(*args, **kwargs)
         ]
 
+    def ring_xy(self, radius: float, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Pixel coordinate version of :func:`Body.ring_radec`.
+
+        Args:
+            radius: Radius in km of the ring from the centre of the target body.
+            **kwargs: Passedd to :func:`Body.ring_radec`.
+
+        Returns:
+            `(x, y)` tuple of coordinate arrays.
+        """
+        return self._radec_arrs2xy_arrs(*self.ring_radec(radius, **kwargs))
+
     # Matplotlib transforms
     def _get_matplotlib_radec2xy_transform_radians(
         self,
@@ -759,7 +810,7 @@ class BodyXY(Body):
         """
         Returns:
             Array containing the doppler factor for each pixel in the image, calculated
-            using :func:`PlanetMapperTool.calculate_doppler_factor` on velocities from
+            using :func:`SpiceBase.calculate_doppler_factor` on velocities from
             :func:`get_radial_velocity_img`. Points off the disc have a value of NaN.
         """
         return self.calculate_doppler_factor(self.get_radial_velocity_img())
