@@ -11,5 +11,4 @@ body = planetmapper.Body('SATURN', datetime.datetime.now())
 body.ring_radii.add(122340)  # Add new ring radius to plot
 body.ring_radii.add(136780)  # Add new ring radius to plot
 
-
 body.plot_wireframe_radec()

@@ -831,7 +831,8 @@ class Body(PlanetMapperTool):
             radius: Radius in km of the ring from the centre of the target body.
             npts: Number of points in the generated ring.
             only_visible: If `True` (default), the coordinates for the part of the ring
-                hidden behind the target body are set to NaN.
+                hidden behind the target body are set to NaN. This routine will execute
+                slightly faster with `only_visible` set to `False`.
 
         Returns:
             `(ra, dec)` tuple of coordinate arrays.
@@ -840,7 +841,43 @@ class Body(PlanetMapperTool):
         lons = np.deg2rad(np.linspace(0, 360, npts))
         alt = radius - self.r_eq
         targvecs = [self._lonlat2targvec_radians(lon, 0, alt) for lon in lons]
-        ra_arr, dec_arr = self._targvec_arr2radec_arrs(targvecs)
+        obsvecs = [self._targvec2obsvec(targvec) for targvec in targvecs]
+
+        ra_arr = np.full(npts, np.nan)
+        dec_arr = np.full(npts, np.nan)
+        for idx, obsvec in enumerate(obsvecs):
+            if only_visible:
+                # Test the obsvec ray from the observer to this point on the ring to see
+                # if it has a surface intercept with the target body. If there is no
+                # intercept (NotFoundError), then this ring point is definitely visible.
+                # If there is surface intercept, then we see if the ring point is closer
+                # to the observer than the target body's centre (=> this ring point is
+                # visible) or if the ring is behind the target body (=> this ring point
+                # is hidden).
+                try:
+                    spice.sincpt(
+                        self._surface_method_encoded,
+                        self._target_encoded,
+                        self.et,
+                        self._target_frame_encoded,
+                        self._aberration_correction_encoded,
+                        self._observer_encoded,
+                        self._observer_frame_encoded,
+                        obsvec,
+                    )
+                    # If we reach this point then the ring is either infront/behind the
+                    # target body.
+                    if self.vector_magnitude(obsvec) > self.target_distance:
+                        # This part of the ring is hidden behind the target, so leave
+                        # the output array values as NaN.
+                        continue
+                except NotFoundError:
+                    # Ring is to the side of the target body, so is definitely visible,
+                    # so continue with the coordinate conversion for this point.
+                    pass
+            ra_arr[idx], dec_arr[idx] = self._radian_pair2degrees(
+                *self._obsvec2radec_radians(obsvec)
+            )
         return ra_arr, dec_arr
 
     # Description
