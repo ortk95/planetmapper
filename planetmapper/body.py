@@ -85,6 +85,21 @@ class Body(PlanetMapperTool):
         """Longitude of the sub-observer point on the target."""
         self.subpoint_lat: float
         """Latitude of the sub-observer point on the target."""
+        self.ring_radii: set[float]
+        """
+        Set of ring raddii in km to plot around the target body's equator. Each radius
+        is plottted as a single line, so for a wide ring you may want to add both the
+        inner and outer edger of the ring. The radii are defined as the distance from
+        the centre of the target body to the ring. See also :func:`ring_radec`.
+        
+        Example usage: ::
+
+            body.ring_radii.add(122340) # Add new ring radius to plot
+            body.ring_radii.add(136780) # Add new ring radius to plot
+
+            body.ring_radii.remove(122340) # Remove a ring radius
+            body.ring_radii.clear() # Remove all ring radii
+        """
         self.coordinates_of_interest_lonlat: list[tuple[float, float]]
         """
         List of `(lon, lat)` coordinates of interest on the surface of the target body
@@ -101,7 +116,6 @@ class Body(PlanetMapperTool):
 
             body.coordinates_of_interest_radec.append((200, -45))
         """
-
         self.other_bodies_of_interest: list[Body]
         """
         List of other bodies of interest to mark when plotting. Add to this list using 
@@ -184,6 +198,7 @@ class Body(PlanetMapperTool):
         )
 
         # Create empty lists
+        self.ring_radii = set()
         self.other_bodies_of_interest = []
         self.coordinates_of_interest_lonlat = []
         self.coordinates_of_interest_radec = []
@@ -226,7 +241,7 @@ class Body(PlanetMapperTool):
         """
         Add targets to the list of :attr:`other_bodies_of_interest` of interest to mark
         when plotting. The other targets are created using :func:`create_other_body`.
-        For example, to add the Galilean moons as other targets to a Jupiter body, 
+        For example, to add the Galilean moons as other targets to a Jupiter body,
         use ::
 
             body.add_other_bodies_of_interest('Io', 'Europa', 'Ganymede', 'Callisto')
@@ -238,7 +253,9 @@ class Body(PlanetMapperTool):
             self.other_bodies_of_interest.append(self.create_other_body(other_target))
 
     # Coordinate transformations target -> observer direction
-    def _lonlat2targvec_radians(self, lon: float, lat: float) -> np.ndarray:
+    def _lonlat2targvec_radians(
+        self, lon: float, lat: float, alt: float = 0
+    ) -> np.ndarray:
         """
         Transform lon/lat coordinates on body to rectangular vector in target frame.
         """
@@ -246,7 +263,7 @@ class Body(PlanetMapperTool):
             self._target_encoded,  # type: ignore
             lon,
             lat,
-            0,
+            alt,  # type: ignore
             self.r_eq,
             self.flattening,
         )
@@ -800,6 +817,32 @@ class Body(PlanetMapperTool):
         """
         return self._radial_velocity_from_targvec(self.lonlat2targvec(lon, lat))
 
+    def ring_radec(
+        self, radius: float, npts: int = 100, only_visible: bool = True
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Calculate RA/Dec coordinates of a ring around the target body.
+
+        The ring is assumed to be directly above the planet's equator and has a constant
+        `radius` for all longitudes. Use :attr:`ring_radii` to set the rings
+        automatically plotted.
+
+        Args:
+            radius: Radius in km of the ring from the centre of the target body.
+            npts: Number of points in the generated ring.
+            only_visible: If `True` (default), the coordinates for the part of the ring
+                hidden behind the target body are set to NaN.
+
+        Returns:
+            `(ra, dec)` tuple of coordinate arrays.
+        """
+        # TODO make only_visible work
+        lons = np.deg2rad(np.linspace(0, 360, npts))
+        alt = radius - self.r_eq
+        targvecs = [self._lonlat2targvec_radians(lon, 0, alt) for lon in lons]
+        ra_arr, dec_arr = self._targvec_arr2radec_arrs(targvecs)
+        return ra_arr, dec_arr
+
     # Description
     def get_description(self, multiline: bool = True) -> str:
         """
@@ -911,6 +954,10 @@ class Body(PlanetMapperTool):
                 color='k',
                 transform=transform,
             )
+
+        for radius in self.ring_radii:
+            ra, dec = self.ring_radec(radius)
+            ax.plot(ra, dec, color='k', linewidth=0.5, transform=transform)
 
         for body in self.other_bodies_of_interest:
             ra = body.target_ra

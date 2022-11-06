@@ -35,7 +35,7 @@ class Backplane(NamedTuple):
             backplane image when called. This should generally be a method such as
             :func:`BodyXY.get_lon_img`.
     """
-
+    # TODO should get_img have self argument?
     name: str
     description: str
     get_img: Callable[[], np.ndarray]
@@ -543,6 +543,19 @@ class BodyXY(Body):
             self._radec_arrs2xy_arrs(*np.deg2rad(rd))
             for rd in self.visible_latlon_grid_radec(*args, **kwargs)
         ]
+
+    def ring_xy(self, radius:float, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Pixel coordinate version of :func:`Body.ring_radec`.
+
+        Args:
+            radius: Radius in km of the ring from the centre of the target body.
+            **kwargs: Passedd to :func:`Body.ring_radec`.
+
+        Returns:
+            `(x, y)` tuple of coordinate arrays.
+        """
+        return self._radec_arrs2xy_arrs(*self.ring_radec(radius, **kwargs))
 
     # Matplotlib transforms
     def _get_matplotlib_radec2xy_transform_radians(
