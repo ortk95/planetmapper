@@ -5,6 +5,9 @@ import planetmapper.data_loader
 import planetmapper
 import numpy as np
 import datetime
+import matplotlib.pyplot as plt
+from matplotlib.text import Text
+import matplotlib.patheffects as path_effects
 
 # body = planetmapper.Body('JUPITER', datetime.datetime.now())
 # body.plot_wireframe_radec()
@@ -15,7 +18,7 @@ import datetime
 # body = planetmapper.Body('SATURN', datetime.datetime.now())
 # body.plot_wireframe_radec()
 
-
+planetmapper.utils.print_progress()
 gui = planetmapper.gui.InteractiveObservation(
     'data/saturn.jpg',
     target='SATURN',

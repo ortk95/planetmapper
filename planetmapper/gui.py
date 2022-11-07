@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from collections import defaultdict
 from matplotlib.axes import Axes
+from matplotlib.text import Text
 from matplotlib.artist import Artist
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from . import utils
@@ -21,7 +22,6 @@ PLOT_KEY = Literal[
     'image',
     'limb',
     'limb_dayside',
-    'limb_nightside',
     'terminator',
     'grid',
     'rings',
@@ -31,6 +31,16 @@ PLOT_KEY = Literal[
     'other_bodies',
     'other_bodies_labels',
 ]
+
+DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
+    'limb': dict(color='w', linewidth=0.5, linestyle='-'),
+    'limb_dayside': dict(color='w', linewidth=1, linestyle='-'),
+    'terminator': dict(color='w', linewidth=1, linestyle='--'),
+    'grid': dict(color='dimgray', linewidth=1, linestyle=':'),
+    'rings': dict(color='w', linewidth=0.5, linestyle='-'),
+    'poles': dict(color='k', outline_color='w'),
+    'other_bodies_labels': dict(color='grey'),
+}
 
 
 class InteractiveObservation:
@@ -78,6 +88,9 @@ class InteractiveObservation:
             'step': lambda: self.step_size,
         }
         self.plot_handles: defaultdict[PLOT_KEY, list[Artist]] = defaultdict(list)
+        self.plot_settings: defaultdict[PLOT_KEY, dict] = defaultdict(dict)
+        for k, v in DEFAULT_PLOT_SETTINGS.items():
+            self.plot_settings[k] = v.copy()
 
     def __repr__(self) -> str:
         return f'InteractiveObservation()'
@@ -107,6 +120,7 @@ class InteractiveObservation:
         self.build_plot()
         self.build_help_hint()
         self.build_controls()
+        self.update_plot()
 
     def configure_style(self) -> None:
         self.style = ttk.Style(self.root)
@@ -233,65 +247,58 @@ class InteractiveObservation:
         frame = ttk.LabelFrame(menu, text='Plot')
         frame.pack(fill='x')
 
-        PlotOption(self, frame, 'limb', label='Limb', hint='the target\'s limb')
-        PlotOption(
+        PlotLineSetting(self, frame, 'limb', label='Limb', hint='the target\'s limb')
+        PlotLineSetting(
             self,
             frame,
             'limb_dayside',
             label='Limb (dayside)',
             hint='the illuminated part of the target\'s limb',
         )
-        PlotOption(
-            self,
-            frame,
-            'limb_nightside',
-            label='Limb (nightside)',
-            hint='the non-illuminated part of the target\'s limb',
-        )
-        PlotOption(
+        PlotLineSetting(
             self,
             frame,
             'terminator',
             label='Terminator',
             hint='the line between the dayside and nightside regions on the target',
         )
-        PlotOption(
+        PlotLineSetting(
             self,
             frame,
             'grid',
             label='Gridlines',
             hint='the longitude/latitude grid on the target',
         )
-        PlotOption(
+        PlotLineSetting(
             self,
             frame,
             'rings',
             label='Rings',
             hint='rings around the target (click Format to define ring radii)',
         )
-        PlotOption(self, frame, 'poles', label='Poles', hint='the target\'s poles')
-        PlotOption(
+        PlotTextSetting(self, frame, 'poles', label='Poles', hint='the target\'s poles')
+        PlotScatterSetting(
             self,
             frame,
             'coordinates_lonlat',
             label='Lon/Lat POI',
             hint='points of interest on the surface of the target (click Format to define POI)',
         )
-        PlotOption(
+        PlotScatterSetting(
             self,
             frame,
             'coordinates_radec',
             label='RA/Dec POI',
             hint='points of interest in the sky (click Format to define POI)',
         )
-        PlotOption(
+        PlotScatterSetting(
             self,
             frame,
             'other_bodies',
             label='Other bodies',
             hint='other bodies of interest (click Format to specify other bodies to show, e.g. moons)',
         )
-        PlotOption(
+        PlotTextSetting(
             self,
             frame,
             'other_bodies_labels',
@@ -314,7 +321,6 @@ class InteractiveObservation:
         self.plot_wireframe()
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
-        self.canvas.draw()
         self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
 
     def build_help_hint(self) -> None:
@@ -335,6 +341,9 @@ class InteractiveObservation:
 
     def update_plot(self) -> None:
         self.observation.update_transform()
+        for k, settings in self.plot_settings.items():
+            if settings:
+                plt.setp(self.plot_handles[k], **settings)
         self.canvas.draw()
         print(
             'x0={x0}, y0={y0}, r0={r0}, rotation={rotation}'.format(
@@ -346,28 +355,15 @@ class InteractiveObservation:
         )
 
     def plot_wireframe(self) -> None:
+        # Formatting shold be done when settings controls are created
         ax = self.ax
         transform = self.observation.get_matplotlib_radec2xy_transform() + ax.transData
 
-        limb_color = 'w'
-
         self.plot_handles['limb'].extend(
-            ax.plot(
-                *self.observation.limb_radec(),
-                color=limb_color,
-                linewidth=0.5,
-                transform=transform,
-                zorder=5,
-            )
+            ax.plot(*self.observation.limb_radec(), transform=transform, zorder=5)
         )
         self.plot_handles['terminator'].extend(
-            ax.plot(
-                *self.observation.terminator_radec(),
-                color=limb_color,
-                linestyle='--',
-                transform=transform,
-                zorder=5,
-            )
+            ax.plot(*self.observation.terminator_radec(), transform=transform, zorder=5)
         )
 
         (
@@ -377,38 +373,29 @@ class InteractiveObservation:
             dec_night,
         ) = self.observation.limb_radec_by_illumination()
         self.plot_handles['limb_dayside'].extend(
-            ax.plot(ra_day, dec_day, color=limb_color, transform=transform, zorder=5)
+            ax.plot(ra_day, dec_day, transform=transform, zorder=5)
         )
 
         for ra, dec in self.observation.visible_latlon_grid_radec(30):
             self.plot_handles['grid'].extend(
-                ax.plot(
-                    ra,
-                    dec,
-                    color='k',
-                    linestyle=':',
-                    transform=transform,
-                    zorder=4,
-                )
+                ax.plot(ra, dec, transform=transform, zorder=4)
             )
 
         for lon, lat, s in self.observation.get_poles_to_plot():
             ra, dec = self.observation.lonlat2radec(lon, lat)
             self.plot_handles['poles'].append(
-                ax.text(
-                    ra,
-                    dec,
-                    s,
-                    ha='center',
-                    va='center',
-                    weight='bold',
-                    color='k',
-                    path_effects=[
-                        path_effects.Stroke(linewidth=3, foreground='w'),
-                        path_effects.Normal(),
-                    ],
-                    transform=transform,
-                    zorder=5,
+                ax.add_artist(
+                    OutlinedText(
+                        ra,
+                        dec,
+                        s,
+                        ha='center',
+                        va='center',
+                        weight='bold',
+                        transform=transform,
+                        zorder=5,
+                        clip_on=True,
+                    )
                 )
             )
 
@@ -439,7 +426,7 @@ class InteractiveObservation:
         for radius in self.observation.ring_radii:
             ra, dec = self.observation.ring_radec(radius)
             self.plot_handles['rings'].extend(
-                ax.plot(ra, dec, color='w', linewidth=0.5, transform=transform)
+                ax.plot(ra, dec, transform=transform, zorder=5)
             )
 
         for body in self.observation.other_bodies_of_interest:
@@ -454,9 +441,9 @@ class InteractiveObservation:
                     size='small',
                     ha='center',
                     va='center',
-                    color='grey',
                     transform=transform,
                     clip_on=True,
+                    zorder=6,
                 )
             )
             self.plot_handles['other_bodies'].append(
@@ -466,9 +453,12 @@ class InteractiveObservation:
                     marker='+',  # type: ignore
                     color='w',
                     transform=transform,
+                    zorder=7,
                 )
             )
         # TODO make this code consistent with elsewhere?
+        # TODO make sure everything is plotted
+        # TODO tidy up zorder etc.
 
     # Keybindings
     def bind_keyboard(self) -> None:
@@ -566,7 +556,7 @@ class InteractiveObservation:
         utils.print_progress('saved', c1='c')
 
 
-class PlotOption:
+class ArtistSetting:
     def __init__(
         self,
         gui: InteractiveObservation,
@@ -580,27 +570,31 @@ class PlotOption:
         self.key: PLOT_KEY = key
         self.gui = gui
         self._enable_callback = True
-
         if label is None:
             label = key
+        self.label = label
+
         if row is None:
             row = parent.grid_size()[1]
 
         self.enabled = tk.IntVar()
-        self.enabled.trace_add('write', self.checkbutton_callback)
-        self.checkbutton = ttk.Checkbutton(parent, text=label, variable=self.enabled)
+        self.enabled.set(self.gui.plot_settings[self.key].get('visible', True))
+        self.enabled.trace_add('write', self.checkbutton_toggle)
+        self.checkbutton = ttk.Checkbutton(
+            parent, text=self.label, variable=self.enabled
+        )
         self.checkbutton.grid(column=0, row=row, sticky='nsew')
 
-        self.button = ttk.Button(parent, text='Format', width=6)
+        self.button = ttk.Button(
+            parent, text='Format', width=6, command=self.button_click
+        )
         self.button.grid(column=1, row=row)
 
         if hint:
             self.gui.add_tooltip(self.checkbutton, 'Show ' + hint)
             self.gui.add_tooltip(self.button, 'Format ' + hint)
 
-        self.enabled.set(True)
-
-    def checkbutton_callback(self, *_) -> None:
+    def checkbutton_toggle(self, *_) -> None:
         enabled = bool(self.enabled.get())
         if enabled:
             self.button['state'] = 'normal'
@@ -609,6 +603,36 @@ class PlotOption:
         for artist in self.gui.plot_handles[self.key]:
             artist.set_visible(enabled)
         self.gui.update_plot()
+
+    def button_click(self) -> None:
+        self.window = tk.Toplevel(self.gui.root)
+        self.window.title('Format: ' + self.label)
+        self.window.grab_set()
+        self.window.transient(self.gui.root)
+
+        x, y = (int(s) for s in self.gui.root.geometry().split('+')[1:])
+        self.window.geometry(
+            '300x400+{x:.0f}+{y:.0f}'.format(
+                x=x + 50,
+                y=y + 50,
+            )
+        )
+        self.make_format_menu()
+
+    def make_format_menu(self):
+        raise NotImplementedError
+
+
+class PlotLineSetting(ArtistSetting):
+    pass
+
+
+class PlotScatterSetting(ArtistSetting):
+    pass
+
+
+class PlotTextSetting(ArtistSetting):
+    pass
 
 
 class NumericEntry:
@@ -660,3 +684,25 @@ class NumericEntry:
         except ValueError:
             self.entry.configure(foreground='red')
         self._enable_callback = True
+
+
+class OutlinedText(Text):
+    def __init__(
+        self,
+        x: float,
+        y: float,
+        text: str,
+        *args,
+        outline_color: str = 'none',
+        **kwargs,
+    ):
+        super().__init__(x, y, text, *args, **kwargs)
+        self.set_outline_color(outline_color)
+
+    def set_outline_color(self, c):
+        self.set_path_effects(
+            [
+                path_effects.Stroke(linewidth=3, foreground=c),
+                path_effects.Normal(),
+            ]  # type: ignore
+        )
