@@ -4,17 +4,17 @@ import tkinter as tk
 from tkinter import ttk
 import tkinter.filedialog
 import tkinter.colorchooser
-from typing import TypeVar, Callable, Any
+from typing import TypeVar, Callable, Any, Literal
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import functools
 from . import utils
 from .observation import Observation
 
 Widget = TypeVar('Widget', bound=tk.Widget)
+KEY = Literal['x0', 'y0', 'r0', 'rotation', 'step']
 
 
 class InteractiveObservation:
@@ -45,6 +45,21 @@ class InteractiveObservation:
             self.increase_radius: ['+', '='],
             self.decrease_radius: ['-', '_'],
             # self.observation.centre_disc: ['<Control-c>'],
+        }
+
+        self.setter_callbacks: dict[KEY, list[Callable[[float], Any]]] = {
+            'x0': [self.observation.set_x0],
+            'y0': [self.observation.set_y0],
+            'r0': [self.observation.set_r0],
+            'rotation': [self.observation.set_rotation],
+            'step': [self.set_step, lambda s: print(s)],
+        }
+        self.getters: dict[KEY, Callable[[], float]] = {
+            'x0': self.observation.get_x0,
+            'y0': self.observation.get_y0,
+            'r0': self.observation.get_r0,
+            'rotation': self.observation.get_rotation,
+            'step': lambda: self.step_size,
         }
         self.handles = []
 
@@ -91,32 +106,19 @@ class InteractiveObservation:
         frame.pack()
         self.notebook.add(frame, text='Controls')
 
-        # step_size_frame = ttk.LabelFrame(frame, text='Step size')
-        # step_size_frame.pack(fill='x')
+        # Position controls
+        label_frame = ttk.LabelFrame(frame, text='Position')
+        label_frame.pack(fill='x')
 
-        pos_frame = ttk.LabelFrame(frame, text='Position')
-        pos_frame.pack(fill='x')
+        entry_frame = self.add_tooltip(
+            ttk.Frame(label_frame), 'Set pixel coordinates of the centre of the disc'
+        )
+        entry_frame.pack()
+        self.add_numeric_entry(entry_frame, 'x0')
+        self.add_numeric_entry(entry_frame, 'y0')
 
-        rot_frame = ttk.LabelFrame(frame, text='Rotation')
-        rot_frame.pack(fill='x')
-
-        sz_frame = ttk.LabelFrame(frame, text='Size')
-        sz_frame.pack(fill='x')
-
-        save_frame = ttk.LabelFrame(frame, text='Output')
-        save_frame.pack(fill='x')
-
-        # ttk.Scale(
-        #     step_size_frame,
-        #     orient='horizontal',
-        #     from_=0.1,
-        #     to=10,
-        #     value=10,
-        #     command=self.set_step_size,
-        # ).pack()
-
-        pos_button_frame = ttk.Frame(pos_frame)
-        pos_button_frame.pack()
+        button_frame = ttk.Frame(label_frame)
+        button_frame.pack()
         for arrow, hint, fn, column, row in (
             ('↑', 'up', self.move_up, 1, 0),
             ('↗', 'up and right', self.move_up_right, 2, 0),
@@ -128,30 +130,80 @@ class InteractiveObservation:
             ('↖', 'up and left', self.move_up_left, 0, 0),
         ):
             self.add_tooltip(
-                ttk.Button(pos_button_frame, text=arrow, command=fn, width=2),
+                ttk.Button(button_frame, text=arrow, command=fn, width=2),
                 f'Move fitted disc {hint}',
             ).grid(column=column, row=row, ipadx=5, ipady=5)
 
-        for arrow, fn in (
-            ('clockwise ↻', self.rotate_right),
-            ('anticlockwise ↺', self.rotate_left),
-        ):
-            self.add_tooltip(
-                ttk.Button(rot_frame, text=arrow.capitalize(), command=fn),
-                f'Rotate fitted disc {arrow}',
-            ).pack()
+        # Rotation controls
+        label_frame = ttk.LabelFrame(frame, text='Rotation')
+        label_frame.pack(fill='x')
 
-        for arrow, fn in (
-            ('increase +', self.increase_radius),
-            ('decrease -', self.decrease_radius),
+        entry_frame = self.add_tooltip(
+            ttk.Frame(label_frame), 'Set the rotation (in degrees) of the disc'
+        )
+        entry_frame.pack()
+        self.add_numeric_entry(entry_frame, 'rotation', label='Rotation (°)')
+
+        button_frame = ttk.Frame(label_frame)
+        button_frame.pack()
+        for arrow, hint, fn, column in (
+            ('↻', 'clockwise', self.rotate_right, 0),
+            ('↺', 'anticlockwise', self.rotate_left, 1),
         ):
             self.add_tooltip(
-                ttk.Button(sz_frame, text=arrow.capitalize(), command=fn),
-                f'{arrow.capitalize()} fitted disc radius',
-            ).pack()
+                ttk.Button(button_frame, text=arrow.capitalize(), command=fn, width=2),
+                f'Rotate fitted disc {hint}',
+            ).grid(column=column, row=0, ipadx=5, ipady=5)
+
+        # Size controls
+        label_frame = ttk.LabelFrame(frame, text='Size')
+        label_frame.pack(fill='x')
+
+        entry_frame = self.add_tooltip(
+            ttk.Frame(label_frame), 'Set the (equatorial) radius in pixels of the disc'
+        )
+        entry_frame.pack()
+        self.add_numeric_entry(entry_frame, 'r0')
+        # TODO add plate scale option
+
+        button_frame = ttk.Frame(label_frame)
+        button_frame.pack()
+        for arrow, hint, fn, column in (
+            ('-', 'decrease', self.decrease_radius, 0),
+            ('+', 'increase', self.increase_radius, 1),
+        ):
+            self.add_tooltip(
+                ttk.Button(button_frame, text=arrow.capitalize(), command=fn, width=2),
+                f'{hint.capitalize()} fitted disc radius',
+            ).grid(column=column, row=0, ipadx=5, ipady=5)
+
+        # Step controls
+        label_frame = ttk.LabelFrame(frame, text='Step size')
+        label_frame.pack(fill='x')
+
+        entry_frame = self.add_tooltip(
+            ttk.Frame(label_frame), 'Set the step size when clicking buttons'
+        )
+        entry_frame.pack()
+        self.add_numeric_entry(entry_frame, 'step')
+
+        button_frame = ttk.Frame(label_frame)
+        button_frame.pack()
+        for arrow, hint, fn, column in (
+            ('÷', 'decrease', self.decrease_step, 0),
+            ('×', 'increase', self.increase_step, 1),
+        ):
+            self.add_tooltip(
+                ttk.Button(button_frame, text=arrow.capitalize(), command=fn, width=2),
+                f'{hint.capitalize()} step size',
+            ).grid(column=column, row=0, ipadx=5, ipady=5)
+
+        # IO controls
+        label_frame = ttk.LabelFrame(frame, text='Output')
+        label_frame.pack(fill='x')
 
         self.add_tooltip(
-            ttk.Button(save_frame, text='Save', command=self.save),
+            ttk.Button(label_frame, text='Save', command=self.save),
             f'Save FITS file with backplane data',
         ).pack()
 
@@ -328,76 +380,71 @@ class InteractiveObservation:
                 self.root.bind(event, handler)
 
     # API
-    def set_step(self, step:float)-> None:
+    def set_value(self, key: KEY, value: float, update_plot: bool = True) -> None:
+        for fn in self.setter_callbacks.get(key, []):
+            fn(value)
+
+        if update_plot:
+            self.update_plot()
+
+    def set_step(self, step: float) -> None:
         self.step_size = step
         print(self.step_size)
 
-    def set_x0(self, x0: float, update_plot:bool=True) -> None:
-        self.observation.set_x0(x0)
-        if update_plot:
-            self.update_plot()
-
-    def set_y0(self, y0: float, update_plot:bool=True) -> None:
-        self.observation.set_y0(y0)
-        if update_plot:
-            self.update_plot()
-    def set_r0(self, r0: float, update_plot:bool=True) -> None:
-        self.observation.set_r0(r0)
-        if update_plot:
-            self.update_plot()
-    def set_rotation(self, rotation: float, update_plot:bool=True) -> None:
-        self.observation.set_rotation(rotation)
-        if update_plot:
-            self.update_plot()
-
     # Buttons
     def increase_step(self) -> None:
-        self.set_step(self.step_size*10)
-        self.step_size *= 10
+        self.set_value('step', self.step_size * 10, update_plot=False)
 
     def decrease_step(self) -> None:
-        self.set_step(self.step_size/10)
-        print(self.step_size)
+        self.set_value('step', self.step_size / 10, update_plot=False)
 
     def move_up(self) -> None:
-        self.set_y0(self.observation.get_y0() + self.step_size)
+        self.set_value('y0', self.observation.get_y0() + self.step_size)
 
     def move_up_right(self) -> None:
-        self.set_y0(self.observation.get_y0() + self.step_size, update_plot=False)
-        self.set_x0(self.observation.get_x0() + self.step_size)
+        self.set_value(
+            'y0', self.observation.get_y0() + self.step_size, update_plot=False
+        )
+        self.set_value('x0', self.observation.get_x0() + self.step_size)
 
     def move_right(self) -> None:
-        self.set_x0(self.observation.get_x0() + self.step_size)
+        self.set_value('x0', self.observation.get_x0() + self.step_size)
 
     def move_down_right(self) -> None:
-        self.set_y0(self.observation.get_y0() - self.step_size, update_plot=False)
-        self.set_x0(self.observation.get_x0() + self.step_size)
+        self.set_value(
+            'y0', self.observation.get_y0() - self.step_size, update_plot=False
+        )
+        self.set_value('x0', self.observation.get_x0() + self.step_size)
 
     def move_down(self) -> None:
-        self.set_y0(self.observation.get_y0() - self.step_size)
+        self.set_value('y0', self.observation.get_y0() - self.step_size)
 
     def move_down_left(self) -> None:
-        self.set_y0(self.observation.get_y0() - self.step_size, update_plot=False)
-        self.set_x0(self.observation.get_x0() - self.step_size)
+        self.set_value(
+            'y0', self.observation.get_y0() - self.step_size, update_plot=False
+        )
+        self.set_value('x0', self.observation.get_x0() - self.step_size)
 
     def move_left(self) -> None:
-        self.set_x0(self.observation.get_x0() - self.step_size)
+        self.set_value('x0', self.observation.get_x0() - self.step_size)
 
     def move_up_left(self) -> None:
-        self.set_y0(self.observation.get_y0() + self.step_size, update_plot=False)
-        self.set_x0(self.observation.get_x0() - self.step_size)
+        self.set_value(
+            'y0', self.observation.get_y0() + self.step_size, update_plot=False
+        )
+        self.set_value('x0', self.observation.get_x0() - self.step_size)
 
     def rotate_left(self) -> None:
-        self.set_rotation(self.observation.get_rotation() - self.step_size)
+        self.set_value('rotation', self.observation.get_rotation() - self.step_size)
 
     def rotate_right(self) -> None:
-        self.set_rotation(self.observation.get_rotation() + self.step_size)
+        self.set_value('rotation', self.observation.get_rotation() + self.step_size)
 
     def increase_radius(self) -> None:
-        self.set_r0(self.observation.get_r0() + self.step_size)
+        self.set_value('r0', self.observation.get_r0() + self.step_size)
 
     def decrease_radius(self) -> None:
-        self.set_r0(self.observation.get_r0() - self.step_size)
+        self.set_value('r0', self.observation.get_r0() - self.step_size)
 
     # File IO
     def save(self) -> None:
@@ -417,3 +464,62 @@ class InteractiveObservation:
         utils.print_progress(c1='c')
         self.observation.save(path)
         utils.print_progress('saved', c1='c')
+
+    # General
+    def add_numeric_entry(
+        self,
+        parent: tk.Widget,
+        key: KEY,
+        **kwargs,
+    ) -> 'NumericEntry':
+        return NumericEntry(parent=parent, key=key, gui=self, **kwargs)
+
+
+class NumericEntry:
+    # TODO add validation
+    def __init__(
+        self,
+        parent: tk.Widget,
+        key: KEY,
+        gui: InteractiveObservation,
+        label: str | None = None,
+        row: int | None = None,
+    ):
+        self.parent = parent
+        self.key: KEY = key
+        self.gui = gui
+        self._enable_callback = True
+
+        if label is None:
+            label = key
+        if row is None:
+            row = parent.grid_size()[1]
+        self.label = ttk.Label(parent, text=label + ' = ')
+        self.label.grid(row=row, column=0)
+
+        self.sv = tk.StringVar()
+        self.sv.trace_add('write', self.text_input)
+        self.entry = ttk.Entry(parent, width=10, textvariable=self.sv)
+        self.entry.grid(row=row, column=1)
+
+        self.gui.setter_callbacks[self.key].append(self.update_text)
+        self.update_text(self.gui.getters[self.key]())
+
+    def update_text(self, value: float):
+        if not self._enable_callback:
+            return
+        self._enable_callback = False
+        value = self.gui.getters[self.key]()
+        self.sv.set(format(value, '.5g'))
+        self._enable_callback = True
+
+    def text_input(self, var, index, mode):
+        if not self._enable_callback:
+            return
+        self._enable_callback = False
+        value = self.sv.get()
+        try:
+            self.gui.set_value(self.key, float(value))
+        except ValueError:
+            pass
+        self._enable_callback = True
