@@ -3,6 +3,7 @@ import sys
 import tkinter as tk
 from tkinter import ttk
 import tkinter.filedialog
+import tkinter.colorchooser
 from typing import TypeVar, Callable, Any
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
@@ -83,7 +84,7 @@ class InteractiveObservation:
         self.notebook = ttk.Notebook(self.controls_frame)
         self.notebook.pack(fill='both', expand=True)
         self.build_main_controls()
-        # self.build_settings_controls()
+        self.build_settings_controls()
 
     def build_main_controls(self):
         frame = ttk.Frame(self.notebook)
@@ -158,6 +159,16 @@ class InteractiveObservation:
         settings = ttk.Frame(self.notebook)
         settings.pack()
         self.notebook.add(settings, text='Settings')
+
+        self._test_button = ttk.Button(
+            settings, text='Choose colour', command=self._test_button_click
+        )
+
+        self._test_button.pack()
+
+    def _test_button_click(self):
+        color = tkinter.colorchooser.askcolor(title='Choose a colour')
+        self.hint_frame.configure(background=color[1])
 
     def build_plot(self) -> None:
         self.fig = plt.figure(figsize=(5, 5), dpi=100)
