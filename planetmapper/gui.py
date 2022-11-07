@@ -9,6 +9,7 @@ import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import numpy as np
 from collections import defaultdict
+import matplotlib.colors
 from matplotlib.axes import Axes
 from matplotlib.text import Text
 from matplotlib.artist import Artist
@@ -615,59 +616,125 @@ class ArtistSetting:
 
         x, y = (int(s) for s in self.gui.root.geometry().split('+')[1:])
         self.window.geometry(
-            '300x400+{x:.0f}+{y:.0f}'.format(
+            '300x300+{x:.0f}+{y:.0f}'.format(
                 x=x + 50,
                 y=y + 50,
             )
         )
         self.make_format_menu()
 
+        frame = ttk.Frame(self.window)
+        frame.pack(side='bottom', fill='x')
+        frame = ttk.Frame(frame)
+        frame.pack(padx=10, pady=10)
+        for idx, (text, command) in enumerate(
+            [
+                ('OK', self.click_ok),
+                ('Cancel', self.click_cancel),
+                ('Apply', self.apply_settings),
+            ]
+        ):
+            ttk.Button(frame, text=text, width=7, command=command).grid(
+                row=0,
+                column=idx,
+                padx=2,
+            )
+
     def make_format_menu(self):
         raise NotImplementedError
+
+    def apply_settings(self):
+        raise NotImplementedError
+
+    def close_window(self):
+        self.window.destroy()
+
+    def click_ok(self):
+        self.apply_settings()
+        self.close_window()
+
+    def click_cancel(self):
+        self.close_window()
 
 
 class PlotLineSetting(ArtistSetting):
     def make_format_menu(self):
         settings = self.gui.plot_settings[self.key]
 
-        frame = ttk.Frame(self.window)
-        frame.pack(expand=True, fill='both')
+        self.linewidth = tk.StringVar(value=str(settings.get('linewidth', '1.0')))
+        self.linestyle = tk.StringVar(value=str(settings.get('linestyle', 'solid')))
+        self.color = tk.StringVar(value=str(settings.get('color', 'red')))
 
-        linewidth = tk.StringVar(value=str(settings.get('linewidth', '1.0')))
-        linestyle = tk.StringVar(value=str(settings.get('linestyle', 'solid')))
+        window_frame = ttk.Frame(self.window)
+        window_frame.pack(expand=True, fill='both')
 
-        ttk.Label(frame, text='Linewidth: ').grid(
-            row=0, column=0, ipadx=2, ipady=2, sticky='w'
+        frame = ttk.Frame(window_frame)
+        frame.pack(side='top', padx=10, pady=10)
+
+        grid: list[tuple[tk.Widget, tk.Widget]] = [
+            (
+                ttk.Label(frame, text='Linewidth: '),
+                ttk.Spinbox(
+                    frame,
+                    textvariable=self.linewidth,
+                    from_=0.5,
+                    to=10,
+                    increment=0.5,
+                    width=10,
+                ),
+            ),
+            (
+                ttk.Label(frame, text='Linestyle: '),
+                ttk.Combobox(
+                    frame,
+                    textvariable=self.linestyle,
+                    values=LINESTYLES,
+                    state='readonly',
+                    width=10,
+                ),
+            ),
+            (
+                ttk.Label(frame, text='Line colour: '),
+                ColourButton(frame, width=10, textvariable=self.color),
+            ),
+        ]
+        for row, (label, widget) in enumerate(grid):
+            label.grid(row=row, column=0, sticky='w', pady=5)
+            widget.grid(row=row, column=1, sticky='w')
+
+    def apply_settings(self):
+        settings = self.gui.plot_settings[self.key]
+        linewidth = float(self.linewidth.get())
+
+        settings['linewidth'] = linewidth
+        settings['linestyle'] = self.linestyle.get()
+        settings['color'] = self.color.get()
+
+        self.gui.update_plot()
+
+
+class ColourButton(ttk.Button):
+    def __init__(
+        self,
+        parent: tk.Widget,
+        *args,
+        textvariable: tk.StringVar,
+        **kwargs,
+    ) -> None:
+        self.parent = parent
+        self.textvariable = textvariable
+        self.textvariable.set(matplotlib.colors.to_hex(textvariable.get()))
+        super().__init__(
+            parent, *args, command=self.command, text=self.textvariable.get(), **kwargs
         )
-        ttk.Spinbox(
-            frame,
-            textvariable=linewidth,
-            from_=0.5,
-            to=10,
-            increment=0.5,
-            width=10,
-        ).grid(row=0, column=1)
 
-        ttk.Label(frame, text='Linestyle: ').grid(
-            row=1, column=0, ipadx=2, ipady=2, sticky='w'
+    def command(self):
+        _, color = tkinter.colorchooser.askcolor(
+            parent=self.parent, title='Pick colour'
         )
-        ttk.Combobox(
-            frame,
-            textvariable=linestyle,
-            values=LINESTYLES,
-            state='readonly',
-            width=10,
-        ).grid(row=1, column=1)
-
-        ttk.Label(frame, text='Line colour: ').grid(
-            row=2, column=0, ipadx=2, ipady=2, sticky='w'
-        )
-        ttk.Button(
-            frame,
-            width=10,
-        ).grid(row=2, column=1)
-
-        self.window.mainloop()  # TODO can probably get rid of this
+        if color is not None:
+            self.textvariable.set(color)
+            self.configure(text=color)
 
 
 class PlotScatterSetting(ArtistSetting):
