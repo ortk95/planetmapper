@@ -131,8 +131,8 @@ class InteractiveObservation:
             ttk.Frame(label_frame), 'Set pixel coordinates of the centre of the disc'
         )
         entry_frame.pack()
-        self.add_numeric_entry(entry_frame, 'x0')
-        self.add_numeric_entry(entry_frame, 'y0')
+        NumericEntry(self, entry_frame, 'x0')
+        NumericEntry(self, entry_frame, 'y0')
 
         button_frame = ttk.Frame(label_frame)
         button_frame.pack()
@@ -159,7 +159,7 @@ class InteractiveObservation:
             ttk.Frame(label_frame), 'Set the rotation (in degrees) of the disc'
         )
         entry_frame.pack()
-        self.add_numeric_entry(entry_frame, 'rotation', label='Rotation (°)')
+        NumericEntry(self, entry_frame, 'rotation', label='Rotation (°)')
 
         button_frame = ttk.Frame(label_frame)
         button_frame.pack()
@@ -180,7 +180,7 @@ class InteractiveObservation:
             ttk.Frame(label_frame), 'Set the (equatorial) radius in pixels of the disc'
         )
         entry_frame.pack()
-        self.add_numeric_entry(entry_frame, 'r0')
+        NumericEntry(self, entry_frame, 'r0')
         # TODO add plate scale option
 
         button_frame = ttk.Frame(label_frame)
@@ -202,7 +202,7 @@ class InteractiveObservation:
             ttk.Frame(label_frame), 'Set the step size when clicking buttons'
         )
         entry_frame.pack()
-        self.add_numeric_entry(entry_frame, 'step')
+        NumericEntry(self, entry_frame, 'step')
 
         button_frame = ttk.Frame(label_frame)
         button_frame.pack()
@@ -233,13 +233,71 @@ class InteractiveObservation:
         frame = ttk.LabelFrame(menu, text='Plot')
         frame.pack(fill='x')
 
-        self.add_plot_line_options(frame, 'limb', label='Limb')
-        self.add_plot_line_options(frame, 'limb_dayside', label='Limb (dayside)')
-        self.add_plot_line_options(frame, 'limb_nightside', label='Limb (nightside)')
-        self.add_plot_line_options(frame, 'terminator', label='Terminator')
-        self.add_plot_line_options(frame, 'grid', label='Gridlines')
-        self.add_plot_line_options(frame, 'rings', label='Rings')
-        self.add_plot_line_options(frame, 'poles', label='Poles')
+        PlotOption(self, frame, 'limb', label='Limb', hint='the target\'s limb')
+        PlotOption(
+            self,
+            frame,
+            'limb_dayside',
+            label='Limb (dayside)',
+            hint='the illuminated part of the target\'s limb',
+        )
+        PlotOption(
+            self,
+            frame,
+            'limb_nightside',
+            label='Limb (nightside)',
+            hint='the non-illuminated part of the target\'s limb',
+        )
+        PlotOption(
+            self,
+            frame,
+            'terminator',
+            label='Terminator',
+            hint='the line between the dayside and nightside regions on the target',
+        )
+        PlotOption(
+            self,
+            frame,
+            'grid',
+            label='Gridlines',
+            hint='the longitude/latitude grid on the target',
+        )
+        PlotOption(
+            self,
+            frame,
+            'rings',
+            label='Rings',
+            hint='rings around the target (click Format to define ring radii)',
+        )
+        PlotOption(self, frame, 'poles', label='Poles', hint='the target\'s poles')
+        PlotOption(
+            self,
+            frame,
+            'coordinates_lonlat',
+            label='Lon/Lat POI',
+            hint='points of interest on the surface of the target (click Format to define POI)',
+        )
+        PlotOption(
+            self,
+            frame,
+            'coordinates_radec',
+            label='RA/Dec POI',
+            hint='points of interest in the sky (click Format to define POI)',
+        )
+        PlotOption(
+            self,
+            frame,
+            'other_bodies',
+            label='Other bodies',
+            hint='other bodies of interest (click Format to specify other bodies to show, e.g. moons)',
+        )
+        PlotOption(
+            self,
+            frame,
+            'other_bodies_labels',
+            label='Other body labels',
+            hint='labels for other bodies of interest',
+        )
 
     def build_plot(self) -> None:
         self.fig = plt.figure(figsize=(5, 5), dpi=100)
@@ -357,22 +415,26 @@ class InteractiveObservation:
         for lon, lat in self.observation.coordinates_of_interest_lonlat:
             if self.observation.test_if_lonlat_visible(lon, lat):
                 ra, dec = self.observation.lonlat2radec(lon, lat)
-                self.plot_handles['coordinates_lonlat'].extend(ax.scatter(
-                    ra,
-                    dec,
-                    marker='x',  # type: ignore
-                    color='k',
-                    transform=transform,
-                ))
+                self.plot_handles['coordinates_lonlat'].extend(
+                    ax.scatter(
+                        ra,
+                        dec,
+                        marker='x',  # type: ignore
+                        color='k',
+                        transform=transform,
+                    )
+                )
 
         for ra, dec in self.observation.coordinates_of_interest_radec:
-            self.plot_handles['coordinates_radec'].extend(ax.scatter(
-                ra,
-                dec,
-                marker='+',  # type: ignore
-                color='k',
-                transform=transform,
-            ))
+            self.plot_handles['coordinates_radec'].extend(
+                ax.scatter(
+                    ra,
+                    dec,
+                    marker='+',  # type: ignore
+                    color='k',
+                    transform=transform,
+                )
+            )
 
         for radius in self.observation.ring_radii:
             ra, dec = self.observation.ring_radec(radius)
@@ -383,25 +445,29 @@ class InteractiveObservation:
         for body in self.observation.other_bodies_of_interest:
             ra = body.target_ra
             dec = body.target_dec
-            
-            self.plot_handles['other_bodies_labels'].append(ax.text(
-                ra,
-                dec,
-                body.target + '\n',
-                size='small',
-                ha='center',
-                va='center',
-                color='grey',
-                transform=transform,
-                clip_on=True,
-            ))
-            self.plot_handles['other_bodies'].append(ax.scatter(
-                ra,
-                dec,
-                marker='+',  # type: ignore
-                color='w',
-                transform=transform,
-            ))
+
+            self.plot_handles['other_bodies_labels'].append(
+                ax.text(
+                    ra,
+                    dec,
+                    body.target + '\n',
+                    size='small',
+                    ha='center',
+                    va='center',
+                    color='grey',
+                    transform=transform,
+                    clip_on=True,
+                )
+            )
+            self.plot_handles['other_bodies'].append(
+                ax.scatter(
+                    ra,
+                    dec,
+                    marker='+',  # type: ignore
+                    color='w',
+                    transform=transform,
+                )
+            )
         # TODO make this code consistent with elsewhere?
 
     # Keybindings
@@ -499,33 +565,15 @@ class InteractiveObservation:
         self.observation.save(path)
         utils.print_progress('saved', c1='c')
 
-    # General
-    def add_numeric_entry(
-        self,
-        parent: tk.Widget,
-        key: SETTER_KEY,
-        label: str | None = None,
-        **kwargs,
-    ) -> 'NumericEntry':
-        return NumericEntry(parent=parent, key=key, gui=self, label=label, **kwargs)
 
-    def add_plot_line_options(
-        self,
-        parent: tk.Widget,
-        key: PLOT_KEY,
-        label: str | None = None,
-        **kwargs,
-    ) -> 'PlotLineOptions':
-        return PlotLineOptions(parent=parent, key=key, gui=self, label=label, **kwargs)
-
-
-class PlotLineOptions:
+class PlotOption:
     def __init__(
         self,
+        gui: InteractiveObservation,
         parent: tk.Widget,
         key: PLOT_KEY,
-        gui: InteractiveObservation,
         label: str | None = None,
+        hint: str | None = None,
         row: int | None = None,
     ):
         self.parent = parent
@@ -541,29 +589,35 @@ class PlotLineOptions:
         self.enabled = tk.IntVar()
         self.enabled.trace_add('write', self.checkbutton_callback)
         self.checkbutton = ttk.Checkbutton(parent, text=label, variable=self.enabled)
-        self.checkbutton.grid(column=0, row=row, sticky='w')
+        self.checkbutton.grid(column=0, row=row, sticky='nsew')
 
-        self.button = ttk.Button(parent, text='Format', width=7)
+        self.button = ttk.Button(parent, text='Format', width=6)
         self.button.grid(column=1, row=row)
-        # self.linewidth = ttk.Spinbox(parent)
-        # self.linewidth.grid(column=2, row=row)
+
+        if hint:
+            self.gui.add_tooltip(self.checkbutton, 'Show ' + hint)
+            self.gui.add_tooltip(self.button, 'Format ' + hint)
+
         self.enabled.set(True)
 
     def checkbutton_callback(self, *_) -> None:
-        enabled = self.enabled.get()
+        enabled = bool(self.enabled.get())
         if enabled:
             self.button['state'] = 'normal'
         else:
             self.button['state'] = 'disable'
+        for artist in self.gui.plot_handles[self.key]:
+            artist.set_visible(enabled)
+        self.gui.update_plot()
 
 
 class NumericEntry:
     # TODO add validation
     def __init__(
         self,
+        gui: InteractiveObservation,
         parent: tk.Widget,
         key: SETTER_KEY,
-        gui: InteractiveObservation,
         label: str | None = None,
         row: int | None = None,
     ):
