@@ -327,67 +327,79 @@ class InteractiveObservation:
             for event in events:
                 self.root.bind(event, handler)
 
-    # Buttons
-    def increase_step(self) -> None:
-        self.step_size *= 10
+    # API
+    def set_step(self, step:float)-> None:
+        self.step_size = step
         print(self.step_size)
 
+    def set_x0(self, x0: float, update_plot:bool=True) -> None:
+        self.observation.set_x0(x0)
+        if update_plot:
+            self.update_plot()
+
+    def set_y0(self, y0: float, update_plot:bool=True) -> None:
+        self.observation.set_y0(y0)
+        if update_plot:
+            self.update_plot()
+    def set_r0(self, r0: float, update_plot:bool=True) -> None:
+        self.observation.set_r0(r0)
+        if update_plot:
+            self.update_plot()
+    def set_rotation(self, rotation: float, update_plot:bool=True) -> None:
+        self.observation.set_rotation(rotation)
+        if update_plot:
+            self.update_plot()
+
+    # Buttons
+    def increase_step(self) -> None:
+        self.set_step(self.step_size*10)
+        self.step_size *= 10
+
     def decrease_step(self) -> None:
-        self.step_size /= 10
+        self.set_step(self.step_size/10)
         print(self.step_size)
 
     def move_up(self) -> None:
-        self.observation.set_y0(self.observation.get_y0() + self.step_size)
-        self.update_plot()
+        self.set_y0(self.observation.get_y0() + self.step_size)
 
     def move_up_right(self) -> None:
-        self.observation.set_y0(self.observation.get_y0() + self.step_size)
-        self.observation.set_x0(self.observation.get_x0() + self.step_size)
-        self.update_plot()
+        self.set_y0(self.observation.get_y0() + self.step_size, update_plot=False)
+        self.set_x0(self.observation.get_x0() + self.step_size)
 
     def move_right(self) -> None:
-        self.observation.set_x0(self.observation.get_x0() + self.step_size)
-        self.update_plot()
+        self.set_x0(self.observation.get_x0() + self.step_size)
 
     def move_down_right(self) -> None:
-        self.observation.set_y0(self.observation.get_y0() - self.step_size)
-        self.observation.set_x0(self.observation.get_x0() + self.step_size)
-        self.update_plot()
+        self.set_y0(self.observation.get_y0() - self.step_size, update_plot=False)
+        self.set_x0(self.observation.get_x0() + self.step_size)
 
     def move_down(self) -> None:
-        self.observation.set_y0(self.observation.get_y0() - self.step_size)
-        self.update_plot()
+        self.set_y0(self.observation.get_y0() - self.step_size)
 
     def move_down_left(self) -> None:
-        self.observation.set_y0(self.observation.get_y0() - self.step_size)
-        self.observation.set_x0(self.observation.get_x0() - self.step_size)
-        self.update_plot()
+        self.set_y0(self.observation.get_y0() - self.step_size, update_plot=False)
+        self.set_x0(self.observation.get_x0() - self.step_size)
 
     def move_left(self) -> None:
-        self.observation.set_x0(self.observation.get_x0() - self.step_size)
-        self.update_plot()
+        self.set_x0(self.observation.get_x0() - self.step_size)
 
     def move_up_left(self) -> None:
-        self.observation.set_y0(self.observation.get_y0() + self.step_size)
-        self.observation.set_x0(self.observation.get_x0() - self.step_size)
-        self.update_plot()
+        self.set_y0(self.observation.get_y0() + self.step_size, update_plot=False)
+        self.set_x0(self.observation.get_x0() - self.step_size)
 
     def rotate_left(self) -> None:
-        self.observation.set_rotation(self.observation.get_rotation() - self.step_size)
-        self.update_plot()
+        self.set_rotation(self.observation.get_rotation() - self.step_size)
 
     def rotate_right(self) -> None:
-        self.observation.set_rotation(self.observation.get_rotation() + self.step_size)
-        self.update_plot()
+        self.set_rotation(self.observation.get_rotation() + self.step_size)
 
     def increase_radius(self) -> None:
-        self.observation.set_r0(self.observation.get_r0() + self.step_size)
-        self.update_plot()
+        self.set_r0(self.observation.get_r0() + self.step_size)
 
     def decrease_radius(self) -> None:
-        self.observation.set_r0(self.observation.get_r0() - self.step_size)
-        self.update_plot()
+        self.set_r0(self.observation.get_r0() - self.step_size)
 
+    # File IO
     def save(self) -> None:
         path = tkinter.filedialog.asksaveasfilename(
             title='Save FITS file',
