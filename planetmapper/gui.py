@@ -306,6 +306,9 @@ class InteractiveObservation:
             )
         # TODO make this code consistent with elsewhere?
 
+        ax.xaxis.set_tick_params(labelsize='x-small')
+        ax.yaxis.set_tick_params(labelsize='x-small')
+
     # Keybindings
     def bind_keyboard(self) -> None:
         for fn, events in self.shortcuts.items():
