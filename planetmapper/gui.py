@@ -269,7 +269,7 @@ class InteractiveObservation:
                     color='k',
                     transform=transform,
                 )
-                
+
         for ra, dec in self.observation.coordinates_of_interest_radec:
             ax.scatter(
                 ra,
@@ -278,6 +278,10 @@ class InteractiveObservation:
                 color='k',
                 transform=transform,
             )
+
+        for radius in self.observation.ring_radii:
+            ra, dec = self.observation.ring_radec(radius)
+            ax.plot(ra, dec, color='w', linewidth=0.5, transform=transform)
 
         for body in self.observation.other_bodies_of_interest:
             ra = body.target_ra

@@ -91,7 +91,11 @@ class Body(SpiceBase):
         Set of ring raddii in km to plot around the target body's equator. Each radius
         is plottted as a single line, so for a wide ring you may want to add both the
         inner and outer edger of the ring. The radii are defined as the distance from
-        the centre of the target body to the ring. See also :func:`ring_radec`.
+        the centre of the target body to the ring. For Saturn, the A, B and C rings from
+        https://nssdc.gsfc.nasa.gov/planetary/factsheet/satringfact.html are included by
+        default. For all other bodies, `ring_radii` is empty by default.
+        
+        See also :func:`ring_radec`.
         
         Example usage: ::
 
