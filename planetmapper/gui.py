@@ -4,17 +4,33 @@ import tkinter as tk
 from tkinter import ttk
 import tkinter.filedialog
 import tkinter.colorchooser
-from typing import TypeVar, Callable, Any, Literal
+from typing import TypeVar, Callable, Any, Literal, TypeAlias
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import numpy as np
+from collections import defaultdict
 from matplotlib.axes import Axes
+from matplotlib.artist import Artist
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from . import utils
 from .observation import Observation
 
 Widget = TypeVar('Widget', bound=tk.Widget)
-KEY = Literal['x0', 'y0', 'r0', 'rotation', 'step']
+SETTER_KEY = Literal['x0', 'y0', 'r0', 'rotation', 'step']
+PLOT_KEY = Literal[
+    'image',
+    'limb',
+    'limb_dayside',
+    'limb_nightside',
+    'terminator',
+    'grid',
+    'rings',
+    'poles',
+    'coordinates_lonlat',
+    'coordinates_radec',
+    'other_bodies',
+    'other_bodies_labels',
+]
 
 
 class InteractiveObservation:
@@ -47,21 +63,21 @@ class InteractiveObservation:
             # self.observation.centre_disc: ['<Control-c>'],
         }
 
-        self.setter_callbacks: dict[KEY, list[Callable[[float], Any]]] = {
+        self.setter_callbacks: dict[SETTER_KEY, list[Callable[[float], Any]]] = {
             'x0': [self.observation.set_x0],
             'y0': [self.observation.set_y0],
             'r0': [self.observation.set_r0],
             'rotation': [self.observation.set_rotation],
             'step': [self.set_step, lambda s: print(s)],
         }
-        self.getters: dict[KEY, Callable[[], float]] = {
+        self.getters: dict[SETTER_KEY, Callable[[], float]] = {
             'x0': self.observation.get_x0,
             'y0': self.observation.get_y0,
             'r0': self.observation.get_r0,
             'rotation': self.observation.get_rotation,
             'step': lambda: self.step_size,
         }
-        self.handles = []
+        self.plot_handles: defaultdict[PLOT_KEY, list[Artist]] = defaultdict(list)
 
     def __repr__(self) -> str:
         return f'InteractiveObservation()'
@@ -81,15 +97,16 @@ class InteractiveObservation:
 
         self.hint_frame = tk.Frame(self.root)
         self.hint_frame.pack(side='bottom', fill='x')
-        self.build_help_hint()
 
         self.controls_frame = tk.Frame(self.root)
         self.controls_frame.pack(side='left', fill='y')
-        self.build_controls()
 
         self.plot_frame = tk.Frame(self.root)
         self.plot_frame.pack(side='top', fill='both', expand=True)
+
         self.build_plot()
+        self.build_help_hint()
+        self.build_controls()
 
     def configure_style(self) -> None:
         self.style = ttk.Style(self.root)
@@ -208,27 +225,34 @@ class InteractiveObservation:
         ).pack()
 
     def build_settings_controls(self) -> None:
-        settings = ttk.Frame(self.notebook)
-        settings.pack()
-        self.notebook.add(settings, text='Settings')
+        menu = ttk.Frame(self.notebook)
+        menu.pack()
+        self.notebook.add(menu, text='Settings')
+        self.notebook.select(menu)
 
-        self._test_button = ttk.Button(
-            settings, text='Choose colour', command=self._test_button_click
-        )
+        frame = ttk.LabelFrame(menu, text='Plot')
+        frame.pack(fill='x')
 
-        self._test_button.pack()
-
-    def _test_button_click(self):
-        color = tkinter.colorchooser.askcolor(title='Choose a colour')
-        self.hint_frame.configure(background=color[1])
+        self.add_plot_line_options(frame, 'limb', label='Limb')
+        self.add_plot_line_options(frame, 'limb_dayside', label='Limb (dayside)')
+        self.add_plot_line_options(frame, 'limb_nightside', label='Limb (nightside)')
+        self.add_plot_line_options(frame, 'terminator', label='Terminator')
+        self.add_plot_line_options(frame, 'grid', label='Gridlines')
+        self.add_plot_line_options(frame, 'rings', label='Rings')
+        self.add_plot_line_options(frame, 'poles', label='Poles')
 
     def build_plot(self) -> None:
         self.fig = plt.figure(figsize=(5, 5), dpi=100)
         self.ax = self.fig.add_subplot()
 
-        self.ax.imshow(self.image, origin='lower', zorder=0)
+        self.plot_handles['image'] = [
+            self.ax.imshow(self.image, origin='lower', zorder=0)
+        ]
         self.ax.set_xlim(-0.5, self.observation._nx - 0.5)
         self.ax.set_ylim(-0.5, self.observation._ny - 0.5)
+        self.ax.xaxis.set_tick_params(labelsize='x-small')
+        self.ax.yaxis.set_tick_params(labelsize='x-small')
+
         self.plot_wireframe()
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
@@ -252,8 +276,6 @@ class InteractiveObservation:
         return widget
 
     def update_plot(self) -> None:
-        while self.handles:
-            self.handles.pop().remove()
         self.observation.update_transform()
         self.canvas.draw()
         print(
@@ -271,19 +293,23 @@ class InteractiveObservation:
 
         limb_color = 'w'
 
-        ax.plot(
-            *self.observation.limb_radec(),
-            color=limb_color,
-            linewidth=0.5,
-            transform=transform,
-            zorder=5,
+        self.plot_handles['limb'].extend(
+            ax.plot(
+                *self.observation.limb_radec(),
+                color=limb_color,
+                linewidth=0.5,
+                transform=transform,
+                zorder=5,
+            )
         )
-        ax.plot(
-            *self.observation.terminator_radec(),
-            color=limb_color,
-            linestyle='--',
-            transform=transform,
-            zorder=5,
+        self.plot_handles['terminator'].extend(
+            ax.plot(
+                *self.observation.terminator_radec(),
+                color=limb_color,
+                linestyle='--',
+                transform=transform,
+                zorder=5,
+            )
         )
 
         (
@@ -292,64 +318,73 @@ class InteractiveObservation:
             ra_night,
             dec_night,
         ) = self.observation.limb_radec_by_illumination()
-        ax.plot(ra_day, dec_day, color=limb_color, transform=transform, zorder=5)
+        self.plot_handles['limb_dayside'].extend(
+            ax.plot(ra_day, dec_day, color=limb_color, transform=transform, zorder=5)
+        )
 
         for ra, dec in self.observation.visible_latlon_grid_radec(30):
-            ax.plot(
-                ra,
-                dec,
-                color='k',
-                linestyle=':',
-                transform=transform,
-                zorder=4,
+            self.plot_handles['grid'].extend(
+                ax.plot(
+                    ra,
+                    dec,
+                    color='k',
+                    linestyle=':',
+                    transform=transform,
+                    zorder=4,
+                )
             )
 
         for lon, lat, s in self.observation.get_poles_to_plot():
             ra, dec = self.observation.lonlat2radec(lon, lat)
-            ax.text(
-                ra,
-                dec,
-                s,
-                ha='center',
-                va='center',
-                weight='bold',
-                color='k',
-                path_effects=[
-                    path_effects.Stroke(linewidth=3, foreground='w'),
-                    path_effects.Normal(),
-                ],
-                transform=transform,
-                zorder=5,
+            self.plot_handles['poles'].append(
+                ax.text(
+                    ra,
+                    dec,
+                    s,
+                    ha='center',
+                    va='center',
+                    weight='bold',
+                    color='k',
+                    path_effects=[
+                        path_effects.Stroke(linewidth=3, foreground='w'),
+                        path_effects.Normal(),
+                    ],
+                    transform=transform,
+                    zorder=5,
+                )
             )
 
         for lon, lat in self.observation.coordinates_of_interest_lonlat:
             if self.observation.test_if_lonlat_visible(lon, lat):
                 ra, dec = self.observation.lonlat2radec(lon, lat)
-                ax.scatter(
+                self.plot_handles['coordinates_lonlat'].extend(ax.scatter(
                     ra,
                     dec,
                     marker='x',  # type: ignore
                     color='k',
                     transform=transform,
-                )
+                ))
 
         for ra, dec in self.observation.coordinates_of_interest_radec:
-            ax.scatter(
+            self.plot_handles['coordinates_radec'].extend(ax.scatter(
                 ra,
                 dec,
                 marker='+',  # type: ignore
                 color='k',
                 transform=transform,
-            )
+            ))
 
         for radius in self.observation.ring_radii:
             ra, dec = self.observation.ring_radec(radius)
-            ax.plot(ra, dec, color='w', linewidth=0.5, transform=transform)
+            self.plot_handles['rings'].extend(
+                ax.plot(ra, dec, color='w', linewidth=0.5, transform=transform)
+            )
 
         for body in self.observation.other_bodies_of_interest:
             ra = body.target_ra
             dec = body.target_dec
-            ax.text(
+            
+            self.plot_handles['other_bodies_labels'].append(ax.text(
                 ra,
                 dec,
                 body.target + '\n',
@@ -359,18 +394,15 @@ class InteractiveObservation:
                 color='grey',
                 transform=transform,
                 clip_on=True,
-            )
-            ax.scatter(
+            ))
+            self.plot_handles['other_bodies'].append(ax.scatter(
                 ra,
                 dec,
                 marker='+',  # type: ignore
                 color='w',
                 transform=transform,
-            )
+            ))
         # TODO make this code consistent with elsewhere?
-
-        ax.xaxis.set_tick_params(labelsize='x-small')
-        ax.yaxis.set_tick_params(labelsize='x-small')
 
     # Keybindings
     def bind_keyboard(self) -> None:
@@ -380,7 +412,9 @@ class InteractiveObservation:
                 self.root.bind(event, handler)
 
     # API
-    def set_value(self, key: KEY, value: float, update_plot: bool = True) -> None:
+    def set_value(
+        self, key: SETTER_KEY, value: float, update_plot: bool = True
+    ) -> None:
         for fn in self.setter_callbacks.get(key, []):
             fn(value)
 
@@ -469,10 +503,58 @@ class InteractiveObservation:
     def add_numeric_entry(
         self,
         parent: tk.Widget,
-        key: KEY,
+        key: SETTER_KEY,
+        label: str | None = None,
         **kwargs,
     ) -> 'NumericEntry':
-        return NumericEntry(parent=parent, key=key, gui=self, **kwargs)
+        return NumericEntry(parent=parent, key=key, gui=self, label=label, **kwargs)
+
+    def add_plot_line_options(
+        self,
+        parent: tk.Widget,
+        key: PLOT_KEY,
+        label: str | None = None,
+        **kwargs,
+    ) -> 'PlotLineOptions':
+        return PlotLineOptions(parent=parent, key=key, gui=self, label=label, **kwargs)
+
+
+class PlotLineOptions:
+    def __init__(
+        self,
+        parent: tk.Widget,
+        key: PLOT_KEY,
+        gui: InteractiveObservation,
+        label: str | None = None,
+        row: int | None = None,
+    ):
+        self.parent = parent
+        self.key: PLOT_KEY = key
+        self.gui = gui
+        self._enable_callback = True
+
+        if label is None:
+            label = key
+        if row is None:
+            row = parent.grid_size()[1]
+
+        self.enabled = tk.IntVar()
+        self.enabled.trace_add('write', self.checkbutton_callback)
+        self.checkbutton = ttk.Checkbutton(parent, text=label, variable=self.enabled)
+        self.checkbutton.grid(column=0, row=row, sticky='w')
+
+        self.button = ttk.Button(parent, text='Format', width=7)
+        self.button.grid(column=1, row=row)
+        # self.linewidth = ttk.Spinbox(parent)
+        # self.linewidth.grid(column=2, row=row)
+        self.enabled.set(True)
+
+    def checkbutton_callback(self, *_) -> None:
+        enabled = self.enabled.get()
+        if enabled:
+            self.button['state'] = 'normal'
+        else:
+            self.button['state'] = 'disable'
 
 
 class NumericEntry:
@@ -480,13 +562,13 @@ class NumericEntry:
     def __init__(
         self,
         parent: tk.Widget,
-        key: KEY,
+        key: SETTER_KEY,
         gui: InteractiveObservation,
         label: str | None = None,
         row: int | None = None,
     ):
         self.parent = parent
-        self.key: KEY = key
+        self.key: SETTER_KEY = key
         self.gui = gui
         self._enable_callback = True
 
@@ -505,7 +587,7 @@ class NumericEntry:
         self.gui.setter_callbacks[self.key].append(self.update_text)
         self.update_text(self.gui.getters[self.key]())
 
-    def update_text(self, value: float):
+    def update_text(self, value: float) -> None:
         if not self._enable_callback:
             return
         self._enable_callback = False
@@ -513,13 +595,14 @@ class NumericEntry:
         self.sv.set(format(value, '.5g'))
         self._enable_callback = True
 
-    def text_input(self, var, index, mode):
+    def text_input(self, *_) -> None:
         if not self._enable_callback:
             return
         self._enable_callback = False
         value = self.sv.get()
         try:
             self.gui.set_value(self.key, float(value))
+            self.entry.configure(foreground='black')
         except ValueError:
-            pass
+            self.entry.configure(foreground='red')
         self._enable_callback = True
