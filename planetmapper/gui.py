@@ -33,14 +33,17 @@ PLOT_KEY = Literal[
 ]
 
 DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
-    'limb': dict(color='w', linewidth=0.5, linestyle='-'),
-    'limb_dayside': dict(color='w', linewidth=1, linestyle='-'),
-    'terminator': dict(color='w', linewidth=1, linestyle='--'),
-    'grid': dict(color='dimgray', linewidth=1, linestyle=':'),
-    'rings': dict(color='w', linewidth=0.5, linestyle='-'),
+    'limb': dict(color='w', linewidth=0.5, linestyle='solid'),
+    'limb_dayside': dict(color='w', linewidth=1, linestyle='solid'),
+    'terminator': dict(color='w', linewidth=1, linestyle='dashed'),
+    'grid': dict(color='dimgray', linewidth=1, linestyle='dotted'),
+    'rings': dict(color='w', linewidth=0.5, linestyle='solid'),
     'poles': dict(color='k', outline_color='w'),
     'other_bodies_labels': dict(color='grey'),
 }
+
+
+LINESTYLES = ['solid', 'dashed', 'dotted', 'dashdot']
 
 
 class InteractiveObservation:
@@ -624,7 +627,47 @@ class ArtistSetting:
 
 
 class PlotLineSetting(ArtistSetting):
-    pass
+    def make_format_menu(self):
+        settings = self.gui.plot_settings[self.key]
+
+        frame = ttk.Frame(self.window)
+        frame.pack(expand=True, fill='both')
+
+        linewidth = tk.StringVar(value=str(settings.get('linewidth', '1.0')))
+        linestyle = tk.StringVar(value=str(settings.get('linestyle', 'solid')))
+
+        ttk.Label(frame, text='Linewidth: ').grid(
+            row=0, column=0, ipadx=2, ipady=2, sticky='w'
+        )
+        ttk.Spinbox(
+            frame,
+            textvariable=linewidth,
+            from_=0.5,
+            to=10,
+            increment=0.5,
+            width=10,
+        ).grid(row=0, column=1)
+
+        ttk.Label(frame, text='Linestyle: ').grid(
+            row=1, column=0, ipadx=2, ipady=2, sticky='w'
+        )
+        ttk.Combobox(
+            frame,
+            textvariable=linestyle,
+            values=LINESTYLES,
+            state='readonly',
+            width=10,
+        ).grid(row=1, column=1)
+
+        ttk.Label(frame, text='Line colour: ').grid(
+            row=2, column=0, ipadx=2, ipady=2, sticky='w'
+        )
+        ttk.Button(
+            frame,
+            width=10,
+        ).grid(row=2, column=1)
+
+        self.window.mainloop()  # TODO can probably get rid of this
 
 
 class PlotScatterSetting(ArtistSetting):

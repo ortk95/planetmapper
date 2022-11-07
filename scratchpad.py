@@ -15,7 +15,7 @@ import matplotlib.patheffects as path_effects
 # body.ring_radii.add(129000)
 # body.plot_wireframe_radec()
 
-# body = planetmapper.Body('SATURN', datetime.datetime.now())
+# body = planetmapper.Body('SATURN', datetime.dsetetime.now())
 # body.plot_wireframe_radec()
 
 planetmapper.utils.print_progress()
