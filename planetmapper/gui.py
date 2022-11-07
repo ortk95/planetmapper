@@ -248,8 +248,9 @@ class InteractiveObservation:
         self.notebook.add(menu, text='Settings')
         self.notebook.select(menu)
 
-        frame = ttk.LabelFrame(menu, text='Plot')
+        frame = ttk.LabelFrame(menu, text='Customise plot')
         frame.pack(fill='x')
+        frame.grid_columnconfigure(0, weight=1)
 
         PlotLineSetting(self, frame, 'limb', label='Limb', hint='the target\'s limb')
         PlotLineSetting(
@@ -286,21 +287,21 @@ class InteractiveObservation:
             frame,
             'coordinates_lonlat',
             label='Lon/Lat POI',
-            hint='points of interest on the surface of the target (click Format to define POI)',
+            hint='points of interest on the surface of the target (click Edit to define POI)',
         )
         PlotScatterSetting(
             self,
             frame,
             'coordinates_radec',
             label='RA/Dec POI',
-            hint='points of interest in the sky (click Format to define POI)',
+            hint='points of interest in the sky (click Edit to define POI)',
         )
         PlotScatterSetting(
             self,
             frame,
             'other_bodies',
             label='Other bodies',
-            hint='other bodies of interest (click Format to specify other bodies to show, e.g. moons)',
+            hint='other bodies of interest (click Edit to specify other bodies to show, e.g. moons)',
         )
         PlotTextSetting(
             self,
@@ -590,9 +591,9 @@ class ArtistSetting:
         self.checkbutton.grid(column=0, row=row, sticky='nsew')
 
         self.button = ttk.Button(
-            parent, text='Format', width=6, command=self.button_click
+            parent, text='Edit', width=4, command=self.button_click
         )
-        self.button.grid(column=1, row=row)
+        self.button.grid(column=1, row=row, sticky='e')
 
         if hint:
             self.gui.add_tooltip(self.checkbutton, 'Show ' + hint)
@@ -610,7 +611,7 @@ class ArtistSetting:
 
     def button_click(self) -> None:
         self.window = tk.Toplevel(self.gui.root)
-        self.window.title('Format: ' + self.label)
+        self.window.title('Edit: ' + self.label)
         self.window.grab_set()
         self.window.transient(self.gui.root)
 
