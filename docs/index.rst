@@ -6,6 +6,6 @@ Planet Mapper
    :caption: API Reference
 
    documentation
-   gui
    utils
    data_loader
+   gui

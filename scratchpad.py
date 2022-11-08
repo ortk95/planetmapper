@@ -19,7 +19,7 @@ import matplotlib.patheffects as path_effects
 # body.plot_wireframe_radec()
 
 planetmapper.utils.print_progress()
-gui = planetmapper.gui.InteractiveObservation(
+gui = planetmapper.gui.GUI(
     'data/saturn.jpg',
     target='SATURN',
     utc='2001-12-08T04:39:30.449',

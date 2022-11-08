@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import ttk
 import tkinter.filedialog
 import tkinter.colorchooser
+import tkinter.messagebox
 from typing import TypeVar, Callable, Any, Literal, TypeAlias
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
@@ -47,7 +48,7 @@ DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
 LINESTYLES = ['solid', 'dashed', 'dotted', 'dashdot']
 
 
-class InteractiveObservation:
+class GUI:
     DEFAULT_GEOMETRY = '800x600+10+10'
 
     def __init__(self, path: str | None = None, *args, **kwargs) -> None:
@@ -279,7 +280,7 @@ class InteractiveObservation:
             frame,
             'rings',
             label='Rings',
-            hint='rings around the target (click Format to define ring radii)',
+            hint='rings around the target (click Edit to define ring radii)',
         )
         PlotTextSetting(self, frame, 'poles', label='Poles', hint='the target\'s poles')
         PlotScatterSetting(
@@ -564,7 +565,7 @@ class InteractiveObservation:
 class ArtistSetting:
     def __init__(
         self,
-        gui: InteractiveObservation,
+        gui: GUI,
         parent: tk.Widget,
         key: PLOT_KEY,
         label: str | None = None,
@@ -610,8 +611,11 @@ class ArtistSetting:
         self.gui.update_plot()
 
     def button_click(self) -> None:
+        self.make_window()
+
+    def make_window(self) -> None:
         self.window = tk.Toplevel(self.gui.root)
-        self.window.title('Edit: ' + self.label)
+        self.window.title(self.label)
         self.window.grab_set()
         self.window.transient(self.gui.root)
 
@@ -622,7 +626,7 @@ class ArtistSetting:
                 y=y + 50,
             )
         )
-        self.make_format_menu()
+        self.make_menu()
 
         frame = ttk.Frame(self.window)
         frame.pack(side='bottom', fill='x')
@@ -641,25 +645,31 @@ class ArtistSetting:
                 padx=2,
             )
 
-    def make_format_menu(self):
+        self.window.bind('<Escape>', self.close_window)
+
+    def make_menu(self):
         raise NotImplementedError
 
-    def apply_settings(self):
+    def apply_settings(self) -> bool:
         raise NotImplementedError
 
-    def close_window(self):
+    def close_window(self, *_):
         self.window.destroy()
 
     def click_ok(self):
-        self.apply_settings()
-        self.close_window()
+        if self.apply_settings():
+            self.close_window()
 
     def click_cancel(self):
         self.close_window()
 
+    def reset_settings(self):
+        self.gui.plot_settings[self.key] = DEFAULT_PLOT_SETTINGS[self.key].copy()
+        self.close_window()
+
 
 class PlotLineSetting(ArtistSetting):
-    def make_format_menu(self):
+    def make_menu(self):
         settings = self.gui.plot_settings[self.key]
 
         self.linewidth = tk.StringVar(value=str(settings.get('linewidth', '1.0')))
@@ -703,15 +713,23 @@ class PlotLineSetting(ArtistSetting):
             label.grid(row=row, column=0, sticky='w', pady=5)
             widget.grid(row=row, column=1, sticky='w')
 
-    def apply_settings(self):
+    def apply_settings(self) -> bool:
         settings = self.gui.plot_settings[self.key]
-        linewidth = float(self.linewidth.get())
+        try:
+            linewidth = float(self.linewidth.get())
+        except ValueError:
+            tkinter.messagebox.showwarning(
+                title='Error parsing linewidth',
+                message=f'Could not convert linewidth {self.linewidth.get()!r} to float',
+            )
+            return False
 
         settings['linewidth'] = linewidth
         settings['linestyle'] = self.linestyle.get()
         settings['color'] = self.color.get()
 
         self.gui.update_plot()
+        return True
 
 
 class ColourButton(ttk.Button):
@@ -731,7 +749,9 @@ class ColourButton(ttk.Button):
 
     def command(self):
         _, color = tkinter.colorchooser.askcolor(
-            parent=self.parent, title='Pick colour'
+            initialcolor=self.textvariable.get(),
+            parent=self.parent,
+            title='Pick colour',
         )
         if color is not None:
             self.textvariable.set(color)
@@ -750,7 +770,7 @@ class NumericEntry:
     # TODO add validation
     def __init__(
         self,
-        gui: InteractiveObservation,
+        gui: GUI,
         parent: tk.Widget,
         key: SETTER_KEY,
         label: str | None = None,
