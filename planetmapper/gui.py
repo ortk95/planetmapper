@@ -833,9 +833,9 @@ class PlotLineSetting(ArtistSetting):
                     ttk.Spinbox(
                         self.grid_frame,
                         textvariable=self.linewidth,
-                        from_=0.25,
+                        from_=0.1,
                         to=10,
-                        increment=0.25,
+                        increment=0.1,
                         width=10,
                     ),
                 ),
