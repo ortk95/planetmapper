@@ -5,6 +5,7 @@ from tkinter import ttk
 import tkinter.filedialog
 import tkinter.colorchooser
 import tkinter.messagebox
+import tkinter.scrolledtext
 from typing import TypeVar, Callable, Any, Literal, TypeAlias
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
@@ -287,15 +288,15 @@ class GUI:
             label='Gridlines',
             hint='the longitude/latitude grid on the target',
             callbacks=[self.replot_grid],
-        )  # TODO customise grid interval
-        PlotLineSetting(
+        )
+        PlotRingsSetting(
             self,
             frame,
             'rings',
             label='Rings',
             hint='rings around the target (click Edit to define ring radii)',
             callbacks=[self.replot_rings],
-        )  # TODO customise rings
+        )
         PlotOutlinedTextSetting(
             self,
             frame,
@@ -725,8 +726,11 @@ class ArtistSetting:
 
         window_frame = ttk.Frame(self.window)
         window_frame.pack(expand=True, fill='both')
+
         self.menu_frame = ttk.Frame(window_frame)
         self.menu_frame.pack(side='top', padx=10, pady=10)
+        self.grid_frame = ttk.Frame(self.menu_frame)
+        self.grid_frame.pack()
         self.make_menu()
 
     def make_menu(self) -> None:
@@ -765,23 +769,27 @@ class ArtistSetting:
 
     def add_to_menu_grid(self, grid: list[tuple[tk.Widget, tk.Widget]]) -> None:
         for label, widget in grid:
-            row = self.menu_frame.grid_size()[1]
+            row = self.grid_frame.grid_size()[1]
             label.grid(row=row, column=0, sticky='w', pady=5)
             widget.grid(row=row, column=1, sticky='w')
 
     def get_float(
         self,
-        string_variable: tk.StringVar,
+        string_variable: tk.StringVar|str,
         name: str,
         positive: bool = True,
         finite: bool = True,
     ) -> float:
+        if isinstance(string_variable, tk.StringVar):
+            s= string_variable.get()
+        else:
+            s = string_variable
         try:
-            value = float(string_variable.get())
+            value = float(s)
         except ValueError:
             tkinter.messagebox.showwarning(
                 title=f'Error parsing {name}',
-                message=f'Could not convert {name} {string_variable.get()!r} to float',
+                message=f'Could not convert {name} {s!r} to float',
             )
             raise
 
@@ -813,9 +821,9 @@ class PlotLineSetting(ArtistSetting):
         self.add_to_menu_grid(
             [
                 (
-                    ttk.Label(self.menu_frame, text='Linewidth: '),
+                    ttk.Label(self.grid_frame, text='Linewidth: '),
                     ttk.Spinbox(
-                        self.menu_frame,
+                        self.grid_frame,
                         textvariable=self.linewidth,
                         from_=0.25,
                         to=10,
@@ -824,9 +832,9 @@ class PlotLineSetting(ArtistSetting):
                     ),
                 ),
                 (
-                    ttk.Label(self.menu_frame, text='Linestyle: '),
+                    ttk.Label(self.grid_frame, text='Linestyle: '),
                     ttk.Combobox(
-                        self.menu_frame,
+                        self.grid_frame,
                         textvariable=self.linestyle,
                         values=LINESTYLES,
                         state='readonly',
@@ -834,8 +842,8 @@ class PlotLineSetting(ArtistSetting):
                     ),
                 ),
                 (
-                    ttk.Label(self.menu_frame, text='Colour: '),
-                    ColourButton(self.menu_frame, width=10, textvariable=self.color),
+                    ttk.Label(self.grid_frame, text='Colour: '),
+                    ColourButton(self.grid_frame, width=10, textvariable=self.color),
                 ),
             ]
         )
@@ -863,9 +871,9 @@ class PlotGridSetting(PlotLineSetting):
         self.add_to_menu_grid(
             [
                 (
-                    ttk.Label(self.menu_frame, text='Grid interval (°): '),
+                    ttk.Label(self.grid_frame, text='Grid interval (°): '),
                     ttk.Combobox(
-                        self.menu_frame,
+                        self.grid_frame,
                         textvariable=self.grid_interval,
                         values=GRID_INTERVALS,
                         width=10,
@@ -883,6 +891,36 @@ class PlotGridSetting(PlotLineSetting):
         return super().apply_settings()
 
 
+class PlotRingsSetting(PlotLineSetting):
+    def make_menu(self) -> None:
+        super().make_menu()
+
+        value = '\n'.join(str(r) for r in sorted(self.gui.observation.ring_radii))
+
+        label = '\n'.join(['',
+            'List ring radii in km from the target\'s centre',
+            'each radius should be listed on a new line:'
+            ])
+
+        ttk.Label(self.menu_frame, text=label).pack(fill='x')
+        self.txt = tkinter.scrolledtext.ScrolledText(self.menu_frame)
+        self.txt.pack(fill='both')
+        self.txt.insert('1.0', value)
+
+    def apply_settings(self) -> bool:
+        rings : list[float] = []
+        try:
+            string = self.txt.get('1.0', 'end')
+            for value in string.splitlines():
+                value = value.strip()
+                rings.append(self.get_float(value, 'ring radius'))
+        except ValueError:
+            return False
+        self.gui.observation.ring_radii.clear()
+        self.gui.observation.ring_radii.update(rings)
+        return super().apply_settings()
+
+
 class PlotScatterSetting(ArtistSetting):
     def make_menu(self) -> None:
         settings = self.gui.plot_settings[self.key]
@@ -894,18 +932,18 @@ class PlotScatterSetting(ArtistSetting):
         self.add_to_menu_grid(
             [
                 (
-                    ttk.Label(self.menu_frame, text='Marker: '),
+                    ttk.Label(self.grid_frame, text='Marker: '),
                     ttk.Combobox(
-                        self.menu_frame,
+                        self.grid_frame,
                         textvariable=self.marker,
                         values=MARKERS,
                         width=10,
                     ),
                 ),
                 (
-                    ttk.Label(self.menu_frame, text='Size: '),
+                    ttk.Label(self.grid_frame, text='Size: '),
                     ttk.Spinbox(
-                        self.menu_frame,
+                        self.grid_frame,
                         textvariable=self.size,
                         from_=1,
                         to=100,
@@ -914,8 +952,8 @@ class PlotScatterSetting(ArtistSetting):
                     ),
                 ),
                 (
-                    ttk.Label(self.menu_frame, text='Colour: '),
-                    ColourButton(self.menu_frame, width=10, textvariable=self.color),
+                    ttk.Label(self.grid_frame, text='Colour: '),
+                    ColourButton(self.grid_frame, width=10, textvariable=self.color),
                 ),
             ]
         )
@@ -951,8 +989,8 @@ class PlotTextSetting(ArtistSetting):
         self.add_to_menu_grid(
             [
                 (
-                    ttk.Label(self.menu_frame, text='Colour: '),
-                    ColourButton(self.menu_frame, width=10, textvariable=self.color),
+                    ttk.Label(self.grid_frame, text='Colour: '),
+                    ColourButton(self.grid_frame, width=10, textvariable=self.color),
                 ),
             ]
         )
@@ -974,13 +1012,13 @@ class PlotOutlinedTextSetting(ArtistSetting):
         self.add_to_menu_grid(
             [
                 (
-                    ttk.Label(self.menu_frame, text='Colour: '),
-                    ColourButton(self.menu_frame, width=10, textvariable=self.color),
+                    ttk.Label(self.grid_frame, text='Colour: '),
+                    ColourButton(self.grid_frame, width=10, textvariable=self.color),
                 ),
                 (
-                    ttk.Label(self.menu_frame, text='Outline: '),
+                    ttk.Label(self.grid_frame, text='Outline: '),
                     ColourButton(
-                        self.menu_frame, width=10, textvariable=self.outline_color
+                        self.grid_frame, width=10, textvariable=self.outline_color
                     ),
                 ),
             ]
