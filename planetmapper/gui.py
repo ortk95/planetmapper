@@ -274,6 +274,7 @@ class GUI:
             'grid',
             label='Gridlines',
             hint='the longitude/latitude grid on the target',
+            callbacks=[self.replot_grid],
         )
         PlotLineSetting(
             self,
@@ -281,6 +282,7 @@ class GUI:
             'rings',
             label='Rings',
             hint='rings around the target (click Edit to define ring radii)',
+            callbacks=[self.replot_rings],
         )
         PlotTextSetting(self, frame, 'poles', label='Poles', hint='the target\'s poles')
         PlotScatterSetting(
@@ -289,6 +291,7 @@ class GUI:
             'coordinates_lonlat',
             label='Lon/Lat POI',
             hint='points of interest on the surface of the target (click Edit to define POI)',
+            callbacks=[self.replot_coordinates_lonlat],
         )
         PlotScatterSetting(
             self,
@@ -296,6 +299,7 @@ class GUI:
             'coordinates_radec',
             label='RA/Dec POI',
             hint='points of interest in the sky (click Edit to define POI)',
+            callbacks=[self.replot_coordinates_radec],
         )
         PlotScatterSetting(
             self,
@@ -303,6 +307,7 @@ class GUI:
             'other_bodies',
             label='Other bodies',
             hint='other bodies of interest (click Edit to specify other bodies to show, e.g. moons)',
+            callbacks=[self.replot_other_bodies],
         )
         PlotTextSetting(
             self,
@@ -310,6 +315,7 @@ class GUI:
             'other_bodies_labels',
             label='Other body labels',
             hint='labels for other bodies of interest',
+            callbacks=[self.replot_other_bodies],
         )
 
     def build_plot(self) -> None:
@@ -361,15 +367,26 @@ class GUI:
         )
 
     def plot_wireframe(self) -> None:
-        # Formatting shold be done when settings controls are created
-        ax = self.ax
-        transform = self.observation.get_matplotlib_radec2xy_transform() + ax.transData
+        self.transform = (
+            self.observation.get_matplotlib_radec2xy_transform() + self.ax.transData
+        )
 
+        # These are constant so only need to be plotted once
         self.plot_handles['limb'].extend(
-            ax.plot(*self.observation.limb_radec(), transform=transform, zorder=5)
+            self.ax.plot(
+                *self.observation.limb_radec(),
+                transform=self.transform,
+                zorder=5,
+                **self.plot_settings['limb'],
+            )
         )
         self.plot_handles['terminator'].extend(
-            ax.plot(*self.observation.terminator_radec(), transform=transform, zorder=5)
+            self.ax.plot(
+                *self.observation.terminator_radec(),
+                transform=self.transform,
+                zorder=5,
+                **self.plot_settings['terminator'],
+            )
         )
 
         (
@@ -379,18 +396,19 @@ class GUI:
             dec_night,
         ) = self.observation.limb_radec_by_illumination()
         self.plot_handles['limb_dayside'].extend(
-            ax.plot(ra_day, dec_day, transform=transform, zorder=5)
-        )
-
-        for ra, dec in self.observation.visible_latlon_grid_radec(30):
-            self.plot_handles['grid'].extend(
-                ax.plot(ra, dec, transform=transform, zorder=4)
+            self.ax.plot(
+                ra_day,
+                dec_day,
+                transform=self.transform,
+                zorder=5,
+                **self.plot_settings['limb_dayside'],
             )
+        )
 
         for lon, lat, s in self.observation.get_poles_to_plot():
             ra, dec = self.observation.lonlat2radec(lon, lat)
             self.plot_handles['poles'].append(
-                ax.add_artist(
+                self.ax.add_artist(
                     OutlinedText(
                         ra,
                         dec,
@@ -398,73 +416,118 @@ class GUI:
                         ha='center',
                         va='center',
                         weight='bold',
-                        transform=transform,
+                        transform=self.transform,
                         zorder=5,
                         clip_on=True,
+                        **self.plot_settings['poles'],
                     )
                 )
             )
 
+        # These can vary so can be replotted
+        self.replot_grid()
+        self.replot_coordinates_lonlat()
+        self.replot_coordinates_radec()
+        self.replot_rings()
+        self.replot_other_bodies()
+
+        # TODO make this code consistent with elsewhere?
+        # TODO make sure everything is plotted
+        # TODO tidy up zorder etc.
+
+    def replot_grid(self) -> None:
+        self.remove_artists('grid')
+        for ra, dec in self.observation.visible_latlon_grid_radec(30):
+            self.plot_handles['grid'].extend(
+                self.ax.plot(
+                    ra,
+                    dec,
+                    transform=self.transform,
+                    zorder=4,
+                    **self.plot_settings['grid'],
+                )
+            )
+
+    def replot_coordinates_lonlat(self) -> None:
+        self.remove_artists('coordinates_lonlat')
         for lon, lat in self.observation.coordinates_of_interest_lonlat:
             if self.observation.test_if_lonlat_visible(lon, lat):
                 ra, dec = self.observation.lonlat2radec(lon, lat)
                 self.plot_handles['coordinates_lonlat'].extend(
-                    ax.scatter(
+                    self.ax.scatter(
                         ra,
                         dec,
                         marker='x',  # type: ignore
                         color='k',
-                        transform=transform,
+                        transform=self.transform,
+                        **self.plot_settings['coordinates_lonlat'],
                     )
                 )
 
+    def replot_coordinates_radec(self) -> None:
+        self.remove_artists('coordinates_radec')
         for ra, dec in self.observation.coordinates_of_interest_radec:
             self.plot_handles['coordinates_radec'].extend(
-                ax.scatter(
+                self.ax.scatter(
                     ra,
                     dec,
                     marker='+',  # type: ignore
                     color='k',
-                    transform=transform,
+                    transform=self.transform,
+                    **self.plot_settings['coordinates_radec'],
                 )
             )
 
+    def replot_rings(self) -> None:
+        self.remove_artists('rings')
         for radius in self.observation.ring_radii:
             ra, dec = self.observation.ring_radec(radius)
             self.plot_handles['rings'].extend(
-                ax.plot(ra, dec, transform=transform, zorder=5)
+                self.ax.plot(
+                    ra,
+                    dec,
+                    transform=self.transform,
+                    zorder=5,
+                    **self.plot_settings['rings'],
+                )
             )
 
+    def replot_other_bodies(self) -> None:
+        self.remove_artists('other_bodies_labels')
+        self.remove_artists('other_bodies')
         for body in self.observation.other_bodies_of_interest:
             ra = body.target_ra
             dec = body.target_dec
 
             self.plot_handles['other_bodies_labels'].append(
-                ax.text(
+                self.ax.text(
                     ra,
                     dec,
                     body.target + '\n',
                     size='small',
                     ha='center',
                     va='center',
-                    transform=transform,
+                    transform=self.transform,
                     clip_on=True,
                     zorder=6,
+                    **self.plot_settings['other_bodies_labels'],
                 )
             )
             self.plot_handles['other_bodies'].append(
-                ax.scatter(
+                self.ax.scatter(
                     ra,
                     dec,
                     marker='+',  # type: ignore
                     color='w',
-                    transform=transform,
+                    transform=self.transform,
                     zorder=7,
+                    **self.plot_settings['other_bodies'],
                 )
             )
-        # TODO make this code consistent with elsewhere?
-        # TODO make sure everything is plotted
-        # TODO tidy up zorder etc.
+
+    def remove_artists(self, key: PLOT_KEY) -> None:
+        while self.plot_handles[key]:
+            self.plot_handles[key].pop().remove()
 
     # Keybindings
     def bind_keyboard(self) -> None:
@@ -570,6 +633,7 @@ class ArtistSetting:
         key: PLOT_KEY,
         label: str | None = None,
         hint: str | None = None,
+        callbacks: list[Callable[[], None]] | None = None,
         row: int | None = None,
     ):
         self.parent = parent
@@ -579,6 +643,9 @@ class ArtistSetting:
         if label is None:
             label = key
         self.label = label
+        if callbacks is None:
+            callbacks = []
+        self.callbacks = callbacks
 
         if row is None:
             row = parent.grid_size()[1]
@@ -636,7 +703,7 @@ class ArtistSetting:
             [
                 ('OK', self.click_ok),
                 ('Cancel', self.click_cancel),
-                ('Apply', self.apply_settings),
+                ('Apply', self.click_apply),
             ]
         ):
             ttk.Button(frame, text=text, width=7, command=command).grid(
@@ -653,18 +720,23 @@ class ArtistSetting:
     def apply_settings(self) -> bool:
         raise NotImplementedError
 
+    def run_callbacks(self) -> None:
+        for callback in self.callbacks:
+            callback()
+
     def close_window(self, *_):
         self.window.destroy()
 
     def click_ok(self):
         if self.apply_settings():
+            self.run_callbacks()
             self.close_window()
 
-    def click_cancel(self):
-        self.close_window()
+    def click_apply(self):
+        if self.apply_settings():
+            self.run_callbacks()
 
-    def reset_settings(self):
-        self.gui.plot_settings[self.key] = DEFAULT_PLOT_SETTINGS[self.key].copy()
+    def click_cancel(self):
         self.close_window()
 
 
