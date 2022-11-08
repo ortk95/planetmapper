@@ -71,7 +71,7 @@ class GUI:
         if self.image.shape[2] != 3:
             self.image = np.nansum(self.image, axis=2)
             # TODO get image better
-
+        # TODO add option to create from Observation
         self.step_size = 10
 
         self.shortcuts: dict[Callable[[], Any], list[str]] = {
@@ -85,7 +85,7 @@ class GUI:
             self.rotate_left: ['<less>', ','],
             self.increase_radius: ['+', '='],
             self.decrease_radius: ['-', '_'],
-            # self.observation.centre_disc: ['<Control-c>'],
+            self.save: ['<Control-s>'],
         }
 
         self.setter_callbacks: dict[SETTER_KEY, list[Callable[[float], Any]]] = {
@@ -178,6 +178,7 @@ class GUI:
             self.add_tooltip(
                 ttk.Button(button_frame, text=arrow, command=fn, width=2),
                 f'Move fitted disc {hint}',
+                fn,
             ).grid(column=column, row=row, ipadx=5, ipady=5)
 
         # Rotation controls
@@ -199,6 +200,7 @@ class GUI:
             self.add_tooltip(
                 ttk.Button(button_frame, text=arrow.capitalize(), command=fn, width=2),
                 f'Rotate fitted disc {hint}',
+                fn,
             ).grid(column=column, row=0, ipadx=5, ipady=5)
 
         # Size controls
@@ -221,6 +223,7 @@ class GUI:
             self.add_tooltip(
                 ttk.Button(button_frame, text=arrow.capitalize(), command=fn, width=2),
                 f'{hint.capitalize()} fitted disc radius',
+                fn,
             ).grid(column=column, row=0, ipadx=5, ipady=5)
 
         # Step controls
@@ -242,6 +245,7 @@ class GUI:
             self.add_tooltip(
                 ttk.Button(button_frame, text=arrow.capitalize(), command=fn, width=2),
                 f'{hint.capitalize()} step size',
+                fn,
             ).grid(column=column, row=0, ipadx=5, ipady=5)
 
         # IO controls
@@ -251,6 +255,7 @@ class GUI:
         self.add_tooltip(
             ttk.Button(label_frame, text='Save', command=self.save),
             f'Save FITS file with backplane data',
+            self.save,
         ).pack()
 
     def build_settings_controls(self) -> None:
@@ -368,13 +373,24 @@ class GUI:
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
         self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
+        # TODO do tight_layout type thing
 
     def build_help_hint(self) -> None:
         self.help_hint = tk.Label(self.hint_frame, text='', foreground='black')
         self.help_hint.pack(side='left')
-        # TODO add keybinginds to hint
 
-    def add_tooltip(self, widget: Widget, msg: str) -> Widget:
+    def add_tooltip(
+        self, widget: Widget, msg: str, shortcut_fn: Callable | None = None
+    ) -> Widget:
+        if shortcut_fn is not None:
+            keys = self.shortcuts.get(shortcut_fn, None)
+            if keys is not None:
+                key = keys[0]
+                key = key.replace('<less>', '<').upper()
+                if key[0] == '<' and key[-1] == '>' and len(key) > 2:
+                    key = key[1:-1]
+                msg = f'{msg} (keyboard shortcut: {key})'
+
         def f_enter(event):
             self.help_hint.configure(text=msg)
 
@@ -641,6 +657,8 @@ class GUI:
         )
         # TODO add some validation
         # TODO add some progress UI
+        if path is None:
+            return
         print(path)
         utils.print_progress(c1='c')
         self.observation.save(path)
@@ -751,7 +769,6 @@ class ArtistSetting:
         if self.callbacks is None:
             # Update artists in place
             settings = self.gui.plot_settings[self.key]
-            print(settings)
             if settings:
                 plt.setp(self.gui.plot_handles[self.key], **settings)
         else:
