@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from collections import defaultdict
 import matplotlib.colors
+import matplotlib.markers
 from matplotlib.axes import Axes
 from matplotlib.text import Text
 from matplotlib.artist import Artist
@@ -41,11 +42,15 @@ DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
     'grid': dict(color='dimgray', linewidth=1, linestyle='dotted'),
     'rings': dict(color='w', linewidth=0.5, linestyle='solid'),
     'poles': dict(color='k', outline_color='w'),
+    'coordinates_lonlat': dict(marker='x', color='k'),
+    'coordinates_radec': dict(marker='+', color='k'),
+    'other_bodies': dict(marker='+', color='w'),
     'other_bodies_labels': dict(color='grey'),
 }
 
 
 LINESTYLES = ['solid', 'dashed', 'dotted', 'dashdot']
+MARKERS = ['x', '+', 'o', '.', '*', 'v', '^', '<', '>', ',', 'D', 'd', '|', '_']
 
 
 class GUI:
@@ -353,9 +358,6 @@ class GUI:
 
     def update_plot(self) -> None:
         self.observation.update_transform()
-        for k, settings in self.plot_settings.items():
-            if settings:
-                plt.setp(self.plot_handles[k], **settings)
         self.canvas.draw()
         print(
             'x0={x0}, y0={y0}, r0={r0}, rotation={rotation}'.format(
@@ -454,11 +456,10 @@ class GUI:
             if self.observation.test_if_lonlat_visible(lon, lat):
                 ra, dec = self.observation.lonlat2radec(lon, lat)
                 self.plot_handles['coordinates_lonlat'].extend(
-                    self.ax.scatter(
+                    self.ax.plot(
                         ra,
                         dec,
-                        marker='x',  # type: ignore
-                        color='k',
+                        linestyle='',
                         transform=self.transform,
                         **self.plot_settings['coordinates_lonlat'],
                     )
@@ -468,11 +469,10 @@ class GUI:
         self.remove_artists('coordinates_radec')
         for ra, dec in self.observation.coordinates_of_interest_radec:
             self.plot_handles['coordinates_radec'].extend(
-                self.ax.scatter(
+                self.ax.plot(
                     ra,
                     dec,
-                    marker='+',  # type: ignore
-                    color='k',
+                    linestyle='',
                     transform=self.transform,
                     **self.plot_settings['coordinates_radec'],
                 )
@@ -513,12 +513,11 @@ class GUI:
                     **self.plot_settings['other_bodies_labels'],
                 )
             )
-            self.plot_handles['other_bodies'].append(
-                self.ax.scatter(
+            self.plot_handles['other_bodies'].extend(
+                self.ax.plot(
                     ra,
                     dec,
-                    marker='+',  # type: ignore
-                    color='w',
+                    linestyle='',
                     transform=self.transform,
                     zorder=7,
                     **self.plot_settings['other_bodies'],
@@ -643,8 +642,6 @@ class ArtistSetting:
         if label is None:
             label = key
         self.label = label
-        if callbacks is None:
-            callbacks = []
         self.callbacks = callbacks
 
         if row is None:
@@ -711,7 +708,6 @@ class ArtistSetting:
                 column=idx,
                 padx=2,
             )
-
         self.window.bind('<Escape>', self.close_window)
 
     def make_menu(self):
@@ -721,8 +717,14 @@ class ArtistSetting:
         raise NotImplementedError
 
     def run_callbacks(self) -> None:
-        for callback in self.callbacks:
-            callback()
+        if self.callbacks is None:
+            settings = self.gui.plot_settings[self.key]
+            if settings:
+                plt.setp(self.gui.plot_handles[self.key], **settings)
+        else:
+            for callback in self.callbacks:
+                callback()
+        self.gui.update_plot()
 
     def close_window(self, *_):
         self.window.destroy()
@@ -799,9 +801,61 @@ class PlotLineSetting(ArtistSetting):
         settings['linewidth'] = linewidth
         settings['linestyle'] = self.linestyle.get()
         settings['color'] = self.color.get()
+        return True
+
+
+class PlotScatterSetting(ArtistSetting):
+    def make_menu(self):
+        settings = self.gui.plot_settings[self.key]
+
+        self.marker = tk.StringVar(value=str(settings.get('marker', 'o')))
+        self.color = tk.StringVar(value=str(settings.get('color', 'red')))
+
+        window_frame = ttk.Frame(self.window)
+        window_frame.pack(expand=True, fill='both')
+
+        frame = ttk.Frame(window_frame)
+        frame.pack(side='top', padx=10, pady=10)
+
+        grid: list[tuple[tk.Widget, tk.Widget]] = [
+            (
+                ttk.Label(frame, text='Marker: '),
+                ttk.Combobox(
+                    frame,
+                    textvariable=self.marker,
+                    values=MARKERS,
+                    width=10,
+                ),
+            ),
+            (
+                ttk.Label(frame, text='Line colour: '),
+                ColourButton(frame, width=10, textvariable=self.color),
+            ),
+        ]
+        for row, (label, widget) in enumerate(grid):
+            label.grid(row=row, column=0, sticky='w', pady=5)
+            widget.grid(row=row, column=1, sticky='w')
+
+    def apply_settings(self) -> bool:
+        settings = self.gui.plot_settings[self.key]
+        try:
+            marker = self.marker.get()
+            matplotlib.markers.MarkerStyle(marker)
+        except ValueError:
+            tkinter.messagebox.showwarning(
+                title='Error parsing marker',
+                message=f'Unrecognised matplotlib marker {self.marker.get()!r}',
+            )
+            return False
+        settings['marker'] = marker
+        settings['color'] = self.color.get()
 
         self.gui.update_plot()
         return True
+
+
+class PlotTextSetting(ArtistSetting):
+    pass
 
 
 class ColourButton(ttk.Button):
@@ -828,14 +882,6 @@ class ColourButton(ttk.Button):
         if color is not None:
             self.textvariable.set(color)
             self.configure(text=color)
-
-
-class PlotScatterSetting(ArtistSetting):
-    pass
-
-
-class PlotTextSetting(ArtistSetting):
-    pass
 
 
 class NumericEntry:
