@@ -32,7 +32,7 @@ templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 default_role = 'code'
-
+master_doc = 'index'
 
 # Autodoc
 autodoc_member_order = 'bysource'

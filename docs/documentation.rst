@@ -1,5 +1,5 @@
-Planet Mapper Package
-=====================
+`planetmapper`
+**************
 
 .. automodule:: planetmapper
    :show-inheritance:

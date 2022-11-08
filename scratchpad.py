@@ -5,6 +5,9 @@ import planetmapper.data_loader
 import planetmapper
 import numpy as np
 import datetime
+import matplotlib.pyplot as plt
+from matplotlib.text import Text
+import matplotlib.patheffects as path_effects
 
 # body = planetmapper.Body('JUPITER', datetime.datetime.now())
 # body.plot_wireframe_radec()
@@ -12,11 +15,11 @@ import datetime
 # body.ring_radii.add(129000)
 # body.plot_wireframe_radec()
 
-# body = planetmapper.Body('SATURN', datetime.datetime.now())
+# body = planetmapper.Body('SATURN', datetime.dsetetime.now())
 # body.plot_wireframe_radec()
 
-
-gui = planetmapper.gui.InteractiveObservation(
+planetmapper.utils.print_progress()
+gui = planetmapper.gui.GUI(
     'data/saturn.jpg',
     target='SATURN',
     utc='2001-12-08T04:39:30.449',
