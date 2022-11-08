@@ -19,6 +19,7 @@ from matplotlib.artist import Artist
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from . import utils
 from .observation import Observation
+from .body import Body, NotFoundError
 
 Widget = TypeVar('Widget', bound=tk.Widget)
 SETTER_KEY = Literal['x0', 'y0', 'r0', 'rotation', 'step']
@@ -334,22 +335,22 @@ class GUI:
                 ]
             ),
         )
-        PlotScatterSetting(
+        PlotOtherBodyScatterSetting(
             self,
             frame,
             'other_bodies',
             label='Other bodies',
             hint='other bodies of interest (click Edit to specify other bodies to show, e.g. moons)',
             callbacks=[self.replot_other_bodies],
-        )  # TODO customise other bodies
-        PlotTextSetting(
+        )
+        PlotOtherBodyTextSetting(
             self,
             frame,
             'other_bodies_labels',
             label='Other body labels',
-            hint='labels for other bodies of interest',
+            hint='labels for other bodies of interest (click Edit to specify other bodies to show, e.g. moons)',
             callbacks=[self.replot_other_bodies],
-        )  # TODO customise other bodies
+        )
 
     def build_plot(self) -> None:
         self.fig = plt.figure(figsize=(5, 5), dpi=100)
@@ -1088,6 +1089,54 @@ class PlotOutlinedTextSetting(ArtistSetting):
         settings['color'] = self.color.get()
         settings['outline_color'] = self.outline_color.get()
         return True
+
+
+class GenericOtherBodySetting(ArtistSetting):
+    def add_other_body_menu_setting(self):
+        value = '\n'.join(
+            b.target for b in self.gui.observation.other_bodies_of_interest
+        )
+        label = 'Blah'  # TODO
+        ttk.Label(self.menu_frame, text='\n' + label).pack(fill='x')
+        self.txt = tkinter.scrolledtext.ScrolledText(self.menu_frame)
+        self.txt.pack(fill='both')
+        self.txt.insert('1.0', value)
+
+    def apply_other_body_setting(self) -> bool:
+        bodies: list[Body] = []
+        string = self.txt.get('1.0', 'end')
+        for line in string.splitlines():
+            line = line.strip()
+            if line:
+                try:
+                    bodies.append(self.gui.observation.create_other_body(line))
+                except NotFoundError:
+                    tkinter.messagebox.showwarning(
+                        title=f'Error parsing target name',
+                        message=f'Target {line!r} is not recognised by SPICE',
+                    )
+                    return False
+        self.gui.observation.other_bodies_of_interest.clear()
+        self.gui.observation.other_bodies_of_interest[:] = bodies
+        return True
+
+
+class PlotOtherBodyScatterSetting(PlotScatterSetting, GenericOtherBodySetting):
+    def make_menu(self) -> None:
+        super().make_menu()
+        self.add_other_body_menu_setting()
+
+    def apply_settings(self) -> bool:
+        return self.apply_other_body_setting() and super().apply_settings()
+
+
+class PlotOtherBodyTextSetting(PlotTextSetting, GenericOtherBodySetting):
+    def make_menu(self) -> None:
+        super().make_menu()
+        self.add_other_body_menu_setting()
+
+    def apply_settings(self) -> bool:
+        return self.apply_other_body_setting() and super().apply_settings()
 
 
 class ColourButton(ttk.Button):
