@@ -42,9 +42,13 @@ DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
     'grid': dict(color='dimgray', linewidth=1, linestyle='dotted'),
     'rings': dict(color='w', linewidth=0.5, linestyle='solid'),
     'poles': dict(color='k', outline_color='w'),
-    'coordinates_lonlat': dict(marker='x', color='k'),
-    'coordinates_radec': dict(marker='+', color='k'),
-    'other_bodies': dict(marker='+', color='w'),
+    'coordinates_lonlat': dict(
+        marker='x',
+        color='k',
+        s=36,
+    ),
+    'coordinates_radec': dict(marker='+', color='k', s=36),
+    'other_bodies': dict(marker='+', color='w', s=36),
     'other_bodies_labels': dict(color='grey'),
 }
 
@@ -455,11 +459,10 @@ class GUI:
         for lon, lat in self.observation.coordinates_of_interest_lonlat:
             if self.observation.test_if_lonlat_visible(lon, lat):
                 ra, dec = self.observation.lonlat2radec(lon, lat)
-                self.plot_handles['coordinates_lonlat'].extend(
-                    self.ax.plot(
+                self.plot_handles['coordinates_lonlat'].append(
+                    self.ax.scatter(
                         ra,
                         dec,
-                        linestyle='',
                         transform=self.transform,
                         **self.plot_settings['coordinates_lonlat'],
                     )
@@ -468,11 +471,10 @@ class GUI:
     def replot_coordinates_radec(self) -> None:
         self.remove_artists('coordinates_radec')
         for ra, dec in self.observation.coordinates_of_interest_radec:
-            self.plot_handles['coordinates_radec'].extend(
-                self.ax.plot(
+            self.plot_handles['coordinates_radec'].append(
+                self.ax.scatter(
                     ra,
                     dec,
-                    linestyle='',
                     transform=self.transform,
                     **self.plot_settings['coordinates_radec'],
                 )
@@ -513,11 +515,10 @@ class GUI:
                     **self.plot_settings['other_bodies_labels'],
                 )
             )
-            self.plot_handles['other_bodies'].extend(
-                self.ax.plot(
+            self.plot_handles['other_bodies'].append(
+                self.ax.scatter(
                     ra,
                     dec,
-                    linestyle='',
                     transform=self.transform,
                     zorder=7,
                     **self.plot_settings['other_bodies'],
@@ -762,9 +763,9 @@ class PlotLineSetting(ArtistSetting):
                 ttk.Spinbox(
                     frame,
                     textvariable=self.linewidth,
-                    from_=0.5,
+                    from_=0.25,
                     to=10,
-                    increment=0.5,
+                    increment=0.25,
                     width=10,
                 ),
             ),
@@ -797,6 +798,12 @@ class PlotLineSetting(ArtistSetting):
                 message=f'Could not convert linewidth {self.linewidth.get()!r} to float',
             )
             return False
+        if linewidth <= 0 or np.isnan(linewidth) or np.isinf(linewidth):
+            tkinter.messagebox.showwarning(
+                title='Error parsing linewidth',
+                message=f'Linewidth must be greater than zero',
+            )
+            return False
 
         settings['linewidth'] = linewidth
         settings['linestyle'] = self.linestyle.get()
@@ -809,6 +816,7 @@ class PlotScatterSetting(ArtistSetting):
         settings = self.gui.plot_settings[self.key]
 
         self.marker = tk.StringVar(value=str(settings.get('marker', 'o')))
+        self.size = tk.StringVar(value=str(settings.get('s', '36')))
         self.color = tk.StringVar(value=str(settings.get('color', 'red')))
 
         window_frame = ttk.Frame(self.window)
@@ -824,6 +832,17 @@ class PlotScatterSetting(ArtistSetting):
                     frame,
                     textvariable=self.marker,
                     values=MARKERS,
+                    width=10,
+                ),
+            ),
+            (
+                ttk.Label(frame, text='Size: '),
+                ttk.Spinbox(
+                    frame,
+                    textvariable=self.size,
+                    from_=1,
+                    to=100,
+                    increment=1,
                     width=10,
                 ),
             ),
@@ -847,7 +866,24 @@ class PlotScatterSetting(ArtistSetting):
                 message=f'Unrecognised matplotlib marker {self.marker.get()!r}',
             )
             return False
+
+        try:
+            size = float(self.size.get())
+        except ValueError:
+            tkinter.messagebox.showwarning(
+                title='Error parsing size',
+                message=f'Could not convert size {self.size.get()!r} to float',
+            )
+            return False
+        if size <= 0 or np.isnan(size) or np.isinf(size):
+            tkinter.messagebox.showwarning(
+                title='Error parsing linewidth',
+                message=f'Size must be greater than zero',
+            )
+            return False
+
         settings['marker'] = marker
+        settings['s'] = size
         settings['color'] = self.color.get()
 
         self.gui.update_plot()
