@@ -293,7 +293,14 @@ class GUI:
             hint='rings around the target (click Edit to define ring radii)',
             callbacks=[self.replot_rings],
         )
-        PlotTextSetting(self, frame, 'poles', label='Poles', hint='the target\'s poles')
+        PlotOutlinedTextSetting(
+            self,
+            frame,
+            'poles',
+            label='Poles',
+            hint='the target\'s poles',
+            # callbacks=[self.replot_poles],
+        )
         PlotScatterSetting(
             self,
             frame,
@@ -373,6 +380,10 @@ class GUI:
         )
 
     def plot_wireframe(self) -> None:
+        # TODO make this code consistent with elsewhere?
+        # TODO make sure everything is plotted
+        # TODO tidy up zorder etc.
+
         self.transform = (
             self.observation.get_matplotlib_radec2xy_transform() + self.ax.transData
         )
@@ -411,6 +422,16 @@ class GUI:
             )
         )
 
+        # These can vary so can be replotted
+        self.replot_poles()
+        self.replot_grid()
+        self.replot_coordinates_lonlat()
+        self.replot_coordinates_radec()
+        self.replot_rings()
+        self.replot_other_bodies()
+
+    def replot_poles(self):
+        self.remove_artists('poles')
         for lon, lat, s in self.observation.get_poles_to_plot():
             ra, dec = self.observation.lonlat2radec(lon, lat)
             self.plot_handles['poles'].append(
@@ -429,17 +450,7 @@ class GUI:
                     )
                 )
             )
-
-        # These can vary so can be replotted
-        self.replot_grid()
-        self.replot_coordinates_lonlat()
-        self.replot_coordinates_radec()
-        self.replot_rings()
-        self.replot_other_bodies()
-
-        # TODO make this code consistent with elsewhere?
-        # TODO make sure everything is plotted
-        # TODO tidy up zorder etc.
+            print(s)
 
     def replot_grid(self) -> None:
         self.remove_artists('grid')
@@ -691,7 +702,6 @@ class ArtistSetting:
                 y=y + 50,
             )
         )
-        self.make_menu()
 
         frame = ttk.Frame(self.window)
         frame.pack(side='bottom', fill='x')
@@ -711,7 +721,13 @@ class ArtistSetting:
             )
         self.window.bind('<Escape>', self.close_window)
 
-    def make_menu(self):
+        window_frame = ttk.Frame(self.window)
+        window_frame.pack(expand=True, fill='both')
+        self.menu_frame = ttk.Frame(window_frame)
+        self.menu_frame.pack(side='top', padx=10, pady=10)
+        self.make_menu()
+
+    def make_menu(self) -> None:
         raise NotImplementedError
 
     def apply_settings(self) -> bool:
@@ -719,28 +735,74 @@ class ArtistSetting:
 
     def run_callbacks(self) -> None:
         if self.callbacks is None:
+            # Update artists in place
             settings = self.gui.plot_settings[self.key]
+            print(settings)
             if settings:
                 plt.setp(self.gui.plot_handles[self.key], **settings)
         else:
+            # Replot artists
             for callback in self.callbacks:
                 callback()
         self.gui.update_plot()
 
-    def close_window(self, *_):
+    def close_window(self, *_) -> None:
         self.window.destroy()
 
-    def click_ok(self):
+    def click_ok(self) -> None:
         if self.apply_settings():
             self.run_callbacks()
             self.close_window()
 
-    def click_apply(self):
+    def click_apply(self) -> None:
         if self.apply_settings():
             self.run_callbacks()
 
-    def click_cancel(self):
+    def click_cancel(self) -> None:
         self.close_window()
+
+    def build_menu_grid(self, grid: list[tuple[tk.Widget, tk.Widget]]) -> None:
+        window_frame = ttk.Frame(self.window)
+        window_frame.pack(expand=True, fill='both')
+
+        frame = ttk.Frame(window_frame)
+        frame.pack(side='top', padx=10, pady=10)
+
+        for row, (label, widget) in enumerate(grid):
+            label.grid(row=row, column=0, sticky='w', pady=5)
+            widget.grid(row=row, column=1, sticky='w')
+
+    def get_float(
+        self,
+        string_variable: tk.StringVar,
+        name: str,
+        positive: bool = True,
+        finite: bool = True,
+    ) -> float:
+        try:
+            value = float(string_variable.get())
+        except ValueError:
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing {name}',
+                message=f'Could not convert {name} {string_variable.get()!r} to float',
+            )
+            raise
+
+        if finite and not np.isfinite(value):
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing {name}',
+                message=f'{name.capitalize()} must be finite',
+            )
+            raise ValueError
+
+        if positive and not value > 0:
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing {name}',
+                message=f'{name.capitalize()} must be greater than zero',
+            )
+            raise ValueError
+
+        return value
 
 
 class PlotLineSetting(ArtistSetting):
@@ -751,58 +813,41 @@ class PlotLineSetting(ArtistSetting):
         self.linestyle = tk.StringVar(value=str(settings.get('linestyle', 'solid')))
         self.color = tk.StringVar(value=str(settings.get('color', 'red')))
 
-        window_frame = ttk.Frame(self.window)
-        window_frame.pack(expand=True, fill='both')
-
-        frame = ttk.Frame(window_frame)
-        frame.pack(side='top', padx=10, pady=10)
-
-        grid: list[tuple[tk.Widget, tk.Widget]] = [
-            (
-                ttk.Label(frame, text='Linewidth: '),
-                ttk.Spinbox(
-                    frame,
-                    textvariable=self.linewidth,
-                    from_=0.25,
-                    to=10,
-                    increment=0.25,
-                    width=10,
+        self.build_menu_grid(
+            [
+                (
+                    ttk.Label(self.menu_frame, text='Linewidth: '),
+                    ttk.Spinbox(
+                        self.menu_frame,
+                        textvariable=self.linewidth,
+                        from_=0.25,
+                        to=10,
+                        increment=0.25,
+                        width=10,
+                    ),
                 ),
-            ),
-            (
-                ttk.Label(frame, text='Linestyle: '),
-                ttk.Combobox(
-                    frame,
-                    textvariable=self.linestyle,
-                    values=LINESTYLES,
-                    state='readonly',
-                    width=10,
+                (
+                    ttk.Label(self.menu_frame, text='Linestyle: '),
+                    ttk.Combobox(
+                        self.menu_frame,
+                        textvariable=self.linestyle,
+                        values=LINESTYLES,
+                        state='readonly',
+                        width=10,
+                    ),
                 ),
-            ),
-            (
-                ttk.Label(frame, text='Line colour: '),
-                ColourButton(frame, width=10, textvariable=self.color),
-            ),
-        ]
-        for row, (label, widget) in enumerate(grid):
-            label.grid(row=row, column=0, sticky='w', pady=5)
-            widget.grid(row=row, column=1, sticky='w')
+                (
+                    ttk.Label(self.menu_frame, text='Colour: '),
+                    ColourButton(self.menu_frame, width=10, textvariable=self.color),
+                ),
+            ]
+        )
 
     def apply_settings(self) -> bool:
         settings = self.gui.plot_settings[self.key]
         try:
-            linewidth = float(self.linewidth.get())
+            linewidth = self.get_float(self.linewidth, 'linewidth')
         except ValueError:
-            tkinter.messagebox.showwarning(
-                title='Error parsing linewidth',
-                message=f'Could not convert linewidth {self.linewidth.get()!r} to float',
-            )
-            return False
-        if linewidth <= 0 or np.isnan(linewidth) or np.isinf(linewidth):
-            tkinter.messagebox.showwarning(
-                title='Error parsing linewidth',
-                message=f'Linewidth must be greater than zero',
-            )
             return False
 
         settings['linewidth'] = linewidth
@@ -819,44 +864,38 @@ class PlotScatterSetting(ArtistSetting):
         self.size = tk.StringVar(value=str(settings.get('s', '36')))
         self.color = tk.StringVar(value=str(settings.get('color', 'red')))
 
-        window_frame = ttk.Frame(self.window)
-        window_frame.pack(expand=True, fill='both')
-
-        frame = ttk.Frame(window_frame)
-        frame.pack(side='top', padx=10, pady=10)
-
-        grid: list[tuple[tk.Widget, tk.Widget]] = [
-            (
-                ttk.Label(frame, text='Marker: '),
-                ttk.Combobox(
-                    frame,
-                    textvariable=self.marker,
-                    values=MARKERS,
-                    width=10,
+        self.build_menu_grid(
+            [
+                (
+                    ttk.Label(self.menu_frame, text='Marker: '),
+                    ttk.Combobox(
+                        self.menu_frame,
+                        textvariable=self.marker,
+                        values=MARKERS,
+                        width=10,
+                    ),
                 ),
-            ),
-            (
-                ttk.Label(frame, text='Size: '),
-                ttk.Spinbox(
-                    frame,
-                    textvariable=self.size,
-                    from_=1,
-                    to=100,
-                    increment=1,
-                    width=10,
+                (
+                    ttk.Label(self.menu_frame, text='Size: '),
+                    ttk.Spinbox(
+                        self.menu_frame,
+                        textvariable=self.size,
+                        from_=1,
+                        to=100,
+                        increment=1,
+                        width=10,
+                    ),
                 ),
-            ),
-            (
-                ttk.Label(frame, text='Line colour: '),
-                ColourButton(frame, width=10, textvariable=self.color),
-            ),
-        ]
-        for row, (label, widget) in enumerate(grid):
-            label.grid(row=row, column=0, sticky='w', pady=5)
-            widget.grid(row=row, column=1, sticky='w')
+                (
+                    ttk.Label(self.menu_frame, text='Colour: '),
+                    ColourButton(self.menu_frame, width=10, textvariable=self.color),
+                ),
+            ]
+        )
 
     def apply_settings(self) -> bool:
         settings = self.gui.plot_settings[self.key]
+
         try:
             marker = self.marker.get()
             matplotlib.markers.MarkerStyle(marker)
@@ -868,30 +907,63 @@ class PlotScatterSetting(ArtistSetting):
             return False
 
         try:
-            size = float(self.size.get())
+            size = self.get_float(self.size, 'size')
         except ValueError:
-            tkinter.messagebox.showwarning(
-                title='Error parsing size',
-                message=f'Could not convert size {self.size.get()!r} to float',
-            )
-            return False
-        if size <= 0 or np.isnan(size) or np.isinf(size):
-            tkinter.messagebox.showwarning(
-                title='Error parsing linewidth',
-                message=f'Size must be greater than zero',
-            )
             return False
 
         settings['marker'] = marker
         settings['s'] = size
         settings['color'] = self.color.get()
-
-        self.gui.update_plot()
         return True
 
 
 class PlotTextSetting(ArtistSetting):
-    pass
+    def make_menu(self):
+        settings = self.gui.plot_settings[self.key]
+        self.color = tk.StringVar(value=str(settings.get('color', 'red')))
+        self.build_menu_grid(
+            [
+                (
+                    ttk.Label(self.menu_frame, text='Colour: '),
+                    ColourButton(self.menu_frame, width=10, textvariable=self.color),
+                ),
+            ]
+        )
+
+    def apply_settings(self) -> bool:
+        settings = self.gui.plot_settings[self.key]
+        settings['color'] = self.color.get()
+        return True
+
+
+class PlotOutlinedTextSetting(ArtistSetting):
+    def make_menu(self):
+        settings = self.gui.plot_settings[self.key]
+        self.color = tk.StringVar(value=str(settings.get('color', 'red')))
+        self.outline_color = tk.StringVar(
+            value=str(settings.get('outline_color', 'red'))
+        )
+
+        self.build_menu_grid(
+            [
+                (
+                    ttk.Label(self.menu_frame, text='Colour: '),
+                    ColourButton(self.menu_frame, width=10, textvariable=self.color),
+                ),
+                (
+                    ttk.Label(self.menu_frame, text='Outline: '),
+                    ColourButton(
+                        self.menu_frame, width=10, textvariable=self.outline_color
+                    ),
+                ),
+            ]
+        )
+
+    def apply_settings(self) -> bool:
+        settings = self.gui.plot_settings[self.key]
+        settings['color'] = self.color.get()
+        settings['outline_color'] = self.outline_color.get()
+        return True
 
 
 class ColourButton(ttk.Button):
