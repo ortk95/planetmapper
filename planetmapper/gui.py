@@ -304,22 +304,40 @@ class GUI:
             label='Poles',
             hint='the target\'s poles',
         )
-        PlotScatterSetting(
+        PlotCoordinatesSetting(
             self,
             frame,
             'coordinates_lonlat',
             label='Lon/Lat POI',
             hint='points of interest on the surface of the target (click Edit to define POI)',
             callbacks=[self.replot_coordinates_lonlat],
-        )  # TODO customise POI
-        PlotScatterSetting(
+            coordinate_list=self.observation.coordinates_of_interest_lonlat,
+            menu_label='\n'.join(
+                [
+                    'List of Lon/Lat points of interest.',
+                    'Coordinates should be written as comma',
+                    'separated "lon, lat" values, with each',
+                    'coordinate pair on a new line:',
+                ]
+            ),
+        )
+        PlotCoordinatesSetting(
             self,
             frame,
             'coordinates_radec',
             label='RA/Dec POI',
             hint='points of interest in the sky (click Edit to define POI)',
             callbacks=[self.replot_coordinates_radec],
-        )  # TODO customise POI
+            coordinate_list=self.observation.coordinates_of_interest_radec,
+            menu_label='\n'.join(
+                [
+                    'List of RA/Dec points of interest.',
+                    'Coordinates should be written as comma',
+                    'separated "ra, dec" values, with each',
+                    'coordinate pair on a new line:',
+                ]
+            ),
+        )
         PlotScatterSetting(
             self,
             frame,
@@ -349,7 +367,7 @@ class GUI:
         self.ax.xaxis.set_tick_params(labelsize='x-small')
         self.ax.yaxis.set_tick_params(labelsize='x-small')
 
-        self.plot_wireframe()
+        self.plot_all()
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
         self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
@@ -382,16 +400,28 @@ class GUI:
             )
         )
 
-    def plot_wireframe(self) -> None:
+    def plot_all(self) -> None:
         # TODO make this code consistent with elsewhere?
-        # TODO make sure everything is plotted
-        # TODO tidy up zorder etc.
+        # TODO tidy up zorder 
+        # bodies > body labels > POI > poles > rings > terminator > day limb > limb > grid
 
         self.transform = (
             self.observation.get_matplotlib_radec2xy_transform() + self.ax.transData
         )
 
-        # These are constant so only need to be plotted once
+        self.replot_limb()
+        self.replot_terminator()
+        self.replot_poles()
+        self.replot_grid()
+        self.replot_coordinates_lonlat()
+        self.replot_coordinates_radec()
+        self.replot_rings()
+        self.replot_other_bodies()
+
+
+    def replot_limb(self):
+        self.remove_artists('limb')
+        self.remove_artists('limb_dayside')
         self.plot_handles['limb'].extend(
             self.ax.plot(
                 *self.observation.limb_radec(),
@@ -400,15 +430,6 @@ class GUI:
                 **self.plot_settings['limb'],
             )
         )
-        self.plot_handles['terminator'].extend(
-            self.ax.plot(
-                *self.observation.terminator_radec(),
-                transform=self.transform,
-                zorder=5,
-                **self.plot_settings['terminator'],
-            )
-        )
-
         (
             ra_day,
             dec_day,
@@ -425,13 +446,17 @@ class GUI:
             )
         )
 
-        # These can vary so can be replotted
-        self.replot_poles()
-        self.replot_grid()
-        self.replot_coordinates_lonlat()
-        self.replot_coordinates_radec()
-        self.replot_rings()
-        self.replot_other_bodies()
+    def replot_terminator(self):
+        self.remove_artists('terminator')
+        self.plot_handles['terminator'].extend(
+            self.ax.plot(
+                *self.observation.terminator_radec(),
+                transform=self.transform,
+                zorder=5,
+                **self.plot_settings['terminator'],
+            )
+        )
+
 
     def replot_poles(self):
         self.remove_artists('poles')
@@ -775,13 +800,13 @@ class ArtistSetting:
 
     def get_float(
         self,
-        string_variable: tk.StringVar|str,
+        string_variable: tk.StringVar | str,
         name: str,
         positive: bool = True,
         finite: bool = True,
     ) -> float:
         if isinstance(string_variable, tk.StringVar):
-            s= string_variable.get()
+            s = string_variable.get()
         else:
             s = string_variable
         try:
@@ -894,26 +919,26 @@ class PlotGridSetting(PlotLineSetting):
 class PlotRingsSetting(PlotLineSetting):
     def make_menu(self) -> None:
         super().make_menu()
-
         value = '\n'.join(str(r) for r in sorted(self.gui.observation.ring_radii))
-
-        label = '\n'.join(['',
-            'List ring radii in km from the target\'s centre',
-            'each radius should be listed on a new line:'
-            ])
-
-        ttk.Label(self.menu_frame, text=label).pack(fill='x')
+        label = '\n'.join(
+            [
+                'List ring radii in km from the target\'s centre',
+                'each radius should be listed on a new line:',
+            ]
+        )
+        ttk.Label(self.menu_frame, text='\n' + label).pack(fill='x')
         self.txt = tkinter.scrolledtext.ScrolledText(self.menu_frame)
         self.txt.pack(fill='both')
         self.txt.insert('1.0', value)
 
     def apply_settings(self) -> bool:
-        rings : list[float] = []
+        rings: list[float] = []
         try:
             string = self.txt.get('1.0', 'end')
             for value in string.splitlines():
                 value = value.strip()
-                rings.append(self.get_float(value, 'ring radius'))
+                if value:
+                    rings.append(self.get_float(value, 'ring radius'))
         except ValueError:
             return False
         self.gui.observation.ring_radii.clear()
@@ -980,6 +1005,58 @@ class PlotScatterSetting(ArtistSetting):
         settings['s'] = size
         settings['color'] = self.color.get()
         return True
+
+
+class PlotCoordinatesSetting(PlotScatterSetting):
+    def __init__(
+        self,
+        gui: GUI,
+        parent: tk.Widget,
+        key: PLOT_KEY,
+        coordinate_list: list[tuple[float, float]],
+        menu_label: str,
+        label: str | None = None,
+        hint: str | None = None,
+        callbacks: list[Callable[[], None]] | None = None,
+        **kwargs,
+    ):
+        self.coordinate_list = coordinate_list
+        self.menu_label = menu_label
+        super().__init__(gui, parent, key, label, hint, callbacks, **kwargs)
+
+    def make_menu(self) -> None:
+        super().make_menu()
+        value = '\n'.join(f'{a}, {b}' for a, b in self.coordinate_list)
+        ttk.Label(self.menu_frame, text='\n' + self.menu_label).pack(fill='x')
+        self.txt = tkinter.scrolledtext.ScrolledText(self.menu_frame)
+        self.txt.pack(fill='both')
+        self.txt.insert('1.0', value)
+
+    def apply_settings(self) -> bool:
+        values: list[tuple[float, float]] = []
+        try:
+            string = self.txt.get('1.0', 'end')
+            for line in string.splitlines():
+                line = line.strip().lstrip('(').rstrip(')')
+                if line:
+                    coordinates = line.split(',')
+                    if len(coordinates) != 2:
+                        tkinter.messagebox.showwarning(
+                            title=f'Error parsing coordinates',
+                            message=f'Line {line!r} must have exactly two values separated by a comma',
+                        )
+                        return False
+                    values.append(
+                        tuple(
+                            self.get_float(c, 'coordinate', positive=False)
+                            for c in coordinates
+                        )
+                    )
+        except ValueError:
+            return False
+        self.coordinate_list.clear()
+        self.coordinate_list[:] = values
+        return super().apply_settings()
 
 
 class PlotTextSetting(ArtistSetting):
