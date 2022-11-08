@@ -33,6 +33,7 @@ PLOT_KEY = Literal[
     'coordinates_radec',
     'other_bodies',
     'other_bodies_labels',
+    '_',
 ]
 
 DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
@@ -50,11 +51,13 @@ DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
     'coordinates_radec': dict(marker='+', color='k', s=36),
     'other_bodies': dict(marker='+', color='w', s=36),
     'other_bodies_labels': dict(color='grey'),
+    '_': dict(grid_interval=30),
 }
 
 
 LINESTYLES = ['solid', 'dashed', 'dotted', 'dashdot']
 MARKERS = ['x', '+', 'o', '.', '*', 'v', '^', '<', '>', ',', 'D', 'd', '|', '_']
+GRID_INTERVALS = ['10', '30', '45', '90']
 
 
 class GUI:
@@ -277,14 +280,14 @@ class GUI:
             label='Terminator',
             hint='the line between the dayside and nightside regions on the target',
         )
-        PlotLineSetting(
+        PlotGridSetting(
             self,
             frame,
             'grid',
             label='Gridlines',
             hint='the longitude/latitude grid on the target',
             callbacks=[self.replot_grid],
-        )
+        )  # TODO customise grid interval
         PlotLineSetting(
             self,
             frame,
@@ -292,14 +295,13 @@ class GUI:
             label='Rings',
             hint='rings around the target (click Edit to define ring radii)',
             callbacks=[self.replot_rings],
-        )
+        )  # TODO customise rings
         PlotOutlinedTextSetting(
             self,
             frame,
             'poles',
             label='Poles',
             hint='the target\'s poles',
-            # callbacks=[self.replot_poles],
         )
         PlotScatterSetting(
             self,
@@ -308,7 +310,7 @@ class GUI:
             label='Lon/Lat POI',
             hint='points of interest on the surface of the target (click Edit to define POI)',
             callbacks=[self.replot_coordinates_lonlat],
-        )
+        )  # TODO customise POI
         PlotScatterSetting(
             self,
             frame,
@@ -316,7 +318,7 @@ class GUI:
             label='RA/Dec POI',
             hint='points of interest in the sky (click Edit to define POI)',
             callbacks=[self.replot_coordinates_radec],
-        )
+        )  # TODO customise POI
         PlotScatterSetting(
             self,
             frame,
@@ -324,7 +326,7 @@ class GUI:
             label='Other bodies',
             hint='other bodies of interest (click Edit to specify other bodies to show, e.g. moons)',
             callbacks=[self.replot_other_bodies],
-        )
+        )  # TODO customise other bodies
         PlotTextSetting(
             self,
             frame,
@@ -332,7 +334,7 @@ class GUI:
             label='Other body labels',
             hint='labels for other bodies of interest',
             callbacks=[self.replot_other_bodies],
-        )
+        )  # TODO customise other bodies
 
     def build_plot(self) -> None:
         self.fig = plt.figure(figsize=(5, 5), dpi=100)
@@ -450,11 +452,11 @@ class GUI:
                     )
                 )
             )
-            print(s)
 
     def replot_grid(self) -> None:
         self.remove_artists('grid')
-        for ra, dec in self.observation.visible_latlon_grid_radec(30):
+        interval = self.plot_settings['_'].get('grid_interval', 30)
+        for ra, dec in self.observation.visible_latlon_grid_radec(interval):
             self.plot_handles['grid'].extend(
                 self.ax.plot(
                     ra,
@@ -761,14 +763,9 @@ class ArtistSetting:
     def click_cancel(self) -> None:
         self.close_window()
 
-    def build_menu_grid(self, grid: list[tuple[tk.Widget, tk.Widget]]) -> None:
-        window_frame = ttk.Frame(self.window)
-        window_frame.pack(expand=True, fill='both')
-
-        frame = ttk.Frame(window_frame)
-        frame.pack(side='top', padx=10, pady=10)
-
-        for row, (label, widget) in enumerate(grid):
+    def add_to_menu_grid(self, grid: list[tuple[tk.Widget, tk.Widget]]) -> None:
+        for label, widget in grid:
+            row = self.menu_frame.grid_size()[1]
             label.grid(row=row, column=0, sticky='w', pady=5)
             widget.grid(row=row, column=1, sticky='w')
 
@@ -806,14 +803,14 @@ class ArtistSetting:
 
 
 class PlotLineSetting(ArtistSetting):
-    def make_menu(self):
+    def make_menu(self) -> None:
         settings = self.gui.plot_settings[self.key]
 
         self.linewidth = tk.StringVar(value=str(settings.get('linewidth', '1.0')))
         self.linestyle = tk.StringVar(value=str(settings.get('linestyle', 'solid')))
         self.color = tk.StringVar(value=str(settings.get('color', 'red')))
 
-        self.build_menu_grid(
+        self.add_to_menu_grid(
             [
                 (
                     ttk.Label(self.menu_frame, text='Linewidth: '),
@@ -856,15 +853,45 @@ class PlotLineSetting(ArtistSetting):
         return True
 
 
+class PlotGridSetting(PlotLineSetting):
+    def make_menu(self) -> None:
+        super().make_menu()
+        self.grid_interval = tk.StringVar(
+            value=str(self.gui.plot_settings['_'].get('grid_interval', 30))
+        )
+
+        self.add_to_menu_grid(
+            [
+                (
+                    ttk.Label(self.menu_frame, text='Grid interval (°): '),
+                    ttk.Combobox(
+                        self.menu_frame,
+                        textvariable=self.grid_interval,
+                        values=GRID_INTERVALS,
+                        width=10,
+                    ),
+                ),
+            ]
+        )
+
+    def apply_settings(self) -> bool:
+        try:
+            grid_interval = self.get_float(self.grid_interval, 'grid interval')
+        except ValueError:
+            return False
+        self.gui.plot_settings['_']['grid_interval'] = grid_interval
+        return super().apply_settings()
+
+
 class PlotScatterSetting(ArtistSetting):
-    def make_menu(self):
+    def make_menu(self) -> None:
         settings = self.gui.plot_settings[self.key]
 
         self.marker = tk.StringVar(value=str(settings.get('marker', 'o')))
         self.size = tk.StringVar(value=str(settings.get('s', '36')))
         self.color = tk.StringVar(value=str(settings.get('color', 'red')))
 
-        self.build_menu_grid(
+        self.add_to_menu_grid(
             [
                 (
                     ttk.Label(self.menu_frame, text='Marker: '),
@@ -918,10 +945,10 @@ class PlotScatterSetting(ArtistSetting):
 
 
 class PlotTextSetting(ArtistSetting):
-    def make_menu(self):
+    def make_menu(self) -> None:
         settings = self.gui.plot_settings[self.key]
         self.color = tk.StringVar(value=str(settings.get('color', 'red')))
-        self.build_menu_grid(
+        self.add_to_menu_grid(
             [
                 (
                     ttk.Label(self.menu_frame, text='Colour: '),
@@ -937,14 +964,14 @@ class PlotTextSetting(ArtistSetting):
 
 
 class PlotOutlinedTextSetting(ArtistSetting):
-    def make_menu(self):
+    def make_menu(self) -> None:
         settings = self.gui.plot_settings[self.key]
         self.color = tk.StringVar(value=str(settings.get('color', 'red')))
         self.outline_color = tk.StringVar(
             value=str(settings.get('outline_color', 'red'))
         )
 
-        self.build_menu_grid(
+        self.add_to_menu_grid(
             [
                 (
                     ttk.Label(self.menu_frame, text='Colour: '),
