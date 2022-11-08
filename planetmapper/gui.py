@@ -38,20 +38,16 @@ PLOT_KEY = Literal[
 ]
 
 DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
-    'limb': dict(color='w', linewidth=0.5, linestyle='solid'),
-    'limb_dayside': dict(color='w', linewidth=1, linestyle='solid'),
-    'terminator': dict(color='w', linewidth=1, linestyle='dashed'),
-    'grid': dict(color='dimgray', linewidth=1, linestyle='dotted'),
-    'rings': dict(color='w', linewidth=0.5, linestyle='solid'),
-    'poles': dict(color='k', outline_color='w'),
-    'coordinates_lonlat': dict(
-        marker='x',
-        color='k',
-        s=36,
-    ),
-    'coordinates_radec': dict(marker='+', color='k', s=36),
-    'other_bodies': dict(marker='+', color='w', s=36),
-    'other_bodies_labels': dict(color='grey'),
+    'grid': dict(zorder=3.1, color='dimgray', linewidth=1, linestyle='dotted'),
+    'terminator': dict(zorder=3.2, color='w', linewidth=1, linestyle='dashed'),
+    'limb': dict(zorder=3.3, color='w', linewidth=0.5, linestyle='solid'),
+    'limb_dayside': dict(zorder=3.31, color='w', linewidth=1, linestyle='solid'),
+    'rings': dict(zorder=3.4, color='w', linewidth=0.5, linestyle='solid'),
+    'poles': dict(zorder=3.5, color='k', outline_color='w'),
+    'coordinates_lonlat': dict(zorder=3.6, marker='x', color='k', s=36),
+    'coordinates_radec': dict(zorder=3.7, marker='+', color='k', s=36),
+    'other_bodies': dict(zorder=3.8, marker='+', color='w', s=36),
+    'other_bodies_labels': dict(zorder=3.81, color='grey'),
     '_': dict(grid_interval=30),
 }
 
@@ -401,23 +397,18 @@ class GUI:
         )
 
     def plot_all(self) -> None:
-        # TODO make this code consistent with elsewhere?
-        # TODO tidy up zorder 
-        # bodies > body labels > POI > poles > rings > terminator > day limb > limb > grid
-
         self.transform = (
             self.observation.get_matplotlib_radec2xy_transform() + self.ax.transData
         )
 
-        self.replot_limb()
-        self.replot_terminator()
-        self.replot_poles()
         self.replot_grid()
+        self.replot_terminator()
+        self.replot_limb()
+        self.replot_rings()
+        self.replot_poles()
         self.replot_coordinates_lonlat()
         self.replot_coordinates_radec()
-        self.replot_rings()
         self.replot_other_bodies()
-
 
     def replot_limb(self):
         self.remove_artists('limb')
@@ -426,7 +417,6 @@ class GUI:
             self.ax.plot(
                 *self.observation.limb_radec(),
                 transform=self.transform,
-                zorder=5,
                 **self.plot_settings['limb'],
             )
         )
@@ -441,7 +431,6 @@ class GUI:
                 ra_day,
                 dec_day,
                 transform=self.transform,
-                zorder=5,
                 **self.plot_settings['limb_dayside'],
             )
         )
@@ -452,11 +441,9 @@ class GUI:
             self.ax.plot(
                 *self.observation.terminator_radec(),
                 transform=self.transform,
-                zorder=5,
                 **self.plot_settings['terminator'],
             )
         )
-
 
     def replot_poles(self):
         self.remove_artists('poles')
@@ -472,7 +459,6 @@ class GUI:
                         va='center',
                         weight='bold',
                         transform=self.transform,
-                        zorder=5,
                         clip_on=True,
                         **self.plot_settings['poles'],
                     )
@@ -488,7 +474,6 @@ class GUI:
                     ra,
                     dec,
                     transform=self.transform,
-                    zorder=4,
                     **self.plot_settings['grid'],
                 )
             )
@@ -528,7 +513,6 @@ class GUI:
                     ra,
                     dec,
                     transform=self.transform,
-                    zorder=5,
                     **self.plot_settings['rings'],
                 )
             )
@@ -550,7 +534,6 @@ class GUI:
                     va='center',
                     transform=self.transform,
                     clip_on=True,
-                    zorder=6,
                     **self.plot_settings['other_bodies_labels'],
                 )
             )
@@ -559,7 +542,6 @@ class GUI:
                     ra,
                     dec,
                     transform=self.transform,
-                    zorder=7,
                     **self.plot_settings['other_bodies'],
                 )
             )
