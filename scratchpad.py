@@ -12,7 +12,7 @@ import matplotlib.patheffects as path_effects
 planetmapper.utils.print_progress()
 gui = planetmapper.gui.GUI(
     'data/saturn.jpg',
-    target='neptune',
+    target='saturn',
     utc='2001-12-08T04:39:30.449',
 )
 gui.observation.set_disc_params(x0=650, y0=540, r0=200)
