@@ -73,7 +73,7 @@ CMAPS = ['gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis']
 
 
 class GUI:
-    DEFAULT_GEOMETRY = '800x600+10+10'
+    DEFAULT_GEOMETRY = '800x600'
 
     def __init__(self, path: str | None = None, *args, **kwargs) -> None:
         if path is None:
@@ -171,6 +171,15 @@ class GUI:
     def configure_style(self) -> None:
         self.style = ttk.Style(self.root)
         self.style.theme_use('default')
+        for element in ['TEntry', 'TCombobox', 'TSpinbox', 'TButton', 'TLabel']:
+            self.style.configure(
+                element,
+                foreground='black',
+                insertcolor='black',
+                fieldbackground='white',
+                selectbackground='#bdf',
+                selectforeground='black',
+            )
 
     def build_controls(self) -> None:
         self.notebook = ttk.Notebook(self.controls_frame)
@@ -963,7 +972,7 @@ class ArtistSetting:
         return value
 
     def get_window_size(self) -> str:
-        return '300x300'
+        return '350x350'
 
 
 class PlotImageSetting(ArtistSetting):
@@ -1167,7 +1176,7 @@ class PlotImageSetting(ArtistSetting):
         return True
 
     def get_window_size(self) -> str:
-        return '300x600'
+        return '350x600'
 
 
 class PlotLineSetting(ArtistSetting):
@@ -1317,7 +1326,7 @@ class PlotRingsSetting(PlotLineSetting):
         return super().apply_settings()
 
     def get_window_size(self) -> str:
-        return '300x600'
+        return '350x600'
 
 
 class PlotScatterSetting(ArtistSetting):
@@ -1433,7 +1442,7 @@ class PlotCoordinatesSetting(PlotScatterSetting):
         return super().apply_settings()
 
     def get_window_size(self) -> str:
-        return '300x600'
+        return '350x600'
 
 
 class PlotTextSetting(ArtistSetting):
@@ -1515,7 +1524,7 @@ class GenericOtherBodySetting(ArtistSetting):
         return True
 
     def get_window_size(self) -> str:
-        return '300x600'
+        return '350x600'
 
 
 class PlotOtherBodyScatterSetting(PlotScatterSetting, GenericOtherBodySetting):
