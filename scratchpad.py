@@ -9,14 +9,12 @@ import matplotlib.pyplot as plt
 from matplotlib.text import Text
 import matplotlib.patheffects as path_effects
 
-body = planetmapper.BodyXY(
-    target='saturn',
-    utc='2022-11-04T21:31:23.939',
-    observer='JWST',
-    sz=50,
+planetmapper.utils.print_progress()
+gui = planetmapper.gui.GUI(
+    'data/saturn.jpg',
+    target='neptune',
+    utc='2001-12-08T04:39:30.449',
 )
-body.add_other_bodies_of_interest('titan')
-
-
-fig, ax = plt.subplots(figsize=(10, 10))
-body.plot_wireframe_radec(ax=ax)
+gui.observation.set_disc_params(x0=650, y0=540, r0=200)
+gui.observation.add_other_bodies_of_interest('Tethys')
+gui.run()

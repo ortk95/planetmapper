@@ -18,8 +18,10 @@ from matplotlib.text import Text
 from matplotlib.artist import Artist
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from . import utils
+from . import data_loader
 from .observation import Observation
 from .body import Body, NotFoundError
+
 
 Widget = TypeVar('Widget', bound=tk.Widget)
 SETTER_KEY = Literal['x0', 'y0', 'r0', 'rotation', 'step']
@@ -726,7 +728,8 @@ class ArtistSetting:
 
         x, y = (int(s) for s in self.gui.root.geometry().split('+')[1:])
         self.window.geometry(
-            '300x300+{x:.0f}+{y:.0f}'.format(
+            '{sz}+{x:.0f}+{y:.0f}'.format(
+                sz=self.get_window_size(),
                 x=x + 50,
                 y=y + 50,
             )
@@ -834,6 +837,9 @@ class ArtistSetting:
 
         return value
 
+    def get_window_size(self) -> str:
+        return '300x300'
+
 
 class PlotLineSetting(ArtistSetting):
     def make_menu(self) -> None:
@@ -919,11 +925,37 @@ class PlotGridSetting(PlotLineSetting):
 class PlotRingsSetting(PlotLineSetting):
     def make_menu(self) -> None:
         super().make_menu()
-        value = '\n'.join(str(r) for r in sorted(self.gui.observation.ring_radii))
+        radii_selected = self.gui.observation.ring_radii.copy()
+        radii_options = data_loader.get_ring_radii().get(
+            self.gui.observation.target, {}
+        )
+
+        ttk.Label(self.menu_frame, text='').pack(fill='x')  # Add a spacer
+
+        self.checkbox_dict: dict[tuple[float, ...], tk.IntVar] = {}
+        for name, radii in sorted(radii_options.items(), key=lambda x: x[1]):
+            iv = tk.IntVar()
+            self.checkbox_dict[tuple(radii)] = iv
+            label = '{n}  ({r})'.format(
+                n=name, r=', '.join(format(r, 'g') + 'km' for r in radii)
+            )
+            ttk.Checkbutton(self.menu_frame, text=label, variable=iv).pack(fill='x')
+            iv.set(all(r in radii_selected for r in radii))
+        for radii, iv in self.checkbox_dict.items():
+            # Radii will be indicated by checkbox, so remove them from the text list
+            # Do after creating all checkboxes so that overlapping rings (e.g. Saturn's
+            # B & C rings) don't break logic.
+            if iv.get():
+                radii_selected -= set(radii)
+
+        value = '\n'.join(str(r) for r in sorted(radii_selected))
         label = '\n'.join(
             [
-                'List ring radii in km from the target\'s centre',
-                'each radius should be listed on a new line:',
+                'Manually list{s} ring radii in km from the'.format(
+                    s=' more' if self.checkbox_dict else ''
+                ),
+                'target\'s centre below. Each radius should',
+                'be listed on a new line:',
             ]
         )
         ttk.Label(self.menu_frame, text='\n' + label).pack(fill='x')
@@ -941,9 +973,17 @@ class PlotRingsSetting(PlotLineSetting):
                     rings.append(self.get_float(value, 'ring radius'))
         except ValueError:
             return False
+
+        for radii, iv in self.checkbox_dict.items():
+            if iv.get():
+                rings.extend(radii)
+
         self.gui.observation.ring_radii.clear()
         self.gui.observation.ring_radii.update(rings)
         return super().apply_settings()
+
+    def get_window_size(self) -> str:
+        return '300x600'
 
 
 class PlotScatterSetting(ArtistSetting):
@@ -1058,6 +1098,9 @@ class PlotCoordinatesSetting(PlotScatterSetting):
         self.coordinate_list[:] = values
         return super().apply_settings()
 
+    def get_window_size(self) -> str:
+        return '300x600'
+
 
 class PlotTextSetting(ArtistSetting):
     def make_menu(self) -> None:
@@ -1136,6 +1179,9 @@ class GenericOtherBodySetting(ArtistSetting):
         self.gui.observation.other_bodies_of_interest.clear()
         self.gui.observation.other_bodies_of_interest[:] = bodies
         return True
+
+    def get_window_size(self) -> str:
+        return '300x600'
 
 
 class PlotOtherBodyScatterSetting(PlotScatterSetting, GenericOtherBodySetting):
