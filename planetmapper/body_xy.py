@@ -786,7 +786,6 @@ class BodyXY(Body):
             Array containing the observer-target distance in km of each pixel in the
             image. Points off the disc have a value of NaN.
         """
-
         position_img, velocity_img, lt_img = self._get_state_imgs()
         return lt_img * self.speed_of_light()
 

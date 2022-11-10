@@ -921,8 +921,8 @@ class Body(SpiceBase):
         is always returned (to orientate the observation).
 
         Returns:
-            List of `(ra, dec, label)` tuples describing the poles where `ra` and `dec`
-            give the RA/Dec coordinates of the pole in the sky and `label` is a string
+            List of `(lon, lat, label)` tuples describing the poles where `lon` and
+            `lat` give the coordinates of the pole on the target and `label` is a string
             describing the pole. If the pole is visible, the `label` is either 'N' or
             'S'. If neither pole is visible, then both poles are returned with labels
             of '(N)' and '(S)'.
