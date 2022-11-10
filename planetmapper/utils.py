@@ -9,6 +9,7 @@ import os
 import traceback
 import warnings
 from datetime import datetime
+import numpy as np
 
 
 class filter_fits_comment_warning(warnings.catch_warnings):
@@ -170,3 +171,22 @@ def print_progress(annotation=None, c1='g', c2='k', style='b'):
 print_progress.last_dtm = None
 print_progress.last_stack = None
 print_progress.first_stack = None
+
+
+def normalise(values, top=1, bottom=0, single_value=None):
+    """
+    Normalise iterable.
+    """
+    assert top > bottom
+    values = np.array(values)
+    if single_value is not None and len(set(values)) == 1:
+        return np.full(values.shape, single_value)
+    vmin = np.nanmin(values)
+    vmax = np.nanmax(values)
+
+    # Put into 0 to 1 range
+    if vmax != vmin:
+        values = (values - vmin) / (vmax - vmin)
+    else:
+        values = values - vmin
+    return values * (top - bottom) + bottom

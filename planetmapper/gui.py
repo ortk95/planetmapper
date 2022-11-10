@@ -40,10 +40,9 @@ PLOT_KEY = Literal[
     'other_bodies_labels',
     '_',
 ]
-IMAGE_MODE = Literal['avg', 'single', 'rgb']
+IMAGE_MODE = Literal['sum', 'single', 'rgb']
 
 DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
-    'image': dict(zorder=0, cmap='gray'),
     'grid': dict(zorder=3.1, color='#333', linewidth=1, linestyle='dotted'),
     'terminator': dict(zorder=3.2, color='w', linewidth=1, linestyle='dashed'),
     'limb': dict(zorder=3.3, color='w', linewidth=0.5, linestyle='solid'),
@@ -54,6 +53,7 @@ DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
     'coordinates_radec': dict(zorder=3.7, marker='+', color='k', s=36),
     'other_bodies': dict(zorder=3.8, marker='+', color='w', s=36),
     'other_bodies_labels': dict(zorder=3.81, color='grey'),
+    'image': dict(zorder=0, cmap='inferno', vmin=0, vmax=100),
     '_': dict(
         grid_interval=30,
         image_mode='single',
@@ -61,6 +61,7 @@ DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
         image_idx_r=0,
         image_idx_g=1,
         image_idx_b=2,
+        image_gamma=1,
     ),
 }
 
@@ -86,16 +87,6 @@ class GUI:
         #     # TODO get image better
         # TODO add option to create from Observation
         self.step_size = 10
-
-        self.image_modes: dict[IMAGE_MODE, tuple[Callable[[], np.ndarray], str]] = {
-            'single': (self.image_single, 'Single wavelength'),
-            'avg': (self.image_avg, 'Average all wavelengths'),
-            'rgb': (self.image_rgb, 'RGB composite'),
-        }
-        if self.observation.data.shape[0] < 2:
-            del self.image_modes['avg']
-        if self.observation.data.shape[0] < 3:
-            del self.image_modes['rgb']
 
         self.shortcuts: dict[Callable[[], Any], list[str]] = {
             self.increase_step: [']'],
@@ -129,6 +120,23 @@ class GUI:
         self.plot_settings: defaultdict[PLOT_KEY, dict] = defaultdict(dict)
         for k, v in DEFAULT_PLOT_SETTINGS.items():
             self.plot_settings[k] = v.copy()
+
+        self.image_modes: dict[IMAGE_MODE, tuple[Callable[[], np.ndarray], str]] = {
+            'single': (self.image_single, 'Single wavelength'),
+            'sum': (self.image_sum, 'Sum all wavelengths'),
+            'rgb': (self.image_rgb, 'RGB composite'),
+        }
+        n_wavl = self.observation.data.shape[0]
+        if n_wavl < 2:
+            del self.image_modes['sum']
+        if n_wavl < 3:
+            del self.image_modes['rgb']
+        if n_wavl == 1:
+            self.plot_settings['_']['image_mode'] = 'single'
+        elif n_wavl == 3:
+            self.plot_settings['_']['image_mode'] = 'rgb'
+        else:
+            self.plot_settings['_']['image_mode'] = 'sum'
 
     def __repr__(self) -> str:
         return f'InteractiveObservation()'
@@ -618,21 +626,27 @@ class GUI:
             self.plot_handles[key].pop().remove()
 
     # Image
-    def image_avg(self) -> np.ndarray:
-        return np.flipud(np.nanmean(self.observation.data, axis=0))
+    def image_sum(self) -> np.ndarray:
+        return 100 * utils.normalise(
+            np.flipud(np.nansum(self.observation.data, axis=0))
+        ) ** self.plot_settings['_'].setdefault('image_gamma', 1)
 
     def image_single(self) -> np.ndarray:
-        return np.flipud(
-            self.observation.data[
-                self.plot_settings['_'].setdefault('image_idx_single', 0)
-            ]
-        )
+        return 100 * utils.normalise(
+            np.flipud(
+                self.observation.data[
+                    self.plot_settings['_'].setdefault('image_idx_single', 0)
+                ]
+            )
+        ) ** self.plot_settings['_'].setdefault('image_gamma', 1)
 
     def image_rgb(self) -> np.ndarray:
         r = self.observation.data[self.plot_settings['_'].setdefault('image_idx_r', 0)]
         g = self.observation.data[self.plot_settings['_'].setdefault('image_idx_g', 0)]
         b = self.observation.data[self.plot_settings['_'].setdefault('image_idx_b', 0)]
-        return np.flipud(np.stack((r, g, b), axis=2))
+        return utils.normalise(
+            np.flipud(np.stack((r, g, b), axis=2))
+        ) ** self.plot_settings['_'].setdefault('image_gamma', 1)
 
     # Keybindings
     def bind_keyboard(self) -> None:
@@ -875,13 +889,15 @@ class ArtistSetting:
         string_variable: tk.StringVar | str,
         name: str,
         positive: bool = True,
-    ):
+        minimum: int | None = None,
+        maximum: int | None = None,
+    ) -> int:
         if isinstance(string_variable, tk.StringVar):
             s = string_variable.get()
         else:
             s = string_variable
         try:
-            value = float(s)
+            value = int(s)
         except ValueError:
             tkinter.messagebox.showwarning(
                 title=f'Error parsing {name}',
@@ -900,6 +916,20 @@ class ArtistSetting:
             tkinter.messagebox.showwarning(
                 title=f'Error parsing {name}',
                 message=f'{name.capitalize()} must be greater than zero',
+            )
+            raise ValueError
+
+        if minimum is not None and value < minimum:
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing {name}',
+                message=f'{name.capitalize()} must not be less than {minimum}',
+            )
+            raise ValueError
+
+        if maximum is not None and value > maximum:
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing {name}',
+                message=f'{name.capitalize()} must not be greater than {maximum}',
             )
             raise ValueError
 
@@ -949,10 +979,14 @@ class PlotImageSetting(ArtistSetting):
     def make_menu(self) -> None:
         settings = self.gui.plot_settings[self.key]
         general_settings = self.gui.plot_settings['_']
+
+        self.cmap = tk.StringVar(value=settings.setdefault('cmap', 'gray'))
+        self.image_vmin = tk.StringVar(value=str(settings.setdefault('vmin', 0)))
+        self.image_vmax = tk.StringVar(value=str(settings.setdefault('vmax', 100)))
+
         self.image_mode = tk.StringVar(
             value=general_settings.setdefault('image_mode', 'single')
         )
-        self.cmap = tk.StringVar(value=settings.setdefault('cmap', 'gray'))
         self.image_idx_single = tk.StringVar(
             value=str(general_settings.setdefault('image_idx_single', 0))
         )
@@ -964,6 +998,9 @@ class PlotImageSetting(ArtistSetting):
         )
         self.image_idx_b = tk.StringVar(
             value=str(general_settings.setdefault('image_idx_b', 0))
+        )
+        self.image_gamma = tk.StringVar(
+            value=str(general_settings.setdefault('image_gamma', 1))
         )
 
         # Image mode selection
@@ -997,17 +1034,6 @@ class PlotImageSetting(ArtistSetting):
 
         self.grid: list[tuple[tk.Widget, tk.Widget, set[IMAGE_MODE]]] = [
             (
-                ttk.Label(frame, text='Matplotlib colormap: '),
-                ttk.Combobox(
-                    frame,
-                    textvariable=self.cmap,
-                    values=CMAPS,
-                    width=10,
-                ),
-                {'single', 'avg'},
-            ),
-            # TODO vmin/vmax
-            (
                 ttk.Label(frame, text='Wavelength index (single): '),
                 IndexInput(self.image_idx_single),
                 {'single'},
@@ -1027,13 +1053,69 @@ class PlotImageSetting(ArtistSetting):
                 IndexInput(self.image_idx_b),
                 {'rgb'},
             ),
+            (
+                ttk.Label(frame, text='Matplotlib colormap: '),
+                ttk.Combobox(
+                    frame,
+                    textvariable=self.cmap,
+                    values=CMAPS,
+                    width=10,
+                ),
+                {'single', 'sum'},
+            ),
+            (
+                ttk.Label(frame, text='gamma: '),
+                ttk.Spinbox(
+                    frame,
+                    textvariable=self.image_gamma,
+                    from_=0,
+                    to=100,
+                    increment=0.2,
+                    width=10,
+                ),
+                {'single', 'sum', 'rgb'},
+            ),
+            (
+                ttk.Label(frame, text='vmin: '),
+                ttk.Spinbox(
+                    frame,
+                    textvariable=self.image_vmin,
+                    from_=0,
+                    to=100,
+                    increment=5,
+                    width=10,
+                ),
+                {'single', 'sum'},
+            ),
+            (
+                ttk.Label(frame, text='vmax: '),
+                ttk.Spinbox(
+                    frame,
+                    textvariable=self.image_vmax,
+                    from_=0,
+                    to=100,
+                    increment=5,
+                    width=10,
+                ),
+                {'single', 'sum'},
+            ),
+            # TODO vmin/vmax/gamma
         ]
         self.add_to_menu_grid([(a, b) for a, b, c in self.grid], frame=frame)
 
-        self.image_mode.trace_add('write', self.change_image_mode)
-        self.change_image_mode()  # run initial setup
+        msg = '\n'.join(
+            [
+                'Images are scaled to vary from 0 to 100,',
+                'so set vmin=0 and vmax=100 to show the',
+                'entire dynamic range.',
+            ]
+        )
+        ttk.Label(self.grid_frame, text=msg).pack()
 
-    def change_image_mode(self, *_) -> None:
+        self.image_mode.trace_add('write', self.change_image_mode_radio)
+        self.change_image_mode_radio()  # run initial setup
+
+    def change_image_mode_radio(self, *_) -> None:
         mode = self.image_mode.get()
         for l, widget, modes in self.grid:
             if mode in modes:
@@ -1041,9 +1123,29 @@ class PlotImageSetting(ArtistSetting):
             else:
                 widget['state'] = 'disable'
 
+    def get_idx(self, stirng_variable: tk.StringVar, name: str) -> int:
+        sz = self.gui.observation.data.shape[0]
+        return self.get_int(
+            stirng_variable, name=name, positive=False, minimum=-sz, maximum=sz - 1
+        )
+
     def apply_settings(self) -> bool:
         settings = self.gui.plot_settings[self.key]
         general_settings = self.gui.plot_settings['_']
+
+        try:
+            image_mode = self.image_mode.get()
+            image_idx_single = self.get_idx(
+                self.image_idx_single, 'wavelength index (single)'
+            )
+            image_idx_r = self.get_idx(self.image_idx_r, 'wavelength index (red)')
+            image_idx_g = self.get_idx(self.image_idx_g, 'wavelength index (green)')
+            image_idx_b = self.get_idx(self.image_idx_b, 'wavelength index (blue)')
+            image_gamma = self.get_float(self.image_gamma, 'gamma', positive=False)
+            image_vmin = self.get_float(self.image_vmin, 'vmin', positive=False)
+            image_vmax = self.get_float(self.image_vmax, 'vmax', positive=False)
+        except ValueError:
+            return False
 
         try:
             cmap = self.cmap.get()
@@ -1055,9 +1157,22 @@ class PlotImageSetting(ArtistSetting):
             )
             return False
 
+        if image_vmin >= image_vmax:
+            tkinter.messagebox.showwarning(
+                title='Error parsing limits',
+                message=f'vmin must be less than vmax',
+            )
+            return False
+
         settings['cmap'] = cmap
-        general_settings['image_mode'] = self.image_mode.get()
-        # TODO get settings
+        settings['vmin'] = image_vmin
+        settings['vmax'] = image_vmax
+        general_settings['image_mode'] = image_mode
+        general_settings['image_idx_single'] = image_idx_single
+        general_settings['image_idx_r'] = image_idx_r
+        general_settings['image_idx_g'] = image_idx_g
+        general_settings['image_idx_b'] = image_idx_b
+        general_settings['image_gamma'] = image_gamma
         return True
 
     def get_window_size(self) -> str:
