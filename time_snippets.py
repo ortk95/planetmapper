@@ -22,34 +22,42 @@ number = 100  # Number of times statement is called in each timing loop
 
 
 # Define any variables, module imports etc. to use in the snippets here...
-d = {'a': 1, 'b': 2, 'c': 3, 'd': 4}
-k = 'z'
+class C:
+    def __init__(self):
+        self.y = lambda: None
+        self.z = self.y
+
+c = C()
+
+def f_if():
+    if c.z:
+        c.z
+
+def f_has():
+    if hasattr(c, 'x'):
+        c.x()
 
 
 def f_get():
-    return d.get(k, None)
+    getattr(c, 'x', lambda: None)()
 
 
 def f_try():
     try:
-        return d[k]
-    except KeyError:
+        c.x()
+    except AttributeError:
         pass
-
-
-def f_in():
-    if k in d:
-        return d[k]
 
 
 # Define code snippets as a list of strings to execute here...
 statements = [
+    'f_if()',
+    'f_has()',
     'f_get()',
     'f_try()',
-    'f_in()',
 ]
 
-statements = ['out = ' + s for s in statements]
+# statements = ['out = ' + s for s in statements]
 # statements = [f'out = str({s})' for s in statements]
 # statements = ['out = sum(' + s + ')' for s in statements]
 # statements = ['out = np.sum(' + s + ')' for s in statements]
