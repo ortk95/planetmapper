@@ -934,8 +934,13 @@ class PlotRingsSetting(PlotLineSetting):
 
         self.checkbox_dict: dict[tuple[float, ...], tk.IntVar] = {}
         for name, radii in sorted(radii_options.items(), key=lambda x: x[1]):
+            key = tuple(radii)
+            if key in self.checkbox_dict:
+                # Skip repeated rings (for Neptune where multiple rings have same radii
+                # on fact sheet)
+                continue
             iv = tk.IntVar()
-            self.checkbox_dict[tuple(radii)] = iv
+            self.checkbox_dict[key] = iv
             label = '{n}  ({r})'.format(
                 n=name, r=', '.join(format(r, 'g') + 'km' for r in radii)
             )
