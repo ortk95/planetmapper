@@ -101,6 +101,7 @@ class GUI:
             self.decrease_radius: ['-', '_'],
             self.save: ['<Control-s>'],
         }
+        self.shortcuts_to_keep_in_entry = ['<Control-s>']
 
         self.setter_callbacks: dict[SETTER_KEY, list[Callable[[float], Any]]] = {
             'x0': [self.observation.set_x0],
@@ -137,6 +138,8 @@ class GUI:
             self.plot_settings['_']['image_mode'] = 'rgb'
         else:
             self.plot_settings['_']['image_mode'] = 'sum'
+
+        self.event_time_to_ignore = None
 
     def __repr__(self) -> str:
         return f'InteractiveObservation()'
@@ -651,9 +654,16 @@ class GUI:
     # Keybindings
     def bind_keyboard(self) -> None:
         for fn, events in self.shortcuts.items():
-            handler = lambda e, f=fn: f()
+            handler = lambda e, f=fn: self.process_keypress(e, f)
             for event in events:
                 self.root.bind(event, handler)
+
+    def process_keypress(self, event, fn) -> None:
+        if event.time != self.event_time_to_ignore:
+            fn()
+
+    def ignore_keypress(self, event) -> None:
+        self.event_time_to_ignore = event.time
 
     # API
     def set_value(
@@ -1602,6 +1612,14 @@ class NumericEntry:
             row = parent.grid_size()[1]
         self.label.grid(row=row, column=0, **kw)
         self.entry.grid(row=row, column=1, **kw)
+
+        self.disable_keybindings()
+
+    def disable_keybindings(self):
+        for bindings in self.gui.shortcuts.values():
+            for binding in bindings:
+                if binding not in self.gui.shortcuts_to_keep_in_entry:
+                    self.entry.bind(binding, self.gui.ignore_keypress)
 
     def update_text(self, value: float) -> None:
         if not self._enable_callback:
