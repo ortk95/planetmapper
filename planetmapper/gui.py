@@ -18,8 +18,10 @@ from matplotlib.text import Text
 from matplotlib.artist import Artist
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from . import utils
+from . import data_loader
 from .observation import Observation
 from .body import Body, NotFoundError
+
 
 Widget = TypeVar('Widget', bound=tk.Widget)
 SETTER_KEY = Literal['x0', 'y0', 'r0', 'rotation', 'step']
@@ -71,7 +73,7 @@ class GUI:
         if self.image.shape[2] != 3:
             self.image = np.nansum(self.image, axis=2)
             # TODO get image better
-
+        # TODO add option to create from Observation
         self.step_size = 10
 
         self.shortcuts: dict[Callable[[], Any], list[str]] = {
@@ -85,7 +87,7 @@ class GUI:
             self.rotate_left: ['<less>', ','],
             self.increase_radius: ['+', '='],
             self.decrease_radius: ['-', '_'],
-            # self.observation.centre_disc: ['<Control-c>'],
+            self.save: ['<Control-s>'],
         }
 
         self.setter_callbacks: dict[SETTER_KEY, list[Callable[[float], Any]]] = {
@@ -178,6 +180,7 @@ class GUI:
             self.add_tooltip(
                 ttk.Button(button_frame, text=arrow, command=fn, width=2),
                 f'Move fitted disc {hint}',
+                fn,
             ).grid(column=column, row=row, ipadx=5, ipady=5)
 
         # Rotation controls
@@ -199,6 +202,7 @@ class GUI:
             self.add_tooltip(
                 ttk.Button(button_frame, text=arrow.capitalize(), command=fn, width=2),
                 f'Rotate fitted disc {hint}',
+                fn,
             ).grid(column=column, row=0, ipadx=5, ipady=5)
 
         # Size controls
@@ -221,6 +225,7 @@ class GUI:
             self.add_tooltip(
                 ttk.Button(button_frame, text=arrow.capitalize(), command=fn, width=2),
                 f'{hint.capitalize()} fitted disc radius',
+                fn,
             ).grid(column=column, row=0, ipadx=5, ipady=5)
 
         # Step controls
@@ -242,6 +247,7 @@ class GUI:
             self.add_tooltip(
                 ttk.Button(button_frame, text=arrow.capitalize(), command=fn, width=2),
                 f'{hint.capitalize()} step size',
+                fn,
             ).grid(column=column, row=0, ipadx=5, ipady=5)
 
         # IO controls
@@ -251,6 +257,7 @@ class GUI:
         self.add_tooltip(
             ttk.Button(label_frame, text='Save', command=self.save),
             f'Save FITS file with backplane data',
+            self.save,
         ).pack()
 
     def build_settings_controls(self) -> None:
@@ -368,13 +375,24 @@ class GUI:
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
         self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
+        # TODO do tight_layout type thing
 
     def build_help_hint(self) -> None:
         self.help_hint = tk.Label(self.hint_frame, text='', foreground='black')
         self.help_hint.pack(side='left')
-        # TODO add keybinginds to hint
 
-    def add_tooltip(self, widget: Widget, msg: str) -> Widget:
+    def add_tooltip(
+        self, widget: Widget, msg: str, shortcut_fn: Callable | None = None
+    ) -> Widget:
+        if shortcut_fn is not None:
+            keys = self.shortcuts.get(shortcut_fn, None)
+            if keys is not None:
+                key = keys[0]
+                key = key.replace('<less>', '<').upper()
+                if key[0] == '<' and key[-1] == '>' and len(key) > 2:
+                    key = key[1:-1]
+                msg = f'{msg} (keyboard shortcut: {key})'
+
         def f_enter(event):
             self.help_hint.configure(text=msg)
 
@@ -641,6 +659,8 @@ class GUI:
         )
         # TODO add some validation
         # TODO add some progress UI
+        if path is None:
+            return
         print(path)
         utils.print_progress(c1='c')
         self.observation.save(path)
@@ -708,7 +728,8 @@ class ArtistSetting:
 
         x, y = (int(s) for s in self.gui.root.geometry().split('+')[1:])
         self.window.geometry(
-            '300x300+{x:.0f}+{y:.0f}'.format(
+            '{sz}+{x:.0f}+{y:.0f}'.format(
+                sz=self.get_window_size(),
                 x=x + 50,
                 y=y + 50,
             )
@@ -751,7 +772,6 @@ class ArtistSetting:
         if self.callbacks is None:
             # Update artists in place
             settings = self.gui.plot_settings[self.key]
-            print(settings)
             if settings:
                 plt.setp(self.gui.plot_handles[self.key], **settings)
         else:
@@ -816,6 +836,9 @@ class ArtistSetting:
             raise ValueError
 
         return value
+
+    def get_window_size(self) -> str:
+        return '300x300'
 
 
 class PlotLineSetting(ArtistSetting):
@@ -902,11 +925,42 @@ class PlotGridSetting(PlotLineSetting):
 class PlotRingsSetting(PlotLineSetting):
     def make_menu(self) -> None:
         super().make_menu()
-        value = '\n'.join(str(r) for r in sorted(self.gui.observation.ring_radii))
+        radii_selected = self.gui.observation.ring_radii.copy()
+        radii_options = data_loader.get_ring_radii().get(
+            self.gui.observation.target, {}
+        )
+
+        ttk.Label(self.menu_frame, text='').pack(fill='x')  # Add a spacer
+
+        self.checkbox_dict: dict[tuple[float, ...], tk.IntVar] = {}
+        for name, radii in sorted(radii_options.items(), key=lambda x: x[1]):
+            key = tuple(radii)
+            if key in self.checkbox_dict:
+                # Skip repeated rings (for Neptune where multiple rings have same radii
+                # on fact sheet)
+                continue
+            iv = tk.IntVar()
+            self.checkbox_dict[key] = iv
+            label = '{n}  ({r})'.format(
+                n=name, r=', '.join(format(r, 'g') + 'km' for r in radii)
+            )
+            ttk.Checkbutton(self.menu_frame, text=label, variable=iv).pack(fill='x')
+            iv.set(all(r in radii_selected for r in radii))
+        for radii, iv in self.checkbox_dict.items():
+            # Radii will be indicated by checkbox, so remove them from the text list
+            # Do after creating all checkboxes so that overlapping rings (e.g. Saturn's
+            # B & C rings) don't break logic.
+            if iv.get():
+                radii_selected -= set(radii)
+
+        value = '\n'.join(str(r) for r in sorted(radii_selected))
         label = '\n'.join(
             [
-                'List ring radii in km from the target\'s centre',
-                'each radius should be listed on a new line:',
+                'Manually list{s} ring radii in km from the'.format(
+                    s=' more' if self.checkbox_dict else ''
+                ),
+                'target\'s centre below. Each radius should',
+                'be listed on a new line:',
             ]
         )
         ttk.Label(self.menu_frame, text='\n' + label).pack(fill='x')
@@ -924,9 +978,17 @@ class PlotRingsSetting(PlotLineSetting):
                     rings.append(self.get_float(value, 'ring radius'))
         except ValueError:
             return False
+
+        for radii, iv in self.checkbox_dict.items():
+            if iv.get():
+                rings.extend(radii)
+
         self.gui.observation.ring_radii.clear()
         self.gui.observation.ring_radii.update(rings)
         return super().apply_settings()
+
+    def get_window_size(self) -> str:
+        return '300x600'
 
 
 class PlotScatterSetting(ArtistSetting):
@@ -1041,6 +1103,9 @@ class PlotCoordinatesSetting(PlotScatterSetting):
         self.coordinate_list[:] = values
         return super().apply_settings()
 
+    def get_window_size(self) -> str:
+        return '300x600'
+
 
 class PlotTextSetting(ArtistSetting):
     def make_menu(self) -> None:
@@ -1119,6 +1184,9 @@ class GenericOtherBodySetting(ArtistSetting):
         self.gui.observation.other_bodies_of_interest.clear()
         self.gui.observation.other_bodies_of_interest[:] = bodies
         return True
+
+    def get_window_size(self) -> str:
+        return '300x600'
 
 
 class PlotOtherBodyScatterSetting(PlotScatterSetting, GenericOtherBodySetting):

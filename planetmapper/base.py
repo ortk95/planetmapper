@@ -231,3 +231,26 @@ class SpiceBase:
         return np.array(
             [[np.cos(theta), np.sin(theta)], [-np.sin(theta), np.cos(theta)]]
         )
+
+    @staticmethod
+    def angular_dist(ra1: float, dec1: float, ra2: float, dec2: float) -> float:
+        """
+        Calculate the angular distance between two RA/Dec coordinate pairs.
+
+        Args:
+            ra1: RA of first point.
+            dec1: Dec of first point.
+            ra2: RA of second point
+            dec2: Dec of second point.
+
+        Returns:
+            Angular distance in degrees between the two points.
+        """
+        return np.rad2deg(
+            np.arccos(
+                np.sin(np.deg2rad(dec1)) * np.sin(np.deg2rad(dec2))
+                + np.cos(np.deg2rad(dec1))
+                * np.cos(np.deg2rad(dec2))
+                * np.cos(np.deg2rad(ra1) - np.deg2rad(ra2))
+            )
+        )
