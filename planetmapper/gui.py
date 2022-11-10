@@ -13,6 +13,7 @@ import numpy as np
 from collections import defaultdict
 import matplotlib.colors
 import matplotlib.markers
+import matplotlib.cm
 from matplotlib.axes import Axes
 from matplotlib.text import Text
 from matplotlib.artist import Artist
@@ -39,10 +40,11 @@ PLOT_KEY = Literal[
     'other_bodies_labels',
     '_',
 ]
+IMAGE_MODE = Literal['avg', 'single', 'rgb']
 
 DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
-    'image': dict(zorder=0),
-    'grid': dict(zorder=3.1, color='dimgray', linewidth=1, linestyle='dotted'),
+    'image': dict(zorder=0, cmap='gray'),
+    'grid': dict(zorder=3.1, color='#333', linewidth=1, linestyle='dotted'),
     'terminator': dict(zorder=3.2, color='w', linewidth=1, linestyle='dashed'),
     'limb': dict(zorder=3.3, color='w', linewidth=0.5, linestyle='solid'),
     'limb_dayside': dict(zorder=3.31, color='w', linewidth=1, linestyle='solid'),
@@ -52,13 +54,21 @@ DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
     'coordinates_radec': dict(zorder=3.7, marker='+', color='k', s=36),
     'other_bodies': dict(zorder=3.8, marker='+', color='w', s=36),
     'other_bodies_labels': dict(zorder=3.81, color='grey'),
-    '_': dict(grid_interval=30),
+    '_': dict(
+        grid_interval=30,
+        image_mode='single',
+        image_idx_single=0,
+        image_idx_r=0,
+        image_idx_g=1,
+        image_idx_b=2,
+    ),
 }
 
 
 LINESTYLES = ['solid', 'dashed', 'dotted', 'dashdot']
 MARKERS = ['x', '+', 'o', '.', '*', 'v', '^', '<', '>', ',', 'D', 'd', '|', '_']
 GRID_INTERVALS = ['10', '30', '45', '90']
+CMAPS = ['gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis']
 
 
 class GUI:
@@ -70,12 +80,22 @@ class GUI:
             # TODO add configuration for target, date etc.
         self.observation = Observation(path, *args, **kwargs)
 
-        self.image = np.flipud(np.moveaxis(self.observation.data, 0, 2))
-        if self.image.shape[2] != 3:
-            self.image = np.nansum(self.image, axis=2)
-            # TODO get image better
+        # self.image = np.flipud(np.moveaxis(self.observation.data, 0, 2))
+        # if self.image.shape[2] != 3:
+        #     self.image = np.nansum(self.image, axis=2)
+        #     # TODO get image better
         # TODO add option to create from Observation
         self.step_size = 10
+
+        self.image_modes: dict[IMAGE_MODE, tuple[Callable[[], np.ndarray], str]] = {
+            'single': (self.image_single, 'Single wavelength'),
+            'avg': (self.image_avg, 'Average all wavelengths'),
+            'rgb': (self.image_rgb, 'RGB composite'),
+        }
+        if self.observation.data.shape[0] < 2:
+            del self.image_modes['avg']
+        if self.observation.data.shape[0] < 3:
+            del self.image_modes['rgb']
 
         self.shortcuts: dict[Callable[[], Any], list[str]] = {
             self.increase_step: [']'],
@@ -148,7 +168,7 @@ class GUI:
         self.notebook = ttk.Notebook(self.controls_frame)
         self.notebook.pack(fill='both', expand=True)
         self.build_main_controls()
-        self.build_settings_controls()
+        self.build_plot_settings_controls()
 
     def build_main_controls(self):
         frame = ttk.Frame(self.notebook)
@@ -261,17 +281,24 @@ class GUI:
             self.save,
         ).pack()
 
-    def build_settings_controls(self) -> None:
+    def build_plot_settings_controls(self) -> None:
         menu = ttk.Frame(self.notebook)
         menu.pack()
         self.notebook.add(menu, text='Settings')
         self.notebook.select(menu)  # TODO delete this
 
         # Image
-        frame = ttk.LabelFrame(menu, text='Observation image')
+        frame = ttk.LabelFrame(menu, text='Observation')
         frame.pack(fill='x')
         frame.grid_columnconfigure(0, weight=1)
-        ttk.Button(frame, text='Edit').pack()
+        PlotImageSetting(
+            self,
+            frame,
+            'image',
+            label='Observed image',
+            hint='the image of your observation',
+            callbacks=[self.replot_image],
+        )
 
         # Plot features
         frame = ttk.LabelFrame(menu, text='Plotted features')
@@ -434,12 +461,17 @@ class GUI:
         self.ax.set_ylim(-0.5, self.observation._ny - 0.5)
         self.ax.xaxis.set_tick_params(labelsize='x-small')
         self.ax.yaxis.set_tick_params(labelsize='x-small')
+        self.ax.set_facecolor('k')
 
     def replot_image(self):
         self.remove_artists('image')
+
+        mode = self.plot_settings['_'].setdefault('image_mode', 'single')
+        image = self.image_modes[mode][0]()  # type: ignore
+
         self.plot_handles['image'].append(
             self.ax.imshow(
-                self.image,
+                image,
                 origin='lower',
                 **self.plot_settings['image'],
             )
@@ -502,7 +534,7 @@ class GUI:
 
     def replot_grid(self) -> None:
         self.remove_artists('grid')
-        interval = self.plot_settings['_'].get('grid_interval', 30)
+        interval = self.plot_settings['_'].setdefault('grid_interval', 30)
         for ra, dec in self.observation.visible_latlon_grid_radec(interval):
             self.plot_handles['grid'].extend(
                 self.ax.plot(
@@ -584,6 +616,23 @@ class GUI:
     def remove_artists(self, key: PLOT_KEY) -> None:
         while self.plot_handles[key]:
             self.plot_handles[key].pop().remove()
+
+    # Image
+    def image_avg(self) -> np.ndarray:
+        return np.flipud(np.nanmean(self.observation.data, axis=0))
+
+    def image_single(self) -> np.ndarray:
+        return np.flipud(
+            self.observation.data[
+                self.plot_settings['_'].setdefault('image_idx_single', 0)
+            ]
+        )
+
+    def image_rgb(self) -> np.ndarray:
+        r = self.observation.data[self.plot_settings['_'].setdefault('image_idx_r', 0)]
+        g = self.observation.data[self.plot_settings['_'].setdefault('image_idx_g', 0)]
+        b = self.observation.data[self.plot_settings['_'].setdefault('image_idx_b', 0)]
+        return np.flipud(np.stack((r, g, b), axis=2))
 
     # Keybindings
     def bind_keyboard(self) -> None:
@@ -811,11 +860,50 @@ class ArtistSetting:
     def click_cancel(self) -> None:
         self.close_window()
 
-    def add_to_menu_grid(self, grid: list[tuple[tk.Widget, tk.Widget]]) -> None:
+    def add_to_menu_grid(
+        self, grid: list[tuple[tk.Widget, tk.Widget]], frame: ttk.Frame | None = None
+    ) -> None:
+        if frame is None:
+            frame = self.grid_frame
         for label, widget in grid:
-            row = self.grid_frame.grid_size()[1]
+            row = frame.grid_size()[1]
             label.grid(row=row, column=0, sticky='w', pady=5)
             widget.grid(row=row, column=1, sticky='w')
+
+    def get_int(
+        self,
+        string_variable: tk.StringVar | str,
+        name: str,
+        positive: bool = True,
+    ):
+        if isinstance(string_variable, tk.StringVar):
+            s = string_variable.get()
+        else:
+            s = string_variable
+        try:
+            value = float(s)
+        except ValueError:
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing {name}',
+                message=f'Could not convert {name} {s!r} to float',
+            )
+            raise
+
+        if not np.isfinite(value):
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing {name}',
+                message=f'{name.capitalize()} must be finite',
+            )
+            raise ValueError
+
+        if positive and not value > 0:
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing {name}',
+                message=f'{name.capitalize()} must be greater than zero',
+            )
+            raise ValueError
+
+        return value
 
     def get_float(
         self,
@@ -855,6 +943,125 @@ class ArtistSetting:
 
     def get_window_size(self) -> str:
         return '300x300'
+
+
+class PlotImageSetting(ArtistSetting):
+    def make_menu(self) -> None:
+        settings = self.gui.plot_settings[self.key]
+        general_settings = self.gui.plot_settings['_']
+        self.image_mode = tk.StringVar(
+            value=general_settings.setdefault('image_mode', 'single')
+        )
+        self.cmap = tk.StringVar(value=settings.setdefault('cmap', 'gray'))
+        self.image_idx_single = tk.StringVar(
+            value=str(general_settings.setdefault('image_idx_single', 0))
+        )
+        self.image_idx_r = tk.StringVar(
+            value=str(general_settings.setdefault('image_idx_r', 0))
+        )
+        self.image_idx_g = tk.StringVar(
+            value=str(general_settings.setdefault('image_idx_g', 0))
+        )
+        self.image_idx_b = tk.StringVar(
+            value=str(general_settings.setdefault('image_idx_b', 0))
+        )
+
+        # Image mode selection
+        frame_top = ttk.Frame(self.grid_frame)
+        frame_top.pack()
+        ttk.Label(frame_top, text='Image mode:').pack()
+        for mode, (fn, desc) in self.gui.image_modes.items():
+            ttk.Radiobutton(
+                frame_top,
+                text=desc,
+                value=mode,
+                variable=self.image_mode,
+            ).pack(fill='x')
+        ttk.Label(frame_top, text='').pack()  # spacer
+
+        # Settings
+        frame = ttk.Frame(self.grid_frame)
+        frame.pack()
+        idx_max = self.gui.observation.data.shape[0] - 1
+
+        class IndexInput(ttk.Spinbox):
+            def __init__(self, textvariable: tk.StringVar):
+                super().__init__(
+                    frame,
+                    textvariable=textvariable,
+                    from_=0,
+                    to=idx_max,
+                    increment=1,
+                    width=10,
+                )
+
+        self.grid: list[tuple[tk.Widget, tk.Widget, set[IMAGE_MODE]]] = [
+            (
+                ttk.Label(frame, text='Matplotlib colormap: '),
+                ttk.Combobox(
+                    frame,
+                    textvariable=self.cmap,
+                    values=CMAPS,
+                    width=10,
+                ),
+                {'single', 'avg'},
+            ),
+            # TODO vmin/vmax
+            (
+                ttk.Label(frame, text='Wavelength index (single): '),
+                IndexInput(self.image_idx_single),
+                {'single'},
+            ),
+            (
+                ttk.Label(frame, text='Wavelength index (red): '),
+                IndexInput(self.image_idx_r),
+                {'rgb'},
+            ),
+            (
+                ttk.Label(frame, text='Wavelength index (green): '),
+                IndexInput(self.image_idx_g),
+                {'rgb'},
+            ),
+            (
+                ttk.Label(frame, text='Wavelength index (blue): '),
+                IndexInput(self.image_idx_b),
+                {'rgb'},
+            ),
+        ]
+        self.add_to_menu_grid([(a, b) for a, b, c in self.grid], frame=frame)
+
+        self.image_mode.trace_add('write', self.change_image_mode)
+        self.change_image_mode()  # run initial setup
+
+    def change_image_mode(self, *_) -> None:
+        mode = self.image_mode.get()
+        for l, widget, modes in self.grid:
+            if mode in modes:
+                widget['state'] = 'normal'
+            else:
+                widget['state'] = 'disable'
+
+    def apply_settings(self) -> bool:
+        settings = self.gui.plot_settings[self.key]
+        general_settings = self.gui.plot_settings['_']
+
+        try:
+            cmap = self.cmap.get()
+            matplotlib.cm.get_cmap(cmap)
+        except ValueError:
+            tkinter.messagebox.showwarning(
+                title='Error parsing colormap',
+                message=f'Unrecognised matplotlib colormap {self.cmap.get()!r}',
+            )
+            return False
+
+        settings['cmap'] = cmap
+        general_settings['image_mode'] = self.image_mode.get()
+        # TODO get settings
+        return True
+
+    def get_window_size(self) -> str:
+        return '300x600'
 
 
 class PlotLineSetting(ArtistSetting):
@@ -912,7 +1119,7 @@ class PlotGridSetting(PlotLineSetting):
     def make_menu(self) -> None:
         super().make_menu()
         self.grid_interval = tk.StringVar(
-            value=str(self.gui.plot_settings['_'].get('grid_interval', 30))
+            value=str(self.gui.plot_settings['_'].setdefault('grid_interval', 30))
         )
 
         self.add_to_menu_grid(
@@ -942,7 +1149,7 @@ class PlotRingsSetting(PlotLineSetting):
     def make_menu(self) -> None:
         super().make_menu()
         radii_selected = self.gui.observation.ring_radii.copy()
-        radii_options = data_loader.get_ring_radii().get(
+        radii_options = data_loader.get_ring_radii().setdefault(
             self.gui.observation.target, {}
         )
 
@@ -1011,9 +1218,9 @@ class PlotScatterSetting(ArtistSetting):
     def make_menu(self) -> None:
         settings = self.gui.plot_settings[self.key]
 
-        self.marker = tk.StringVar(value=str(settings.get('marker', 'o')))
-        self.size = tk.StringVar(value=str(settings.get('s', '36')))
-        self.color = tk.StringVar(value=str(settings.get('color', 'red')))
+        self.marker = tk.StringVar(value=str(settings.setdefault('marker', 'o')))
+        self.size = tk.StringVar(value=str(settings.setdefault('s', '36')))
+        self.color = tk.StringVar(value=str(settings.setdefault('color', 'red')))
 
         self.add_to_menu_grid(
             [
@@ -1145,9 +1352,9 @@ class PlotTextSetting(ArtistSetting):
 class PlotOutlinedTextSetting(ArtistSetting):
     def make_menu(self) -> None:
         settings = self.gui.plot_settings[self.key]
-        self.color = tk.StringVar(value=str(settings.get('color', 'red')))
+        self.color = tk.StringVar(value=str(settings.setdefault('color', 'red')))
         self.outline_color = tk.StringVar(
-            value=str(settings.get('outline_color', 'red'))
+            value=str(settings.setdefault('outline_color', 'red'))
         )
 
         self.add_to_menu_grid(
