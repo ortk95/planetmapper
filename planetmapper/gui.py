@@ -183,101 +183,61 @@ class GUI:
         frame.pack()
         self.notebook.add(frame, text='Controls')
 
-        # Position controls
-        label_frame = ttk.LabelFrame(frame, text='Position')
-        label_frame.pack(fill='x')
-
-        entry_frame = self.add_tooltip(
-            ttk.Frame(label_frame), 'Set pixel coordinates of the centre of the disc'
+        self.build_main_controls_section(
+            frame=frame,
+            label='Position',
+            buttons=[
+                ('↖', 'up and left', self.move_up_left, 0, 0),
+                ('↑', 'up', self.move_up, 1, 0),
+                ('↗', 'up and right', self.move_up_right, 2, 0),
+                ('←', 'left', self.move_left, 0, 1),
+                ('→', 'right', self.move_right, 2, 1),
+                ('↙', 'down and left', self.move_down_left, 0, 2),
+                ('↓', 'down', self.move_down, 1, 2),
+                ('↘', 'down and right', self.move_down_right, 2, 2),
+            ],
+            button_tooltip_base='Move fitted disc {hint}',
+            entry_tooltip='Set pixel coordinates of the centre of the disc',
+            numeric_entries=['x0', 'y0'],
+            ipadx=20,
         )
-        entry_frame.pack()
-        NumericEntry(self, entry_frame, 'x0')
-        NumericEntry(self, entry_frame, 'y0')
 
-        button_frame = ttk.Frame(label_frame)
-        button_frame.pack()
-        for arrow, hint, fn, column, row in (
-            ('↑', 'up', self.move_up, 1, 0),
-            ('↗', 'up and right', self.move_up_right, 2, 0),
-            ('→', 'right', self.move_right, 2, 1),
-            ('↘', 'down and right', self.move_down_right, 2, 2),
-            ('↓', 'down', self.move_down, 1, 2),
-            ('↙', 'down and left', self.move_down_left, 0, 2),
-            ('←', 'left', self.move_left, 0, 1),
-            ('↖', 'up and left', self.move_up_left, 0, 0),
-        ):
-            self.add_tooltip(
-                ttk.Button(button_frame, text=arrow, command=fn, width=2),
-                f'Move fitted disc {hint}',
-                fn,
-            ).grid(column=column, row=row, ipadx=5, ipady=5)
-
-        # Rotation controls
-        label_frame = ttk.LabelFrame(frame, text='Rotation')
-        label_frame.pack(fill='x')
-
-        entry_frame = self.add_tooltip(
-            ttk.Frame(label_frame), 'Set the rotation (in degrees) of the disc'
+        self.build_main_controls_section(
+            frame=frame,
+            label='Rotation',
+            buttons=[
+                ('↺', 'anticlockwise', self.rotate_left, 0, 0),
+                ('↻', 'clockwise', self.rotate_right, 1, 0),
+            ],
+            button_tooltip_base='Rotate fitted disc {hint}',
+            entry_tooltip='Set the rotation (in degrees) of the disc',
+            numeric_entries=[('rotation', 'Rotation (°)')],
         )
-        entry_frame.pack()
-        NumericEntry(self, entry_frame, 'rotation', label='Rotation (°)')
 
-        button_frame = ttk.Frame(label_frame)
-        button_frame.pack()
-        for arrow, hint, fn, column in (
-            ('↻', 'clockwise', self.rotate_right, 0),
-            ('↺', 'anticlockwise', self.rotate_left, 1),
-        ):
-            self.add_tooltip(
-                ttk.Button(button_frame, text=arrow.capitalize(), command=fn, width=2),
-                f'Rotate fitted disc {hint}',
-                fn,
-            ).grid(column=column, row=0, ipadx=5, ipady=5)
-
-        # Size controls
-        label_frame = ttk.LabelFrame(frame, text='Size')
-        label_frame.pack(fill='x')
-
-        entry_frame = self.add_tooltip(
-            ttk.Frame(label_frame), 'Set the (equatorial) radius in pixels of the disc'
+        self.build_main_controls_section(
+            frame=frame,
+            label='Size',
+            buttons=[
+                ('-', 'Decrease', self.decrease_radius, 0, 0),
+                ('+', 'Increase', self.increase_radius, 1, 0),
+            ],
+            button_tooltip_base='{hint} fitted disc radius',
+            entry_tooltip='Set the (equatorial) radius in pixels of the disc',
+            numeric_entries=['r0'],
         )
-        entry_frame.pack()
-        NumericEntry(self, entry_frame, 'r0')
         # TODO add plate scale option
 
-        button_frame = ttk.Frame(label_frame)
-        button_frame.pack()
-        for arrow, hint, fn, column in (
-            ('-', 'decrease', self.decrease_radius, 0),
-            ('+', 'increase', self.increase_radius, 1),
-        ):
-            self.add_tooltip(
-                ttk.Button(button_frame, text=arrow.capitalize(), command=fn, width=2),
-                f'{hint.capitalize()} fitted disc radius',
-                fn,
-            ).grid(column=column, row=0, ipadx=5, ipady=5)
-
-        # Step controls
-        label_frame = ttk.LabelFrame(frame, text='Step size')
-        label_frame.pack(fill='x')
-
-        entry_frame = self.add_tooltip(
-            ttk.Frame(label_frame), 'Set the step size when clicking buttons'
+        self.build_main_controls_section(
+            frame=frame,
+            label='Step size',
+            buttons=[
+                ('÷', 'Decrease', self.decrease_step, 0, 0),
+                ('×', 'Increase', self.increase_step, 1, 0),
+            ],
+            button_tooltip_base='{hint} step size',
+            entry_tooltip='Set the step size when clicking buttons',
+            numeric_entries=['step'],
         )
-        entry_frame.pack()
-        NumericEntry(self, entry_frame, 'step')
-
-        button_frame = ttk.Frame(label_frame)
-        button_frame.pack()
-        for arrow, hint, fn, column in (
-            ('÷', 'decrease', self.decrease_step, 0),
-            ('×', 'increase', self.increase_step, 1),
-        ):
-            self.add_tooltip(
-                ttk.Button(button_frame, text=arrow.capitalize(), command=fn, width=2),
-                f'{hint.capitalize()} step size',
-                fn,
-            ).grid(column=column, row=0, ipadx=5, ipady=5)
 
         # IO controls
         label_frame = ttk.LabelFrame(frame, text='Output')
@@ -289,11 +249,42 @@ class GUI:
             self.save,
         ).pack()
 
+    def build_main_controls_section(
+        self,
+        frame: ttk.Frame,
+        label: str,
+        buttons: list[tuple[str, str, Callable[[], None], int, int]],
+        button_tooltip_base: str,
+        entry_tooltip: str,
+        numeric_entries: list[SETTER_KEY | tuple[SETTER_KEY, str]],
+        ipadx=30,
+        ipady=1,
+    ) -> None:
+        label_frame = ttk.LabelFrame(frame, text=label)
+        label_frame.pack(fill='x', pady=3, ipadx=1, ipady=1)
+
+        button_frame = ttk.Frame(label_frame)
+        button_frame.pack()
+        for arrow, hint, fn, column, row in buttons:
+            self.add_tooltip(
+                ttk.Button(button_frame, text=arrow, command=fn, width=1),
+                button_tooltip_base.format(hint=hint),
+                fn,
+            ).grid(column=column, row=row, ipadx=ipadx, ipady=ipady, padx=2, pady=2)
+
+        entry_frame = self.add_tooltip(ttk.Frame(label_frame), entry_tooltip)
+        entry_frame.pack(pady=2)
+        for ne in numeric_entries:
+            if isinstance(ne, str):
+                NumericEntry(self, entry_frame, ne, pady=2)
+            else:
+                NumericEntry(self, entry_frame, ne[0], ne[1], pady=2)
+
     def build_plot_settings_controls(self) -> None:
         menu = ttk.Frame(self.notebook)
         menu.pack()
         self.notebook.add(menu, text='Settings')
-        self.notebook.select(menu)  # TODO delete this
+        # self.notebook.select(menu)  # TODO delete this
 
         # Image
         frame = ttk.LabelFrame(menu, text='Observation')
@@ -1580,6 +1571,7 @@ class NumericEntry:
         key: SETTER_KEY,
         label: str | None = None,
         row: int | None = None,
+        **kw,
     ):
         self.parent = parent
         self.key: SETTER_KEY = key
@@ -1588,18 +1580,19 @@ class NumericEntry:
 
         if label is None:
             label = key
-        if row is None:
-            row = parent.grid_size()[1]
         self.label = ttk.Label(parent, text=label + ' = ')
-        self.label.grid(row=row, column=0)
 
         self.sv = tk.StringVar()
         self.sv.trace_add('write', self.text_input)
         self.entry = ttk.Entry(parent, width=10, textvariable=self.sv)
-        self.entry.grid(row=row, column=1)
 
         self.gui.setter_callbacks[self.key].append(self.update_text)
         self.update_text(self.gui.getters[self.key]())
+
+        if row is None:
+            row = parent.grid_size()[1]
+        self.label.grid(row=row, column=0, **kw)
+        self.entry.grid(row=row, column=1, **kw)
 
     def update_text(self, value: float) -> None:
         if not self._enable_callback:
