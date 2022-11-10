@@ -41,6 +41,7 @@ PLOT_KEY = Literal[
 ]
 
 DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
+    'image': dict(zorder=0),
     'grid': dict(zorder=3.1, color='dimgray', linewidth=1, linestyle='dotted'),
     'terminator': dict(zorder=3.2, color='w', linewidth=1, linestyle='dashed'),
     'limb': dict(zorder=3.3, color='w', linewidth=0.5, linestyle='solid'),
@@ -264,12 +265,18 @@ class GUI:
         menu = ttk.Frame(self.notebook)
         menu.pack()
         self.notebook.add(menu, text='Settings')
-        self.notebook.select(menu)
+        self.notebook.select(menu)  # TODO delete this
 
-        frame = ttk.LabelFrame(menu, text='Customise plot')
+        # Image
+        frame = ttk.LabelFrame(menu, text='Observation image')
         frame.pack(fill='x')
         frame.grid_columnconfigure(0, weight=1)
+        ttk.Button(frame, text='Edit').pack()
 
+        # Plot features
+        frame = ttk.LabelFrame(menu, text='Plotted features')
+        frame.pack(fill='x')
+        frame.grid_columnconfigure(0, weight=1)
         PlotLineSetting(self, frame, 'limb', label='Limb', hint='the target\'s limb')
         PlotLineSetting(
             self,
@@ -359,24 +366,6 @@ class GUI:
             callbacks=[self.replot_other_bodies],
         )
 
-    def build_plot(self) -> None:
-        self.fig = plt.figure(figsize=(5, 5), dpi=100)
-        self.ax = self.fig.add_subplot()
-
-        self.plot_handles['image'] = [
-            self.ax.imshow(self.image, origin='lower', zorder=0)
-        ]
-        self.ax.set_xlim(-0.5, self.observation._nx - 0.5)
-        self.ax.set_ylim(-0.5, self.observation._ny - 0.5)
-        self.ax.xaxis.set_tick_params(labelsize='x-small')
-        self.ax.yaxis.set_tick_params(labelsize='x-small')
-
-        self.plot_all()
-
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
-        self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
-        # TODO do tight_layout type thing
-
     def build_help_hint(self) -> None:
         self.help_hint = tk.Label(self.hint_frame, text='', foreground='black')
         self.help_hint.pack(side='left')
@@ -415,11 +404,21 @@ class GUI:
             )
         )
 
-    def plot_all(self) -> None:
+    def build_plot(self) -> None:
+        self.fig = plt.figure(figsize=(5, 5), dpi=100)
+        self.ax = self.fig.add_subplot()
         self.transform = (
             self.observation.get_matplotlib_radec2xy_transform() + self.ax.transData
         )
 
+        self.replot_all()
+        self.format_plot()
+
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
+        self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
+
+    def replot_all(self) -> None:
+        self.replot_image()
         self.replot_grid()
         self.replot_terminator()
         self.replot_limb()
@@ -428,6 +427,23 @@ class GUI:
         self.replot_coordinates_lonlat()
         self.replot_coordinates_radec()
         self.replot_other_bodies()
+
+    def format_plot(self):
+        # TODO do tight_layout type thing
+        self.ax.set_xlim(-0.5, self.observation._nx - 0.5)
+        self.ax.set_ylim(-0.5, self.observation._ny - 0.5)
+        self.ax.xaxis.set_tick_params(labelsize='x-small')
+        self.ax.yaxis.set_tick_params(labelsize='x-small')
+
+    def replot_image(self):
+        self.remove_artists('image')
+        self.plot_handles['image'].append(
+            self.ax.imshow(
+                self.image,
+                origin='lower',
+                **self.plot_settings['image'],
+            )
+        )
 
     def replot_limb(self):
         self.remove_artists('limb')
@@ -936,7 +952,7 @@ class PlotRingsSetting(PlotLineSetting):
         for name, radii in sorted(radii_options.items(), key=lambda x: x[1]):
             key = tuple(radii)
             if key in self.checkbox_dict:
-                # Skip repeated rings (for Neptune where multiple rings have same radii
+                # Skip repeated rings (for Neptune where multiple rings have same radii
                 # on fact sheet)
                 continue
             iv = tk.IntVar()

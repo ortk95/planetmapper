@@ -16,6 +16,25 @@ T = TypeVar('T')
 S = TypeVar('S')
 
 
+def _cache_result(fn: Callable[[S], T]) -> Callable[[S], T]:
+    """
+    Decorator to cache the output of a method call.
+
+    This requires that the class has a `self._cache` dict which can be used to store
+    the cached result. The dictionary key is derived from the name of the decorated
+    function.
+    """
+
+    @wraps(fn)
+    def decorated(self):
+        k = fn.__name__
+        if k not in self._cache:
+            self._cache[k] = fn(self)
+        return self._cache[k]
+
+    return decorated
+
+
 class Backplane(NamedTuple):
     """
     NamedTuple containing information about a backplane.
@@ -198,25 +217,6 @@ class BodyXY(Body):
         return f'BodyXY({self.target!r}, {self.utc!r}, {self._nx!r}, {self._ny!r})'
 
     # Cache management
-    @staticmethod
-    def _cache_result(fn: Callable[[S], T]) -> Callable[[S], T]:
-        """
-        Decorator to cache the output of a method call.
-
-        This requires that the class has a `self._cache` dict which can be used to store
-        the cached result. The dictionary key is derived from the name of the decorated
-        function.
-        """
-
-        @wraps(fn)
-        def decorated(self):
-            k = fn.__name__
-            if k not in self._cache:
-                self._cache[k] = fn(self)
-            return self._cache[k]
-
-        return decorated
-
     def _clear_cache(self):
         """
         Clear cached results from `_cache_result`.
