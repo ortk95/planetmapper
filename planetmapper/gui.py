@@ -53,7 +53,7 @@ DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
     'coordinates_radec': dict(zorder=3.7, marker='+', color='k', s=36),
     'other_bodies': dict(zorder=3.8, marker='+', color='w', s=36),
     'other_bodies_labels': dict(zorder=3.81, color='grey'),
-    'image': dict(zorder=0, cmap='inferno', vmin=0, vmax=100),
+    'image': dict(zorder=0.9, cmap='inferno', vmin=0, vmax=100),
     '_': dict(
         grid_interval=30,
         image_mode='single',
@@ -473,6 +473,8 @@ class GUI:
         self.ax.xaxis.set_tick_params(labelsize='x-small')
         self.ax.yaxis.set_tick_params(labelsize='x-small')
         self.ax.set_facecolor('k')
+        # self.ax.grid(color='0.1', linewidth=0.5)
+        self.ax.set_axisbelow(True)
 
     def replot_image(self):
         self.remove_artists('image')
@@ -1626,8 +1628,12 @@ class NumericEntry:
             return
         self._enable_callback = False
         value = self.gui.getters[self.key]()
-        self.sv.set(format(value, '.5g'))
+        self.sv.set(self.format_value(value))
+        self.entry.configure(foreground='black')
         self._enable_callback = True
+
+    def format_value(self, value: float) -> str:
+        return format(value, '.10g')
 
     def text_input(self, *_) -> None:
         if not self._enable_callback:
