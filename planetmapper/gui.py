@@ -10,6 +10,7 @@ from typing import TypeVar, Callable, Any, Literal, TypeAlias
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import numpy as np
+import math
 from collections import defaultdict
 import matplotlib.colors
 import matplotlib.markers
@@ -22,7 +23,6 @@ from . import utils
 from . import data_loader
 from .observation import Observation
 from .body import Body, NotFoundError
-
 
 Widget = TypeVar('Widget', bound=tk.Widget)
 SETTER_KEY = Literal[
@@ -1047,7 +1047,7 @@ class ArtistSetting:
             )
             raise
 
-        if finite and not np.isfinite(value):
+        if finite and not math.isfinite(value):
             tkinter.messagebox.showwarning(
                 title=f'Error parsing {name}',
                 message=f'{name.capitalize()} must be finite',
