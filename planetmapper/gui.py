@@ -274,7 +274,7 @@ class GUI:
                 ('÷', 'Decrease', self.decrease_step, 0, 0),
                 ('×', 'Increase', self.increase_step, 1, 0),
             ],
-            button_tooltip_base='{hint} step size',
+            button_tooltip_base='{hint} step size when clicking buttons',
             entry_tooltip='Set the step size when clicking buttons',
             numeric_entries=['step'],
         )
@@ -758,8 +758,9 @@ class GUI:
             self.update_plot()
 
     def set_step(self, step: float) -> None:
+        if not step > 0:
+            raise ValueError('step must be greater than zero')
         self.step_size = step
-        print(self.step_size)
 
     # Buttons
     def increase_step(self) -> None:
@@ -814,7 +815,11 @@ class GUI:
         self.set_value('r0', self.observation.get_r0() + self.step_size)
 
     def decrease_radius(self) -> None:
-        self.set_value('r0', self.observation.get_r0() - self.step_size)
+        try:
+            self.set_value('r0', self.observation.get_r0() - self.step_size)
+        except ValueError:
+            # hide value error message when trying to go r0<0
+            pass
 
     # File IO
     def save(self) -> None:
@@ -1728,7 +1733,7 @@ class NumericEntry:
         try:
             self.gui.set_value(self.key, float(value))
             self.entry.configure(foreground='black')
-        except ValueError:
+        except (ValueError, ZeroDivisionError):
             self.entry.configure(foreground='red')
         self._enable_callback = True
 
