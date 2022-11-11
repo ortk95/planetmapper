@@ -1,9 +1,13 @@
 import datetime
 import os
+import warnings
+import math
 
 import numpy as np
 import PIL.Image
 from astropy.io import fits
+import astropy.wcs
+from astropy.utils.exceptions import AstropyWarning
 
 from . import common, utils
 from .body_xy import BodyXY
@@ -147,8 +151,19 @@ class Observation(BodyXY):
         # fill in kwargs with values from header (if they aren't specified by the user)
         # TODO deal with more FITS files (e.g. DATE-OBS doesn't work for JWST)
         # TODO deal with missing values
-        kw.setdefault('target', self.header['OBJECT'])
-        kw.setdefault('utc', self.header['DATE-OBS'])
+
+        for k in ['OBJECT', 'TARGET', 'TARGNAME']:
+            try:
+                kw.setdefault('target', self.header[k])
+                break
+            except KeyError:
+                continue
+        for k in ['DATE-OBS', 'DATE-BEG']:
+            try:
+                kw.setdefault('utc', self.header[k])
+                break
+            except KeyError:
+                continue
 
     def __repr__(self) -> str:
         return f'Observation({self.path!r})'  # TODO make more explicit?
@@ -167,6 +182,66 @@ class Observation(BodyXY):
         self.set_y0(self._ny / 2)
         self.set_r0(0.9 * (min(self.get_x0(), self.get_y0())))
         self.set_disc_method('centre_disc')
+
+    def _get_wcs_from_header(self, supress_warnings: bool = True) -> astropy.wcs.WCS:
+        with warnings.catch_warnings():
+            if supress_warnings:
+                warnings.simplefilter('ignore', category=AstropyWarning)
+            return astropy.wcs.WCS(self.header).celestial
+
+    def disc_from_wcs(
+        self, supress_warnings: bool = True, validate: bool = True
+    ) -> None:
+        """
+        Set disc parameters using WCS information in the observation's FITS header.
+
+        Args:
+            supress_warnings: Hide warnings produced by astropy when calculating WCS
+                conversions.
+            validate: Check the coordinate conversion is consistent with the conversion
+                derived from the WCS data.
+        """
+        # TODO should we hide warnings by default?
+        wcs = self._get_wcs_from_header()
+
+        if validate:
+            # TODO do these checks better
+            assert not wcs.has_distortion
+            assert all(u == 'deg' for u in wcs.world_axis_units)
+            assert wcs.world_axis_physical_types == ['pos.eq.ra', 'pos.eq.dec']
+
+        # a1, a2 = wcs.pixel_to_world_values(1, 0)
+        b1, b2 = wcs.pixel_to_world_values(0, 1)
+        c1, c2 = wcs.pixel_to_world_values(0, 0)
+
+        s = np.sqrt((b1 - c1) ** 2 + (b2 - c2) ** 2)
+
+        theta_degrees = np.rad2deg(np.arctan2(b1 - c1, b2 - c2))
+        arcsec_per_px = s * 60 * 60  # s = degrees/px
+        x0, y0 = wcs.world_to_pixel_values(self.target_ra, self.target_dec)
+
+        self.set_x0(x0)
+        self.set_y0(y0)
+        self.set_plate_scale_arcsec(arcsec_per_px)
+        self.set_rotation(theta_degrees)
+        self.set_disc_method('wcs')
+
+        if validate:
+            # Run checks on a few coordinates to ensure our transformation is consistent
+            # with the results from WCS
+            coords = [
+                (0, 0),
+                (self._nx, 0),
+                (self._nx, self._ny),
+                (0, self._ny),
+                (x0, y0),
+                (10, -5),
+            ]
+            for x, y in coords:
+                ra_wcs, dec_wcs = wcs.pixel_to_world_values(x, y)
+                ra, dec = self.xy2radec(x, y)
+                assert math.isclose(ra_wcs % 360, ra % 360, abs_tol=1e-4)
+                assert math.isclose(dec_wcs, dec, abs_tol=1e-4)
 
     # Output
     def append_to_header(

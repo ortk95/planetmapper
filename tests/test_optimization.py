@@ -1,7 +1,7 @@
 import unittest
 import planetmapper
 import numpy as np
-from test_random_locations import generate_dtm_str
+from test_locations import generate_dtm_str
 
 
 class TestOptimization(unittest.TestCase):

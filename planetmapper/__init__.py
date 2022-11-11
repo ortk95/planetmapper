@@ -26,20 +26,25 @@ latitude coordinates of a point on the surface of the target body. These coordin
 expressed in degrees. See https://en.wikipedia.org/wiki/Planetary_coordinate_system for 
 more.
 
-================   =====
-Dimension          Unit
-================   =====
-Angles             degrees  
-Distances          km 
-Time intervals     seconds
-Speeds             km/s
-Dates (timezone)   UTC   
-================   =====
+=============================================   =====
+Dimension                                       Unit
+=============================================   =====
+Angles (RA, Dec, longitude, latitude...)        degrees
+Angles (target angular diameter, plate scale)   arcseconds [#arcsec]_
+Distances                                       km
+Time intervals                                  seconds
+Speeds                                          km/s
+Dates (timezone)                                UTC   
+=============================================   =====
+
+.. [#arcsec] 1 arcsecond = 1/3600 degree
 
 .. note::
-    By default, all angles should be degrees unless using a function explicitly named 
-    with `_radians`. Note that angles in SPICE are radians, so care should be taken 
-    converting to/from SPICE values.
+    By default, all angles should be degrees unless using a function explicitly 
+    named with `_radians`, or using angular diameters, which are explicitly described as
+    involving `arcsec` in the documented function arguments/return values. Note that 
+    angles in SPICE are radians, so care should be taken converting to/from SPICE
+    values.
 
 These additional coordinate systems are mainly used for internal calculations and to
 interface with SPICE:
