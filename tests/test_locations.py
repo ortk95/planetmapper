@@ -112,9 +112,7 @@ def generate_dtm_str() -> str:
 
 
 def generate_lonlat(body: planetmapper.Body) -> tuple[float, float]:
-    """Choose a random point on the surface that's visible"""
-    # Use deterministic seed so tests are reproducable (on the same day)
-    seed = (datetime.datetime.now() - datetime.datetime(2000, 1, 1)).days
+    seed = 0
     rng = np.random.default_rng(seed)
     while True:
         # Avoid lons near meridian where wraparound (e.g. 359.9999<->0.0001) can cause
