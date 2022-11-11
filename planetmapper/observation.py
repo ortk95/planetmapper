@@ -204,6 +204,9 @@ class Observation(BodyXY):
         # TODO should we hide warnings by default?
         wcs = self._get_wcs_from_header()
 
+        if wcs.naxis == 0:
+            raise ValueError('No WCS information found in FITS header')
+
         if validate:
             # TODO do these checks better
             assert not wcs.has_distortion

@@ -25,7 +25,9 @@ from .body import Body, NotFoundError
 
 
 Widget = TypeVar('Widget', bound=tk.Widget)
-SETTER_KEY = Literal['x0', 'y0', 'r0', 'rotation', 'step']
+SETTER_KEY = Literal[
+    'x0', 'y0', 'r0', 'rotation', 'step', 'plate_scale_arcsec', 'plate_scale_km'
+]
 PLOT_KEY = Literal[
     'image',
     'limb',
@@ -73,7 +75,7 @@ CMAPS = ['gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis']
 
 
 class GUI:
-    DEFAULT_GEOMETRY = '800x600'
+    DEFAULT_GEOMETRY = '800x600+15+15'
 
     def __init__(self, path: str | None = None, *args, **kwargs) -> None:
         if path is None:
@@ -81,10 +83,6 @@ class GUI:
             # TODO add configuration for target, date etc.
         self.observation = Observation(path, *args, **kwargs)
 
-        # self.image = np.flipud(np.moveaxis(self.observation.data, 0, 2))
-        # if self.image.shape[2] != 3:
-        #     self.image = np.nansum(self.image, axis=2)
-        #     # TODO get image better
         # TODO add option to create from Observation
         self.step_size = 10
 
@@ -103,24 +101,48 @@ class GUI:
         }
         self.shortcuts_to_keep_in_entry = ['<Control-s>']
 
-        self.setter_callbacks: dict[SETTER_KEY, list[Callable[[float], Any]]] = {
-            'x0': [self.observation.set_x0],
-            'y0': [self.observation.set_y0],
-            'r0': [self.observation.set_r0],
-            'rotation': [self.observation.set_rotation],
-            'step': [self.set_step, lambda s: print(s)],
-        }
+        self.setter_callbacks: defaultdict[
+            SETTER_KEY, list[Callable[[float], Any]]
+        ] = defaultdict(
+            list,
+            {
+                'x0': [self.observation.set_x0],
+                'y0': [self.observation.set_y0],
+                'r0': [self.observation.set_r0],
+                'rotation': [self.observation.set_rotation],
+                'step': [self.set_step],
+                'plate_scale_arcsec': [self.observation.set_plate_scale_arcsec],
+                'plate_scale_km': [self.observation.set_plate_scale_km],
+            },
+        )
+        self.ui_callbacks: defaultdict[
+            SETTER_KEY, set[Callable[[], Any]]
+        ] = defaultdict(set)
+
         self.getters: dict[SETTER_KEY, Callable[[], float]] = {
             'x0': self.observation.get_x0,
             'y0': self.observation.get_y0,
             'r0': self.observation.get_r0,
             'rotation': self.observation.get_rotation,
             'step': lambda: self.step_size,
+            'plate_scale_arcsec': self.observation.get_plate_scale_arcsec,
+            'plate_scale_km': self.observation.get_plate_scale_km,
         }
         self.plot_handles: defaultdict[PLOT_KEY, list[Artist]] = defaultdict(list)
         self.plot_settings: defaultdict[PLOT_KEY, dict] = defaultdict(dict)
         for k, v in DEFAULT_PLOT_SETTINGS.items():
             self.plot_settings[k] = v.copy()
+
+        self.disc_finding_routines: dict[Callable[[], None], tuple[str, str]] = {
+            self.observation.centre_disc: (
+                'Centre Disc',
+                'Centre the target\'s planetary disc and make it fill ~90% of the observation.',
+            ),
+            self.observation.disc_from_wcs: (
+                'Use FITS WCS',
+                'Set disc parameters using WCS information in the observation\'s FITS header',
+            ),
+        }
 
         self.image_modes: dict[IMAGE_MODE, tuple[Callable[[], np.ndarray], str]] = {
             'single': (self.image_single, 'Single wavelength'),
@@ -174,6 +196,7 @@ class GUI:
     def configure_style(self) -> None:
         self.style = ttk.Style(self.root)
         self.style.theme_use('default')
+        # TODO add padding etc. here
         for element in ['TEntry', 'TCombobox', 'TSpinbox', 'TButton', 'TLabel']:
             self.style.configure(
                 element,
@@ -188,9 +211,10 @@ class GUI:
         self.notebook = ttk.Notebook(self.controls_frame)
         self.notebook.pack(fill='both', expand=True)
         self.build_main_controls()
+        self.build_disc_finding_controls()
         self.build_plot_settings_controls()
 
-    def build_main_controls(self):
+    def build_main_controls(self) -> None:
         frame = ttk.Frame(self.notebook)
         frame.pack()
         self.notebook.add(frame, text='Controls')
@@ -234,10 +258,14 @@ class GUI:
                 ('+', 'Increase', self.increase_radius, 1, 0),
             ],
             button_tooltip_base='{hint} fitted disc radius',
-            entry_tooltip='Set the (equatorial) radius in pixels of the disc',
-            numeric_entries=['r0'],
+            entry_tooltip='Set the equatorial radius, r0, in pixels of the disc',
+            numeric_entries=[
+                ('r0', 'r0'),
+                ('plate_scale_arcsec', 'arcsec/pixel'),
+                ('plate_scale_km', 'km/pixel'),
+            ],
+            add_callbacks=['r0', 'plate_scale_arcsec', 'plate_scale_km'],
         )
-        # TODO add plate scale option
 
         self.build_main_controls_section(
             frame=frame,
@@ -256,7 +284,7 @@ class GUI:
         label_frame.pack(fill='x')
 
         self.add_tooltip(
-            ttk.Button(label_frame, text='Save', command=self.save),
+            ttk.Button(label_frame, text='Save backplanes', command=self.save),
             f'Save FITS file with backplane data',
             self.save,
         ).pack()
@@ -271,6 +299,8 @@ class GUI:
         numeric_entries: list[SETTER_KEY | tuple[SETTER_KEY, str]],
         ipadx=30,
         ipady=1,
+        add_callbacks: list[SETTER_KEY] | None = None,
+        **kw,
     ) -> None:
         label_frame = ttk.LabelFrame(frame, text=label)
         label_frame.pack(fill='x', pady=3, ipadx=1, ipady=1)
@@ -288,9 +318,19 @@ class GUI:
         entry_frame.pack(pady=2)
         for ne in numeric_entries:
             if isinstance(ne, str):
-                NumericEntry(self, entry_frame, ne, pady=2)
+                NumericEntry(
+                    self, entry_frame, ne, pady=2, add_callbacks=add_callbacks, **kw
+                )
             else:
-                NumericEntry(self, entry_frame, ne[0], ne[1], pady=2)
+                NumericEntry(
+                    self,
+                    entry_frame,
+                    ne[0],
+                    ne[1],
+                    pady=2,
+                    add_callbacks=add_callbacks,
+                    **kw,
+                )
 
     def build_plot_settings_controls(self) -> None:
         menu = ttk.Frame(self.notebook)
@@ -403,6 +443,35 @@ class GUI:
             hint='labels for other bodies of interest (click Edit to specify other bodies to show, e.g. moons)',
             callbacks=[self.replot_other_bodies],
         )
+
+    def build_disc_finding_controls(self) -> None:
+        frame = ttk.Frame(self.notebook)
+        frame.pack()
+        self.notebook.add(frame, text='Find disc')
+        # self.notebook.select(frame)  # TODO delete this
+
+        for fn, (name, description) in self.disc_finding_routines.items():
+            self.add_tooltip(
+                ttk.Button(
+                    frame,
+                    text=name,
+                    command=self.make_disc_finding_fn(fn),
+                ),
+                description,
+            ).pack(fill='x', pady=2, padx=2)
+
+    def make_disc_finding_fn(self, fn: Callable[[], None]) -> Callable[[], None]:
+        def button_command():
+            try:
+                fn()
+            except ValueError as e:
+                tkinter.messagebox.showwarning(
+                    title='Error finding disc',
+                    message=str(e),
+                )
+            self.run_all_ui_callbacks(update_plot=True)
+
+        return button_command
 
     def build_help_hint(self) -> None:
         self.help_hint = tk.Label(self.hint_frame, text='', foreground='black')
@@ -668,12 +737,23 @@ class GUI:
         self.event_time_to_ignore = event.time
 
     # API
+    def run_all_ui_callbacks(self, update_plot: bool = True):
+        all_callbacks: set[Callable[[], None]] = set()
+        # Use a set so we don't call same callback multiple times
+        for k, callbacks in self.ui_callbacks.items():
+            all_callbacks.update(callbacks)
+        for fn in all_callbacks:
+            fn()
+        if update_plot:
+            self.update_plot()
+
     def set_value(
         self, key: SETTER_KEY, value: float, update_plot: bool = True
     ) -> None:
-        for fn in self.setter_callbacks.get(key, []):
+        for fn in self.setter_callbacks[key]:
             fn(value)
-
+        for fn in self.ui_callbacks[key]:
+            fn()
         if update_plot:
             self.update_plot()
 
@@ -1592,6 +1672,7 @@ class NumericEntry:
         key: SETTER_KEY,
         label: str | None = None,
         row: int | None = None,
+        add_callbacks: list[SETTER_KEY] | None = None,
         **kw,
     ):
         self.parent = parent
@@ -1607,13 +1688,17 @@ class NumericEntry:
         self.sv.trace_add('write', self.text_input)
         self.entry = ttk.Entry(parent, width=10, textvariable=self.sv)
 
-        self.gui.setter_callbacks[self.key].append(self.update_text)
-        self.update_text(self.gui.getters[self.key]())
+        self.gui.ui_callbacks[self.key].add(self.update_text)
+        if add_callbacks:
+            for k in add_callbacks:
+                self.gui.ui_callbacks[k].add(self.update_text)
+
+        self.update_text()
 
         if row is None:
             row = parent.grid_size()[1]
-        self.label.grid(row=row, column=0, **kw)
-        self.entry.grid(row=row, column=1, **kw)
+        self.label.grid(row=row, column=0, sticky='e', **kw)
+        self.entry.grid(row=row, column=1, sticky='w', **kw)
 
         self.disable_keybindings()
 
@@ -1623,7 +1708,7 @@ class NumericEntry:
                 if binding not in self.gui.shortcuts_to_keep_in_entry:
                     self.entry.bind(binding, self.gui.ignore_keypress)
 
-    def update_text(self, value: float) -> None:
+    def update_text(self) -> None:
         if not self._enable_callback:
             return
         self._enable_callback = False
@@ -1633,7 +1718,7 @@ class NumericEntry:
         self._enable_callback = True
 
     def format_value(self, value: float) -> str:
-        return format(value, '.10g')
+        return format(value, '.8g')
 
     def text_input(self, *_) -> None:
         if not self._enable_callback:
