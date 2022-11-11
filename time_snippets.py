@@ -22,39 +22,14 @@ number = 100  # Number of times statement is called in each timing loop
 
 
 # Define any variables, module imports etc. to use in the snippets here...
-class C:
-    def __init__(self):
-        self.y = lambda: None
-        self.z = self.y
-
-c = C()
-
-def f_if():
-    if c.z:
-        c.z
-
-def f_has():
-    if hasattr(c, 'x'):
-        c.x()
-
-
-def f_get():
-    getattr(c, 'x', lambda: None)()
-
-
-def f_try():
-    try:
-        c.x()
-    except AttributeError:
-        pass
-
+x = 1
 
 # Define code snippets as a list of strings to execute here...
 statements = [
-    'f_if()',
-    'f_has()',
-    'f_get()',
-    'f_try()',
+    # 'np.isnan(x)',
+    'math.isnan(x)',
+    # 'np.isfinite(x)',
+    'math.isfinite(x)',
 ]
 
 # statements = ['out = ' + s for s in statements]

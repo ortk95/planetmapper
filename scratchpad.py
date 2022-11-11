@@ -19,4 +19,3 @@ gui = planetmapper.gui.GUI(
 gui.observation.set_disc_params(x0=650, y0=540, r0=200)
 gui.observation.add_other_bodies_of_interest('Tethys')
 gui.run()
-

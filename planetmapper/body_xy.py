@@ -399,7 +399,12 @@ class BodyXY(Body):
         """
         Args:
             x0: New x pixel coordinate of the centre of the target body.
+        
+        Raises:
+            ValueEror: if `x0` is not finite.
         """
+        if not math.isfinite(x0):
+            raise ValueError('x0 must be finite')
         self._x0 = x0
         self._clear_cache()
 
@@ -414,7 +419,12 @@ class BodyXY(Body):
         """
         Args:
             y0: New y pixel coordinate of the centre of the target body.
+        
+        Raises:
+            ValueEror: if `y0` is not finite.
         """
+        if not math.isfinite(y0):
+            raise ValueError('y0 must be finite')
         self._y0 = y0
         self._clear_cache()
 
@@ -429,8 +439,15 @@ class BodyXY(Body):
         """
         Args:
             r0: New equatorial radius in pixels of the target body.
+        
+        Raises:
+            ValueError: if `r0` is not greater than zero or `r0` is not finite.
         """
         # TODO add some validation here?
+        if not math.isfinite(r0):
+            raise ValueError('r0 must be finite')
+        if not r0 > 0:
+            raise ValueError('r0 must be greater than zero')
         self._r0 = r0
         self._clear_cache()
 
@@ -458,7 +475,12 @@ class BodyXY(Body):
 
         Args:
             rotation: New rotation of the target body.
+
+        Raises:
+            ValueEror: if `rotation` is not finite.
         """
+        if not math.isfinite(rotation):
+            raise ValueError('rotation must be finite')
         self._set_rotation_radians(np.deg2rad(rotation))
 
     def get_rotation(self) -> float:
@@ -468,7 +490,6 @@ class BodyXY(Body):
         """
         return np.rad2deg(self._get_rotation_radians())
 
-
     def set_plate_scale_arcsec(self, arcsec_per_px: float) -> None:
         """
         Sets the angular plate scale of the observation by changing `r0`.
@@ -476,33 +497,30 @@ class BodyXY(Body):
         Args:
             arcsec_per_px: Arcseconds per pixel plate scale.
         """
+        self.set_r0(self.target_diameter_arcsec / (2 * arcsec_per_px))
 
-        self.set_r0(
-            self.target_diameter_arcsec/(2*arcsec_per_px)
-        )
-    
-    def set_plate_scale_km(self, km_per_px: float)-> None:
+    def set_plate_scale_km(self, km_per_px: float) -> None:
         """
         Sets the plate scale of the observation by changing `r0`.
 
         Args:
             km_per_px: Kilometers per pixel plate scale at the target body.
         """
-        self.set_r0(self.r_eq/km_per_px)
+        self.set_r0(self.r_eq / km_per_px)
 
     def get_plate_scale_arcsec(self) -> float:
         """
         Returns:
             Plate scale of the observation in arcseconds/pixel.
         """
-        return self.target_diameter_arcsec/(2*self.get_r0())
+        return self.target_diameter_arcsec / (2 * self.get_r0())
 
     def get_plate_scale_km(self) -> float:
         """
         Returns:
             Plate scale of the observation in km/pixel at the target body.
         """
-        return self.r_eq/self.get_r0()
+        return self.r_eq / self.get_r0()
 
     def set_img_size(self, nx: int | None = None, ny: int | None = None) -> None:
         """
