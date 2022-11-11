@@ -8,8 +8,9 @@ import datetime
 import matplotlib.pyplot as plt
 from matplotlib.text import Text
 import matplotlib.patheffects as path_effects
+import astropy.io.fits
 
-if True:
+if False:
     planetmapper.utils.print_progress()
     gui = planetmapper.gui.GUI(
         'data/saturn.jpg',
@@ -21,55 +22,20 @@ if True:
     gui.run()
 
 else:
-    import tkinter as tk
-    from tkinter import ttk
+    p = '/Users/ortk1/Dropbox/PhD/data/jwst/pandora/jw01247-o312_t617_nirspec_prism-clear/jw01247-o312_t617_nirspec_prism-clear_s3d.fits'
+    # cube, hdr = astropy.io.fits.getdata(p, header=True) # type: ignore
+    observation = planetmapper.Observation(
+        p, target='pandora', utc='2022-11-08T21:43:13.707'
+    )
+    observation.disc_from_wcs()
+    # wcs = observation._get_wcs_from_header()
+    # coords = [
+    #     [0, 0],
+    #     [1, 1],
+    #     [90, 3298],
+    # ]
 
-    tk.Event
-
-    root = tk.Tk()
-    root.geometry('500x500')
-
-
-    def f(event):
-        process(event, bg='r', fg='k')
-
-
-    def noop(event):
-        process(event, bg='b')
-
-
-    def process(event: tk.Event, msg='', **kw):
-        planetmapper.utils.cprint(
-            event, event.time, event.send_event, event.state, msg, **kw
-        )
-
-    root.bind('x', f)
-
-    frame = ttk.Frame(root)
-    frame.pack()
-
-    s = ttk.Style(root)
-    # s.theme_use('default')
-    for element in ['TEntry', 'TCombobox', 'TSpinbox', 'TButton']:
-        s.configure(
-            element,
-            foreground='black',
-            insertcolor='black',
-            fieldbackground='white',
-            selectbackground='#b3d8ff',
-            selectforeground='black',
-        )
-    # s.configure('TEntry', foreground='red', insertcolor='black')
-    # s.configure('TCombobox', foreground='green')
-    # s.configure('TSpinbox', foreground='blue')
-
-    sv = tk.StringVar(value='abcdef')
-    ent = ttk.Entry(frame, textvariable=sv)
-    ent.pack()
-    ent.bind('x', noop, add='')
-    ttk.Combobox(frame, textvariable=sv).pack()
-    ttk.Spinbox(frame, textvariable=sv).pack()
-    ttk.Button(frame, text='bjkdhdjfh').pack()
-
-    root.unbind_class('Entry', 'x')
-    root.mainloop()
+    # for x, y in coords:
+    #     w = wcs.pixel_to_world_values(x, y)
+    #     o = observation.xy2radec(x, y)
+    #     print(np.array(w) % 360, np.array(o) % 360)

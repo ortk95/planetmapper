@@ -228,11 +228,8 @@ class BodyXY(Body):
     def _get_xy2radec_matrix_radians(self) -> np.ndarray:
         r_km = self.r_eq
         r_radians = np.arcsin(r_km / self.target_distance)
-
         s = r_radians / self.get_r0()
-
         theta = self._get_rotation_radians()
-
         stretch_matrix = np.array(
             [[-1 / np.abs(np.cos(self._target_dec_radians)), 0], [0, 1]]
         )
@@ -374,7 +371,7 @@ class BodyXY(Body):
 
             body.set_y0(body.get_y0() - 3.1)
             body.set_rotation(body.get_rotation() + 42)
-        
+
         The default values of all the arguments are zero, so any unspecified values
         (e.g. `dx` and `dr` in the example above) are unchanged.
 
@@ -470,6 +467,42 @@ class BodyXY(Body):
             Rotation of the target body.
         """
         return np.rad2deg(self._get_rotation_radians())
+
+
+    def set_plate_scale_arcsec(self, arcsec_per_px: float) -> None:
+        """
+        Sets the angular plate scale of the observation by changing `r0`.
+
+        Args:
+            arcsec_per_px: Arcseconds per pixel plate scale.
+        """
+
+        self.set_r0(
+            self.target_diameter_arcsec/(2*arcsec_per_px)
+        )
+    
+    def set_plate_scale_km(self, km_per_px: float)-> None:
+        """
+        Sets the plate scale of the observation by changing `r0`.
+
+        Args:
+            km_per_px: Kilometers per pixel plate scale at the target body.
+        """
+        self.set_r0(self.r_eq/km_per_px)
+
+    def get_plate_scale_arcsec(self) -> float:
+        """
+        Returns:
+            Plate scale of the observation in arcseconds/pixel.
+        """
+        return self.target_diameter_arcsec/(2*self.get_r0())
+
+    def get_plate_scale_km(self) -> float:
+        """
+        Returns:
+            Plate scale of the observation in km/pixel at the target body.
+        """
+        return self.r_eq/self.get_r0()
 
     def set_img_size(self, nx: int | None = None, ny: int | None = None) -> None:
         """

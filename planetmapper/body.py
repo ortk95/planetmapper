@@ -78,6 +78,8 @@ class Body(SpiceBase):
         """Distance from the target to the observer at the time of the observation."""
         self.target_ra: float
         """Right ascension (RA) of the target centre."""
+        self.target_diameter_arcsec: float
+        """Equatorial angular diameter of the target in arcseconds."""
         self.target_dec: float
         """Declination (Dec) of the target centre."""
         self.subpoint_distance: float
@@ -180,6 +182,9 @@ class Body(SpiceBase):
         )
         self.target_ra, self.target_dec = self._radian_pair2degrees(
             self._target_ra_radians, self._target_dec_radians
+        )
+        self.target_diameter_arcsec = (
+            60 * 60 * np.rad2deg(np.arcsin(2 * self.r_eq / self.target_distance))
         )
 
         # Find sub observer point
