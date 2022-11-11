@@ -22,9 +22,9 @@ if False:
     gui.observation.add_other_bodies_of_interest('Tethys')
 else:
     gui = planetmapper.gui.GUI(
-    'data/jupiter.jpg',
-    target='jupiter',
-    utc='2020-08-25 02:30:40',
-        )
+        'data/jupiter.jpg',
+        target='jupiter',
+        utc='2020-08-25 02:30:40',
+    )
 
 gui.run()

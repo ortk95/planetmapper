@@ -75,6 +75,7 @@ CMAPS = ['gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis']
 
 
 class GUI:
+    MINIMUM_SIZE = (800, 600)
     DEFAULT_GEOMETRY = '800x600+15+15'
 
     def __init__(self, path: str | None = None, *args, **kwargs) -> None:
@@ -184,6 +185,7 @@ class GUI:
     def build_gui(self) -> None:
         self.root = tk.Tk()
         self.root.geometry(self.DEFAULT_GEOMETRY)
+        self.root.minsize(*self.MINIMUM_SIZE)
         self.root.title(self.observation.get_description(multiline=False))
         self.configure_style()
 
@@ -523,8 +525,8 @@ class GUI:
         )
 
     def build_plot(self) -> None:
-        self.fig = plt.figure(figsize=(5, 5), dpi=100)
-        self.ax = self.fig.add_subplot()
+        self.fig = plt.figure()
+        self.ax = self.fig.add_axes([0.06, 0.03, 0.93, 0.96])
         self.transform = (
             self.observation.get_matplotlib_radec2xy_transform() + self.ax.transData
         )
@@ -547,13 +549,12 @@ class GUI:
         self.replot_other_bodies()
 
     def format_plot(self):
-        # TODO do tight_layout type thing
+        self.fig.set_dpi(100)
         self.ax.set_xlim(-0.5, self.observation._nx - 0.5)
         self.ax.set_ylim(-0.5, self.observation._ny - 0.5)
         self.ax.xaxis.set_tick_params(labelsize='x-small')
         self.ax.yaxis.set_tick_params(labelsize='x-small')
         self.ax.set_facecolor('k')
-        # self.ax.grid(color='0.1', linewidth=0.5)
         self.ax.set_axisbelow(True)
 
     def replot_image(self):
@@ -1607,7 +1608,15 @@ class GenericOtherBodySetting(ArtistSetting):
         value = '\n'.join(
             b.target for b in self.gui.observation.other_bodies_of_interest
         )
-        label = 'Blah'  # TODO
+        label = '\n'.join(
+            [
+                'List other bodies of interest to',
+                'mark (e.g. moons). Body names should',
+                'be recognisable by SPICE (e.g "Europa"',
+                'or "502") with each body listed on a',
+                'new line:',
+            ]
+        )
         ttk.Label(self.menu_frame, text='\n' + label).pack(fill='x')
         self.txt = tkinter.scrolledtext.ScrolledText(self.menu_frame)
         self.txt.pack(fill='both')
