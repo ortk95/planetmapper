@@ -192,6 +192,15 @@ class Observation(BodyXY):
     def disc_from_wcs(
         self, supress_warnings: bool = True, validate: bool = True
     ) -> None:
+        """
+        Set disc parameters using WCS information in the observation's FITS header.
+
+        Args:
+            supress_warnings: Hide warnings produced by astropy when calculating WCS
+                conversions.
+            validate: Check the coordinate conversion is consistent with the conversion
+                derived from the WCS data.
+        """
         # TODO should we hide warnings by default?
         wcs = self._get_wcs_from_header()
 
@@ -201,12 +210,11 @@ class Observation(BodyXY):
             assert all(u == 'deg' for u in wcs.world_axis_units)
             assert wcs.world_axis_physical_types == ['pos.eq.ra', 'pos.eq.dec']
 
+        # a1, a2 = wcs.pixel_to_world_values(1, 0)
         b1, b2 = wcs.pixel_to_world_values(0, 1)
         c1, c2 = wcs.pixel_to_world_values(0, 0)
-        # a1, a2 = wcs.pixel_to_world_values(1, 0)
 
         s = np.sqrt((b1 - c1) ** 2 + (b2 - c2) ** 2)
-        # alpha = np.sqrt((c1 - a1) ** 2 + (a2 - c2) ** 2) / s
 
         theta_degrees = np.rad2deg(np.arctan2(b1 - c1, b2 - c2))
         arcsec_per_px = s * 60 * 60  # s = degrees/px
