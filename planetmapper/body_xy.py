@@ -73,11 +73,11 @@ class BodyXY(Body):
 
     The `xy` ↔ `radec` conversion is performed by setting the pixel coordinates of the
     centre of the planet's disc `(x0, y0)`, the (equatorial) pixel radius of the disc
-    `r0` and the `rotation` of the disc. These values can be adjusted using methods such
-    as :func:`set_x0` and retrieved using methods such as :func:`get_x0`. It is
-    important to note that conversions involving `xy` image pixel coordinates (e.g.
-    backplane image generatiton) will produce different results before and after these
-    values are adjusted.
+    `r0` and the `rotation` of the disc. These disc parameters can be adjusted using
+    methods such as :func:`set_x0` and retrieved using methods such as :func:`get_x0`.
+    It is important to note that conversions involving `xy` image pixel coordinates
+    (e.g. backplane image generatiton) will produce different results before and after
+    these disc parameter values are adjusted.
 
     For larger images, the generation of backplane images can be computationally
     intensive and take a large amount of time to execute. Therefore, intermediate
@@ -358,6 +358,45 @@ class BodyXY(Body):
             self.set_r0(r0)
         if rotation is not None:
             self.set_rotation(rotation)
+
+    def adjust_disc_params(
+        self, dx: float = 0, dy: float = 0, dr: float = 0, drotation: float = 0
+    ) -> None:
+        """
+        Convenience function to adjust disc parameters.
+
+        This can be used to easily add an offset to disc parameter values without having
+        to call multiple `set_...` and `get_...` functions. For example, ::
+
+            body.adjust_disc_params(dy=-3.1, drotation=42)
+
+        is equivilent to ::
+
+            body.set_y0(body.get_y0() - 3.1)
+            body.set_rotation(body.get_rotation() + 42)
+        
+        The default values of all the arguments are zero, so any unspecified values
+        (e.g. `dx` and `dr` in the example above) are unchanged.
+
+        Args:
+            dx: Adjustment to `x0`.
+            dy: Adjustment to `y0`.
+            dr: Adjustment to `r0`.
+            drotation: Adjustment to `rotation`.
+        """
+        self.set_x0(self.get_x0() + dx)
+        self.set_y0(self.get_y0() + dy)
+        self.set_r0(self.get_r0() + dr)
+        self.set_rotation(self.get_rotation() + drotation)
+
+    def get_disc_params(self) -> tuple[float, float, float, float]:
+        """
+        Convenience function to get all disc parameters at once.
+
+        Returns:
+            `(x0, y0, r0, rotation)` tuple.
+        """
+        return self.get_x0(), self.get_y0(), self.get_r0(), self.get_rotation()
 
     def set_x0(self, x0: float) -> None:
         """
