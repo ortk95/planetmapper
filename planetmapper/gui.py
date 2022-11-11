@@ -134,13 +134,21 @@ class GUI:
             self.plot_settings[k] = v.copy()
 
         self.disc_finding_routines: dict[Callable[[], None], tuple[str, str]] = {
-            self.observation.centre_disc: (
-                'Centre Disc',
-                'Centre the target\'s planetary disc and make it fill ~90% of the observation.',
-            ),
             self.observation.disc_from_wcs: (
                 'Use FITS WCS',
                 'Set disc parameters using WCS information in the observation\'s FITS header',
+            ),
+            self.observation.fit_disc_position: (
+                'Fit disc position',
+                'Set x0 and y0 so that the planet\'s disc is fit to the brightest part of the data',
+            ),
+            self.observation.fit_disc_radius: (
+                'Fit disc radius',
+                'Set r0 by calculating the radius around (x0, y0) where the brightness decrease is the fastest',
+            ),
+            self.observation.centre_disc: (
+                'Centre disc',
+                'Centre the target\'s planetary disc and make it fill ~90% of the observation',
             ),
         }
 
@@ -450,10 +458,13 @@ class GUI:
         self.notebook.add(frame, text='Find disc')
         # self.notebook.select(frame)  # TODO delete this
 
+        label_frame = ttk.LabelFrame(frame, text='Automatically find values')
+        label_frame.pack(fill='x')
+
         for fn, (name, description) in self.disc_finding_routines.items():
             self.add_tooltip(
                 ttk.Button(
-                    frame,
+                    label_frame,
                     text=name,
                     command=self.make_disc_finding_fn(fn),
                 ),
