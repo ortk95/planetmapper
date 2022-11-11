@@ -3,3 +3,5 @@ matplotlib
 numpy
 Pillow
 spiceypy
+scipy
+photutils

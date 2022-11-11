@@ -8,7 +8,8 @@ import PIL.Image
 from astropy.io import fits
 import astropy.wcs
 from astropy.utils.exceptions import AstropyWarning
-
+import scipy.ndimage
+import photutils.aperture
 from . import common, utils
 from .body_xy import BodyXY
 
@@ -245,6 +246,62 @@ class Observation(BodyXY):
                 ra, dec = self.xy2radec(x, y)
                 assert math.isclose(ra_wcs % 360, ra % 360, abs_tol=1e-4)
                 assert math.isclose(dec_wcs, dec, abs_tol=1e-4)
+
+    def _get_img_for_fitting(self) -> np.ndarray:
+        img = np.nansum(self.data, axis=0)
+        mask_img = np.isnan(img)
+        img[mask_img] = np.nanmin(img)  # Mask nan values for com calculation etc.
+        return img
+
+    def fit_disc_position(self) -> None:
+        """
+        Automatically find and set `x0` and `y0` so that the planet's disc is fit to the
+        brightest part of the data.
+        """
+        threshold_img = self._get_img_for_fitting()
+        threshold = 0.5 * sum(
+            [np.percentile(threshold_img, 5), np.percentile(threshold_img, 95)]
+        )
+        threshold_img[np.where(threshold_img <= threshold)] = 0
+        threshold_img[np.where(threshold_img > threshold)] = 1
+        x0, y0 = np.array(scipy.ndimage.center_of_mass(threshold_img))[::-1]
+
+        self.set_x0(x0)
+        self.set_y0(y0)
+        self.set_disc_method('fit')
+
+    def fit_disc_radius(self) -> None:
+        """
+        Automatically find and set `r0` using aperture photometry.
+
+        This routine calculates the brighntess in concentric annular apertures around
+        `(x0, y0)` and sets `r0` as the radius where the brightness decreases the
+        fastest. Note that this uses circular apertures, so will be less reliable for
+        targets with greater flatttening.
+        """
+        img = self._get_img_for_fitting()
+        centroid = np.array([self.get_x0(), self.get_y0()])
+
+        r_ceil = int(min(*centroid, *(img.shape - centroid)))
+        if r_ceil > 100:
+            r_list = np.linspace(1, r_ceil + 1, 100)
+        else:
+            r_list = np.array(range(1, r_ceil + 1))
+        apertures = [photutils.aperture.CircularAperture(centroid, r) for r in r_list]
+
+        val_list = []
+        for aperture in apertures:
+            table = photutils.aperture.aperture_photometry(img, aperture)
+            aperture_sum = float(table['aperture_sum'])  # type: ignore
+            val_list.append(aperture_sum / aperture.area)
+        val_list = np.array(val_list)
+
+        r_list = r_list[1:] - 0.5 * (
+            r_list[1] - r_list[0]
+        )  # Get radii corresponding to dv
+        dv_list = np.diff(val_list)
+        r0 = r_list[dv_list.argmin()]
+        self.set_r0(r0)
 
     # Output
     def append_to_header(
