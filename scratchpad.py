@@ -31,17 +31,10 @@ if False:
     # gui.run()
 
 
-body = planetmapper.Body('saturn', datetime.datetime.now())
+body = planetmapper.BodyXY('saturn', datetime.datetime.now())
+# ax = body.plot_wireframe_radec()
+img = body._get_targvec_map(1)
 
-import astropy.visualization.wcsaxes.coordinate_helpers
-
-ax = body.plot_wireframe_radec(show=False)
-# ax.xaxis.set_major_formatter(planetmapper.utils.DMSFormatter())
-ax.yaxis.set_major_locator(planetmapper.utils.DMSLocator())
-ax.yaxis.set_major_formatter(planetmapper.utils.DMSFormatter())
-
-
-ax.xaxis.set_major_locator(planetmapper.utils.DMSLocator())
-ax.xaxis.set_major_formatter(planetmapper.utils.DMSFormatter())
-
-plt.show()
+for n in range(3):
+    plt.imshow(img[:, :, n])
+    plt.show()

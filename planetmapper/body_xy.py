@@ -9,13 +9,14 @@ import matplotlib.transforms
 import numpy as np
 from matplotlib.axes import Axes
 from spiceypy.utils.exceptions import NotFoundError
+import spiceypy as spice
 
 from .body import Body
 
 T = TypeVar('T')
 S = TypeVar('S')
 
-_cache_stable_result = partial(lru_cache, maxsize=128)
+_cache_stable_result = lru_cache(maxsize=128)
 
 
 def _cache_clearable_result(fn: Callable[[S], T]) -> Callable[[S], T]:
@@ -734,6 +735,13 @@ class BodyXY(Body):
     def _test_if_img_size_valid(self) -> bool:
         return (self._nx > 0) and (self._ny > 0)
 
+    def _iterate_image(self, shape: tuple[int, ...]) -> Iterable[tuple[int, int]]:
+        ny = shape[0]
+        nx = shape[1]
+        for y in range(ny):
+            for x in range(nx):
+                yield y, x
+
     def _make_empty_img(self, nz: int | None = None) -> np.ndarray:
         if not self._test_if_img_size_valid():
             raise ValueError('nx and ny must be positive to create a backplane image')
@@ -741,6 +749,27 @@ class BodyXY(Body):
             shape = (self._ny, self._nx)
         else:
             shape = (self._ny, self._nx, nz)
+        return np.full(shape, np.nan)
+
+    def _make_map_planetocentric_arrays(
+        self, degree_interval: float
+    ) -> tuple[np.ndarray, np.ndarray]:
+        lons = np.arange(0, 360, degree_interval)
+        lats = np.arange(-90, 90, degree_interval)
+        return lons, lats
+
+    def _make_empty_map(
+        self, degree_interval: float, nz: int | None = None
+    ) -> np.ndarray:
+        # making arrays is slightly more costly, but ensures that we don't get any
+        # numerical stability errors from trying to do e.g. 360//degree_interval
+        lons, lats = self._make_map_planetocentric_arrays(degree_interval)
+        nlon = len(lons)
+        nlat = len(lats)
+        if nz is None:
+            shape = (nlat, nlon)
+        else:
+            shape = (nlat, nlon, nz)
         return np.full(shape, np.nan)
 
     def _get_max_pixel_radius(self) -> float:
@@ -759,7 +788,7 @@ class BodyXY(Body):
         x0 = self.get_x0()
         y0 = self.get_y0()
 
-        for y, x in self._iterate_yx():
+        for y, x in self._iterate_image(out.shape):
             if (
                 self._optimize_speed
                 and ((x - x0) * (x - x0) + (y - y0) * (y - y0)) > r2
@@ -780,25 +809,53 @@ class BodyXY(Body):
                 continue  # leave values as nan if pixel is not on the disc
         return out
 
-    def _iterate_yx(self) -> Iterable[tuple[int, int]]:
-        for y in range(self._ny):
-            for x in range(self._nx):
-                yield y, x
+    def _get_targvec_map(self, degree_interval: float) -> np.ndarray:
+        out = self._make_empty_map(degree_interval, 3)
+        lons, lats = self._make_map_planetocentric_arrays(degree_interval)
+
+        lonlat = []
+        for lat in lats:
+            for lon in lons:
+                lonlat.append((lon, lat))
+        lonlat = list(np.deg2rad(lonlat))
+        targvecs = spice.latsrf(
+            self._surface_method_encoded,  # type: ignore
+            self._target_encoded,  # type: ignore
+            self.et,
+            self._target_frame_encoded,  # type: ignore
+            lonlat,
+        )
+        for targvec, (a, b) in zip(targvecs, self._iterate_image(out.shape)):
+            out[a, b] = targvec
+        return out
 
     def _enumerate_targvec_img(self) -> Iterable[tuple[int, int, np.ndarray]]:
         targvec_img = self._get_targvec_img()
-        for y, x in self._iterate_yx():
+        for y, x in self._iterate_image(targvec_img.shape):
             targvec = targvec_img[y, x]
             if math.isnan(targvec[0]):
                 # only check if first element nan for efficiency
                 continue
             yield y, x, targvec
 
+    def _enumerate_targvec_map(
+        self, degree_interval: float
+    ) -> Iterable[tuple[int, int, np.ndarray]]:
+        targvec_map = self._get_targvec_map(degree_interval)
+        for a, b in self._iterate_image(targvec_map.shape):
+            yield a, b, targvec_map[a, b]
+
     @_cache_clearable_result
     def _get_lonlat_img(self) -> np.ndarray:
         out = self._make_empty_img(2)
         for y, x, targvec in self._enumerate_targvec_img():
             out[y, x] = self._targvec2lonlat_radians(targvec)
+        return np.rad2deg(out)
+
+    def _get_lonlat_map(self, degree_interval: float) -> np.ndarray:
+        out = self._make_empty_map(degree_interval, 2)
+        for a, b, targvec in self._enumerate_targvec_map(degree_interval):
+            out[a, b] = self._targvec2lonlat_radians(targvec)
         return np.rad2deg(out)
 
     def get_lon_img(self) -> np.ndarray:
@@ -821,7 +878,7 @@ class BodyXY(Body):
         Returns:
             Array containing cylindrical map of TODO
         """
-        raise NotImplementedError  # TODO
+        return self._get_lonlat_map(degree_interval)[:, :, 0]
 
     def get_lat_img(self) -> np.ndarray:
         """
@@ -843,13 +900,19 @@ class BodyXY(Body):
         Returns:
             Array containing cylindrical map of TODO
         """
-        raise NotImplementedError  # TODO
+        return self._get_lonlat_map(degree_interval)[:, :, 1]
 
     @_cache_clearable_result
     def _get_radec_img(self) -> np.ndarray:
         out = self._make_empty_img(2)
-        for y, x in self._iterate_yx():
+        for y, x in self._iterate_image(out.shape):
             out[y, x] = self._xy2radec_radians(x, y)
+        return np.rad2deg(out)
+
+    def _get_radec_map(self, degree_interval: float) -> np.ndarray:
+        out = self._make_empty_map(degree_interval, 2)
+        for a, b, targvec in self._enumerate_targvec_map(degree_interval):
+            out[a, b] = self._obsvec2radec_radians(self._targvec2obsvec(targvec))
         return np.rad2deg(out)
 
     def get_ra_img(self) -> np.ndarray:
@@ -871,7 +934,7 @@ class BodyXY(Body):
         Returns:
             Array containing cylindrical map of TODO
         """
-        raise NotImplementedError  # TODO
+        return self._get_radec_map(degree_interval)[:, :0]
 
     def get_dec_img(self) -> np.ndarray:
         """
@@ -892,13 +955,19 @@ class BodyXY(Body):
         Returns:
             Array containing cylindrical map of TODO
         """
-        raise NotImplementedError  # TODO
+        return self._get_radec_map(degree_interval)[:, :1]
 
     @_cache_clearable_result
     def _get_illumination_gie_img(self) -> np.ndarray:
         out = self._make_empty_img(3)
         for y, x, targvec in self._enumerate_targvec_img():
             out[y, x] = self._illumination_angles_from_targvec_radians(targvec)
+        return np.rad2deg(out)
+
+    def _get_illumination_gie_map(self, degree_interval: float) -> np.ndarray:
+        out = self._make_empty_map(degree_interval, 3)
+        for a, b, targvec in self._enumerate_targvec_map(degree_interval):
+            out[a, b] = self._illumination_angles_from_targvec_radians(targvec)
         return np.rad2deg(out)
 
     def get_phase_angle_img(self) -> np.ndarray:
@@ -921,7 +990,7 @@ class BodyXY(Body):
         Returns:
             Array containing cylindrical map of TODO
         """
-        raise NotImplementedError  # TODO
+        return self._get_illumination_gie_map(degree_interval)[:, :, 0]
 
     def get_incidence_angle_img(self) -> np.ndarray:
         """
@@ -943,7 +1012,7 @@ class BodyXY(Body):
         Returns:
             Array containing cylindrical map of TODO
         """
-        raise NotImplementedError  # TODO
+        return self._get_illumination_gie_map(degree_interval)[:, :, 1]
 
     def get_emission_angle_img(self) -> np.ndarray:
         """
@@ -965,7 +1034,7 @@ class BodyXY(Body):
         Returns:
             Array containing cylindrical map of TODO
         """
-        raise NotImplementedError  # TODO
+        return self._get_illumination_gie_map(degree_interval)[:, :, 2]
 
     @_cache_clearable_result
     def _get_state_imgs(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -979,6 +1048,20 @@ class BodyXY(Body):
                 lt_img[y, x],
             ) = self._state_from_targvec(targvec)
         return position_img, velocity_img, lt_img
+
+    def _get_state_maps(
+        self, degree_interval: float
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        position_map = self._make_empty_map(degree_interval, 3)
+        velocity_map = self._make_empty_map(degree_interval, 3)
+        lt_map = self._make_empty_map(degree_interval)
+        for a, b, targvec in self._enumerate_targvec_map(degree_interval):
+            (
+                position_map[a, b],
+                velocity_map[a, b],
+                lt_map[a, b],
+            ) = self._state_from_targvec(targvec)
+        return position_map, velocity_map, lt_map
 
     def get_distance_img(self) -> np.ndarray:
         """
@@ -1001,7 +1084,8 @@ class BodyXY(Body):
         Returns:
             Array containing cylindrical map of TODO
         """
-        raise NotImplementedError  # TODO
+        position_map, velocity_map, lt_map = self._get_state_maps(degree_interval)
+        return lt_map * self.speed_of_light()
 
     @_cache_clearable_result
     def get_radial_velocity_img(self) -> np.ndarray:
@@ -1031,7 +1115,13 @@ class BodyXY(Body):
         Returns:
             Array containing cylindrical map of TODO
         """
-        raise NotImplementedError  # TODO
+        out = self._make_empty_map(degree_interval)
+        position_map, velocity_map, lt_map = self._get_state_maps(degree_interval)
+        for a, b, targvec in self._enumerate_targvec_map(degree_interval):
+            out[a, b] = self._radial_velocity_from_state(
+                position_map[a, b], velocity_map[a, b]
+            )
+        return out
 
     def get_doppler_img(self) -> np.ndarray:
         """
@@ -1054,7 +1144,9 @@ class BodyXY(Body):
         Returns:
             Array containing cylindrical map of TODO
         """
-        raise NotImplementedError  # TODO
+        return self.calculate_doppler_factor(
+            self.get_radial_velocity_map(degree_interval)
+        )
 
     # Backplane management
     @staticmethod
