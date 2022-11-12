@@ -464,7 +464,6 @@ class BodyXY(Body):
         Raises:
             ValueError: if `r0` is not greater than zero or `r0` is not finite.
         """
-        # TODO add some validation here?
         if not math.isfinite(r0):
             raise ValueError('r0 must be finite')
         if not r0 > 0:
@@ -1160,7 +1159,7 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
-            Array containing cylindrical map of TODO
+            Array containing cylindrical map of longitude values.
         """
         return self._get_lonlat_map(degree_interval)[:, :, 0]
 
@@ -1182,7 +1181,7 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
-            Array containing cylindrical map of TODO
+            Array containing cylindrical map of latitude values.
         """
         return self._get_lonlat_map(degree_interval)[:, :, 1]
 
@@ -1219,7 +1218,8 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
-            Array containing cylindrical map of TODO
+            Array containing cylindrical map of right ascension values as viewed by the
+            observer. Locations which are not visible have a value of NaN.
         """
         return self._get_radec_map(degree_interval)[:, :, 0]
 
@@ -1240,7 +1240,8 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
-            Array containing cylindrical map of TODO
+            Array containing cylindrical map of declination values as viewed by the
+            observer. Locations which are not visible have a value of NaN.
         """
         return self._get_radec_map(degree_interval)[:, :, 1]
 
@@ -1273,7 +1274,9 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
-            Array containing cylindrical map of TODO
+            Array containing cylindrical map of the x pixel coordinates each location
+            corresponds to in the observation. Locations which are not visible have a
+            value of NaN.
         """
         return self._get_xy_map(degree_interval)[:, :, 0]
 
@@ -1297,7 +1300,9 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
-            Array containing cylindrical map of TODO
+            Array containing cylindrical map of the y pixel coordinates each location
+            corresponds to in the observation. Locations which are not visible have a
+            value of NaN.
         """
         return self._get_xy_map(degree_interval)[:, :, 1]
 
@@ -1333,7 +1338,8 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
-            Array containing cylindrical map of TODO
+            Array containing cylindrical map of the phase angle value at each point on
+            the target's surface.
         """
         return self._get_illumf_map(degree_interval)[:, :, 0]
 
@@ -1355,7 +1361,8 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
-            Array containing cylindrical map of TODO
+            Array containing cylindrical map of the incidence angle value at each point
+            on the target's surface.
         """
         return self._get_illumf_map(degree_interval)[:, :, 1]
 
@@ -1377,7 +1384,8 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
-            Array containing cylindrical map of TODO
+            Array containing cylindrical map of the emission angle value at each point
+            on the target's surface.
         """
         return self._get_illumf_map(degree_interval)[:, :, 2]
 
@@ -1428,7 +1436,8 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
-            Array containing cylindrical map of TODO
+            Array containing cylindrical map of the observer-target distance in km of
+            each point on the target's surface.
         """
         position_map, velocity_map, lt_map = self._get_state_maps(degree_interval)
         return lt_map * self.speed_of_light()
@@ -1460,7 +1469,8 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
-            Array containing cylindrical map of TODO
+            Array containing cylindrical map of the observer-traget radial velocity in
+            km/s of each point on the target's surface.
         """
         out = self._make_empty_map(degree_interval)
         position_map, velocity_map, lt_map = self._get_state_maps(degree_interval)
@@ -1489,7 +1499,10 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
-            Array containing cylindrical map of TODO
+            Array containing cylindrical map of the doppler factor of each point on the
+            target's surface. This is calculated using
+            :func:`SpiceBase.calculate_doppler_factor` on velocities from
+            :func:`get_radial_velocity_map`.
         """
         return self.calculate_doppler_factor(
             self.get_radial_velocity_map(degree_interval)

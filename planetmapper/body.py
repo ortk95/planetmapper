@@ -840,8 +840,8 @@ class Body(SpiceBase):
     def _radial_velocity_from_state(
         self, position: np.ndarray, velocity: np.ndarray, _lt: float | None = None
     ) -> float:
-        # TODO note how lt argument is meaningless but there for convenience when
-        # chaining with _state_from_targvec
+        # lt argument is meaningless but there for convenience when chaining with 
+        # _state_from_targvec
         # dot the velocity with the normalised position vector to get radial component
         return velocity.dot(self.unit_vector(position))
 
