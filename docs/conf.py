@@ -25,6 +25,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
     'sphinx.ext.viewcode',
+    'sphinx.ext.intersphinx',
     'sphinx_rtd_theme',
 ]
 
@@ -33,6 +34,13 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 default_role = 'code'
 master_doc = 'index'
+
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3', None),
+    'matplotlib': ('https://matplotlib.org/stable', None),
+    'numpy': ('https://numpy.org/doc/stable', None),
+    'spiceypy': ('https://spiceypy.readthedocs.io/en/latest', None),
+    }
 
 # Autodoc
 autodoc_member_order = 'bysource'

@@ -48,10 +48,10 @@ class SpiceBase:
         """
         Return a standardised version of the name of a SPICE body.
 
-        This converts the provided `name` into the SPICE ID code, then back into a
-        string, standardises to the version of the name preferred by SPICE. For example,
-        `'jupiter'`, `'JuPiTeR'`, `' Jupiter '`, `'599'` and `599` are all standardised
-        to `'JUPITER'`
+        This converts the provided `name` into the SPICE ID code with `spice.bods2c`,
+        then back into a string with `spice.bodc2s`. This standardises to the version of
+        the name preferred by SPICE. For example, `'jupiter'`, `'JuPiTeR'`,
+        `' Jupiter '`, `'599'` and `599` are all standardised to `'JUPITER'`
 
         Args:
             name: The name of a body (e.g. a planet). This can also be the numeric ID
