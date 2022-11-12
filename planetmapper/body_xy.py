@@ -109,19 +109,19 @@ class BodyXY(Body):
         body.set_disc_params(x0=250, y0=250, r0=200)
         # At this point, the cache is completely empty
 
-        # The intermediate results used in generating the longitude backplane are
-        # cached, speeding up any future calculations which use these intermediate
-        # results:
-        body.get_backplane_img('LON') # Takes ~10s to execute
-        body.get_backplane_img('LON') # Executes instantly
-        body.get_backplane_img('LAT') # Executes instantly
+        # The intermediate results used in generating the incidence angle backplane
+        # are cached, speeding up any future calculations which use these
+        # intermediate results:
+        body.get_backplane_img('INCIDENCE') # Takes ~10s to execute
+        body.get_backplane_img('INCIDENCE') # Executes instantly
+        body.get_backplane_img('EMISSION') # Executes instantly
 
         # When any of the disc parameters are changed, the xy <-> radec conversion
         # changes so the cache is automatically cleared (as the cached intermediate
         # results are no longer valid):
         body.set_r0(190) # This automatically clears the cache
-        body.get_backplane_img('LAT') # Takes ~10s to execute
-        body.get_backplane_img('LON') # Executes instantly
+        body.get_backplane_img('EMISSION') # Takes ~10s to execute
+        body.get_backplane_img('INCIDENCE') # Executes instantly
 
     The size of the image can be specified by using the `nx` and `ny` parameters to
     specify the number of pixels in the x and y dimensions of the image respectively.
@@ -1276,13 +1276,13 @@ class BodyXY(Body):
 
     def _register_default_backplanes(self) -> None:
         self.register_backplane(
-            'LON',
+            'LON-GRAPHIC',
             'Planetographic longitude [deg]',
             self.get_lon_img,
             self.get_lon_map,
         )
         self.register_backplane(
-            'LAT',
+            'LAT-GRAPHIC',
             'Planetographic latitude, positive {ew} [deg]'.format(
                 ew=self.positive_longitude_direction
             ),
@@ -1314,7 +1314,7 @@ class BodyXY(Body):
             self.get_y_map,
         )
         self.register_backplane(
-            'phase',
+            'PHASE',
             'Phase angle [deg]',
             self.get_phase_angle_img,
             self.get_phase_angle_map,
