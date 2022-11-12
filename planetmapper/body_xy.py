@@ -62,7 +62,7 @@ class Backplane(NamedTuple):
         get_img: Function which takes no arguments returns a numpy array containing a
             backplane image when called. This should generally be a method such as
             :func:`BodyXY.get_lon_img`.
-        get_img: Function returns a numpy array containing a cylindrigal map of
+        get_map: Function returns a numpy array containing a cylindrical map of
             backplane values when called. This should take a single argument which
             defines the interval in degrees between the longitude/latitude points in the
             mapped output. This should generally be a method such as
@@ -751,11 +751,13 @@ class BodyXY(Body):
             shape = (self._ny, self._nx, nz)
         return np.full(shape, np.nan)
 
-    def _make_map_planetocentric_arrays(
+    def _make_map_lonlat_arrays(
         self, degree_interval: float
     ) -> tuple[np.ndarray, np.ndarray]:
-        lons = np.arange(0, 360, degree_interval)
-        lats = np.arange(-90, 90, degree_interval)
+        lons = np.arange(degree_interval / 2, 360, degree_interval)
+        if self.positive_longitude_direction == 'W':
+            lons = lons[::-1]
+        lats = np.arange(-90 + degree_interval / 2, 90, degree_interval)
         return lons, lats
 
     def _make_empty_map(
@@ -763,7 +765,7 @@ class BodyXY(Body):
     ) -> np.ndarray:
         # making arrays is slightly more costly, but ensures that we don't get any
         # numerical stability errors from trying to do e.g. 360//degree_interval
-        lons, lats = self._make_map_planetocentric_arrays(degree_interval)
+        lons, lats = self._make_map_lonlat_arrays(degree_interval)
         nlon = len(lons)
         nlat = len(lats)
         if nz is None:
@@ -809,24 +811,13 @@ class BodyXY(Body):
                 continue  # leave values as nan if pixel is not on the disc
         return out
 
+    @_cache_stable_result
     def _get_targvec_map(self, degree_interval: float) -> np.ndarray:
         out = self._make_empty_map(degree_interval, 3)
-        lons, lats = self._make_map_planetocentric_arrays(degree_interval)
-
-        lonlat = []
-        for lat in lats:
-            for lon in lons:
-                lonlat.append((lon, lat))
-        lonlat = list(np.deg2rad(lonlat))
-        targvecs = spice.latsrf(
-            self._surface_method_encoded,  # type: ignore
-            self._target_encoded,  # type: ignore
-            self.et,
-            self._target_frame_encoded,  # type: ignore
-            lonlat,
-        )
-        for targvec, (a, b) in zip(targvecs, self._iterate_image(out.shape)):
-            out[a, b] = targvec
+        lons, lats = self._make_map_lonlat_arrays(degree_interval)
+        for a, lat in enumerate(lats):
+            for b, lon in enumerate(lons):
+                out[a, b] = self.lonlat2targvec(lon, lat)
         return out
 
     def _enumerate_targvec_img(self) -> Iterable[tuple[int, int, np.ndarray]]:
@@ -852,6 +843,7 @@ class BodyXY(Body):
             out[y, x] = self._targvec2lonlat_radians(targvec)
         return np.rad2deg(out)
 
+    @_cache_stable_result
     def _get_lonlat_map(self, degree_interval: float) -> np.ndarray:
         out = self._make_empty_map(degree_interval, 2)
         for a, b, targvec in self._enumerate_targvec_map(degree_interval):
@@ -909,10 +901,13 @@ class BodyXY(Body):
             out[y, x] = self._xy2radec_radians(x, y)
         return np.rad2deg(out)
 
+    @_cache_stable_result
     def _get_radec_map(self, degree_interval: float) -> np.ndarray:
         out = self._make_empty_map(degree_interval, 2)
+        visible = self._get_illumf_map(degree_interval)[:, :, 4]
         for a, b, targvec in self._enumerate_targvec_map(degree_interval):
-            out[a, b] = self._obsvec2radec_radians(self._targvec2obsvec(targvec))
+            if visible[a, b]:
+                out[a, b] = self._obsvec2radec_radians(self._targvec2obsvec(targvec))
         return np.rad2deg(out)
 
     def get_ra_img(self) -> np.ndarray:
@@ -934,7 +929,7 @@ class BodyXY(Body):
         Returns:
             Array containing cylindrical map of TODO
         """
-        return self._get_radec_map(degree_interval)[:, :0]
+        return self._get_radec_map(degree_interval)[:, :, 0]
 
     def get_dec_img(self) -> np.ndarray:
         """
@@ -955,7 +950,7 @@ class BodyXY(Body):
         Returns:
             Array containing cylindrical map of TODO
         """
-        return self._get_radec_map(degree_interval)[:, :1]
+        return self._get_radec_map(degree_interval)[:, :, 1]
 
     @_cache_clearable_result
     def _get_illumination_gie_img(self) -> np.ndarray:
@@ -964,10 +959,11 @@ class BodyXY(Body):
             out[y, x] = self._illumination_angles_from_targvec_radians(targvec)
         return np.rad2deg(out)
 
-    def _get_illumination_gie_map(self, degree_interval: float) -> np.ndarray:
-        out = self._make_empty_map(degree_interval, 3)
+    @_cache_stable_result
+    def _get_illumf_map(self, degree_interval: float) -> np.ndarray:
+        out = self._make_empty_map(degree_interval, 5)
         for a, b, targvec in self._enumerate_targvec_map(degree_interval):
-            out[a, b] = self._illumination_angles_from_targvec_radians(targvec)
+            out[a, b] = self._illumf_from_targvec_radians(targvec)
         return np.rad2deg(out)
 
     def get_phase_angle_img(self) -> np.ndarray:
@@ -990,7 +986,7 @@ class BodyXY(Body):
         Returns:
             Array containing cylindrical map of TODO
         """
-        return self._get_illumination_gie_map(degree_interval)[:, :, 0]
+        return self._get_illumf_map(degree_interval)[:, :, 0]
 
     def get_incidence_angle_img(self) -> np.ndarray:
         """
@@ -1012,7 +1008,7 @@ class BodyXY(Body):
         Returns:
             Array containing cylindrical map of TODO
         """
-        return self._get_illumination_gie_map(degree_interval)[:, :, 1]
+        return self._get_illumf_map(degree_interval)[:, :, 1]
 
     def get_emission_angle_img(self) -> np.ndarray:
         """
@@ -1034,7 +1030,7 @@ class BodyXY(Body):
         Returns:
             Array containing cylindrical map of TODO
         """
-        return self._get_illumination_gie_map(degree_interval)[:, :, 2]
+        return self._get_illumf_map(degree_interval)[:, :, 2]
 
     @_cache_clearable_result
     def _get_state_imgs(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -1049,6 +1045,7 @@ class BodyXY(Body):
             ) = self._state_from_targvec(targvec)
         return position_img, velocity_img, lt_img
 
+    @_cache_stable_result
     def _get_state_maps(
         self, degree_interval: float
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -1105,6 +1102,7 @@ class BodyXY(Body):
             )
         return out
 
+    @_cache_stable_result
     def get_radial_velocity_map(self, degree_interval: float = 1) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
@@ -1293,14 +1291,40 @@ class BodyXY(Body):
         """
         return self.backplanes[self.standardise_backplane_name(name)].get_img().copy()
 
-    def get_backplane_map(self) -> np.ndarray:
-        raise NotImplementedError  # TODO
+    def get_backplane_map(self, name: str, degree_interval: float = 1) -> np.ndarray:
+        """
+        Generate map of backplane values.
+
+        This method creates a copy of the generated image, so the returned map can be
+        safely modified without affecting the cached value (unlike the return values
+        from functions such as :func:`get_lon_map`).
+
+        This method is equivilent to ::
+
+            body.backplanes[self.standardise_backplane_name(degree_interval)].get_map().copy()
+
+        Args:
+            name: Name of the desired backplane. This is standardised with
+                :func:`standardise_backplane_name` and used to choose a registered
+                backplane from :attr:`backplanes`.
+            degree_interval: Interval in degrees between the longitude/latitude points
+                in the mapped output.
+
+        Returns:
+            Array containing map of the backplane's values over the surface of the
+            target body.
+        """
+        return (
+            self.backplanes[self.standardise_backplane_name(name)]
+            .get_map(degree_interval)
+            .copy()
+        )
 
     def plot_backplane_img(
         self, name: str, ax: Axes | None = None, show: bool = True, **kwargs
     ) -> Axes:
         """
-        Plot a backplane image.
+        Plot a backplane image with the wireframe outline of the target.
 
         Note that a generated backplane image will depend on the disc parameters
         `(x0, y0, r0, rotation)` at the time this function is called. Generating the
@@ -1313,7 +1337,7 @@ class BodyXY(Body):
             show: Passed to :func:`plot_wireframe_xy`.
             **kwargs: Passed to Matplotlib's `imshow` when plotting the backplane image.
                 For example, can be used to set the colormap of the plot using
-                `body.plot_backplane(..., cmap='Greys')`.
+                `body.plot_backplane_img(..., cmap='Greys')`.
 
         Returns:
             The axis containing the plotted data.
@@ -1327,5 +1351,59 @@ class BodyXY(Body):
             plt.show()
         return ax
 
-    def plot_backplane_map(self) -> Axes:
-        raise NotImplementedError  # TODO
+    def plot_backplane_map(
+        self,
+        name: str,
+        ax: Axes | None = None,
+        show: bool = True,
+        degree_interval: float = 1,
+        **kwargs,
+    ) -> Axes:
+        """
+        Plot a map of backplane values on the target body.
+
+        Args:
+            name: Name of the desired backplane.
+            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
+                a new figure and axis is created.
+            show: Toggle showing the plotted figure with `plt.show()`
+            degree_interval: Interval in degrees between the longitude/latitude points
+                in the mapped output.
+            **kwargs: Passed to Matplotlib's `imshow` when plotting the backplane map.
+                For example, can be used to set the colormap of the plot using
+                `body.plot_backplane_map(..., cmap='Greys')`.
+
+        Returns:
+            The axis containing the plotted data.
+        """
+        if ax is None:
+            fig, ax = plt.subplots()
+        name = self.standardise_backplane_name(name)
+        backplane = self.backplanes[name]
+
+        if self.positive_longitude_direction == 'W':
+            extent = [360, 0, -90, 90]
+        else:
+            extent = [0, 360, -90, 90]
+
+        im = ax.imshow(
+            backplane.get_map(degree_interval), origin='lower', extent=extent, **kwargs
+        )
+        plt.colorbar(im, label=backplane.description)
+        ax.set_title(self.get_description(multiline=True))
+        ax.set_aspect(1, adjustable='box')
+        ax.set_xlabel(f'Planetographic longitude ({self.positive_longitude_direction})')
+        ax.set_ylabel('Planetographic latitude')
+
+        step = 45
+        xt = np.arange(0, 360.1, step)
+        ax.set_xticks(xt)
+        ax.set_xticklabels([f'{x:.0f}°' for x in xt])
+
+        yt = np.arange(-90, 90.1, step)
+        ax.set_yticks(yt)
+        ax.set_yticklabels([f'{y:.0f}°' for y in yt])
+
+        if show:
+            plt.show()
+        return ax

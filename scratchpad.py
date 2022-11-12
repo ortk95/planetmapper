@@ -32,9 +32,12 @@ if False:
 
 
 body = planetmapper.BodyXY('saturn', datetime.datetime.now())
-# ax = body.plot_wireframe_radec()
-img = body._get_targvec_map(1)
+planetmapper.utils.print_progress()
+for bp in body.backplanes.values():
+    body.plot_backplane_map(bp.name)
+# 
+# print(body.graphic2centric_lonlat(10, 10))
+# print(body.centric2graphic_lonlat(10, 10))
 
-for n in range(3):
-    plt.imshow(img[:, :, n])
-    plt.show()
+
+# print(body.prograde, body.positive_planetographic_longitude_direction)

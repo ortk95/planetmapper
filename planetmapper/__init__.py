@@ -23,7 +23,8 @@ https://en.wikipedia.org/wiki/Equatorial_coordinate_system for more.
 
 `lonlat` planetographic on target body. These are the planetographic longitude and
 latitude coordinates of a point on the surface of the target body. These coordinates are 
-expressed in degrees. See https://en.wikipedia.org/wiki/Planetary_coordinate_system for 
+expressed in degrees. See https://en.wikipedia.org/wiki/Planetary_coordinate_system and 
+https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/recpgr_c.html#Particulars for
 more.
 
 =============================================   =====
