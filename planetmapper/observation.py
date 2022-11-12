@@ -270,7 +270,7 @@ class Observation(BodyXY):
 
         self.set_x0(x0)
         self.set_y0(y0)
-        self.set_disc_method('fit')
+        self.set_disc_method('fit_position')
 
     def fit_disc_radius(self) -> None:
         """
@@ -304,6 +304,7 @@ class Observation(BodyXY):
         dv_list = np.diff(val_list)
         r0 = r_list[dv_list.argmin()]
         self.set_r0(r0)
+        self.set_disc_method('fit_r0')
 
     # Output
     def append_to_header(
