@@ -1,7 +1,7 @@
 import datetime
 import math
 from functools import wraps, lru_cache, partial
-from typing import Any, Callable, Iterable, NamedTuple, ParamSpec, TypeVar
+from typing import Any, Callable, Iterable, NamedTuple, ParamSpec, TypeVar, Protocol
 
 import matplotlib.patches
 import matplotlib.pyplot as plt
@@ -42,6 +42,9 @@ def _cache_clearable_result(fn: Callable[[S], T]) -> Callable[[S], T]:
 
     return decorated
 
+class _BackplaneMapGetter(Protocol):
+    def __call__(self, degree_interval: float = 1) -> np.ndarray:
+        ...
 
 class Backplane(NamedTuple):
     """
@@ -72,7 +75,7 @@ class Backplane(NamedTuple):
     name: str
     description: str
     get_img: Callable[[], np.ndarray]
-    get_map: Callable[[float], np.ndarray]
+    get_map: _BackplaneMapGetter
 
 
 class BodyXY(Body):
@@ -1172,7 +1175,7 @@ class BodyXY(Body):
         name: str,
         description: str,
         get_img: Callable[[], np.ndarray],
-        get_map: Callable[[float], np.ndarray],
+        get_map: _BackplaneMapGetter,
     ) -> None:
         """
         Create a new :class:`Backplane` and register it to :attr:`backplanes`.
