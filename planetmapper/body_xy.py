@@ -587,7 +587,7 @@ class BodyXY(Body):
         """
         return self._cache.get('disc method', self._default_disc_method)
 
-    # Illumination functions etc. # TODO remove these?
+    # Illumination functions etc.
     def limb_xy(self, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         """
         Pixel coordinate version of :func:`Body.limb_radec`.
@@ -730,7 +730,7 @@ class BodyXY(Body):
             plt.show()
         return ax
 
-    # Coordinate images
+    # Backplane generatotrs
     def _test_if_img_size_valid(self) -> bool:
         return (self._nx > 0) and (self._ny > 0)
 
@@ -808,6 +808,18 @@ class BodyXY(Body):
             the disc have a value of NaN.
         """
         return self._get_lonlat_img()[:, :, 0]
+    
+    def get_lon_map(self, degree_interval:float=1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of TODO
+        """
+        raise NotImplementedError # TODO
 
     def get_lat_img(self) -> np.ndarray:
         """
@@ -816,6 +828,17 @@ class BodyXY(Body):
             the disc have a value of NaN.
         """
         return self._get_lonlat_img()[:, :, 1]
+    def get_lat_map(self, degree_interval:float=1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of TODO
+        """
+        raise NotImplementedError # TODO
 
     @_cache_clearable_result
     def _get_radec_img(self) -> np.ndarray:
@@ -830,6 +853,17 @@ class BodyXY(Body):
             Array containing the right ascension (RA) value of each pixel in the image.
         """
         return self._get_radec_img()[:, :, 0]
+    def get_ra_map(self, degree_interval:float=1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of TODO
+        """
+        raise NotImplementedError # TODO
 
     def get_dec_img(self) -> np.ndarray:
         """
@@ -837,6 +871,17 @@ class BodyXY(Body):
             Array containing the declination (Dec) value of each pixel in the image.
         """
         return self._get_radec_img()[:, :, 1]
+    def get_dec_map(self, degree_interval:float=1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of TODO
+        """
+        raise NotImplementedError # TODO
 
     @_cache_clearable_result
     def _get_illumination_gie_img(self) -> np.ndarray:
@@ -852,6 +897,17 @@ class BodyXY(Body):
             off the disc have a value of NaN.
         """
         return self._get_illumination_gie_img()[:, :, 0]
+    def get_phase_angle_map(self, degree_interval:float=1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of TODO
+        """
+        raise NotImplementedError # TODO
 
     def get_incidence_angle_img(self) -> np.ndarray:
         """
@@ -860,6 +916,17 @@ class BodyXY(Body):
             Points off the disc have a value of NaN.
         """
         return self._get_illumination_gie_img()[:, :, 1]
+    def get_incidence_angle_map(self, degree_interval:float=1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of TODO
+        """
+        raise NotImplementedError # TODO
 
     def get_emission_angle_img(self) -> np.ndarray:
         """
@@ -868,6 +935,17 @@ class BodyXY(Body):
             off the disc have a value of NaN.
         """
         return self._get_illumination_gie_img()[:, :, 2]
+    def get_emission_angle_map(self, degree_interval:float=1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of TODO
+        """
+        raise NotImplementedError # TODO
 
     @_cache_clearable_result
     def _get_state_imgs(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -890,6 +968,17 @@ class BodyXY(Body):
         """
         position_img, velocity_img, lt_img = self._get_state_imgs()
         return lt_img * self.speed_of_light()
+    def get_distance_map(self, degree_interval:float=1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of TODO
+        """
+        raise NotImplementedError # TODO
 
     @_cache_clearable_result
     def get_radial_velocity_img(self) -> np.ndarray:
@@ -906,6 +995,17 @@ class BodyXY(Body):
                 position_img[y, x], velocity_img[y, x]
             )
         return out
+    def get_radial_velocity_map(self, degree_interval:float=1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of TODO
+        """
+        raise NotImplementedError # TODO
 
     def get_doppler_img(self) -> np.ndarray:
         """
@@ -915,6 +1015,17 @@ class BodyXY(Body):
             :func:`get_radial_velocity_img`. Points off the disc have a value of NaN.
         """
         return self.calculate_doppler_factor(self.get_radial_velocity_img())
+    def get_doppler_map(self, degree_interval:float=1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of TODO
+        """
+        raise NotImplementedError # TODO
 
     # Backplane management
     @staticmethod
@@ -975,7 +1086,6 @@ class BodyXY(Body):
             print(f'{bp.name}: {bp.description}')
 
     def _register_default_backplanes(self) -> None:
-        # TODO double check units and expand descriptions
         self.register_backplane(
             'LON',
             'Planetographic longitude [deg]',
@@ -992,7 +1102,7 @@ class BodyXY(Body):
             'RA',
             'Right ascension [deg]',
             self.get_ra_img,
-            self.ger_ra_map,
+            self.get_ra_map,
         )
         self.register_backplane(
             'DEC',
@@ -1060,6 +1170,10 @@ class BodyXY(Body):
         """
         return self.backplanes[self.standardise_backplane_name(name)].get_img().copy()
 
+    def get_backplane_map(self) -> np.ndarray:
+        raise NotImplementedError # TODO
+
+
     def plot_backplane_img(
         self, name: str, ax: Axes | None = None, show: bool = True, **kwargs
     ) -> Axes:
@@ -1090,3 +1204,6 @@ class BodyXY(Body):
         if show:
             plt.show()
         return ax
+
+    def plot_backplane_map(self) -> Axes:
+        raise NotImplementedError #TODO
