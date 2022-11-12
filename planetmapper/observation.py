@@ -184,14 +184,14 @@ class Observation(BodyXY):
         self.set_r0(0.9 * (min(self.get_x0(), self.get_y0())))
         self.set_disc_method('centre_disc')
 
-    def _get_wcs_from_header(self, supress_warnings: bool = True) -> astropy.wcs.WCS:
+    def _get_wcs_from_header(self, supress_warnings: bool = False) -> astropy.wcs.WCS:
         with warnings.catch_warnings():
             if supress_warnings:
                 warnings.simplefilter('ignore', category=AstropyWarning)
             return astropy.wcs.WCS(self.header).celestial
 
     def disc_from_wcs(
-        self, supress_warnings: bool = True, validate: bool = True
+        self, supress_warnings: bool = False, validate: bool = True
     ) -> None:
         """
         Set disc parameters using WCS information in the observation's FITS header.
@@ -199,11 +199,12 @@ class Observation(BodyXY):
         Args:
             supress_warnings: Hide warnings produced by astropy when calculating WCS
                 conversions.
-            validate: Check the coordinate conversion is consistent with the conversion
-                derived from the WCS data.
+            validate: Run checks to ensure the derived coordinate conversion is
+                consistent with the WCS conversion. This checks that the conversions are
+                consistent (to within 0.1") and that the input WCS data has appropriate
+                units.
         """
-        # TODO should we hide warnings by default?
-        wcs = self._get_wcs_from_header()
+        wcs = self._get_wcs_from_header(supress_warnings=supress_warnings)
 
         if wcs.naxis == 0:
             raise ValueError('No WCS information found in FITS header')
@@ -244,8 +245,9 @@ class Observation(BodyXY):
             for x, y in coords:
                 ra_wcs, dec_wcs = wcs.pixel_to_world_values(x, y)
                 ra, dec = self.xy2radec(x, y)
-                assert math.isclose(ra_wcs % 360, ra % 360, abs_tol=1e-4)
-                assert math.isclose(dec_wcs, dec, abs_tol=1e-4)
+                # Do check with -180 and %360 so that e.g. 359.99999 becomes -0.00001
+                assert (ra_wcs - ra - 180) % 360 - 180 < 0.1 / 3600
+                assert (dec_wcs - dec - 180) % 360 - 180 < 0.1 / 3600
 
     def _get_img_for_fitting(self) -> np.ndarray:
         img = np.nansum(self.data, axis=0)
@@ -268,7 +270,7 @@ class Observation(BodyXY):
 
         self.set_x0(x0)
         self.set_y0(y0)
-        self.set_disc_method('fit')
+        self.set_disc_method('fit_position')
 
     def fit_disc_radius(self) -> None:
         """
@@ -302,6 +304,7 @@ class Observation(BodyXY):
         dv_list = np.diff(val_list)
         r0 = r_list[dv_list.argmin()]
         self.set_r0(r0)
+        self.set_disc_method('fit_r0')
 
     # Output
     def append_to_header(

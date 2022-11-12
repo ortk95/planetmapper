@@ -69,7 +69,7 @@ class TestObservation(unittest.TestCase):
 
     def test_backplanes(self):
         backplanes_expected = {
-            'lon': array(
+            'lon-GRAPHIC': array(
                 [
                     [nan, nan, nan, nan],
                     [nan, nan, nan, nan],
@@ -79,7 +79,7 @@ class TestObservation(unittest.TestCase):
                     [125.37706528, 100.08373223, 83.41310382, 69.82429704],
                 ]
             ),
-            'lat': array(
+            'lat-GRAPHIC': array(
                 [
                     [nan, nan, nan, nan],
                     [nan, nan, nan, nan],
@@ -149,7 +149,7 @@ class TestObservation(unittest.TestCase):
                     [1.32937674e09, 1.32936387e09, 1.32935966e09, 1.32936259e09],
                 ]
             ),
-            'radial_velocity': array(
+            'radial-velocity': array(
                 [
                     [nan, nan, nan, nan],
                     [nan, nan, nan, nan],

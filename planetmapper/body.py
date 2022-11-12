@@ -1,5 +1,5 @@
 import datetime
-from typing import Callable, cast
+from typing import Callable, cast, Literal
 
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
@@ -11,6 +11,7 @@ from spiceypy.utils.exceptions import NotFoundError
 
 from .base import SpiceBase
 from . import data_loader
+from . import utils
 
 
 class Body(SpiceBase):
@@ -72,6 +73,21 @@ class Body(SpiceBase):
         """Polar radius of the target body in km."""
         self.flattening: float
         """Flattening of target body, calculated as `(r_eq - r_polar) / r_eq`."""
+        self.prograde: bool
+        """Boolean indicating if the target's spin sense is prograde or retrograde."""
+        self.positive_longitude_direction: Literal['E', 'W']
+        """
+        Positive direction of planetographic longitudes. `'W'` implies positive west
+        planetographic longitudes and `'E'` implies positive east longitudes. 
+        
+        This is determined from the target's spin sense (i.e. from :attr:`prograde`), 
+        with positive west longitudes for prograde rotation and positive east for 
+        retrograde. The earth, moon and sun are exceptions to this and are defined to 
+        have positive east longitudes
+        
+        For more details, see
+        https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/pgrrec_c.html#Particulars
+        """
         self.target_light_time: float
         """Light time from the target to the observer at the time of the observation."""
         self.target_distance: float
@@ -165,6 +181,19 @@ class Body(SpiceBase):
         self.r_eq = self.radii[0]
         self.r_polar = self.radii[2]
         self.flattening = (self.r_eq - self.r_polar) / self.r_eq
+
+        # Use first degree term of prime meridian Euler angle to identify the spin sense
+        # of the target body, then use this spin sense to determine positive longitude
+        # direction (taking into account special cases)
+        # https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/pgrrec_c.html#Particulars
+        pm = spice.bodvar(self.target_body_id, 'PM', 3)
+        self.prograde = pm[1] >= 0
+        if self.prograde and self.target_body_id not in {10, 301, 399}:
+            # {10, 301, 399} accounts for special cases of SUN, MOON and EARTH which are
+            # positive east even though they are prograde.
+            self.positive_longitude_direction = 'W'
+        else:
+            self.positive_longitude_direction = 'E'
 
         starg, lt = spice.spkezr(
             self._target_encoded,  # type: ignore
@@ -811,8 +840,8 @@ class Body(SpiceBase):
     def _radial_velocity_from_state(
         self, position: np.ndarray, velocity: np.ndarray, _lt: float | None = None
     ) -> float:
-        # TODO note how lt argument is meaningless but there for convenience when
-        # chaining with _state_from_targvec
+        # lt argument is meaningless but there for convenience when chaining with 
+        # _state_from_targvec
         # dot the velocity with the normalised position vector to get radial component
         return velocity.dot(self.unit_vector(position))
 
@@ -895,6 +924,43 @@ class Body(SpiceBase):
                 *self._obsvec2radec_radians(obsvec)
             )
         return ra_arr, dec_arr
+
+    # Planetographic <-> planetocentric
+    def graphic2centric_lonlat(self, lon: float, lat: float) -> tuple[float, float]:
+        """
+        Convert planetographic longitude/latitude to planetocentric.
+
+        Args:
+            lon: Planetographic longitude.
+            lat: Planetographic latitude.
+
+        Returns:
+            `(lon_centric, lat_centric)` tuple of planetocentric coordinates.
+        """
+        radius, lon_centric, lat_centric = spice.reclat(self.lonlat2targvec(lon, lat))
+        return self._radian_pair2degrees(lon_centric, lat_centric)
+
+    def centric2graphic_lonlat(
+        self, lon_centric: float, lat_centric: float
+    ) -> tuple[float, float]:
+        """
+        Convert planetocentric longitude/latitude to planetographicg.
+
+        Args:
+            lon_centric: Planetocentric longitude.
+            lat_centric: Planetographic latitude.
+
+        Returns:
+            `(lon, lat)` tuple of plenetographic coordinates.
+        """
+        targvec = spice.latsrf(
+            self._surface_method_encoded,  # type: ignore
+            self._target_encoded,  # type: ignore
+            self.et,
+            self._target_frame_encoded,  # type: ignore
+            [[np.deg2rad(lon_centric), np.deg2rad(lat_centric)]],
+        )
+        return self.targvec2lonlat(targvec[0])
 
     # Description
     def get_description(self, multiline: bool = True) -> str:
@@ -1036,7 +1102,9 @@ class Body(SpiceBase):
         ax.set_title(self.get_description(multiline=True))
         return ax
 
-    def plot_wireframe_radec(self, ax: Axes | None = None, show: bool = True) -> Axes:
+    def plot_wireframe_radec(
+        self, ax: Axes | None = None, show: bool = True, dms_ticks: bool = True
+    ) -> Axes:
         """
         Plot basic wireframe representation of the observation using RA/Dec sky
         coordinates.
@@ -1044,17 +1112,25 @@ class Body(SpiceBase):
         Args:
             ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
                 a new figure and axis is created.
-            show: Toggle showing the plotted figure with `plt.show()`
+            show: Toggle showing the plotted figure with `plt.show()`.
+            dms_ticks: Toggle between showing ticks as degrees, minutes and seconds
+                (e.g. 12°34′56″) or decimal degrees (e.g. 12.582).
 
         Returns:
             The axis containing the plotted wireframe.
         """
         ax = self._plot_wireframe(transform=None, ax=ax)
 
-        ax.set_xlabel('RA (degrees)')
-        ax.set_ylabel('Dec (degrees)')
+        ax.set_xlabel('Right Ascension')
+        ax.set_ylabel('Declination')
         ax.set_aspect(1 / np.cos(self._target_dec_radians), adjustable='datalim')
         ax.invert_xaxis()
+
+        if dms_ticks:
+            ax.yaxis.set_major_locator(utils.DMSLocator())
+            ax.yaxis.set_major_formatter(utils.DMSFormatter())
+            ax.xaxis.set_major_locator(utils.DMSLocator())
+            ax.xaxis.set_major_formatter(utils.DMSFormatter())
 
         if show:
             plt.show()

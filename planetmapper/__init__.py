@@ -23,7 +23,8 @@ https://en.wikipedia.org/wiki/Equatorial_coordinate_system for more.
 
 `lonlat` planetographic on target body. These are the planetographic longitude and
 latitude coordinates of a point on the surface of the target body. These coordinates are 
-expressed in degrees. See https://en.wikipedia.org/wiki/Planetary_coordinate_system for 
+expressed in degrees. See https://en.wikipedia.org/wiki/Planetary_coordinate_system and 
+https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/recpgr_c.html#Particulars for
 more.
 
 =============================================   =====
@@ -37,14 +38,12 @@ Speeds                                          km/s
 Dates (timezone)                                UTC   
 =============================================   =====
 
-.. [#arcsec] 1 arcsecond = 1/3600 degree
+.. [#arcsec] 3600 arcseconds = 1 degree
 
 .. note::
-    By default, all angles should be degrees unless using a function explicitly 
-    named with `_radians`, or using angular diameters, which are explicitly described as
-    involving `arcsec` in the documented function arguments/return values. Note that 
-    angles in SPICE are radians, so care should be taken converting to/from SPICE
-    values.
+    By default, all angles should be degrees unless using a function/value explicitly 
+    named with `_arcsec` or `_radians`. Note that angles in SPICE are radians, so extra
+    care should be taken converting to/from SPICE values.
 
 These additional coordinate systems are mainly used for internal calculations and to
 interface with SPICE:

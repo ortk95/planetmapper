@@ -1,7 +1,7 @@
 import datetime
 import math
-from functools import wraps
-from typing import Any, Callable, Iterable, NamedTuple, ParamSpec, TypeVar
+from functools import wraps, lru_cache, partial
+from typing import Any, Callable, Iterable, NamedTuple, ParamSpec, TypeVar, Protocol
 
 import matplotlib.patches
 import matplotlib.pyplot as plt
@@ -9,20 +9,28 @@ import matplotlib.transforms
 import numpy as np
 from matplotlib.axes import Axes
 from spiceypy.utils.exceptions import NotFoundError
+import spiceypy as spice
 
 from .body import Body
 
 T = TypeVar('T')
 S = TypeVar('S')
 
+_cache_stable_result = lru_cache(maxsize=128)
 
-def _cache_result(fn: Callable[[S], T]) -> Callable[[S], T]:
+
+def _cache_clearable_result(fn: Callable[[S], T]) -> Callable[[S], T]:
     """
     Decorator to cache the output of a method call.
 
     This requires that the class has a `self._cache` dict which can be used to store
     the cached result. The dictionary key is derived from the name of the decorated
     function.
+
+    The results cached by this decorator can be cleared using `self._cache.clear()`, so
+    this is useful for results which need to be invalidated (i.e. backplane images
+    which are invalidated the moment the disc params are changed). If the result is
+    stable (i.e. backplane maps) then use `_cache_stable_result` instead.
     """
 
     @wraps(fn)
@@ -33,6 +41,11 @@ def _cache_result(fn: Callable[[S], T]) -> Callable[[S], T]:
         return self._cache[k]
 
     return decorated
+
+
+class _BackplaneMapGetter(Protocol):
+    def __call__(self, degree_interval: float = 1) -> np.ndarray:
+        ...
 
 
 class Backplane(NamedTuple):
@@ -54,12 +67,18 @@ class Backplane(NamedTuple):
         get_img: Function which takes no arguments returns a numpy array containing a
             backplane image when called. This should generally be a method such as
             :func:`BodyXY.get_lon_img`.
+        get_map: Function returns a numpy array containing a cylindrical map of
+            backplane values when called. This should take a single `float` argument,
+            `degree_interval` which defines the interval in degrees between the
+            longitude/latitude points in the mapped output. `degree_interval` should be
+            optional with a default value of 1. This function should generally be a
+            method such as :func:`BodyXY.get_lon_map`.
     """
 
-    # TODO should get_img have self argument?
     name: str
     description: str
     get_img: Callable[[], np.ndarray]
+    get_map: _BackplaneMapGetter
 
 
 class BodyXY(Body):
@@ -91,19 +110,19 @@ class BodyXY(Body):
         body.set_disc_params(x0=250, y0=250, r0=200)
         # At this point, the cache is completely empty
 
-        # The intermediate results used in generating the longitude backplane are
-        # cached, speeding up any future calculations which use these intermediate
-        # results:
-        body.get_backplane_img('LON') # Takes ~10s to execute
-        body.get_backplane_img('LON') # Executes instantly
-        body.get_backplane_img('LAT') # Executes instantly
+        # The intermediate results used in generating the incidence angle backplane
+        # are cached, speeding up any future calculations which use these
+        # intermediate results:
+        body.get_backplane_img('INCIDENCE') # Takes ~10s to execute
+        body.get_backplane_img('INCIDENCE') # Executes instantly
+        body.get_backplane_img('EMISSION') # Executes instantly
 
         # When any of the disc parameters are changed, the xy <-> radec conversion
         # changes so the cache is automatically cleared (as the cached intermediate
         # results are no longer valid):
         body.set_r0(190) # This automatically clears the cache
-        body.get_backplane_img('LAT') # Takes ~10s to execute
-        body.get_backplane_img('LON') # Executes instantly
+        body.get_backplane_img('EMISSION') # Takes ~10s to execute
+        body.get_backplane_img('INCIDENCE') # Executes instantly
 
     The size of the image can be specified by using the `nx` and `ny` parameters to
     specify the number of pixels in the x and y dimensions of the image respectively.
@@ -152,17 +171,24 @@ class BodyXY(Body):
         properties (e.g. longitude/latitutde, illumination angles etc.) for each pixel 
         in the image.
 
-        Generated backplane images can be easily retrieved using 
-        :func:`get_backplane_img` and plotted using :func:`plot_backplane`. Several
-        backplanes are included by default, and can be summarised using 
+        By default, this dictionary contains a series of 
+        :ref:`default backplanes <default backplanes>`. These can be summarised using 
         :func:`print_backplanes`. Custom backplanes can be added using 
         :func:`register_backplane`.
 
+        Generated backplane images can be easily retrieved using 
+        :func:`get_backplane_img` and plotted using :func:`plot_backplane_img`. 
+        Similarly, backplane maps cen be retrieved using :func:`get_backplane_map` and
+        plotted using :func:`plot_backplane_map`. 
+        
         This dictionary of backplanes can also be used directly if more customisation is
         needed: ::
 
-            # Retrieve the image containing longitdude values
-            lon_image = body.backplanes['LON'].get_img()
+            # Retrieve the image containing right ascension values
+            ra_image = body.backplanes['RA'].get_img()
+
+            # Retrieve the map containing emission angles on the target's surface
+            emission_map = body.backplanes['EMISSION'].get_img()
 
             # Print the description of the doppler factor backplane
             print(body.backplanes['DOPPLER'].description)
@@ -224,7 +250,7 @@ class BodyXY(Body):
         self._cache.clear()
 
     # Coordinate transformations
-    @_cache_result
+    @_cache_clearable_result
     def _get_xy2radec_matrix_radians(self) -> np.ndarray:
         r_km = self.r_eq
         r_radians = np.arcsin(r_km / self.target_distance)
@@ -246,7 +272,7 @@ class BodyXY(Body):
 
         return transform_matrix_3x3
 
-    @_cache_result
+    @_cache_clearable_result
     def _get_radec2xy_matrix_radians(self) -> np.ndarray:
         return np.linalg.inv(self._get_xy2radec_matrix_radians())
 
@@ -399,7 +425,7 @@ class BodyXY(Body):
         """
         Args:
             x0: New x pixel coordinate of the centre of the target body.
-        
+
         Raises:
             ValueEror: if `x0` is not finite.
         """
@@ -419,7 +445,7 @@ class BodyXY(Body):
         """
         Args:
             y0: New y pixel coordinate of the centre of the target body.
-        
+
         Raises:
             ValueEror: if `y0` is not finite.
         """
@@ -439,11 +465,10 @@ class BodyXY(Body):
         """
         Args:
             r0: New equatorial radius in pixels of the target body.
-        
+
         Raises:
             ValueError: if `r0` is not greater than zero or `r0` is not finite.
         """
-        # TODO add some validation here?
         if not math.isfinite(r0):
             raise ValueError('r0 must be finite')
         if not r0 > 0:
@@ -575,7 +600,7 @@ class BodyXY(Body):
         """
         return self._cache.get('disc method', self._default_disc_method)
 
-    # Illumination functions etc. # TODO remove these?
+    # Illumination functions etc.
     def limb_xy(self, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         """
         Pixel coordinate version of :func:`Body.limb_radec`.
@@ -718,192 +743,6 @@ class BodyXY(Body):
             plt.show()
         return ax
 
-    # Coordinate images
-    def _test_if_img_size_valid(self) -> bool:
-        return (self._nx > 0) and (self._ny > 0)
-
-    def _make_empty_img(self, nz: int | None = None) -> np.ndarray:
-        if not self._test_if_img_size_valid():
-            raise ValueError('nx and ny must be positive to create a backplane image')
-        if nz is None:
-            shape = (self._ny, self._nx)
-        else:
-            shape = (self._ny, self._nx, nz)
-        return np.full(shape, np.nan)
-
-    def _get_max_pixel_radius(self) -> float:
-        # r0 corresponds to r_eq, but for the radius here we want to make sure we have
-        # the largest radius
-        r = self.get_r0() * max(self.radii) / self.r_eq
-        return r
-
-    @_cache_result
-    def _get_targvec_img(self) -> np.ndarray:
-        out = self._make_empty_img(3)
-
-        # Precalculate short circuit stuff here for speed
-        r_cutoff = self._get_max_pixel_radius() * 1.05 + 1
-        r2 = r_cutoff**2  # square here to save having to run sqrt every loop
-        x0 = self.get_x0()
-        y0 = self.get_y0()
-
-        for y, x in self._iterate_yx():
-            if (
-                self._optimize_speed
-                and ((x - x0) * (x - x0) + (y - y0) * (y - y0)) > r2
-            ):
-                # The spice calculations in _xy2targvec are slow, so to optimize speed
-                # we can skip the spice calculation step completely for pixels which we
-                # know aren't on the disc, by calculating if the distance from the
-                # centre of the disc (x0,y0) is greater than the radius (+ a buffer).
-                # The distance calculation uses manual multiplication rather than using
-                # power (e.g. (x - x0)**2) to square the x and y distances as this is
-                # faster.
-                continue
-
-            try:
-                targvec = self._xy2targvec(x, y)
-                out[y, x] = targvec
-            except NotFoundError:
-                continue  # leave values as nan if pixel is not on the disc
-        return out
-
-    def _iterate_yx(self) -> Iterable[tuple[int, int]]:
-        for y in range(self._ny):
-            for x in range(self._nx):
-                yield y, x
-
-    def _enumerate_targvec_img(self) -> Iterable[tuple[int, int, np.ndarray]]:
-        targvec_img = self._get_targvec_img()
-        for y, x in self._iterate_yx():
-            targvec = targvec_img[y, x]
-            if math.isnan(targvec[0]):
-                # only check if first element nan for efficiency
-                continue
-            yield y, x, targvec
-
-    @_cache_result
-    def _get_lonlat_img(self) -> np.ndarray:
-        out = self._make_empty_img(2)
-        for y, x, targvec in self._enumerate_targvec_img():
-            out[y, x] = self._targvec2lonlat_radians(targvec)
-        return np.rad2deg(out)
-
-    def get_lon_img(self) -> np.ndarray:
-        """
-        Returns:
-            Array containing the longitude value of each pixel in the image. Points off
-            the disc have a value of NaN.
-        """
-        return self._get_lonlat_img()[:, :, 0]
-
-    def get_lat_img(self) -> np.ndarray:
-        """
-        Returns:
-            Array containing the latiutude value of each pixel in the image. Points off
-            the disc have a value of NaN.
-        """
-        return self._get_lonlat_img()[:, :, 1]
-
-    @_cache_result
-    def _get_radec_img(self) -> np.ndarray:
-        out = self._make_empty_img(2)
-        for y, x in self._iterate_yx():
-            out[y, x] = self._xy2radec_radians(x, y)
-        return np.rad2deg(out)
-
-    def get_ra_img(self) -> np.ndarray:
-        """
-        Returns:
-            Array containing the right ascension (RA) value of each pixel in the image.
-        """
-        return self._get_radec_img()[:, :, 0]
-
-    def get_dec_img(self) -> np.ndarray:
-        """
-        Returns:
-            Array containing the declination (Dec) value of each pixel in the image.
-        """
-        return self._get_radec_img()[:, :, 1]
-
-    @_cache_result
-    def _get_illumination_gie_img(self) -> np.ndarray:
-        out = self._make_empty_img(3)
-        for y, x, targvec in self._enumerate_targvec_img():
-            out[y, x] = self._illumination_angles_from_targvec_radians(targvec)
-        return np.rad2deg(out)
-
-    def get_phase_angle_img(self) -> np.ndarray:
-        """
-        Returns:
-            Array containing the phase angle value of each pixel in the image. Points
-            off the disc have a value of NaN.
-        """
-        return self._get_illumination_gie_img()[:, :, 0]
-
-    def get_incidence_angle_img(self) -> np.ndarray:
-        """
-        Returns:
-            Array containing the incidence angle value of each pixel in the image.
-            Points off the disc have a value of NaN.
-        """
-        return self._get_illumination_gie_img()[:, :, 1]
-
-    def get_emission_angle_img(self) -> np.ndarray:
-        """
-        Returns:
-            Array containing the emission angle value of each pixel in the image. Points
-            off the disc have a value of NaN.
-        """
-        return self._get_illumination_gie_img()[:, :, 2]
-
-    @_cache_result
-    def _get_state_imgs(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        position_img = self._make_empty_img(3)
-        velocity_img = self._make_empty_img(3)
-        lt_img = self._make_empty_img()
-        for y, x, targvec in self._enumerate_targvec_img():
-            (
-                position_img[y, x],
-                velocity_img[y, x],
-                lt_img[y, x],
-            ) = self._state_from_targvec(targvec)
-        return position_img, velocity_img, lt_img
-
-    def get_distance_img(self) -> np.ndarray:
-        """
-        Returns:
-            Array containing the observer-target distance in km of each pixel in the
-            image. Points off the disc have a value of NaN.
-        """
-        position_img, velocity_img, lt_img = self._get_state_imgs()
-        return lt_img * self.speed_of_light()
-
-    @_cache_result
-    def get_radial_velocity_img(self) -> np.ndarray:
-        """
-        Returns:
-            Array containing the observer-target radial velocity in km/s of each pixel
-            in the image. Velocities towards the observer are negative. Points off the
-            disc have a value of NaN.
-        """
-        out = self._make_empty_img()
-        position_img, velocity_img, lt_img = self._get_state_imgs()
-        for y, x, targvec in self._enumerate_targvec_img():
-            out[y, x] = self._radial_velocity_from_state(
-                position_img[y, x], velocity_img[y, x]
-            )
-        return out
-
-    def get_doppler_img(self) -> np.ndarray:
-        """
-        Returns:
-            Array containing the doppler factor for each pixel in the image, calculated
-            using :func:`SpiceBase.calculate_doppler_factor` on velocities from
-            :func:`get_radial_velocity_img`. Points off the disc have a value of NaN.
-        """
-        return self.calculate_doppler_factor(self.get_radial_velocity_img())
-
     # Backplane management
     @staticmethod
     def standardise_backplane_name(name: str) -> str:
@@ -926,15 +765,23 @@ class BodyXY(Body):
         return name.strip().upper()
 
     def register_backplane(
-        self, fn: Callable[[], np.ndarray], name: str, description: str
+        self,
+        name: str,
+        description: str,
+        get_img: Callable[[], np.ndarray],
+        get_map: _BackplaneMapGetter,
     ) -> None:
         """
         Create a new :class:`Backplane` and register it to :attr:`backplanes`.
 
+        See :class:`Backplane` for more detail about parameters.
+
         Args:
-            fn: Function to generate backplane.
-            name: Name of backplane.
+            name: Name of backplane. This is standardised using
+                :func:`standardise_backplane_name` before being registered.
             description: Longer description of backplane, including units.
+            get_img: Function to generate backplane image.
+            get_map: Function to generate bakplane map.
 
         Raises:
             ValueError: if provided backplane name is already registered.
@@ -944,46 +791,23 @@ class BodyXY(Body):
         if name in self.backplanes:
             raise ValueError(f'Backplane named {name!r} is already registered')
         self.backplanes[name] = Backplane(
-            name=name, description=description, get_img=fn
+            name=name, description=description, get_img=get_img, get_map=get_map
+        )
+
+    def backplane_summary_string(self) -> str:
+        """
+        Returns:
+            String summaring currently registered :attr:`backplanes`.
+        """
+        return '\n'.join(
+            f'{bp.name}: {bp.description}' for bp in self.backplanes.values()
         )
 
     def print_backplanes(self) -> None:
         """
-        Prints a basic summary of currently registered :attr:`backplanes`.
+        Prints output of :func:`backplane_summary_string`.
         """
-        for bp in self.backplanes.values():
-            print(f'{bp.name}: {bp.description}')
-
-    def _register_default_backplanes(self) -> None:
-        # TODO double check units and expand descriptions
-        self.register_backplane(
-            self.get_lon_img, 'LON', 'Planetographic longitude [deg]'
-        )
-        self.register_backplane(
-            self.get_lat_img, 'LAT', 'Planetographic latitude [deg]'
-        )
-        self.register_backplane(self.get_ra_img, 'RA', 'Right ascension [deg]')
-        self.register_backplane(self.get_dec_img, 'DEC', 'Declination [deg]')
-        self.register_backplane(self.get_phase_angle_img, 'phase', 'Phase angle [deg]')
-        self.register_backplane(
-            self.get_incidence_angle_img, 'INCIDENCE', 'Incidence angle [deg]'
-        )
-        self.register_backplane(
-            self.get_emission_angle_img, 'EMISSION', 'Emission angle [dec]'
-        )
-        self.register_backplane(
-            self.get_distance_img, 'DISTANCE', 'Distance to observer [km]'
-        )
-        self.register_backplane(
-            self.get_radial_velocity_img,
-            'RADIAL_VELOCITY',
-            'Radial velocity away from observer [km/s]',
-        )
-        self.register_backplane(
-            self.get_doppler_img,
-            'DOPPLER',
-            'Doppler factor, sqrt((1 + v/c)/(1 - v/c)) where v is radial velocity',
-        )
+        print(self.backplane_summary_string())
 
     def get_backplane_img(self, name: str) -> np.ndarray:
         """
@@ -992,11 +816,13 @@ class BodyXY(Body):
         Note that a generated backplane image will depend on the disc parameters
         `(x0, y0, r0, rotation)` at the time this function is called. Generating the
         same backplane when there are different disc parameter values will produce a
-        different image.
+        different image. This method creates a copy of the generated image, so the
+        returned image can be safely modified without affecting the cached value (unlike
+        the return values from functions such as :func:`get_lon_img`).
 
         This method is equivilent to ::
 
-            body.backplanes[body.standardise_backplane_name(name)].get_img()
+            body.backplanes[body.standardise_backplane_name(name)].get_img().copy()
 
         Args:
             name: Name of the desired backplane. This is standardised with
@@ -1006,13 +832,42 @@ class BodyXY(Body):
         Returns:
             Array containing the backplane's values for each pixel in the image.
         """
-        return self.backplanes[self.standardise_backplane_name(name)].get_img()
+        return self.backplanes[self.standardise_backplane_name(name)].get_img().copy()
 
-    def plot_backplane(
+    def get_backplane_map(self, name: str, degree_interval: float = 1) -> np.ndarray:
+        """
+        Generate map of backplane values.
+
+        This method creates a copy of the generated image, so the returned map can be
+        safely modified without affecting the cached value (unlike the return values
+        from functions such as :func:`get_lon_map`).
+
+        This method is equivilent to ::
+
+            body.backplanes[self.standardise_backplane_name(degree_interval)].get_map().copy()
+
+        Args:
+            name: Name of the desired backplane. This is standardised with
+                :func:`standardise_backplane_name` and used to choose a registered
+                backplane from :attr:`backplanes`.
+            degree_interval: Interval in degrees between the longitude/latitude points
+                in the mapped output.
+
+        Returns:
+            Array containing map of the backplane's values over the surface of the
+            target body.
+        """
+        return (
+            self.backplanes[self.standardise_backplane_name(name)]
+            .get_map(degree_interval)
+            .copy()
+        )
+
+    def plot_backplane_img(
         self, name: str, ax: Axes | None = None, show: bool = True, **kwargs
     ) -> Axes:
         """
-        Plot a backplane image.
+        Plot a backplane image with the wireframe outline of the target.
 
         Note that a generated backplane image will depend on the disc parameters
         `(x0, y0, r0, rotation)` at the time this function is called. Generating the
@@ -1025,7 +880,7 @@ class BodyXY(Body):
             show: Passed to :func:`plot_wireframe_xy`.
             **kwargs: Passed to Matplotlib's `imshow` when plotting the backplane image.
                 For example, can be used to set the colormap of the plot using
-                `body.plot_backplane(..., cmap='Greys')`.
+                `body.plot_backplane_img(..., cmap='Greys')`.
 
         Returns:
             The axis containing the plotted data.
@@ -1038,3 +893,665 @@ class BodyXY(Body):
         if show:
             plt.show()
         return ax
+
+    def plot_backplane_map(
+        self,
+        name: str,
+        ax: Axes | None = None,
+        show: bool = True,
+        degree_interval: float = 1,
+        **kwargs,
+    ) -> Axes:
+        """
+        Plot a map of backplane values on the target body.
+
+        Args:
+            name: Name of the desired backplane.
+            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
+                a new figure and axis is created.
+            show: Toggle showing the plotted figure with `plt.show()`
+            degree_interval: Interval in degrees between the longitude/latitude points
+                in the mapped output.
+            **kwargs: Passed to Matplotlib's `imshow` when plotting the backplane map.
+                For example, can be used to set the colormap of the plot using
+                `body.plot_backplane_map(..., cmap='Greys')`.
+
+        Returns:
+            The axis containing the plotted data.
+        """
+        if ax is None:
+            fig, ax = plt.subplots()
+        name = self.standardise_backplane_name(name)
+        backplane = self.backplanes[name]
+
+        if self.positive_longitude_direction == 'W':
+            extent = [360, 0, -90, 90]
+        else:
+            extent = [0, 360, -90, 90]
+
+        im = ax.imshow(
+            backplane.get_map(degree_interval), origin='lower', extent=extent, **kwargs
+        )
+        plt.colorbar(im, label=backplane.description)
+        ax.set_title(self.get_description(multiline=True))
+        ax.set_aspect(1, adjustable='box')
+        ax.set_xlabel(f'Planetographic longitude ({self.positive_longitude_direction})')
+        ax.set_ylabel('Planetographic latitude')
+
+        step = 45
+        xt = np.arange(0, 360.1, step)
+        ax.set_xticks(xt)
+        ax.set_xticklabels([f'{x:.0f}°' for x in xt])
+
+        yt = np.arange(-90, 90.1, step)
+        ax.set_yticks(yt)
+        ax.set_yticklabels([f'{y:.0f}°' for y in yt])
+
+        if show:
+            plt.show()
+        return ax
+
+    def _register_default_backplanes(self) -> None:
+        self.register_backplane(
+            'LON-GRAPHIC',
+            'Planetographic longitude [deg]',
+            self.get_lon_img,
+            self.get_lon_map,
+        )
+        self.register_backplane(
+            'LAT-GRAPHIC',
+            'Planetographic latitude, positive {ew} [deg]'.format(
+                ew=self.positive_longitude_direction
+            ),
+            self.get_lat_img,
+            self.get_lat_map,
+        )
+        self.register_backplane(
+            'RA',
+            'Right ascension [deg]',
+            self.get_ra_img,
+            self.get_ra_map,
+        )
+        self.register_backplane(
+            'DEC',
+            'Declination [deg]',
+            self.get_dec_img,
+            self.get_dec_map,
+        )
+        self.register_backplane(
+            'PIXEL-X',
+            'Observation x pixel coordinate [pixels]',
+            self.get_x_img,
+            self.get_x_map,
+        )
+        self.register_backplane(
+            'PIXEL-Y',
+            'Observation y pixel coordinate [pixels]',
+            self.get_y_img,
+            self.get_y_map,
+        )
+        self.register_backplane(
+            'PHASE',
+            'Phase angle [deg]',
+            self.get_phase_angle_img,
+            self.get_phase_angle_map,
+        )
+        self.register_backplane(
+            'INCIDENCE',
+            'Incidence angle [deg]',
+            self.get_incidence_angle_img,
+            self.get_incidence_angle_map,
+        )
+        self.register_backplane(
+            'EMISSION',
+            'Emission angle [dec]',
+            self.get_emission_angle_img,
+            self.get_emission_angle_map,
+        )
+        self.register_backplane(
+            'DISTANCE',
+            'Distance to observer [km]',
+            self.get_distance_img,
+            self.get_distance_map,
+        )
+        self.register_backplane(
+            'RADIAL-VELOCITY',
+            'Radial velocity away from observer [km/s]',
+            self.get_radial_velocity_img,
+            self.get_radial_velocity_map,
+        )
+        self.register_backplane(
+            'DOPPLER',
+            'Doppler factor, sqrt((1 + v/c)/(1 - v/c)) where v is radial velocity',
+            self.get_doppler_img,
+            self.get_doppler_map,
+        )
+
+    # Backplane generatotrs
+    def _test_if_img_size_valid(self) -> bool:
+        return (self._nx > 0) and (self._ny > 0)
+
+    def _iterate_image(self, shape: tuple[int, ...]) -> Iterable[tuple[int, int]]:
+        ny = shape[0]
+        nx = shape[1]
+        for y in range(ny):
+            for x in range(nx):
+                yield y, x
+
+    def _make_empty_img(self, nz: int | None = None) -> np.ndarray:
+        if not self._test_if_img_size_valid():
+            raise ValueError('nx and ny must be positive to create a backplane image')
+        if nz is None:
+            shape = (self._ny, self._nx)
+        else:
+            shape = (self._ny, self._nx, nz)
+        return np.full(shape, np.nan)
+
+    def _make_map_lonlat_arrays(
+        self, degree_interval: float
+    ) -> tuple[np.ndarray, np.ndarray]:
+        lons = np.arange(degree_interval / 2, 360, degree_interval)
+        if self.positive_longitude_direction == 'W':
+            lons = lons[::-1]
+        lats = np.arange(-90 + degree_interval / 2, 90, degree_interval)
+        return lons, lats
+
+    def _make_empty_map(
+        self, degree_interval: float, nz: int | None = None
+    ) -> np.ndarray:
+        # making arrays is slightly more costly, but ensures that we don't get any
+        # numerical stability errors from trying to do e.g. 360//degree_interval
+        lons, lats = self._make_map_lonlat_arrays(degree_interval)
+        nlon = len(lons)
+        nlat = len(lats)
+        if nz is None:
+            shape = (nlat, nlon)
+        else:
+            shape = (nlat, nlon, nz)
+        return np.full(shape, np.nan)
+
+    def _get_max_pixel_radius(self) -> float:
+        # r0 corresponds to r_eq, but for the radius here we want to make sure we have
+        # the largest radius
+        r = self.get_r0() * max(self.radii) / self.r_eq
+        return r
+
+    @_cache_clearable_result
+    def _get_targvec_img(self) -> np.ndarray:
+        out = self._make_empty_img(3)
+
+        # Precalculate short circuit stuff here for speed
+        r_cutoff = self._get_max_pixel_radius() * 1.05 + 1
+        r2 = r_cutoff**2  # square here to save having to run sqrt every loop
+        x0 = self.get_x0()
+        y0 = self.get_y0()
+
+        for y, x in self._iterate_image(out.shape):
+            if (
+                self._optimize_speed
+                and ((x - x0) * (x - x0) + (y - y0) * (y - y0)) > r2
+            ):
+                # The spice calculations in _xy2targvec are slow, so to optimize speed
+                # we can skip the spice calculation step completely for pixels which we
+                # know aren't on the disc, by calculating if the distance from the
+                # centre of the disc (x0,y0) is greater than the radius (+ a buffer).
+                # The distance calculation uses manual multiplication rather than using
+                # power (e.g. (x - x0)**2) to square the x and y distances as this is
+                # faster.
+                continue
+
+            try:
+                targvec = self._xy2targvec(x, y)
+                out[y, x] = targvec
+            except NotFoundError:
+                continue  # leave values as nan if pixel is not on the disc
+        return out
+
+    @_cache_stable_result
+    def _get_targvec_map(self, degree_interval: float) -> np.ndarray:
+        out = self._make_empty_map(degree_interval, 3)
+        lons, lats = self._make_map_lonlat_arrays(degree_interval)
+        for a, lat in enumerate(lats):
+            for b, lon in enumerate(lons):
+                out[a, b] = self.lonlat2targvec(lon, lat)
+        return out
+
+    def _enumerate_targvec_img(self) -> Iterable[tuple[int, int, np.ndarray]]:
+        targvec_img = self._get_targvec_img()
+        for y, x in self._iterate_image(targvec_img.shape):
+            targvec = targvec_img[y, x]
+            if math.isnan(targvec[0]):
+                # only check if first element nan for efficiency
+                continue
+            yield y, x, targvec
+
+    def _enumerate_targvec_map(
+        self, degree_interval: float
+    ) -> Iterable[tuple[int, int, np.ndarray]]:
+        targvec_map = self._get_targvec_map(degree_interval)
+        for a, b in self._iterate_image(targvec_map.shape):
+            yield a, b, targvec_map[a, b]
+
+    @_cache_clearable_result
+    def _get_lonlat_img(self) -> np.ndarray:
+        out = self._make_empty_img(2)
+        for y, x, targvec in self._enumerate_targvec_img():
+            out[y, x] = self._targvec2lonlat_radians(targvec)
+        return np.rad2deg(out)
+
+    @_cache_stable_result
+    def _get_lonlat_map(self, degree_interval: float) -> np.ndarray:
+        out = self._make_empty_map(degree_interval, 2)
+        for a, b, targvec in self._enumerate_targvec_map(degree_interval):
+            out[a, b] = self._targvec2lonlat_radians(targvec)
+        return np.rad2deg(out)
+
+    def get_lon_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the longitude value of each pixel in the image. Points off
+            the disc have a value of NaN.
+        """
+        return self._get_lonlat_img()[:, :, 0]
+
+    def get_lon_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of longitude values.
+        """
+        return self._get_lonlat_map(degree_interval)[:, :, 0]
+
+    def get_lat_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the latiutude value of each pixel in the image. Points off
+            the disc have a value of NaN.
+        """
+        return self._get_lonlat_img()[:, :, 1]
+
+    def get_lat_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of latitude values.
+        """
+        return self._get_lonlat_map(degree_interval)[:, :, 1]
+
+    @_cache_clearable_result
+    def _get_radec_img(self) -> np.ndarray:
+        out = self._make_empty_img(2)
+        for y, x in self._iterate_image(out.shape):
+            out[y, x] = self._xy2radec_radians(x, y)
+        return np.rad2deg(out)
+
+    @_cache_stable_result
+    def _get_radec_map(self, degree_interval: float) -> np.ndarray:
+        out = self._make_empty_map(degree_interval, 2)
+        visible = self._get_illumf_map(degree_interval)[:, :, 4]
+        for a, b, targvec in self._enumerate_targvec_map(degree_interval):
+            if visible[a, b]:
+                out[a, b] = self._obsvec2radec_radians(self._targvec2obsvec(targvec))
+        return np.rad2deg(out)
+
+    def get_ra_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the right ascension (RA) value of each pixel in the image.
+        """
+        return self._get_radec_img()[:, :, 0]
+
+    def get_ra_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of right ascension values as viewed by the
+            observer. Locations which are not visible have a value of NaN.
+        """
+        return self._get_radec_map(degree_interval)[:, :, 0]
+
+    def get_dec_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the declination (Dec) value of each pixel in the image.
+        """
+        return self._get_radec_img()[:, :, 1]
+
+    def get_dec_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of declination values as viewed by the
+            observer. Locations which are not visible have a value of NaN.
+        """
+        return self._get_radec_map(degree_interval)[:, :, 1]
+
+    def _get_xy_map(self, degree_interval: float) -> np.ndarray:
+        out = self._make_empty_map(degree_interval, 2)
+        radec_map = self._get_radec_map(degree_interval)
+        for a, b in self._iterate_image(out.shape):
+            ra, dec = radec_map[a, b]
+            if not math.isnan(ra):
+                out[a, b] = self.radec2xy(ra, dec)
+        return out
+
+    def get_x_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the x pixel coordinate value of each pixel in the image.
+        """
+        out = self._make_empty_img()
+        for y, x in self._iterate_image(out.shape):
+            out[y, x] = x
+        return out
+
+    def get_x_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of the x pixel coordinates each location
+            corresponds to in the observation. Locations which are not visible have a
+            value of NaN.
+        """
+        return self._get_xy_map(degree_interval)[:, :, 0]
+
+    def get_y_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the y pixel coordinate value of each pixel in the image.
+        """
+        out = self._make_empty_img()
+        for y, x in self._iterate_image(out.shape):
+            out[y, x] = y
+        return out
+
+    def get_y_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of the y pixel coordinates each location
+            corresponds to in the observation. Locations which are not visible have a
+            value of NaN.
+        """
+        return self._get_xy_map(degree_interval)[:, :, 1]
+
+    @_cache_clearable_result
+    def _get_illumination_gie_img(self) -> np.ndarray:
+        out = self._make_empty_img(3)
+        for y, x, targvec in self._enumerate_targvec_img():
+            out[y, x] = self._illumination_angles_from_targvec_radians(targvec)
+        return np.rad2deg(out)
+
+    @_cache_stable_result
+    def _get_illumf_map(self, degree_interval: float) -> np.ndarray:
+        out = self._make_empty_map(degree_interval, 5)
+        for a, b, targvec in self._enumerate_targvec_map(degree_interval):
+            out[a, b] = self._illumf_from_targvec_radians(targvec)
+        return np.rad2deg(out)
+
+    def get_phase_angle_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the phase angle value of each pixel in the image. Points
+            off the disc have a value of NaN.
+        """
+        return self._get_illumination_gie_img()[:, :, 0]
+
+    def get_phase_angle_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of the phase angle value at each point on
+            the target's surface.
+        """
+        return self._get_illumf_map(degree_interval)[:, :, 0]
+
+    def get_incidence_angle_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the incidence angle value of each pixel in the image.
+            Points off the disc have a value of NaN.
+        """
+        return self._get_illumination_gie_img()[:, :, 1]
+
+    def get_incidence_angle_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of the incidence angle value at each point
+            on the target's surface.
+        """
+        return self._get_illumf_map(degree_interval)[:, :, 1]
+
+    def get_emission_angle_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the emission angle value of each pixel in the image. Points
+            off the disc have a value of NaN.
+        """
+        return self._get_illumination_gie_img()[:, :, 2]
+
+    def get_emission_angle_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of the emission angle value at each point
+            on the target's surface.
+        """
+        return self._get_illumf_map(degree_interval)[:, :, 2]
+
+    @_cache_clearable_result
+    def _get_state_imgs(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        position_img = self._make_empty_img(3)
+        velocity_img = self._make_empty_img(3)
+        lt_img = self._make_empty_img()
+        for y, x, targvec in self._enumerate_targvec_img():
+            (
+                position_img[y, x],
+                velocity_img[y, x],
+                lt_img[y, x],
+            ) = self._state_from_targvec(targvec)
+        return position_img, velocity_img, lt_img
+
+    @_cache_stable_result
+    def _get_state_maps(
+        self, degree_interval: float
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        position_map = self._make_empty_map(degree_interval, 3)
+        velocity_map = self._make_empty_map(degree_interval, 3)
+        lt_map = self._make_empty_map(degree_interval)
+        for a, b, targvec in self._enumerate_targvec_map(degree_interval):
+            (
+                position_map[a, b],
+                velocity_map[a, b],
+                lt_map[a, b],
+            ) = self._state_from_targvec(targvec)
+        return position_map, velocity_map, lt_map
+
+    def get_distance_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the observer-target distance in km of each pixel in the
+            image. Points off the disc have a value of NaN.
+        """
+        position_img, velocity_img, lt_img = self._get_state_imgs()
+        return lt_img * self.speed_of_light()
+
+    def get_distance_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of the observer-target distance in km of
+            each point on the target's surface.
+        """
+        position_map, velocity_map, lt_map = self._get_state_maps(degree_interval)
+        return lt_map * self.speed_of_light()
+
+    @_cache_clearable_result
+    def get_radial_velocity_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the observer-target radial velocity in km/s of each pixel
+            in the image. Velocities towards the observer are negative. Points off the
+            disc have a value of NaN.
+        """
+        out = self._make_empty_img()
+        position_img, velocity_img, lt_img = self._get_state_imgs()
+        for y, x, targvec in self._enumerate_targvec_img():
+            out[y, x] = self._radial_velocity_from_state(
+                position_img[y, x], velocity_img[y, x]
+            )
+        return out
+
+    @_cache_stable_result
+    def get_radial_velocity_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of the observer-traget radial velocity in
+            km/s of each point on the target's surface.
+        """
+        out = self._make_empty_map(degree_interval)
+        position_map, velocity_map, lt_map = self._get_state_maps(degree_interval)
+        for a, b, targvec in self._enumerate_targvec_map(degree_interval):
+            out[a, b] = self._radial_velocity_from_state(
+                position_map[a, b], velocity_map[a, b]
+            )
+        return out
+
+    def get_doppler_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the doppler factor for each pixel in the image, calculated
+            using :func:`SpiceBase.calculate_doppler_factor` on velocities from
+            :func:`get_radial_velocity_img`. Points off the disc have a value of NaN.
+        """
+        return self.calculate_doppler_factor(self.get_radial_velocity_img())
+
+    def get_doppler_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of the doppler factor of each point on the
+            target's surface. This is calculated using
+            :func:`SpiceBase.calculate_doppler_factor` on velocities from
+            :func:`get_radial_velocity_map`.
+        """
+        return self.calculate_doppler_factor(
+            self.get_radial_velocity_map(degree_interval)
+        )
+
+
+def _make_backplane_documentation_str() -> str:
+    class _BodyXY_ForDocumentation(BodyXY):
+        def __init__(self):
+            self.backplanes = {}
+            self.positive_longitude_direction = 'W'
+            self._register_default_backplanes()
+
+    body = _BodyXY_ForDocumentation()
+
+    msg = []
+    msg.append('..')
+    msg.append('   THIS CONTENT IS AUTOMATICALLY GENERATED')
+    msg.append('')
+
+    msg.append('.. _default backplanes:')
+    msg.append('')
+    msg.append('Default backplanes')
+    msg.append('*' * len(msg[-1]))
+    msg.append('')
+
+    msg.append(
+        'This page lists the backplanes which are automatically registered to '
+        'every instance of :class:`planetmapper.BodyXY`.'
+    )
+    msg.append('')
+
+    for bp in body.backplanes.values():
+        # msg.append('`{}`'.format(bp.name))
+        # msg.append('=' * len(msg[-1]))
+        msg.append('------------')
+        msg.append('')
+        msg.append('`{}` {}'.format(bp.name, bp.description))
+        msg.append('')
+        msg.append(
+            '- Image function: :func:`planetmapper.{}`'.format(bp.get_img.__qualname__)
+        )
+        msg.append(
+            '- Map function: :func:`planetmapper.{}`'.format(bp.get_map.__qualname__)
+        )
+        msg.append('')
+    return '\n'.join(msg)
