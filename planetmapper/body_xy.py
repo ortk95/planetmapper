@@ -42,9 +42,11 @@ def _cache_clearable_result(fn: Callable[[S], T]) -> Callable[[S], T]:
 
     return decorated
 
+
 class _BackplaneMapGetter(Protocol):
     def __call__(self, degree_interval: float = 1) -> np.ndarray:
         ...
+
 
 class Backplane(NamedTuple):
     """
@@ -1200,12 +1202,20 @@ class BodyXY(Body):
             name=name, description=description, get_img=get_img, get_map=get_map
         )
 
+    def backplane_summary_string(self) -> str:
+        """
+        Returns:
+            String summaring currently registered :attr:`backplanes`.
+        """
+        return '\n'.join(
+            f'{bp.name}: {bp.description}' for bp in self.backplanes.values()
+        )
+
     def print_backplanes(self) -> None:
         """
-        Prints a basic summary of currently registered :attr:`backplanes`.
+        Prints output of :func:`backplane_summary_string`.
         """
-        for bp in self.backplanes.values():
-            print(f'{bp.name}: {bp.description}')
+        print(self.backplane_summary_string())
 
     def _register_default_backplanes(self) -> None:
         self.register_backplane(
@@ -1216,7 +1226,9 @@ class BodyXY(Body):
         )
         self.register_backplane(
             'LAT',
-            'Planetographic latitude [deg]',
+            'Planetographic latitude, positive {ew} [deg]'.format(
+                ew=self.positive_longitude_direction
+            ),
             self.get_lat_img,
             self.get_lat_map,
         )
