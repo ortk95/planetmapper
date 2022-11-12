@@ -68,10 +68,11 @@ class Backplane(NamedTuple):
             backplane image when called. This should generally be a method such as
             :func:`BodyXY.get_lon_img`.
         get_map: Function returns a numpy array containing a cylindrical map of
-            backplane values when called. This should take a single argument which
-            defines the interval in degrees between the longitude/latitude points in the
-            mapped output. This should generally be a method such as
-            :func:`BodyXY.get_lon_map`.
+            backplane values when called. This should take a single `float` argument,
+            `degree_interval` which defines the interval in degrees between the
+            longitude/latitude points in the mapped output. `degree_interval` should be
+            optional with a default value of 1. This function should generally be a
+            method such as :func:`BodyXY.get_lon_map`.
     """
 
     name: str
@@ -170,12 +171,16 @@ class BodyXY(Body):
         properties (e.g. longitude/latitutde, illumination angles etc.) for each pixel 
         in the image.
 
-        Generated backplane images can be easily retrieved using 
-        :func:`get_backplane_img` and plotted using :func:`plot_backplane`. Several
-        backplanes are included by default, and can be summarised using 
+        By default, this dictionary contains a series of 
+        :ref:`default backplanes <default backplanes>`. These can be summarised using 
         :func:`print_backplanes`. Custom backplanes can be added using 
         :func:`register_backplane`.
 
+        Generated backplane images can be easily retrieved using 
+        :func:`get_backplane_img` and plotted using :func:`plot_backplane_img`. 
+        Similarly, backplane maps cen be retrieved using :func:`get_backplane_map` and
+        plotted using :func:`plot_backplane_map`. 
+        
         This dictionary of backplanes can also be used directly if more customisation is
         needed: ::
 
@@ -1507,3 +1512,46 @@ class BodyXY(Body):
         return self.calculate_doppler_factor(
             self.get_radial_velocity_map(degree_interval)
         )
+
+
+def _make_backplane_documentation_str() -> str:
+    class _BodyXY_ForDocumentation(BodyXY):
+        def __init__(self):
+            self.backplanes = {}
+            self.positive_longitude_direction = 'W'
+            self._register_default_backplanes()
+
+    body = _BodyXY_ForDocumentation()
+
+    msg = []
+    msg.append('..')
+    msg.append('   THIS CONTENT IS AUTOMATICALLY GENERATED')
+    msg.append('')
+
+    msg.append('.. _default backplanes:')
+    msg.append('')
+    msg.append('Default backplanes')
+    msg.append('*' * len(msg[-1]))
+    msg.append('')
+
+    msg.append(
+        'This page lists the backplanes which are automatically registered to '
+        'every instance of :class:`planetmapper.BodyXY`.'
+    )
+    msg.append('')
+
+    for bp in body.backplanes.values():
+        # msg.append('`{}`'.format(bp.name))
+        # msg.append('=' * len(msg[-1]))
+        msg.append('------------')
+        msg.append('')
+        msg.append('`{}` {}'.format(bp.name, bp.description))
+        msg.append('')
+        msg.append(
+            '- Image function: :func:`planetmapper.{}`'.format(bp.get_img.__qualname__)
+        )
+        msg.append(
+            '- Map function: :func:`planetmapper.{}`'.format(bp.get_map.__qualname__)
+        )
+        msg.append('')
+    return '\n'.join(msg)

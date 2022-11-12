@@ -7,6 +7,7 @@ import os
 import sphinx_rtd_theme
 
 sys.path.append(os.path.join(os.path.split(__file__)[0], '..'))
+import planetmapper
 from planetmapper.common import __version__
 
 # -- Project information -----------------------------------------------------
@@ -55,3 +56,10 @@ autodoc_inherit_docstrings = False
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
+
+
+# Dynamically generate backplane documentation
+from planetmapper.body_xy import _make_backplane_documentation_str
+p = os.path.join(os.path.split(__file__)[0], 'default_backplanes.rst')
+with open(p, 'w' ) as f:
+    f.write(_make_backplane_documentation_str())

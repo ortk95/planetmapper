@@ -30,20 +30,5 @@ if False:
     gui.observation.plot_wireframe_radec()
     # gui.run()
 
-
-body = planetmapper.BodyXY('saturn', datetime.datetime.now())
-planetmapper.utils.print_progress()
-# for bp in body.backplanes.values():
-# body.plot_backplane_map(bp.name)
-# img = bp.get_img()
-# img = bp.get_map()
-#
-# print(body.graphic2centric_lonlat(10, 10))
-# print(body.centric2graphic_lonlat(10, 10))
-
-
-# print(body.prograde, body.positive_planetographic_longitude_direction)
-
-body.print_backplanes()
-body.plot_backplane_map('pixel-x')
-body.plot_backplane_map('pixel-y')
+ls = planetmapper.body_xy._make_backplane_documentation_str()
+print(ls)

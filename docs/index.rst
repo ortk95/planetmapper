@@ -9,3 +9,4 @@ Planet Mapper
    utils
    data_loader
    gui
+   default_backplanes
