@@ -10,6 +10,146 @@ import traceback
 import warnings
 from datetime import datetime
 import numpy as np
+import matplotlib.ticker
+
+
+class DMSFormatter(matplotlib.ticker.FuncFormatter):
+    """
+    Matplotlib tick formatter to display angular values as degrees, minutes and seconds
+    e.g. `12°34′56″`. Designed to work with :class:`DMSLocator`. ::
+
+        ax = plt.cga()
+
+        ax.yaxis.set_major_locator(planetmapper.utils.DMSLocator())
+        ax.yaxis.set_major_formatter(planetmapper.utils.DMSFormatter())
+
+        ax.xaxis.set_major_locator(planetmapper.utils.DMSLocator())
+        ax.xaxis.set_major_formatter(planetmapper.utils.DMSFormatter())
+    """
+
+    def __init__(self) -> None:
+        super().__init__(self._format)
+        self.skip_parts = set()
+        self.fmt_s = '02.0f'
+
+    def _format(self, dd, pos):
+        d, m, s = decimal_degrees_to_dms(dd)
+        out = []
+        if 'd' not in self.skip_parts or m == 0 and s == 0:
+            out.append(f'{d}°')
+        if 'm' not in self.skip_parts or s == 0:
+            out.append(f'{m:02.0f}′')
+        if 's' not in self.skip_parts:
+            out.append(f'{s:{self.fmt_s}}″')
+        return ''.join(out)
+
+    def set_locs(self, locs) -> None:
+        """:meta private:"""
+        vmin, vmax = sorted(self.axis.get_view_interval())
+        dms_min = decimal_degrees_to_dms(vmin)
+        dms_max = decimal_degrees_to_dms(vmax)
+        vrange = abs(vmax - vmin)
+
+        self.skip_parts.clear()
+        ofs = ''
+        if dms_min[:2] == dms_max[:2]:
+            d, m, s = dms_min
+            self.skip_parts.add('d')
+            self.skip_parts.add('m')
+            if d != 0 or m != 0:
+                ofs = f'{d:+.0f}°{m:02.0f}′'
+        elif dms_min[0] == dms_max[0]:
+            d, m, s = dms_min
+            self.skip_parts.add('d')
+            if d != 0:
+                ofs = f'{d:+.0f}°'
+
+        if vrange > 10 / 60:
+            self.skip_parts.add('s')
+        if vrange > 10:
+            self.skip_parts.add('m')
+
+        if vrange < 10 / 3600:
+            self.skip_parts.add('m')
+        if vrange < 10 / 60:
+            self.skip_parts.add('d')
+
+        if vrange < 0.01 / 3600:
+            self.fmt_s = '.3g'
+        elif vrange < 0.1 / 3600:
+            self.fmt_s = '.3f'
+        elif vrange < 1 / 3600:
+            self.fmt_s = '.2f'
+        elif vrange < 10 / 3600:
+            self.fmt_s = '.1f'
+        else:
+            self.fmt_s = '02.0f'
+
+        if self.skip_parts == {'d', 'm', 's'}:
+            self.skip_parts = {'d', 'm', 's'}
+        self.set_offset_string(ofs)
+        return super().set_locs(locs)
+
+
+class DMSLocator(matplotlib.ticker.Locator):
+    """
+    Matplotlib tick locator to display angular values as degrees, minutes and seconds.
+    Designed to work with :class:`DMSFormatter`. ::
+
+        ax = plt.cga()
+
+        ax.yaxis.set_major_locator(planetmapper.utils.DMSLocator())
+        ax.yaxis.set_major_formatter(planetmapper.utils.DMSFormatter())
+
+        ax.xaxis.set_major_locator(planetmapper.utils.DMSLocator())
+        ax.xaxis.set_major_formatter(planetmapper.utils.DMSFormatter())
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        steps = [1, 2, 5, 10]
+        self.locator = matplotlib.ticker.MaxNLocator(steps=steps, nbins=8)
+
+    def __call__(self):
+        vmin, vmax = self.axis.get_view_interval()
+        return self.tick_values(vmin, vmax)
+
+    def tick_values(self, vmin: float, vmax: float) -> np.ndarray:
+        """:meta private:"""
+        vrange = abs(vmax - vmin)
+        if vrange < 1 / 60:
+            multiplier = 3600
+        elif vrange < 1:
+            multiplier = 60
+        else:
+            multiplier = 1
+        ticks = self.locator.tick_values(vmin * multiplier, vmax * multiplier)
+        return ticks / multiplier
+
+
+def decimal_degrees_to_dms(decimal_degrees: float) -> tuple[int, int, float]:
+    """
+    Get degrees, minutes, seconds from decimal degrees.
+
+    `decimal_degrees_to_dms(-11.111)` returns `(-11.0, 6.0, 39.6)`.
+
+    Args:
+        decimal_degrees: Decimal degrees.
+
+    Returns:
+        `(degrees, minutes, seconds)` tuple
+    """
+    dd = abs(decimal_degrees)
+    minutes, seconds = divmod(dd * 3600, 60)
+    degrees, minutes = divmod(minutes, 60)
+    if decimal_degrees < 0:
+        if degrees:
+            degrees = -degrees
+        elif minutes:
+            minutes = -minutes
+        else:
+            seconds = -seconds
+    return int(degrees), int(minutes), seconds
 
 
 class filter_fits_comment_warning(warnings.catch_warnings):

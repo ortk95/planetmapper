@@ -9,10 +9,11 @@ import matplotlib.pyplot as plt
 from matplotlib.text import Text
 import matplotlib.patheffects as path_effects
 import astropy.io.fits
+import matplotlib.ticker
 from functools import lru_cache
 
 if False:
-    if False:
+    if True:
         gui = planetmapper.gui.GUI(
             'data/saturn.jpg',
             target='saturn',
@@ -26,15 +27,21 @@ if False:
             target='jupiter',
             utc='2020-08-25 02:30:40',
         )
-
-    gui.run()
-
-
-class C:
-    @lru_cache
-    def f(self, x):
-        print('>', x)
-        return x
+    gui.observation.plot_wireframe_radec()
+    # gui.run()
 
 
-c = C()
+body = planetmapper.Body('saturn', datetime.datetime.now())
+
+import astropy.visualization.wcsaxes.coordinate_helpers
+
+ax = body.plot_wireframe_radec(show=False)
+# ax.xaxis.set_major_formatter(planetmapper.utils.DMSFormatter())
+ax.yaxis.set_major_locator(planetmapper.utils.DMSLocator())
+ax.yaxis.set_major_formatter(planetmapper.utils.DMSFormatter())
+
+
+ax.xaxis.set_major_locator(planetmapper.utils.DMSLocator())
+ax.xaxis.set_major_formatter(planetmapper.utils.DMSFormatter())
+
+plt.show()

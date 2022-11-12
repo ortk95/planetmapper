@@ -11,6 +11,7 @@ from spiceypy.utils.exceptions import NotFoundError
 
 from .base import SpiceBase
 from . import data_loader
+from . import utils
 
 
 class Body(SpiceBase):
@@ -1036,7 +1037,9 @@ class Body(SpiceBase):
         ax.set_title(self.get_description(multiline=True))
         return ax
 
-    def plot_wireframe_radec(self, ax: Axes | None = None, show: bool = True) -> Axes:
+    def plot_wireframe_radec(
+        self, ax: Axes | None = None, show: bool = True, dms_ticks: bool = True
+    ) -> Axes:
         """
         Plot basic wireframe representation of the observation using RA/Dec sky
         coordinates.
@@ -1044,17 +1047,25 @@ class Body(SpiceBase):
         Args:
             ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
                 a new figure and axis is created.
-            show: Toggle showing the plotted figure with `plt.show()`
+            show: Toggle showing the plotted figure with `plt.show()`.
+            dms_ticks: Toggle between showing ticks as degrees, minutes and seconds
+                (e.g. 12°34′56″) or decimal degrees (e.g. 12.582).
 
         Returns:
             The axis containing the plotted wireframe.
         """
         ax = self._plot_wireframe(transform=None, ax=ax)
 
-        ax.set_xlabel('RA (degrees)')
-        ax.set_ylabel('Dec (degrees)')
+        ax.set_xlabel('Right Ascension')
+        ax.set_ylabel('Declination')
         ax.set_aspect(1 / np.cos(self._target_dec_radians), adjustable='datalim')
         ax.invert_xaxis()
+
+        if dms_ticks:
+            ax.yaxis.set_major_locator(utils.DMSLocator())
+            ax.yaxis.set_major_formatter(utils.DMSFormatter())
+            ax.xaxis.set_major_locator(utils.DMSLocator())
+            ax.xaxis.set_major_formatter(utils.DMSFormatter())
 
         if show:
             plt.show()
