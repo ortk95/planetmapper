@@ -1,6 +1,6 @@
 import datetime
 import math
-from functools import wraps
+from functools import wraps, lru_cache, partial
 from typing import Any, Callable, Iterable, NamedTuple, ParamSpec, TypeVar
 
 import matplotlib.patches
@@ -15,14 +15,21 @@ from .body import Body
 T = TypeVar('T')
 S = TypeVar('S')
 
+_cache_stable_result = partial(lru_cache, maxsize=128)
 
-def _cache_result(fn: Callable[[S], T]) -> Callable[[S], T]:
+
+def _cache_clearable_result(fn: Callable[[S], T]) -> Callable[[S], T]:
     """
     Decorator to cache the output of a method call.
 
     This requires that the class has a `self._cache` dict which can be used to store
     the cached result. The dictionary key is derived from the name of the decorated
     function.
+
+    The results cached by this decorator can be cleared using `self._cache.clear()`, so
+    this is useful for results which need to be invalidated (i.e. backplane images
+    which are invalidated the moment the disc params are changed). If the result is
+    stable (i.e. backplane maps) then use `_cache_stable_result` instead.
     """
 
     @wraps(fn)
@@ -54,12 +61,17 @@ class Backplane(NamedTuple):
         get_img: Function which takes no arguments returns a numpy array containing a
             backplane image when called. This should generally be a method such as
             :func:`BodyXY.get_lon_img`.
+        get_img: Function returns a numpy array containing a cylindrigal map of
+            backplane values when called. This should take a single argument which
+            defines the interval in degrees between the longitude/latitude points in the
+            mapped output. This should generally be a method such as
+            :func:`BodyXY.get_lon_map`.
     """
 
-    # TODO should get_img have self argument?
     name: str
     description: str
     get_img: Callable[[], np.ndarray]
+    get_map: Callable[[float], np.ndarray]
 
 
 class BodyXY(Body):
@@ -224,7 +236,7 @@ class BodyXY(Body):
         self._cache.clear()
 
     # Coordinate transformations
-    @_cache_result
+    @_cache_clearable_result
     def _get_xy2radec_matrix_radians(self) -> np.ndarray:
         r_km = self.r_eq
         r_radians = np.arcsin(r_km / self.target_distance)
@@ -246,7 +258,7 @@ class BodyXY(Body):
 
         return transform_matrix_3x3
 
-    @_cache_result
+    @_cache_clearable_result
     def _get_radec2xy_matrix_radians(self) -> np.ndarray:
         return np.linalg.inv(self._get_xy2radec_matrix_radians())
 
@@ -399,7 +411,7 @@ class BodyXY(Body):
         """
         Args:
             x0: New x pixel coordinate of the centre of the target body.
-        
+
         Raises:
             ValueEror: if `x0` is not finite.
         """
@@ -419,7 +431,7 @@ class BodyXY(Body):
         """
         Args:
             y0: New y pixel coordinate of the centre of the target body.
-        
+
         Raises:
             ValueEror: if `y0` is not finite.
         """
@@ -439,7 +451,7 @@ class BodyXY(Body):
         """
         Args:
             r0: New equatorial radius in pixels of the target body.
-        
+
         Raises:
             ValueError: if `r0` is not greater than zero or `r0` is not finite.
         """
@@ -737,7 +749,7 @@ class BodyXY(Body):
         r = self.get_r0() * max(self.radii) / self.r_eq
         return r
 
-    @_cache_result
+    @_cache_clearable_result
     def _get_targvec_img(self) -> np.ndarray:
         out = self._make_empty_img(3)
 
@@ -782,7 +794,7 @@ class BodyXY(Body):
                 continue
             yield y, x, targvec
 
-    @_cache_result
+    @_cache_clearable_result
     def _get_lonlat_img(self) -> np.ndarray:
         out = self._make_empty_img(2)
         for y, x, targvec in self._enumerate_targvec_img():
@@ -805,7 +817,7 @@ class BodyXY(Body):
         """
         return self._get_lonlat_img()[:, :, 1]
 
-    @_cache_result
+    @_cache_clearable_result
     def _get_radec_img(self) -> np.ndarray:
         out = self._make_empty_img(2)
         for y, x in self._iterate_yx():
@@ -826,7 +838,7 @@ class BodyXY(Body):
         """
         return self._get_radec_img()[:, :, 1]
 
-    @_cache_result
+    @_cache_clearable_result
     def _get_illumination_gie_img(self) -> np.ndarray:
         out = self._make_empty_img(3)
         for y, x, targvec in self._enumerate_targvec_img():
@@ -857,7 +869,7 @@ class BodyXY(Body):
         """
         return self._get_illumination_gie_img()[:, :, 2]
 
-    @_cache_result
+    @_cache_clearable_result
     def _get_state_imgs(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         position_img = self._make_empty_img(3)
         velocity_img = self._make_empty_img(3)
@@ -879,7 +891,7 @@ class BodyXY(Body):
         position_img, velocity_img, lt_img = self._get_state_imgs()
         return lt_img * self.speed_of_light()
 
-    @_cache_result
+    @_cache_clearable_result
     def get_radial_velocity_img(self) -> np.ndarray:
         """
         Returns:
@@ -926,15 +938,23 @@ class BodyXY(Body):
         return name.strip().upper()
 
     def register_backplane(
-        self, fn: Callable[[], np.ndarray], name: str, description: str
+        self,
+        name: str,
+        description: str,
+        get_img: Callable[[], np.ndarray],
+        get_map: Callable[[float], np.ndarray],
     ) -> None:
         """
         Create a new :class:`Backplane` and register it to :attr:`backplanes`.
 
+        See :class:`Backplane` for more detail about parameters.
+
         Args:
-            fn: Function to generate backplane.
-            name: Name of backplane.
+            name: Name of backplane. This is standardised using
+                :func:`standardise_backplane_name` before being registered.
             description: Longer description of backplane, including units.
+            get_img: Function to generate backplane image.
+            get_map: Function to generate bakplane map.
 
         Raises:
             ValueError: if provided backplane name is already registered.
@@ -944,7 +964,7 @@ class BodyXY(Body):
         if name in self.backplanes:
             raise ValueError(f'Backplane named {name!r} is already registered')
         self.backplanes[name] = Backplane(
-            name=name, description=description, get_img=fn
+            name=name, description=description, get_img=get_img, get_map=get_map
         )
 
     def print_backplanes(self) -> None:
@@ -957,32 +977,64 @@ class BodyXY(Body):
     def _register_default_backplanes(self) -> None:
         # TODO double check units and expand descriptions
         self.register_backplane(
-            self.get_lon_img, 'LON', 'Planetographic longitude [deg]'
+            'LON',
+            'Planetographic longitude [deg]',
+            self.get_lon_img,
+            self.get_lon_map,
         )
         self.register_backplane(
-            self.get_lat_img, 'LAT', 'Planetographic latitude [deg]'
-        )
-        self.register_backplane(self.get_ra_img, 'RA', 'Right ascension [deg]')
-        self.register_backplane(self.get_dec_img, 'DEC', 'Declination [deg]')
-        self.register_backplane(self.get_phase_angle_img, 'phase', 'Phase angle [deg]')
-        self.register_backplane(
-            self.get_incidence_angle_img, 'INCIDENCE', 'Incidence angle [deg]'
+            'LAT',
+            'Planetographic latitude [deg]',
+            self.get_lat_img,
+            self.get_lat_map,
         )
         self.register_backplane(
-            self.get_emission_angle_img, 'EMISSION', 'Emission angle [dec]'
+            'RA',
+            'Right ascension [deg]',
+            self.get_ra_img,
+            self.ger_ra_map,
         )
         self.register_backplane(
-            self.get_distance_img, 'DISTANCE', 'Distance to observer [km]'
+            'DEC',
+            'Declination [deg]',
+            self.get_dec_img,
+            self.get_dec_map,
         )
         self.register_backplane(
-            self.get_radial_velocity_img,
+            'phase',
+            'Phase angle [deg]',
+            self.get_phase_angle_img,
+            self.get_phase_angle_map,
+        )
+        self.register_backplane(
+            'INCIDENCE',
+            'Incidence angle [deg]',
+            self.get_incidence_angle_img,
+            self.get_incidence_angle_map,
+        )
+        self.register_backplane(
+            'EMISSION',
+            'Emission angle [dec]',
+            self.get_emission_angle_img,
+            self.get_emission_angle_map,
+        )
+        self.register_backplane(
+            'DISTANCE',
+            'Distance to observer [km]',
+            self.get_distance_img,
+            self.get_distance_map,
+        )
+        self.register_backplane(
             'RADIAL_VELOCITY',
             'Radial velocity away from observer [km/s]',
+            self.get_radial_velocity_img,
+            self.get_radial_velocity_map,
         )
         self.register_backplane(
-            self.get_doppler_img,
             'DOPPLER',
             'Doppler factor, sqrt((1 + v/c)/(1 - v/c)) where v is radial velocity',
+            self.get_doppler_img,
+            self.get_doppler_map,
         )
 
     def get_backplane_img(self, name: str) -> np.ndarray:
@@ -996,7 +1048,7 @@ class BodyXY(Body):
 
         This method is equivilent to ::
 
-            body.backplanes[body.standardise_backplane_name(name)].get_img()
+            body.backplanes[body.standardise_backplane_name(name)].get_img().copy()
 
         Args:
             name: Name of the desired backplane. This is standardised with
@@ -1006,9 +1058,9 @@ class BodyXY(Body):
         Returns:
             Array containing the backplane's values for each pixel in the image.
         """
-        return self.backplanes[self.standardise_backplane_name(name)].get_img()
+        return self.backplanes[self.standardise_backplane_name(name)].get_img().copy()
 
-    def plot_backplane(
+    def plot_backplane_img(
         self, name: str, ax: Axes | None = None, show: bool = True, **kwargs
     ) -> Axes:
         """
