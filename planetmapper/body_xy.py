@@ -957,6 +957,63 @@ class BodyXY(Body):
         """
         return self._get_radec_map(degree_interval)[:, :, 1]
 
+    def _get_xy_map(self, degree_interval: float) -> np.ndarray:
+        out = self._make_empty_map(degree_interval, 2)
+        radec_map = self._get_radec_map(degree_interval)
+        for a, b in self._iterate_image(out.shape):
+            ra, dec = radec_map[a, b]
+            if not math.isnan(ra):
+                out[a, b] = self.radec2xy(ra, dec)
+        return out
+
+    def get_x_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the x pixel coordinate value of each pixel in the image.
+        """
+        out = self._make_empty_img()
+        for y, x in self._iterate_image(out.shape):
+            out[y, x] = x
+        return out
+
+    def get_x_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of TODO
+        """
+        return self._get_xy_map(degree_interval)[:, :, 0]
+
+    def get_y_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the y pixel coordinate value of each pixel in the image.
+        """
+        out = self._make_empty_img()
+        for y, x in self._iterate_image(out.shape):
+            out[y, x] = y
+        return out
+
+    def get_y_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of TODO
+        """
+        return self._get_xy_map(degree_interval)[:, :, 1]
+
     @_cache_clearable_result
     def _get_illumination_gie_img(self) -> np.ndarray:
         out = self._make_empty_img(3)
@@ -1245,6 +1302,18 @@ class BodyXY(Body):
             self.get_dec_map,
         )
         self.register_backplane(
+            'PIXEL-X',
+            'Observation x pixel coordinate [pixels]',
+            self.get_x_img,
+            self.get_x_map,
+        )
+        self.register_backplane(
+            'PIXEL-Y',
+            'Observation y pixel coordinate [pixels]',
+            self.get_y_img,
+            self.get_y_map,
+        )
+        self.register_backplane(
             'phase',
             'Phase angle [deg]',
             self.get_phase_angle_img,
@@ -1269,7 +1338,7 @@ class BodyXY(Body):
             self.get_distance_map,
         )
         self.register_backplane(
-            'RADIAL_VELOCITY',
+            'RADIAL-VELOCITY',
             'Radial velocity away from observer [km/s]',
             self.get_radial_velocity_img,
             self.get_radial_velocity_map,

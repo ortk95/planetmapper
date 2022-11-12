@@ -45,3 +45,5 @@ planetmapper.utils.print_progress()
 # print(body.prograde, body.positive_planetographic_longitude_direction)
 
 body.print_backplanes()
+body.plot_backplane_map('x')
+body.plot_backplane_map('y')
