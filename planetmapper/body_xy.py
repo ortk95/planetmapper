@@ -179,8 +179,11 @@ class BodyXY(Body):
         This dictionary of backplanes can also be used directly if more customisation is
         needed: ::
 
-            # Retrieve the image containing longitdude values
-            lon_image = body.backplanes['LON'].get_img()
+            # Retrieve the image containing right ascension values
+            ra_image = body.backplanes['RA'].get_img()
+
+            # Retrieve the map containing emission angles on the target's surface
+            emission_map = body.backplanes['EMISSION'].get_img()
 
             # Print the description of the doppler factor backplane
             print(body.backplanes['DOPPLER'].description)
@@ -736,6 +739,290 @@ class BodyXY(Body):
             plt.show()
         return ax
 
+    # Backplane management
+    @staticmethod
+    def standardise_backplane_name(name: str) -> str:
+        """
+        Create a standardised version of a backplane name when finding and registering
+        backplanes.
+
+        This standardisatiton is used in functions like :func:`get_backplane_img` and
+        :func:`plot_backplane` so that, for example `body.plot_backplane('LAT')`,
+        `body.plot_backplane('Lat')` and `body.plot_backplane('lat')` all produce the
+        same plot.
+
+        Args:
+            name: Input backplane name.
+
+        Returns:
+            Standardised name with leading/trailing spaces removed and converted to
+            upper case.
+        """
+        return name.strip().upper()
+
+    def register_backplane(
+        self,
+        name: str,
+        description: str,
+        get_img: Callable[[], np.ndarray],
+        get_map: _BackplaneMapGetter,
+    ) -> None:
+        """
+        Create a new :class:`Backplane` and register it to :attr:`backplanes`.
+
+        See :class:`Backplane` for more detail about parameters.
+
+        Args:
+            name: Name of backplane. This is standardised using
+                :func:`standardise_backplane_name` before being registered.
+            description: Longer description of backplane, including units.
+            get_img: Function to generate backplane image.
+            get_map: Function to generate bakplane map.
+
+        Raises:
+            ValueError: if provided backplane name is already registered.
+        """
+        # TODO add checks for name/description lengths?
+        name = self.standardise_backplane_name(name)
+        if name in self.backplanes:
+            raise ValueError(f'Backplane named {name!r} is already registered')
+        self.backplanes[name] = Backplane(
+            name=name, description=description, get_img=get_img, get_map=get_map
+        )
+
+    def backplane_summary_string(self) -> str:
+        """
+        Returns:
+            String summaring currently registered :attr:`backplanes`.
+        """
+        return '\n'.join(
+            f'{bp.name}: {bp.description}' for bp in self.backplanes.values()
+        )
+
+    def print_backplanes(self) -> None:
+        """
+        Prints output of :func:`backplane_summary_string`.
+        """
+        print(self.backplane_summary_string())
+
+    def get_backplane_img(self, name: str) -> np.ndarray:
+        """
+        Generate backplane image.
+
+        Note that a generated backplane image will depend on the disc parameters
+        `(x0, y0, r0, rotation)` at the time this function is called. Generating the
+        same backplane when there are different disc parameter values will produce a
+        different image. This method creates a copy of the generated image, so the
+        returned image can be safely modified without affecting the cached value (unlike
+        the return values from functions such as :func:`get_lon_img`).
+
+        This method is equivilent to ::
+
+            body.backplanes[body.standardise_backplane_name(name)].get_img().copy()
+
+        Args:
+            name: Name of the desired backplane. This is standardised with
+                :func:`standardise_backplane_name` and used to choose a registered
+                backplane from :attr:`backplanes`.
+
+        Returns:
+            Array containing the backplane's values for each pixel in the image.
+        """
+        return self.backplanes[self.standardise_backplane_name(name)].get_img().copy()
+
+    def get_backplane_map(self, name: str, degree_interval: float = 1) -> np.ndarray:
+        """
+        Generate map of backplane values.
+
+        This method creates a copy of the generated image, so the returned map can be
+        safely modified without affecting the cached value (unlike the return values
+        from functions such as :func:`get_lon_map`).
+
+        This method is equivilent to ::
+
+            body.backplanes[self.standardise_backplane_name(degree_interval)].get_map().copy()
+
+        Args:
+            name: Name of the desired backplane. This is standardised with
+                :func:`standardise_backplane_name` and used to choose a registered
+                backplane from :attr:`backplanes`.
+            degree_interval: Interval in degrees between the longitude/latitude points
+                in the mapped output.
+
+        Returns:
+            Array containing map of the backplane's values over the surface of the
+            target body.
+        """
+        return (
+            self.backplanes[self.standardise_backplane_name(name)]
+            .get_map(degree_interval)
+            .copy()
+        )
+
+    def plot_backplane_img(
+        self, name: str, ax: Axes | None = None, show: bool = True, **kwargs
+    ) -> Axes:
+        """
+        Plot a backplane image with the wireframe outline of the target.
+
+        Note that a generated backplane image will depend on the disc parameters
+        `(x0, y0, r0, rotation)` at the time this function is called. Generating the
+        same backplane when there are different disc parameter values will produce a
+        different image.
+
+        Args:
+            name: Name of the desired backplane.
+            ax: Passed to :func:`plot_wireframe_xy`.
+            show: Passed to :func:`plot_wireframe_xy`.
+            **kwargs: Passed to Matplotlib's `imshow` when plotting the backplane image.
+                For example, can be used to set the colormap of the plot using
+                `body.plot_backplane_img(..., cmap='Greys')`.
+
+        Returns:
+            The axis containing the plotted data.
+        """
+        name = self.standardise_backplane_name(name)
+        backplane = self.backplanes[name]
+        ax = self.plot_wireframe_xy(ax, show=False)
+        im = ax.imshow(backplane.get_img(), origin='lower', **kwargs)
+        plt.colorbar(im, label=backplane.description)
+        if show:
+            plt.show()
+        return ax
+
+    def plot_backplane_map(
+        self,
+        name: str,
+        ax: Axes | None = None,
+        show: bool = True,
+        degree_interval: float = 1,
+        **kwargs,
+    ) -> Axes:
+        """
+        Plot a map of backplane values on the target body.
+
+        Args:
+            name: Name of the desired backplane.
+            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
+                a new figure and axis is created.
+            show: Toggle showing the plotted figure with `plt.show()`
+            degree_interval: Interval in degrees between the longitude/latitude points
+                in the mapped output.
+            **kwargs: Passed to Matplotlib's `imshow` when plotting the backplane map.
+                For example, can be used to set the colormap of the plot using
+                `body.plot_backplane_map(..., cmap='Greys')`.
+
+        Returns:
+            The axis containing the plotted data.
+        """
+        if ax is None:
+            fig, ax = plt.subplots()
+        name = self.standardise_backplane_name(name)
+        backplane = self.backplanes[name]
+
+        if self.positive_longitude_direction == 'W':
+            extent = [360, 0, -90, 90]
+        else:
+            extent = [0, 360, -90, 90]
+
+        im = ax.imshow(
+            backplane.get_map(degree_interval), origin='lower', extent=extent, **kwargs
+        )
+        plt.colorbar(im, label=backplane.description)
+        ax.set_title(self.get_description(multiline=True))
+        ax.set_aspect(1, adjustable='box')
+        ax.set_xlabel(f'Planetographic longitude ({self.positive_longitude_direction})')
+        ax.set_ylabel('Planetographic latitude')
+
+        step = 45
+        xt = np.arange(0, 360.1, step)
+        ax.set_xticks(xt)
+        ax.set_xticklabels([f'{x:.0f}°' for x in xt])
+
+        yt = np.arange(-90, 90.1, step)
+        ax.set_yticks(yt)
+        ax.set_yticklabels([f'{y:.0f}°' for y in yt])
+
+        if show:
+            plt.show()
+        return ax
+
+    def _register_default_backplanes(self) -> None:
+        self.register_backplane(
+            'LON-GRAPHIC',
+            'Planetographic longitude [deg]',
+            self.get_lon_img,
+            self.get_lon_map,
+        )
+        self.register_backplane(
+            'LAT-GRAPHIC',
+            'Planetographic latitude, positive {ew} [deg]'.format(
+                ew=self.positive_longitude_direction
+            ),
+            self.get_lat_img,
+            self.get_lat_map,
+        )
+        self.register_backplane(
+            'RA',
+            'Right ascension [deg]',
+            self.get_ra_img,
+            self.get_ra_map,
+        )
+        self.register_backplane(
+            'DEC',
+            'Declination [deg]',
+            self.get_dec_img,
+            self.get_dec_map,
+        )
+        self.register_backplane(
+            'PIXEL-X',
+            'Observation x pixel coordinate [pixels]',
+            self.get_x_img,
+            self.get_x_map,
+        )
+        self.register_backplane(
+            'PIXEL-Y',
+            'Observation y pixel coordinate [pixels]',
+            self.get_y_img,
+            self.get_y_map,
+        )
+        self.register_backplane(
+            'PHASE',
+            'Phase angle [deg]',
+            self.get_phase_angle_img,
+            self.get_phase_angle_map,
+        )
+        self.register_backplane(
+            'INCIDENCE',
+            'Incidence angle [deg]',
+            self.get_incidence_angle_img,
+            self.get_incidence_angle_map,
+        )
+        self.register_backplane(
+            'EMISSION',
+            'Emission angle [dec]',
+            self.get_emission_angle_img,
+            self.get_emission_angle_map,
+        )
+        self.register_backplane(
+            'DISTANCE',
+            'Distance to observer [km]',
+            self.get_distance_img,
+            self.get_distance_map,
+        )
+        self.register_backplane(
+            'RADIAL-VELOCITY',
+            'Radial velocity away from observer [km/s]',
+            self.get_radial_velocity_img,
+            self.get_radial_velocity_map,
+        )
+        self.register_backplane(
+            'DOPPLER',
+            'Doppler factor, sqrt((1 + v/c)/(1 - v/c)) where v is radial velocity',
+            self.get_doppler_img,
+            self.get_doppler_map,
+        )
+
     # Backplane generatotrs
     def _test_if_img_size_valid(self) -> bool:
         return (self._nx > 0) and (self._ny > 0)
@@ -1207,287 +1494,3 @@ class BodyXY(Body):
         return self.calculate_doppler_factor(
             self.get_radial_velocity_map(degree_interval)
         )
-
-    # Backplane management
-    @staticmethod
-    def standardise_backplane_name(name: str) -> str:
-        """
-        Create a standardised version of a backplane name when finding and registering
-        backplanes.
-
-        This standardisatiton is used in functions like :func:`get_backplane_img` and
-        :func:`plot_backplane` so that, for example `body.plot_backplane('LAT')`,
-        `body.plot_backplane('Lat')` and `body.plot_backplane('lat')` all produce the
-        same plot.
-
-        Args:
-            name: Input backplane name.
-
-        Returns:
-            Standardised name with leading/trailing spaces removed and converted to
-            upper case.
-        """
-        return name.strip().upper()
-
-    def register_backplane(
-        self,
-        name: str,
-        description: str,
-        get_img: Callable[[], np.ndarray],
-        get_map: _BackplaneMapGetter,
-    ) -> None:
-        """
-        Create a new :class:`Backplane` and register it to :attr:`backplanes`.
-
-        See :class:`Backplane` for more detail about parameters.
-
-        Args:
-            name: Name of backplane. This is standardised using
-                :func:`standardise_backplane_name` before being registered.
-            description: Longer description of backplane, including units.
-            get_img: Function to generate backplane image.
-            get_map: Function to generate bakplane map.
-
-        Raises:
-            ValueError: if provided backplane name is already registered.
-        """
-        # TODO add checks for name/description lengths?
-        name = self.standardise_backplane_name(name)
-        if name in self.backplanes:
-            raise ValueError(f'Backplane named {name!r} is already registered')
-        self.backplanes[name] = Backplane(
-            name=name, description=description, get_img=get_img, get_map=get_map
-        )
-
-    def backplane_summary_string(self) -> str:
-        """
-        Returns:
-            String summaring currently registered :attr:`backplanes`.
-        """
-        return '\n'.join(
-            f'{bp.name}: {bp.description}' for bp in self.backplanes.values()
-        )
-
-    def print_backplanes(self) -> None:
-        """
-        Prints output of :func:`backplane_summary_string`.
-        """
-        print(self.backplane_summary_string())
-
-    def _register_default_backplanes(self) -> None:
-        self.register_backplane(
-            'LON-GRAPHIC',
-            'Planetographic longitude [deg]',
-            self.get_lon_img,
-            self.get_lon_map,
-        )
-        self.register_backplane(
-            'LAT-GRAPHIC',
-            'Planetographic latitude, positive {ew} [deg]'.format(
-                ew=self.positive_longitude_direction
-            ),
-            self.get_lat_img,
-            self.get_lat_map,
-        )
-        self.register_backplane(
-            'RA',
-            'Right ascension [deg]',
-            self.get_ra_img,
-            self.get_ra_map,
-        )
-        self.register_backplane(
-            'DEC',
-            'Declination [deg]',
-            self.get_dec_img,
-            self.get_dec_map,
-        )
-        self.register_backplane(
-            'PIXEL-X',
-            'Observation x pixel coordinate [pixels]',
-            self.get_x_img,
-            self.get_x_map,
-        )
-        self.register_backplane(
-            'PIXEL-Y',
-            'Observation y pixel coordinate [pixels]',
-            self.get_y_img,
-            self.get_y_map,
-        )
-        self.register_backplane(
-            'PHASE',
-            'Phase angle [deg]',
-            self.get_phase_angle_img,
-            self.get_phase_angle_map,
-        )
-        self.register_backplane(
-            'INCIDENCE',
-            'Incidence angle [deg]',
-            self.get_incidence_angle_img,
-            self.get_incidence_angle_map,
-        )
-        self.register_backplane(
-            'EMISSION',
-            'Emission angle [dec]',
-            self.get_emission_angle_img,
-            self.get_emission_angle_map,
-        )
-        self.register_backplane(
-            'DISTANCE',
-            'Distance to observer [km]',
-            self.get_distance_img,
-            self.get_distance_map,
-        )
-        self.register_backplane(
-            'RADIAL-VELOCITY',
-            'Radial velocity away from observer [km/s]',
-            self.get_radial_velocity_img,
-            self.get_radial_velocity_map,
-        )
-        self.register_backplane(
-            'DOPPLER',
-            'Doppler factor, sqrt((1 + v/c)/(1 - v/c)) where v is radial velocity',
-            self.get_doppler_img,
-            self.get_doppler_map,
-        )
-
-    def get_backplane_img(self, name: str) -> np.ndarray:
-        """
-        Generate backplane image.
-
-        Note that a generated backplane image will depend on the disc parameters
-        `(x0, y0, r0, rotation)` at the time this function is called. Generating the
-        same backplane when there are different disc parameter values will produce a
-        different image. This method creates a copy of the generated image, so the
-        returned image can be safely modified without affecting the cached value (unlike
-        the return values from functions such as :func:`get_lon_img`).
-
-        This method is equivilent to ::
-
-            body.backplanes[body.standardise_backplane_name(name)].get_img().copy()
-
-        Args:
-            name: Name of the desired backplane. This is standardised with
-                :func:`standardise_backplane_name` and used to choose a registered
-                backplane from :attr:`backplanes`.
-
-        Returns:
-            Array containing the backplane's values for each pixel in the image.
-        """
-        return self.backplanes[self.standardise_backplane_name(name)].get_img().copy()
-
-    def get_backplane_map(self, name: str, degree_interval: float = 1) -> np.ndarray:
-        """
-        Generate map of backplane values.
-
-        This method creates a copy of the generated image, so the returned map can be
-        safely modified without affecting the cached value (unlike the return values
-        from functions such as :func:`get_lon_map`).
-
-        This method is equivilent to ::
-
-            body.backplanes[self.standardise_backplane_name(degree_interval)].get_map().copy()
-
-        Args:
-            name: Name of the desired backplane. This is standardised with
-                :func:`standardise_backplane_name` and used to choose a registered
-                backplane from :attr:`backplanes`.
-            degree_interval: Interval in degrees between the longitude/latitude points
-                in the mapped output.
-
-        Returns:
-            Array containing map of the backplane's values over the surface of the
-            target body.
-        """
-        return (
-            self.backplanes[self.standardise_backplane_name(name)]
-            .get_map(degree_interval)
-            .copy()
-        )
-
-    def plot_backplane_img(
-        self, name: str, ax: Axes | None = None, show: bool = True, **kwargs
-    ) -> Axes:
-        """
-        Plot a backplane image with the wireframe outline of the target.
-
-        Note that a generated backplane image will depend on the disc parameters
-        `(x0, y0, r0, rotation)` at the time this function is called. Generating the
-        same backplane when there are different disc parameter values will produce a
-        different image.
-
-        Args:
-            name: Name of the desired backplane.
-            ax: Passed to :func:`plot_wireframe_xy`.
-            show: Passed to :func:`plot_wireframe_xy`.
-            **kwargs: Passed to Matplotlib's `imshow` when plotting the backplane image.
-                For example, can be used to set the colormap of the plot using
-                `body.plot_backplane_img(..., cmap='Greys')`.
-
-        Returns:
-            The axis containing the plotted data.
-        """
-        name = self.standardise_backplane_name(name)
-        backplane = self.backplanes[name]
-        ax = self.plot_wireframe_xy(ax, show=False)
-        im = ax.imshow(backplane.get_img(), origin='lower', **kwargs)
-        plt.colorbar(im, label=backplane.description)
-        if show:
-            plt.show()
-        return ax
-
-    def plot_backplane_map(
-        self,
-        name: str,
-        ax: Axes | None = None,
-        show: bool = True,
-        degree_interval: float = 1,
-        **kwargs,
-    ) -> Axes:
-        """
-        Plot a map of backplane values on the target body.
-
-        Args:
-            name: Name of the desired backplane.
-            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
-                a new figure and axis is created.
-            show: Toggle showing the plotted figure with `plt.show()`
-            degree_interval: Interval in degrees between the longitude/latitude points
-                in the mapped output.
-            **kwargs: Passed to Matplotlib's `imshow` when plotting the backplane map.
-                For example, can be used to set the colormap of the plot using
-                `body.plot_backplane_map(..., cmap='Greys')`.
-
-        Returns:
-            The axis containing the plotted data.
-        """
-        if ax is None:
-            fig, ax = plt.subplots()
-        name = self.standardise_backplane_name(name)
-        backplane = self.backplanes[name]
-
-        if self.positive_longitude_direction == 'W':
-            extent = [360, 0, -90, 90]
-        else:
-            extent = [0, 360, -90, 90]
-
-        im = ax.imshow(
-            backplane.get_map(degree_interval), origin='lower', extent=extent, **kwargs
-        )
-        plt.colorbar(im, label=backplane.description)
-        ax.set_title(self.get_description(multiline=True))
-        ax.set_aspect(1, adjustable='box')
-        ax.set_xlabel(f'Planetographic longitude ({self.positive_longitude_direction})')
-        ax.set_ylabel('Planetographic latitude')
-
-        step = 45
-        xt = np.arange(0, 360.1, step)
-        ax.set_xticks(xt)
-        ax.set_xticklabels([f'{x:.0f}°' for x in xt])
-
-        yt = np.arange(-90, 90.1, step)
-        ax.set_yticks(yt)
-        ax.set_yticklabels([f'{y:.0f}°' for y in yt])
-
-        if show:
-            plt.show()
-        return ax
