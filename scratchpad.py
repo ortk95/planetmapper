@@ -34,12 +34,14 @@ else:
 
     obs = planetmapper.Observation(p, observer='JWST')
 
-    ax = obs.plot_wireframe_radec(show=False)
-    for k, c in [('DATE-BEG', 'r'), ('DATE-END', 'b')]:
-        utc = obs.header[k]
-        obs = planetmapper.Observation(p, observer='JWST', utc=utc)
-        obs.plot_wireframe_radec(color=c, show=False)
-        ax.plot(np.nan, np.nan, color=c, label=f'{k}: {utc}')
-    ax.legend()
+    obs.disc_from_wcs()
+
+    img = np.nansum(obs.data, axis=0)
+
+    # Plot an observed image on an RA/Dec axis with a wireframe of the target
+    ax = obs.plot_wireframe_radec()
+    ax.autoscale(False)
+    ax.imshow(img, origin='lower', transform=obs.matplotlib_xy2radec_transform(ax))
+
     plt.show()
 print('DONE')

@@ -233,8 +233,9 @@ class BodyXY(Body):
             self._y0 = self._ny / 2 - 0.5
             self._r0 = 0.9 * (min(self._x0, self._y0))
 
-        self._matplotlib_transform: matplotlib.transforms.Affine2D | None = None
-        self._matplotlib_transform_radians: matplotlib.transforms.Affine2D | None = None
+        self._mpl_transform_radec2xy: matplotlib.transforms.Affine2D | None = None
+        self._mpl_transform_xy2radec: matplotlib.transforms.Transform | None = None
+        self._mpl_transform_radians: matplotlib.transforms.Affine2D | None = None
 
         self.backplanes = {}
         self._register_default_backplanes()
@@ -679,31 +680,81 @@ class BodyXY(Body):
     def _get_matplotlib_radec2xy_transform_radians(
         self,
     ) -> matplotlib.transforms.Affine2D:
-        if self._matplotlib_transform_radians is None:
-            self._matplotlib_transform_radians = matplotlib.transforms.Affine2D(
+        if self._mpl_transform_radians is None:
+            self._mpl_transform_radians = matplotlib.transforms.Affine2D(
                 self._get_radec2xy_matrix_radians()
             )
-        return self._matplotlib_transform_radians
+        return self._mpl_transform_radians
 
-    def get_matplotlib_radec2xy_transform(self) -> matplotlib.transforms.Affine2D:
+    def matplotlib_radec2xy_transform(
+        self, ax: Axes | None = None
+    ) -> matplotlib.transforms.Transform:
         """
         Get matplotlib transform which converts RA/Dec sky coordinates to image pixel
         coordinates.
 
-        The transform is a mutalbe object which can be dynamically updated using
+        The transform is a mutable object which can be dynamically updated using
         :func:`update_transform` when the `radec` to `xy` coordinate conversion changes.
         This can be useful for plotting data (e.g. the planet's limb) using RA/Dec
         coordinates onto an axis using image pixel coordinates when fitting the disc.
 
+        Args:
+            ax: Optionally specify a matplotlib axis to return
+                `transform_radec2xy + ax.transData`. This value can then be used in the
+                `transform` keyword argument of a Matplotlib function without any
+                further modification.
+
         Returns:
             Matplotlib transformation from `radec` to `xy` coordinates.
         """
-        if self._matplotlib_transform is None:
+        if self._mpl_transform_radec2xy is None:
             transform_rad2deg = matplotlib.transforms.Affine2D().scale(np.deg2rad(1))
-            self._matplotlib_transform = (
+            self._mpl_transform_radec2xy = (
                 transform_rad2deg + self._get_matplotlib_radec2xy_transform_radians()
             )  #  type: ignore
-        return self._matplotlib_transform  #  type: ignore
+        transform = self._mpl_transform_radec2xy
+        if ax:
+            transform = transform + ax.transData
+        return transform
+
+    def matplotlib_xy2radec_transform(
+        self, ax: Axes | None = None
+    ) -> matplotlib.transforms.Transform:
+        """
+        Get matplotlib transform which converts image pixel coordinates to RA/Dec sky
+        coordinates.
+
+        The transform is a mutable object which can be dynamically updated using
+        :func:`update_transform` when the `radec` to `xy` coordinate conversion changes.
+        This can be useful for plotting data (e.g. an observed image) using image xy
+        coordinates onto an axis using RA/Dec coordinates. ::
+
+            # Plot an observed image on an RA/Dec axis with a wireframe of the target 
+            ax = obs.plot_wireframe_radec()
+            ax.autoscale(False)
+            ax.imshow(
+                img, 
+                origin='lower', 
+                transform=obs.matplotlib_xy2radec_transform(ax),
+                )
+
+        Args:
+            ax: Optionally specify a matplotlib axis to return
+                `transform_radec2xy + ax.transData`. This value can then be used in the
+                `transform` keyword argument of a Matplotlib function without any
+                further modification.
+
+        Returns:
+            Matplotlib transformation from `xy` to `radec` coordinates.
+        """
+        if self._mpl_transform_xy2radec is None:
+            self._mpl_transform_xy2radec = (
+                self.matplotlib_radec2xy_transform().inverted()
+            )
+        transform = self._mpl_transform_xy2radec
+        if ax:
+            transform = transform + ax.transData
+        return transform
 
     def update_transform(self) -> None:
         """
@@ -715,7 +766,12 @@ class BodyXY(Body):
         )
 
     # Plotting
-    def plot_wireframe_xy(self, ax: Axes | None = None, show: bool = True, color:str|tuple[float,float,float]='k') -> Axes:
+    def plot_wireframe_xy(
+        self,
+        ax: Axes | None = None,
+        show: bool = False,
+        color: str | tuple[float, float, float] = 'k',
+    ) -> Axes:
         """
         Plot basic wireframe representation of the observation using image pixel
         coordinates.
@@ -723,8 +779,7 @@ class BodyXY(Body):
         Args:
             ax: Matplotlib axis to use for plotting. If `ax` is None (the default), uses
                 `plt.gca()` to get the currently active axis.
-            show: Toggle showing the plotted figure with `plt.show()` (defaults to 
-                True).
+            show: Toggle immediately showing the plotted figure with `plt.show()`.
             color: Matplotlib color used for to plot the wireframe.
 
 
@@ -732,8 +787,8 @@ class BodyXY(Body):
             The axis containing the plotted wireframe.
         """
         # Generate affine transformation from radec in degrees -> xy
-        transform = self.get_matplotlib_radec2xy_transform()
-        ax = self._plot_wireframe(transform=transform, ax=ax)
+        transform = self.matplotlib_radec2xy_transform()
+        ax = self._plot_wireframe(transform=transform, ax=ax, color=color)
 
         if self._test_if_img_size_valid():
             ax.set_xlim(-0.5, self._nx - 0.5)

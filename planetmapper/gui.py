@@ -528,7 +528,7 @@ class GUI:
         self.fig = plt.figure()
         self.ax = self.fig.add_axes([0.06, 0.03, 0.93, 0.96])
         self.transform = (
-            self.observation.get_matplotlib_radec2xy_transform() + self.ax.transData
+            self.observation.matplotlib_radec2xy_transform() + self.ax.transData
         )
 
         self.replot_all()

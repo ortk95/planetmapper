@@ -30,11 +30,11 @@ class Body(SpiceBase):
     Args:
         target: Name of target body.
         utc: Time of observation. This can be provided in a variety of formats and is
-            assumed to be UTC unless otherwised specified. The accepted formats are: any 
+            assumed to be UTC unless otherwised specified. The accepted formats are: any
             `string` datetime representation compatible with SPICE (e.g.
             `'2000-12-31T23:59:59'` - see
-            https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/utc2et_c.html 
-            for the acceptable string formats), a Python `datetime` object, or a `float` 
+            https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/utc2et_c.html
+            for the acceptable string formats), a Python `datetime` object, or a `float`
             representing the Modified Julian Date (MJD) of the observation.
         observer: Name of observing body. Defaults to 'EARTH'.
         observer_frame: Observer reference frame.
@@ -1112,7 +1112,7 @@ class Body(SpiceBase):
     def plot_wireframe_radec(
         self,
         ax: Axes | None = None,
-        show: bool = True,
+        show: bool = False,
         color: str | tuple[float, float, float] = 'k',
         dms_ticks: bool = True,
     ) -> Axes:
@@ -1123,8 +1123,7 @@ class Body(SpiceBase):
         Args:
             ax: Matplotlib axis to use for plotting. If `ax` is None (the default), uses
                 `plt.gca()` to get the currently active axis.
-            show: Toggle showing the plotted figure with `plt.show()` (defaults to
-                True).
+            show: Toggle immediately showing the plotted figure with `plt.show()`.
             color: Matplotlib color used for to plot the wireframe.
             dms_ticks: Toggle between showing ticks as degrees, minutes and seconds
                 (e.g. 12°34′56″) or decimal degrees (e.g. 12.582).
