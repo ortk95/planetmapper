@@ -729,12 +729,13 @@ class BodyXY(Body):
         This can be useful for plotting data (e.g. an observed image) using image xy
         coordinates onto an axis using RA/Dec coordinates. ::
 
-            # Plot an observed image on an RA/Dec axis with a wireframe of the target 
+            # Plot an observed image on an RA/Dec axis with a wireframe of the target
             ax = obs.plot_wireframe_radec()
-            ax.autoscale(False)
+            ax.autoscale_view()
+            ax.autoscale(False) # Prevent imshow breaking autoscale
             ax.imshow(
-                img, 
-                origin='lower', 
+                img,
+                origin='lower',
                 transform=obs.matplotlib_xy2radec_transform(ax),
                 )
 
