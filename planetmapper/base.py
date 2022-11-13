@@ -2,6 +2,7 @@ import datetime
 import glob
 import os
 from typing import TypeVar
+import astropy.time
 
 import numpy as np
 import spiceypy as spice
@@ -80,6 +81,21 @@ class SpiceBase:
         # manually add '+0000' to string to make it timezone aware
         # i.e. this lets python know it is UTC
         return datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%f%z')
+
+    @staticmethod
+    def mjd2dtm(mjd: float) -> datetime.datetime:
+        """
+        Convert Modified Julian Date into a python datetime object.
+
+        Args:
+            mjd: Float representing MJD.
+
+        Returns:
+            Python datetime object corresponding to `mjd`. This datetieme is timezone
+            aware and set to the UTC timezone.
+        """
+        dtm : datetime.datetime = astropy.time.Time(mjd, format='mjd').datetime
+        return dtm.astimezone(datetime.timezone.utc)
 
     def speed_of_light(self) -> float:
         """

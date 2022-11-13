@@ -12,7 +12,7 @@ import astropy.io.fits
 import matplotlib.ticker
 from functools import lru_cache
 
-if True:
+if False:
     if True:
         gui = planetmapper.gui.GUI(
             'data/saturn.jpg',
@@ -31,5 +31,15 @@ if True:
     gui.run()
 else:
     p = '/Users/ortk1/Dropbox/PhD/data/jwst/saturn/jw01247-o330_t600_miri_ch1-shortmediumlong/jw01247-o330_t600_miri_ch1-shortmediumlong_s3d.fits'
-    gui = planetmapper.gui.GUI(p, observer='JWST')
-    gui.run()
+
+    obs = planetmapper.Observation(p, observer='JWST')
+
+    ax = obs.plot_wireframe_radec(show=False)
+    for k, c in [('DATE-BEG', 'r'), ('DATE-END', 'b')]:
+        utc = obs.header[k]
+        obs = planetmapper.Observation(p, observer='JWST', utc=utc)
+        obs.plot_wireframe_radec(color=c, show=False)
+        ax.plot(np.nan, np.nan, color=c, label=f'{k}: {utc}')
+    ax.legend()
+    plt.show()
+print('DONE')

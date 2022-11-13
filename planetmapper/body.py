@@ -29,12 +29,13 @@ class Body(SpiceBase):
 
     Args:
         target: Name of target body.
-        utc: Time of observation. This can be any string datetime representation
-            compatible with SPICE (e.g. '2000-12-31T23:59:59') or a Python datetime
-            object. The time is assumed to be UTC unless otherwise specified (e.g. by
-            using a timezone aware Python datetime). For the string formats accepted by
-            SPICE, see
-            https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/utc2et_c.html.
+        utc: Time of observation. This can be provided in a variety of formats and is
+            assumed to be UTC unless otherwised specified. The accepted formats are: any 
+            `string` datetime representation compatible with SPICE (e.g.
+            `'2000-12-31T23:59:59'` - see
+            https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/utc2et_c.html 
+            for the acceptable string formats), a Python `datetime` object, or a `float` 
+            representing the Modified Julian Date (MJD) of the observation.
         observer: Name of observing body. Defaults to 'EARTH'.
         observer_frame: Observer reference frame.
         illumination_source: Illumination source (e.g. the sun).
@@ -42,13 +43,13 @@ class Body(SpiceBase):
             in SPICE.
         subpoint_method: Method used to calculate the sub-observer point in SPICE.
         surface_method: Method used to calculate surface intercepts in SPICE.
-        **kwargs: Additional arguments are passed to `SpiceBase`.
+        **kwargs: Additional arguments are passed to :class:`SpiceBase`.
     """
 
     def __init__(
         self,
         target: str,
-        utc: str | datetime.datetime,
+        utc: str | datetime.datetime | float,
         observer: str = 'EARTH',
         *,
         observer_frame: str = 'J2000',
@@ -147,6 +148,8 @@ class Body(SpiceBase):
 
         # Process inputs
         self.target = self.standardise_body_name(target)
+        if isinstance(utc, float):
+            utc = self.mjd2dtm(utc)
         if isinstance(utc, datetime.datetime):
             # convert input datetime to UTC, then to a string compatible with spice
             utc = utc.astimezone(datetime.timezone.utc)
@@ -840,7 +843,7 @@ class Body(SpiceBase):
     def _radial_velocity_from_state(
         self, position: np.ndarray, velocity: np.ndarray, _lt: float | None = None
     ) -> float:
-        # lt argument is meaningless but there for convenience when chaining with 
+        # lt argument is meaningless but there for convenience when chaining with
         # _state_from_targvec
         # dot the velocity with the normalised position vector to get radial component
         return velocity.dot(self.unit_vector(position))
@@ -1012,11 +1015,14 @@ class Body(SpiceBase):
         return poles
 
     def _plot_wireframe(
-        self, transform: None | Transform, ax: Axes | None = None
+        self,
+        transform: None | Transform,
+        ax: Axes | None = None,
+        color: str | tuple[float, float, float] = 'k',
     ) -> Axes:
         """Plot generic wireframe representation of the observation"""
         if ax is None:
-            fig, ax = plt.subplots()
+            ax = cast(Axes, plt.gca())
 
         if transform is None:
             transform = ax.transData
@@ -1024,18 +1030,18 @@ class Body(SpiceBase):
             transform = transform + ax.transData
 
         for ra, dec in self.visible_latlon_grid_radec(30):
-            ax.plot(ra, dec, color='silver', linestyle=':', transform=transform)
+            ax.plot(ra, dec, color=color, linestyle=':', alpha=0.5, transform=transform)
 
-        ax.plot(*self.limb_radec(), color='k', linewidth=0.5, transform=transform)
+        ax.plot(*self.limb_radec(), color=color, linewidth=0.5, transform=transform)
         ax.plot(
             *self.terminator_radec(),
-            color='k',
+            color=color,
             linestyle='--',
             transform=transform,
         )
 
         ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination()
-        ax.plot(ra_day, dec_day, color='k', transform=transform)
+        ax.plot(ra_day, dec_day, color=color, transform=transform)
 
         for lon, lat, s in self.get_poles_to_plot():
             ra, dec = self.lonlat2radec(lon, lat)
@@ -1046,7 +1052,7 @@ class Body(SpiceBase):
                 ha='center',
                 va='center',
                 weight='bold',
-                color='grey',
+                color=color,
                 path_effects=[
                     path_effects.Stroke(linewidth=3, foreground='w'),
                     path_effects.Normal(),
@@ -1062,7 +1068,7 @@ class Body(SpiceBase):
                     ra,
                     dec,
                     marker='x',  # type: ignore
-                    color='k',
+                    color=color,
                     transform=transform,
                 )
         for ra, dec in self.coordinates_of_interest_radec:
@@ -1070,13 +1076,13 @@ class Body(SpiceBase):
                 ra,
                 dec,
                 marker='+',  # type: ignore
-                color='k',
+                color=color,
                 transform=transform,
             )
 
         for radius in self.ring_radii:
             ra, dec = self.ring_radec(radius)
-            ax.plot(ra, dec, color='k', linewidth=0.5, transform=transform)
+            ax.plot(ra, dec, color=color, linewidth=0.5, transform=transform)
 
         for body in self.other_bodies_of_interest:
             ra = body.target_ra
@@ -1088,7 +1094,8 @@ class Body(SpiceBase):
                 size='small',
                 ha='center',
                 va='center',
-                color='grey',
+                color=color,
+                alpha=0.5,
                 transform=transform,
                 clip_on=True,
             )
@@ -1096,30 +1103,36 @@ class Body(SpiceBase):
                 ra,
                 dec,
                 marker='+',  # type: ignore
-                color='k',
+                color=color,
                 transform=transform,
             )
         ax.set_title(self.get_description(multiline=True))
         return ax
 
     def plot_wireframe_radec(
-        self, ax: Axes | None = None, show: bool = True, dms_ticks: bool = True
+        self,
+        ax: Axes | None = None,
+        show: bool = True,
+        color: str | tuple[float, float, float] = 'k',
+        dms_ticks: bool = True,
     ) -> Axes:
         """
         Plot basic wireframe representation of the observation using RA/Dec sky
         coordinates.
 
         Args:
-            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
-                a new figure and axis is created.
-            show: Toggle showing the plotted figure with `plt.show()`.
+            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), uses
+                `plt.gca()` to get the currently active axis.
+            show: Toggle showing the plotted figure with `plt.show()` (defaults to
+                True).
+            color: Matplotlib color used for to plot the wireframe.
             dms_ticks: Toggle between showing ticks as degrees, minutes and seconds
                 (e.g. 12°34′56″) or decimal degrees (e.g. 12.582).
 
         Returns:
             The axis containing the plotted wireframe.
         """
-        ax = self._plot_wireframe(transform=None, ax=ax)
+        ax = self._plot_wireframe(transform=None, ax=ax, color=color)
 
         ax.set_xlabel('Right Ascension')
         ax.set_ylabel('Declination')

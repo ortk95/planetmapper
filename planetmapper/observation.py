@@ -169,18 +169,55 @@ class Observation(BodyXY):
         # TODO deal with more FITS files (e.g. DATE-OBS doesn't work for JWST)
         # TODO deal with missing values
 
-        for k in ['OBJECT', 'TARGET', 'TARGNAME']:
+        if 'target' not in kw:
+            for k in ['OBJECT', 'TARGET', 'TARGNAME']:
+                try:
+                    kw.setdefault('target', self.header[k])
+                    break
+                except KeyError:
+                    continue
+
+        if 'utc' not in kw:
+            for k in [
+                'BMIDTIME',
+                'MJD-AVG',
+                'DATE-AVG',
+            ]:
+                # TODO do this better - maybe use MJD?
+                try:
+                    kw.setdefault('utc', self.header[k])
+                    break
+                except KeyError:
+                    continue
+
             try:
-                kw.setdefault('target', self.header[k])
-                break
+                kw.setdefault('utc', self.header['MJD-AVG'])
             except KeyError:
-                continue
-        for k in ['DATE-OBS', 'DATE-BEG']:
+                pass
+
             try:
-                kw.setdefault('utc', self.header[k])
-                break
-            except KeyError:
-                continue
+                # If the header has a MJD value for the start and end of the
+                # observation, average them and use astropy to convert this
+                # mid-observation MJD into a fits format time string
+                beg = float(self.header['MJD-BEG'])  #  type: ignore
+                end = float(self.header['MJD-END'])  #  type: ignore
+                mjd = (beg + end) / 2
+                kw.setdefault('utc', mjd)
+            except:
+                pass
+
+            for k in [
+                'DATE-AVG',
+                'DATE-OBS',
+                'DATE-BEG',
+                'DATE-END',
+            ]:
+                # TODO do this better - maybe use MJD?
+                try:
+                    kw.setdefault('utc', self.header[k])
+                    break
+                except KeyError:
+                    continue
 
     def __repr__(self) -> str:
         return f'Observation({self.path!r})'  # TODO make more explicit?

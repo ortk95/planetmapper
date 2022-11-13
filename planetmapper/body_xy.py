@@ -148,7 +148,7 @@ class BodyXY(Body):
     def __init__(
         self,
         target: str,
-        utc: str | datetime.datetime,
+        utc: str | datetime.datetime | float,
         nx: int = 0,
         ny: int = 0,
         *,
@@ -715,15 +715,18 @@ class BodyXY(Body):
         )
 
     # Plotting
-    def plot_wireframe_xy(self, ax: Axes | None = None, show: bool = True) -> Axes:
+    def plot_wireframe_xy(self, ax: Axes | None = None, show: bool = True, color:str|tuple[float,float,float]='k') -> Axes:
         """
         Plot basic wireframe representation of the observation using image pixel
         coordinates.
 
         Args:
-            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
-                a new figure and axis is created.
-            show: Toggle showing the plotted figure with `plt.show()`
+            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), uses
+                `plt.gca()` to get the currently active axis.
+            show: Toggle showing the plotted figure with `plt.show()` (defaults to 
+                True).
+            color: Matplotlib color used for to plot the wireframe.
+
 
         Returns:
             The axis containing the plotted wireframe.
