@@ -95,6 +95,8 @@ class Observation(BodyXY):
             if data is None:
                 raise ValueError('Either `path` or `data` must be provided')
             self.data = data
+            if header is not None:
+                self.header = header
         else:
             # TODO should we have a way to provide both path and header for e.g. JPEGS?
             if data is not None:
@@ -131,12 +133,26 @@ class Observation(BodyXY):
 
     def _load_fits_data(self):
         assert self.path is not None
-        self.data, self.header = fits.getdata(self.path, header=True)  #  type: ignore
+        # TODO generally do this better
         # TODO add check data is a cube
+        with fits.open(self.path) as hdul:
+            for idx, hdu in enumerate(hdul):
+                if hdu.data is not None:
+                    data = hdu.data
+                    if idx:
+                        header = hdul[0].header.copy()  # type: ignore
+                        header.update(hdu.header.copy())
+                    else:
+                        header = hdu.header.copy()
+                    break
+            else:
+                raise ValueError('No data foundin provided FITS file')
+        self.data = data
+        self.header = header
 
     def _load_image_data(self):
         assert self.path is not None
-        image = np.array(PIL.Image.open(self.path))
+        image = np.flipud(np.array(PIL.Image.open(self.path)))
 
         if len(image.shape) == 2:
             # If greyscale image, add another dimension so that it is an image cube with

@@ -12,7 +12,7 @@ import astropy.io.fits
 import matplotlib.ticker
 from functools import lru_cache
 
-if False:
+if True:
     if True:
         gui = planetmapper.gui.GUI(
             'data/saturn.jpg',
@@ -28,7 +28,8 @@ if False:
             utc='2020-08-25 02:30:40',
         )
     gui.observation.plot_wireframe_radec()
-    # gui.run()
-
-ls = planetmapper.body_xy._make_backplane_documentation_str()
-print(ls)
+    gui.run()
+else:
+    p = '/Users/ortk1/Dropbox/PhD/data/jwst/saturn/jw01247-o330_t600_miri_ch1-shortmediumlong/jw01247-o330_t600_miri_ch1-shortmediumlong_s3d.fits'
+    gui = planetmapper.gui.GUI(p, observer='JWST')
+    gui.run()

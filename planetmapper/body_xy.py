@@ -1551,7 +1551,9 @@ def _make_backplane_documentation_str() -> str:
             '- Image function: :func:`planetmapper.{}`'.format(bp.get_img.__qualname__)
         )
         msg.append(
-            '- Map function: :func:`planetmapper.{}`'.format(bp.get_map.__qualname__)
+            '- Map function: :func:`planetmapper.{}`'.format(
+                bp.get_map.__qualname__  # type: ignore
+            )
         )
         msg.append('')
     return '\n'.join(msg)

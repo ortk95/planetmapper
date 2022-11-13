@@ -714,25 +714,23 @@ class GUI:
     # Image
     def image_sum(self) -> np.ndarray:
         return 100 * utils.normalise(
-            np.flipud(np.nansum(self.observation.data, axis=0))
+            np.nansum(self.observation.data, axis=0)
         ) ** self.plot_settings['_'].setdefault('image_gamma', 1)
 
     def image_single(self) -> np.ndarray:
         return 100 * utils.normalise(
-            np.flipud(
-                self.observation.data[
-                    self.plot_settings['_'].setdefault('image_idx_single', 0)
-                ]
-            )
+            self.observation.data[
+                self.plot_settings['_'].setdefault('image_idx_single', 0)
+            ]
         ) ** self.plot_settings['_'].setdefault('image_gamma', 1)
 
     def image_rgb(self) -> np.ndarray:
         r = self.observation.data[self.plot_settings['_'].setdefault('image_idx_r', 0)]
         g = self.observation.data[self.plot_settings['_'].setdefault('image_idx_g', 0)]
         b = self.observation.data[self.plot_settings['_'].setdefault('image_idx_b', 0)]
-        return utils.normalise(
-            np.flipud(np.stack((r, g, b), axis=2))
-        ) ** self.plot_settings['_'].setdefault('image_gamma', 1)
+        return utils.normalise(np.stack((r, g, b), axis=2)) ** self.plot_settings[
+            '_'
+        ].setdefault('image_gamma', 1)
 
     # Keybindings
     def bind_keyboard(self) -> None:
