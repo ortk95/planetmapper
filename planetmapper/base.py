@@ -7,7 +7,7 @@ import astropy.time
 import numpy as np
 import spiceypy as spice
 
-KERNEL_PATH = '~/spice/naif/generic_kernels/'
+KERNEL_PATH = '~/spice/naif/'
 
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
 
@@ -147,7 +147,7 @@ class SpiceBase:
         Attempt to intelligently SPICE kernels using `spice.furnsh`.
 
         Args:
-            kernel_path: Path to directory where generic_kernels are stored.
+            kernel_path: Path to directory where kernels are stored.
             manual_kernels: Optional manual list of paths to kernels to load instead of
                 using `kernel_path`.
             only_if_needed: If this is `True`, kernels will only be loaded once per
@@ -160,14 +160,20 @@ class SpiceBase:
             kernels = manual_kernels
         else:
             kernel_path = os.path.expanduser(kernel_path)
-            pcks = sorted(glob.glob(kernel_path + 'pck/*.tpc'))
-            spks1 = sorted(glob.glob(kernel_path + 'spk/planets/de*.bsp'))
-            spks2 = sorted(glob.glob(kernel_path + 'spk/satellites/*.bsp'))
-            lsks = sorted(glob.glob(kernel_path + 'lsk/naif*.tls'))
-            jwst = sorted(
-                glob.glob(kernel_path + '../../jwst/**/*.bsp', recursive=True)
-            )
-            kernels = [pcks[-1], spks1[-1], *spks2, lsks[-1], *jwst]
+            kernels = []
+            for pattern in ('**/spk/**/*.bsp', '**/pck/**/*.tpc', '**/lsk/**/*.tls'):
+                kernels.extend(glob.glob(os.path.join(kernel_path, pattern), recursive=True))
+            kernels.sort()
+
+            # kernel_path = os.path.expanduser(kernel_path)
+            # pcks = sorted(glob.glob(kernel_path + 'pck/*.tpc'))
+            # spks1 = sorted(glob.glob(kernel_path + 'spk/planets/de*.bsp'))
+            # spks2 = sorted(glob.glob(kernel_path + 'spk/satellites/*.bsp'))
+            # lsks = sorted(glob.glob(kernel_path + 'lsk/naif*.tls'))
+            # jwst = sorted(
+            #     glob.glob(kernel_path + '../../jwst/**/*.bsp', recursive=True)
+            # )
+            # kernels = [pcks[-1], spks1[-1], *spks2, lsks[-1], *jwst]
         for kernel in kernels:
             spice.furnsh(kernel)
         cls._KERNELS_LOADED = True

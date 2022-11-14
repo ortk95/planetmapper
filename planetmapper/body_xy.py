@@ -235,7 +235,9 @@ class BodyXY(Body):
 
         self._mpl_transform_radec2xy: matplotlib.transforms.Affine2D | None = None
         self._mpl_transform_xy2radec: matplotlib.transforms.Transform | None = None
-        self._mpl_transform_radians: matplotlib.transforms.Affine2D | None = None
+        self._mpl_transform_radec2xy_radians: matplotlib.transforms.Affine2D | None = (
+            None
+        )
 
         self.backplanes = {}
         self._register_default_backplanes()
@@ -680,11 +682,11 @@ class BodyXY(Body):
     def _get_matplotlib_radec2xy_transform_radians(
         self,
     ) -> matplotlib.transforms.Affine2D:
-        if self._mpl_transform_radians is None:
-            self._mpl_transform_radians = matplotlib.transforms.Affine2D(
+        if self._mpl_transform_radec2xy_radians is None:
+            self._mpl_transform_radec2xy_radians = matplotlib.transforms.Affine2D(
                 self._get_radec2xy_matrix_radians()
             )
-        return self._mpl_transform_radians
+        return self._mpl_transform_radec2xy_radians
 
     def matplotlib_radec2xy_transform(
         self, ax: Axes | None = None

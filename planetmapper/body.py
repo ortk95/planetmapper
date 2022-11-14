@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import spiceypy as spice
 from matplotlib.axes import Axes
-from matplotlib.transforms import Transform
+import matplotlib.transforms
 from spiceypy.utils.exceptions import NotFoundError
 
 from .base import SpiceBase
@@ -239,11 +239,18 @@ class Body(SpiceBase):
             *self._obsvec2radec_radians(self._subpoint_obsvec)
         )
 
-        # Create empty lists
+        # Create empty lists/blank values
         self.ring_radii = set()
         self.other_bodies_of_interest = []
         self.coordinates_of_interest_lonlat = []
         self.coordinates_of_interest_radec = []
+
+        self._matrix_km2radec = None
+        self._matrix_radec2km = None
+        self._mpl_transform_km2radec_radians = None
+        self._mpl_transform_radec2km_radians = None
+        self._mpl_transform_km2radec = None
+        self._mpl_transform_radec2km = None
 
         # Run custom setup
         if self.target == 'SATURN':
@@ -536,6 +543,87 @@ class Body(SpiceBase):
         return self._radian_pair2degrees(
             *self._targvec_arr2radec_arrs_radians(targvec_arr, condition_func)
         )
+
+    # Coordinate transformations km <-> radec
+    def _get_km2radec_matrix_radians(self) -> np.ndarray:
+        # Based on code in BodyXY._get_xy2radec_matrix_radians()
+        # TODO make this actually work
+        if self._matrix_km2radec is None:
+            r_km = self.r_eq
+            r_radians = np.arcsin(r_km / self.target_distance)
+            s = r_radians / r_km
+            theta = -np.deg2rad(self.north_pole_angle())
+            stretch_matrix = np.array(
+                [[-1 / np.abs(np.cos(self._target_dec_radians)), 0], [0, 1]]
+            )
+            rotation_matrix = self._rotation_matrix_radians(theta)
+            transform_matrix_2x2 = s * np.matmul(rotation_matrix, stretch_matrix)
+
+            v0 = np.array([0, 0])
+            a0 = np.array([self._target_ra_radians, self._target_dec_radians])
+            offset_vector = a0 - np.matmul(transform_matrix_2x2, v0)
+
+            transform_matrix_3x3 = np.identity(3)
+            transform_matrix_3x3[:2, :2] = transform_matrix_2x2
+            transform_matrix_3x3[:2, 2] = offset_vector
+            self._matrix_km2radec = transform_matrix_3x3
+        return self._matrix_km2radec
+
+    def _get_radec2km_matrix_radians(self) -> np.ndarray:
+        if self._matrix_radec2km is None:
+            self._matrix_radec2km = np.linalg.inv(self._get_km2radec_matrix_radians())
+        return self._matrix_radec2km
+
+    def _km2radec_radians(self, km_x: float, km_y: float) -> tuple[float, float]:
+        a = self._get_km2radec_matrix_radians().dot(np.array([km_x, km_y, 1]))
+        return a[0], a[1]
+
+    def _radec2km_radians(self, ra: float, dec: float) -> tuple[float, float]:
+        v = self._get_radec2km_matrix_radians().dot(np.array([ra, dec, 1]))
+        return v[0], v[1]
+
+    def km2radec(self, km_x: float, km_y: float) -> tuple[float, float]:
+        # TODO docstring
+        return self._radian_pair2degrees(*self._km2radec_radians(km_x, km_y))
+
+    def radec2km(self, ra: float, dec: float) -> tuple[float, float]:
+        return self._radec2km_radians(*self._degree_pair2radians(ra, dec))
+
+    def _get_matplotlib_radec2km_transform_radians(
+        self,
+    ) -> matplotlib.transforms.Affine2D:
+        if self._mpl_transform_radec2km_radians is None:
+            self._mpl_transform_radec2km_radians = matplotlib.transforms.Affine2D(
+                self._get_radec2km_matrix_radians()
+            )
+        return self._mpl_transform_radec2km_radians
+
+    def matplotlib_radec2km_transform(
+        self, ax: Axes | None = None
+    ) -> matplotlib.transforms.Transform:
+        # TODO docstring
+        if self._mpl_transform_radec2km is None:
+            transform_rad2deg = matplotlib.transforms.Affine2D().scale(np.deg2rad(1))
+            self._mpl_transform_radec2km = (
+                transform_rad2deg + self._get_matplotlib_radec2km_transform_radians()
+            )  #  type: ignore
+        transform = self._mpl_transform_radec2km
+        if ax:
+            transform = transform + ax.transData
+        return transform
+
+    def matplotlib_km2radec_transform(
+        self, ax: Axes | None = None
+    ) -> matplotlib.transforms.Transform:
+        # TODO dosctring
+        if self._mpl_transform_km2radec is None:
+            self._mpl_transform_km2radec = (
+                self.matplotlib_radec2km_transform().inverted()
+            )
+        transform = self._mpl_transform_km2radec
+        if ax:
+            transform = transform + ax.transData
+        return transform
 
     # General
     def _illumf_from_targvec_radians(
@@ -965,6 +1053,13 @@ class Body(SpiceBase):
         )
         return self.targvec2lonlat(targvec[0])
 
+    # Other
+    def north_pole_angle(self) -> float:
+        # TODO docstring
+        np_ra, np_dec = self.lonlat2radec(0, 90)
+        theta = np.arctan2(self.target_ra - np_ra, np_dec - self.target_dec)
+        return np.rad2deg(theta)
+
     # Description
     def get_description(self, multiline: bool = True) -> str:
         """
@@ -1016,7 +1111,7 @@ class Body(SpiceBase):
 
     def _plot_wireframe(
         self,
-        transform: None | Transform,
+        transform: None | matplotlib.transforms.Transform,
         ax: Axes | None = None,
         color: str | tuple[float, float, float] = 'k',
     ) -> Axes:
@@ -1143,6 +1238,25 @@ class Body(SpiceBase):
             ax.yaxis.set_major_formatter(utils.DMSFormatter())
             ax.xaxis.set_major_locator(utils.DMSLocator())
             ax.xaxis.set_major_formatter(utils.DMSFormatter())
+
+        if show:
+            plt.show()
+        return ax
+
+    def plot_wireframe_km(
+        self,
+        ax: Axes | None = None,
+        show: bool = False,
+        color: str | tuple[float, float, float] = 'k',
+    ) -> Axes:
+        # TODO docstring
+
+        transform = self.matplotlib_radec2km_transform()
+        ax = self._plot_wireframe(transform=transform, ax=ax, color=color)
+
+        ax.set_xlabel('Projected distance (km)')
+        ax.set_ylabel('Projected distance (km)')
+        ax.set_aspect(1, adjustable='datalim')
 
         if show:
             plt.show()

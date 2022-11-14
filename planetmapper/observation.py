@@ -179,7 +179,6 @@ class Observation(BodyXY):
 
         if 'utc' not in kw:
             for k in [
-                'BMIDTIME',
                 'MJD-AVG',
                 'DATE-AVG',
             ]:
