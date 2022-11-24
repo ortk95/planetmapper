@@ -824,7 +824,7 @@ class Body(SpiceBase):
         return self._test_if_targvec_illuminated(self.lonlat2targvec(lon, lat))
 
     # Lonlat grid
-    def visible_latlon_grid_radec(
+    def visible_lonlat_grid_radec(
         self, interval: float = 30, **kwargs
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
@@ -836,7 +836,7 @@ class Body(SpiceBase):
 
         For example, to plot gridlines with a 45 degree interval, use::
 
-            lines = body.visible_latlon_grid_radec(interval=45)
+            lines = body.visible_lonlat_grid_radec(interval=45)
             for ra, dec in lines:
                 plt.plot(ra, dec)
 
@@ -1114,6 +1114,7 @@ class Body(SpiceBase):
         transform: None | matplotlib.transforms.Transform,
         ax: Axes | None = None,
         color: str | tuple[float, float, float] = 'k',
+        **kwargs,
     ) -> Axes:
         """Plot generic wireframe representation of the observation"""
         if ax is None:
@@ -1124,19 +1125,21 @@ class Body(SpiceBase):
         else:
             transform = transform + ax.transData
 
-        for ra, dec in self.visible_latlon_grid_radec(30):
-            ax.plot(ra, dec, color=color, linestyle=':', alpha=0.5, transform=transform)
+        for ra, dec in self.visible_lonlat_grid_radec(30):
+            ax.plot(ra, dec, color=color, linestyle=':', alpha=0.5, transform=transform,        **kwargs
+)
 
-        ax.plot(*self.limb_radec(), color=color, linewidth=0.5, transform=transform)
+        ax.plot(*self.limb_radec(), color=color, linewidth=0.5, transform=transform, **kwargs)
         ax.plot(
             *self.terminator_radec(),
             color=color,
             linestyle='--',
             transform=transform,
+            **kwargs,
         )
 
         ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination()
-        ax.plot(ra_day, dec_day, color=color, transform=transform)
+        ax.plot(ra_day, dec_day, color=color, transform=transform ,       **kwargs)
 
         for lon, lat, s in self.get_poles_to_plot():
             ra, dec = self.lonlat2radec(lon, lat)
@@ -1146,6 +1149,7 @@ class Body(SpiceBase):
                 s,
                 ha='center',
                 va='center',
+                size='small',
                 weight='bold',
                 color=color,
                 path_effects=[
@@ -1154,6 +1158,7 @@ class Body(SpiceBase):
                 ],
                 transform=transform,
                 clip_on=True,
+                **kwargs,
             )
 
         for lon, lat in self.coordinates_of_interest_lonlat:
@@ -1164,7 +1169,7 @@ class Body(SpiceBase):
                     dec,
                     marker='x',  # type: ignore
                     color=color,
-                    transform=transform,
+                    transform=transform,**kwargs
                 )
         for ra, dec in self.coordinates_of_interest_radec:
             ax.scatter(
@@ -1172,12 +1177,13 @@ class Body(SpiceBase):
                 dec,
                 marker='+',  # type: ignore
                 color=color,
-                transform=transform,
+                transform=transform,**kwargs
             )
 
         for radius in self.ring_radii:
             ra, dec = self.ring_radec(radius)
-            ax.plot(ra, dec, color=color, linewidth=0.5, transform=transform)
+            ax.plot(ra, dec, color=color, linewidth=0.5, transform=transform ,       **kwargs
+)
 
         for body in self.other_bodies_of_interest:
             ra = body.target_ra
@@ -1192,14 +1198,14 @@ class Body(SpiceBase):
                 color=color,
                 alpha=0.5,
                 transform=transform,
-                clip_on=True,
+                clip_on=True,**kwargs
             )
             ax.scatter(
                 ra,
                 dec,
                 marker='+',  # type: ignore
                 color=color,
-                transform=transform,
+                transform=transform,**kwargs
             )
         ax.set_title(self.get_description(multiline=True))
         return ax
@@ -1209,7 +1215,7 @@ class Body(SpiceBase):
         ax: Axes | None = None,
         show: bool = False,
         color: str | tuple[float, float, float] = 'k',
-        dms_ticks: bool = True,
+        dms_ticks: bool = True,**kwargs
     ) -> Axes:
         """
         Plot basic wireframe representation of the observation using RA/Dec sky
@@ -1226,7 +1232,7 @@ class Body(SpiceBase):
         Returns:
             The axis containing the plotted wireframe.
         """
-        ax = self._plot_wireframe(transform=None, ax=ax, color=color)
+        ax = self._plot_wireframe(transform=None, ax=ax, color=color, **kwargs)
 
         ax.set_xlabel('Right Ascension')
         ax.set_ylabel('Declination')
@@ -1247,15 +1253,16 @@ class Body(SpiceBase):
         self,
         ax: Axes | None = None,
         show: bool = False,
-        color: str | tuple[float, float, float] = 'k',
+        color: str | tuple[float, float, float] = 'k',**kwargs
     ) -> Axes:
         # TODO docstring
 
         transform = self.matplotlib_radec2km_transform()
-        ax = self._plot_wireframe(transform=transform, ax=ax, color=color)
+        ax = self._plot_wireframe(transform=transform, ax=ax, color=color, **kwargs)
 
         ax.set_xlabel('Projected distance (km)')
         ax.set_ylabel('Projected distance (km)')
+        ax.ticklabel_format(style='sci', scilimits=(-3, 3))
         ax.set_aspect(1, adjustable='datalim')
 
         if show:

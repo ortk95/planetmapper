@@ -647,22 +647,22 @@ class BodyXY(Body):
         """
         return self._radec_arrs2xy_arrs(*self.terminator_radec(**kwargs))
 
-    def visible_latlon_grid_xy(
+    def visible_lonlat_grid_xy(
         self, *args, **kwargs
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
-        Pixel coordinate version of :func:`Body.visible_latlon_grid_radec`.
+        Pixel coordinate version of :func:`Body.visible_lonlat_grid_radec`.
 
         Args:
-            *args: Passed to :func:`Body.visible_latlon_grid_radec`.
-            **kwargs: Passed to :func:`Body.visible_latlon_grid_radec`.
+            *args: Passed to :func:`Body.visible_lonlat_grid_radec`.
+            **kwargs: Passed to :func:`Body.visible_lonlat_grid_radec`.
 
         Returns:
             List of `(x, y)` coordinate array tuples.
         """
         return [
-            self._radec_arrs2xy_arrs(*np.deg2rad(rd))
-            for rd in self.visible_latlon_grid_radec(*args, **kwargs)
+            self._radec_arrs2xy_arrs(*rd)
+            for rd in self.visible_lonlat_grid_radec(*args, **kwargs)
         ]
 
     def ring_xy(self, radius: float, **kwargs) -> tuple[np.ndarray, np.ndarray]:
@@ -758,6 +758,12 @@ class BodyXY(Body):
         if ax:
             transform = transform + ax.transData
         return transform
+
+    def matplotlib_xy2km_transform(self, ax:Axes|None)-> matplotlib.transforms.Transform:
+        return self.matplotlib_xy2radec_transform() + self.matplotlib_radec2km_transform(ax)
+    
+    def matplotlib_km2xy_transform(self, ax:Axes|None)-> matplotlib.transforms.Transform:
+        return self.matplotlib_km2radec_transform() + self.matplotlib_radec2xy_transform(ax)
 
     def update_transform(self) -> None:
         """
@@ -925,7 +931,7 @@ class BodyXY(Body):
         )
 
     def plot_backplane_img(
-        self, name: str, ax: Axes | None = None, show: bool = True, **kwargs
+        self, name: str, ax: Axes | None = None, show: bool = False, **kwargs
     ) -> Axes:
         """
         Plot a backplane image with the wireframe outline of the target.
@@ -959,7 +965,7 @@ class BodyXY(Body):
         self,
         name: str,
         ax: Axes | None = None,
-        show: bool = True,
+        show: bool = False,
         degree_interval: float = 1,
         **kwargs,
     ) -> Axes:
@@ -1015,15 +1021,15 @@ class BodyXY(Body):
     def _register_default_backplanes(self) -> None:
         self.register_backplane(
             'LON-GRAPHIC',
-            'Planetographic longitude [deg]',
+            'Planetographic longitude, positive {ew} [deg]'.format(
+                ew=self.positive_longitude_direction
+            ),
             self.get_lon_img,
             self.get_lon_map,
         )
         self.register_backplane(
             'LAT-GRAPHIC',
-            'Planetographic latitude, positive {ew} [deg]'.format(
-                ew=self.positive_longitude_direction
-            ),
+            'Planetographic latitude,[deg]',
             self.get_lat_img,
             self.get_lat_map,
         )

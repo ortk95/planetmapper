@@ -85,7 +85,7 @@ class GUI:
         self.observation = Observation(path, *args, **kwargs)
 
         # TODO add option to create from Observation
-        self.step_size = 10
+        self.step_size = 1
 
         self.shortcuts: dict[Callable[[], Any], list[str]] = {
             self.increase_step: [']'],
@@ -619,6 +619,7 @@ class GUI:
                         ha='center',
                         va='center',
                         weight='bold',
+                        size='small',
                         transform=self.transform,
                         clip_on=True,
                         **self.plot_settings['poles'],
@@ -629,7 +630,7 @@ class GUI:
     def replot_grid(self) -> None:
         self.remove_artists('grid')
         interval = self.plot_settings['_'].setdefault('grid_interval', 30)
-        for ra, dec in self.observation.visible_latlon_grid_radec(interval):
+        for ra, dec in self.observation.visible_lonlat_grid_radec(interval):
             self.plot_handles['grid'].extend(
                 self.ax.plot(
                     ra,

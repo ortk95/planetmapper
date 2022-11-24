@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Script for testing stuff during development (TODO delete in final version)"""
-from planetmapper import observation
 import planetmapper.data_loader
 import planetmapper
 import numpy as np
@@ -31,25 +30,28 @@ if False:
     gui.observation.plot_wireframe_radec()
     gui.run()
 else:
-    p = '/Users/ortk1/Dropbox/PhD/data/jwst/saturn/jw01247-o330_t600_miri_ch1-shortmediumlong/jw01247-o330_t600_miri_ch1-shortmediumlong_s3d.fits'
+    p = '/Users/ortk1/Dropbox/PhD/data/jwst/saturn/reference/cgo.jpg'
 
-    # obs = planetmapper.Observation(p, observer='JWST')
-    # observation.disc_from_wcs()
+    # obs = planetmapper.Observation(p, observer='JWST', aberration_correction='CN')
 
-    obs = planetmapper.Body('moon', datetime.datetime.now())
-    print(obs.north_pole_angle())
-    # img = np.nansum(obs.data, axis=0)
+    # obs.disc_from_wcs(supress_warnings=True)
+    # obs.adjust_disc_params(dy=-5)
+    # obs.plot_wireframe_xy()
+    # wcs = obs._get_wcs_from_header()
 
-    # Plot an observed image on an RA/Dec axis with a wireframe of the target
-    # ax = obs.plot_wireframe_radec()
-    ax = obs.plot_wireframe_km()
-    for x in [-obs.r_eq, 0, obs.r_eq]:
-        ax.axvline(x)
-    for y in [-obs.r_polar, 0, obs.r_polar]:
-        ax.axhline(y)
-    plt.show()
+    gui = planetmapper.gui.GUI(p, target='saturn', utc='2022-11-14T10:28')
+    # gui.observation.disc_from_wcs()
 
-    # ax.autoscale(False)
-    # ax.imshow(img, origin='lower', transform=obs.matplotlib_xy2radec_transform(ax))
 
+    gui.observation.set_disc_params(
+        x0=368.9999999999998, y0=568.0, r0=152.7, rotation=6.300000000000003
+    )
+
+    gui.run()
+
+
+
+    # ax = gui.observation.plot_wireframe_xy()
+    # for x, y in gui.observation.visible_lonlat_grid_xy(90):
+    #     ax.plot(x,y)
 print('DONE')

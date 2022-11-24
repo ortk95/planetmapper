@@ -2,6 +2,8 @@ import datetime
 import os
 import warnings
 import math
+from functools import wraps, lru_cache, partial
+from typing import Any, Callable, Iterable, NamedTuple, ParamSpec, TypeVar, Concatenate
 
 import numpy as np
 import PIL.Image
@@ -12,6 +14,24 @@ import scipy.ndimage
 import photutils.aperture
 from . import common, utils
 from .body_xy import BodyXY
+
+T = TypeVar('T')
+S = TypeVar('S')
+P = ParamSpec('P')
+
+
+def _disable_when_using_wcs(
+    fn: Callable[Concatenate['Observation', P], T]
+) -> Callable[Concatenate['Observation', P], T]:
+    @wraps(fn)
+    def decorated(self: 'Observation', *args: P.args, **kwargs: P.kwargs):
+        if self._use_wcs:
+            raise ValueError(
+                '{fn.__name__} cannot be used when WCS transformations are enabled'
+            )
+        return fn(self, *args, **kwargs)
+
+    return decorated
 
 
 class Observation(BodyXY):
@@ -120,6 +140,14 @@ class Observation(BodyXY):
                     'DATE-OBS': self.utc,
                 }
             )
+
+        self._use_wcs: bool = False
+        self._dx: float = 0
+        self._dy: float = 0
+        self._dra: float = 0
+        self._dec: float = 0
+        self._drotation: float = 0
+
         self.centre_disc()
 
     def _load_data_from_path(self):
@@ -177,6 +205,14 @@ class Observation(BodyXY):
                 except KeyError:
                     continue
 
+        if 'observer' not in kw:
+            for k in ['TELESCOP']:
+                try:
+                    kw.setdefault('observer', self.header[k])
+                    break
+                except KeyError:
+                    continue
+
         if 'utc' not in kw:
             for k in [
                 'MJD-AVG',
@@ -221,6 +257,63 @@ class Observation(BodyXY):
     def __repr__(self) -> str:
         return f'Observation({self.path!r})'  # TODO make more explicit?
 
+    # API
+    # def enable_wcs(self):
+    #     raise NotImplementedError
+
+    # def disable_wcs(self) -> bool:
+    #     raise NotImplementedError
+
+    # def set_wcs_offset(
+    #     self,
+    #     dx: float | None = None,
+    #     dy: float | None = None,
+    #     dra: float | None = None,
+    #     ddec: float | None = None,
+    #     drotation: float | None = None,
+    # ):
+    #     raise NotImplementedError
+
+    # @_disable_when_using_wcs
+    # def set_x0(self, x0: float) -> None:
+    #     """:meta private:"""
+    #     return super().set_x0(x0)
+
+    # @_disable_when_using_wcs
+    # def get_x0(self) -> float:
+    #     """:meta private:"""
+    #     return super().get_x0()
+
+    # @_disable_when_using_wcs
+    # def set_y0(self, y0: float) -> None:
+    #     """:meta private:"""
+    #     return super().set_y0(y0)
+
+    # @_disable_when_using_wcs
+    # def get_y0(self) -> float:
+    #     """:meta private:"""
+    #     return super().get_y0()
+
+    # @_disable_when_using_wcs
+    # def set_r0(self, r0: float) -> None:
+    #     """:meta private:"""
+    #     return super().set_r0(r0)
+
+    # @_disable_when_using_wcs
+    # def get_r0(self) -> float:
+    #     """:meta private:"""
+    #     return super().get_r0()
+
+    # @_disable_when_using_wcs
+    # def set_rotation(self, rotation: float) -> None:
+    #     """:meta private:"""
+    #     return super().set_rotation(rotation)
+
+    # @_disable_when_using_wcs
+    # def get_rotation(self) -> float:
+    #     """:meta private:"""
+    #     return super().get_rotation()
+
     # Auto disc id
     def centre_disc(self) -> None:
         """
@@ -248,6 +341,10 @@ class Observation(BodyXY):
         """
         Set disc parameters using WCS information in the observation's FITS header.
 
+        .. warning::
+
+            This WCS transform is not perfect
+
         Args:
             supress_warnings: Hide warnings produced by astropy when calculating WCS
                 conversions.
@@ -262,6 +359,7 @@ class Observation(BodyXY):
             raise ValueError('No WCS information found in FITS header')
 
         if validate:
+            print('WARNING: this WCS transformation is only approximate')
             # TODO do these checks better
             assert not wcs.has_distortion
             assert all(u == 'deg' for u in wcs.world_axis_units)
@@ -297,9 +395,22 @@ class Observation(BodyXY):
             for x, y in coords:
                 ra_wcs, dec_wcs = wcs.pixel_to_world_values(x, y)
                 ra, dec = self.xy2radec(x, y)
-                # Do check with -180 and %360 so that e.g. 359.99999 becomes -0.00001
+                # print(x,y)
+                # print((ra_wcs - ra - 180) % 360 - 180 )
+                # print((dec_wcs - dec - 180) % 360 - 180)
+                # print(
+                #     ((ra_wcs - ra - 180) % 360 - 180)
+                #     * 60
+                #     * 60
+                #     / self.get_plate_scale_arcsec(),
+                #     ((dec_wcs - dec - 180) % 360 - 180)
+                #     * 60
+                #     * 60
+                #     / self.get_plate_scale_arcsec(),
+                # )
                 assert (ra_wcs - ra - 180) % 360 - 180 < 0.1 / 3600
                 assert (dec_wcs - dec - 180) % 360 - 180 < 0.1 / 3600
+                # Do checks with -180 and %360 so that e.g. 359.99999 becomes -0.00001
 
     def _get_img_for_fitting(self) -> np.ndarray:
         img = np.nansum(self.data, axis=0)
