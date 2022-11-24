@@ -14,6 +14,7 @@ import matplotlib.ticker
 from functools import lru_cache
 import scipy.interpolate
 
+utils.print_progress('start')
 # gui = planetmapper.gui.GUI(
 #             'data/jupiter.jpg',
 #             target='jupiter',
@@ -35,10 +36,5 @@ except NameError:
         r0=81.5,
         rotation=352.0,
     )
-# obs.plot_backplane_img('lat-graphic')
-# obs.plot_backplane_map('pixel-x')
-utils.print_progress('start')
-img = np.nansum(obs.data, axis=0)
-
-plt.imshow(obs.map_img(img), origin='lower')
-plt.show()
+utils.print_progress('mapping...')
+obs.save_mapped_observation('data/juputer_small_test.fits')

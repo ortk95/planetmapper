@@ -384,7 +384,7 @@ class Observation(BodyXY):
 
     # Mapping
     @_cache_clearable_result_with_args
-    def map_data(self, degree_interval: float = 1) -> np.ndarray:
+    def mapped_data(self, degree_interval: float = 1) -> np.ndarray:
         """
         Projects the observed :attr:`data` onto a lon/lat grid using
         :func:`BodyXY.map_img`.
@@ -410,12 +410,14 @@ class Observation(BodyXY):
         value: str | float | bool | complex,
         comment: str | None = None,
         hierarch_keyword: bool = True,
+        header: fits.Header | None = None,
     ):
         """
-        Add a card to the FITS :attr:`header`. This is mainly used to record metadata
-        which is then saved in the header of any FITS files saved by :func:`save`. By
-        default, the keyword is modified to provide a consistent keyword prefix for all
-        header cards added by this routine.
+        Add a card to a FITS header. If a `header` is not specified, then :attr:`header`
+        is modified.
+
+        By default, the keyword is modified to provide a consistent keyword prefix for
+        all header cards added by this routine.
 
         Args:
             keyword: Card keyword.
@@ -423,104 +425,168 @@ class Observation(BodyXY):
             comment: Card comment. If unspecified not comment will be added.
             hierarch_keyword: Toggle adding the keyword prefix from :attr:`FITS_KEYWORD`
                 to the keyword.
+            header: FITS Header which the card will be added to in-place. If `header` is
+                `None`, then :attr:`header` will be modified.
         """
+        if header is None:
+            header = self.header
         if hierarch_keyword:
             keyword = f'HIERARCH {self.FITS_KEYWORD} {keyword}'
         with utils.filter_fits_comment_warning():
-            self.header.append(fits.Card(keyword=keyword, value=value, comment=comment))
+            header.append(fits.Card(keyword=keyword, value=value, comment=comment))
 
-    def add_header_metadata(self):
+    def add_header_metadata(self, header: fits.Header | None = None):
         """
-        Add automatically generated metadata to :attr:`header`. This is automatically
+        Add automatically generated metadata a FIFTS header. This is automatically
         called by :func:`save` so `add_header_metadata` does not normally need to be
         called manually.
+
+        Args:
+            header: FITS Header which the metadata will be added to in-place. If
+                `header` is `None`, then :attr:`header` will be modified.
         """
-        self.append_to_header('VERSION', common.__version__, 'Planet Mapper version.')
-        self.append_to_header('URL', common.__url__, 'Webpage.')
+        self.append_to_header(
+            'VERSION', common.__version__, 'Planet Mapper version.', header=header
+        )
+        self.append_to_header('URL', common.__url__, 'Webpage.', header=header)
         self.append_to_header(
             'DATE',
             datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'),
             'File generation datetime.',
+            header=header,
         )
         if self.path is not None:
             self.append_to_header(
-                'INFILE',
-                os.path.split(self.path)[1],
-                'Input file name.',
+                'INFILE', os.path.split(self.path)[1], 'Input file name.', header=header
             )
         self.append_to_header(
-            'DISC X0', self.get_x0(), '[pixels] x coordinate of disc centre.'
+            'DISC X0',
+            self.get_x0(),
+            '[pixels] x coordinate of disc centre.',
+            header=header,
         )
         self.append_to_header(
-            'DISC Y0', self.get_y0(), '[pixels] y coordinate of disc centre.'
+            'DISC Y0',
+            self.get_y0(),
+            '[pixels] y coordinate of disc centre.',
+            header=header,
         )
         self.append_to_header(
-            'DISC R0', self.get_r0(), '[pixels] equatorial radius of disc.'
+            'DISC R0',
+            self.get_r0(),
+            '[pixels] equatorial radius of disc.',
+            header=header,
         )
         self.append_to_header(
-            'DISC ROT', self.get_rotation(), '[degrees] rotation of disc.'
+            'DISC ROT',
+            self.get_rotation(),
+            '[degrees] rotation of disc.',
+            header=header,
         )
         self.append_to_header(
-            'DISC METHOD', self.get_disc_method(), 'Method used to find disc.'
+            'DISC METHOD',
+            self.get_disc_method(),
+            'Method used to find disc.',
+            header=header,
         )
         self.append_to_header(
-            'ET-OBS', self.et, 'J2000 ephemeris seconds of observation.'
+            'ET-OBS', self.et, 'J2000 ephemeris seconds of observation.', header=header
         )
         self.append_to_header(
-            'TARGET',
-            self.target,
-            'Target body name used in SPICE.',
+            'TARGET', self.target, 'Target body name used in SPICE.', header=header
         )
         self.append_to_header(
-            'TARGET-ID', self.target_body_id, 'Target body ID from SPICE.'
+            'TARGET-ID',
+            self.target_body_id,
+            'Target body ID from SPICE.',
+            header=header,
         )
         self.append_to_header(
-            'R EQ', self.r_eq, '[km] Target equatorial radius from SPICE.'
+            'R EQ',
+            self.r_eq,
+            '[km] Target equatorial radius from SPICE.',
+            header=header,
         )
         self.append_to_header(
-            'R POLAR', self.r_polar, '[km] Target polar radius from SPICE.'
+            'R POLAR',
+            self.r_polar,
+            '[km] Target polar radius from SPICE.',
+            header=header,
         )
         self.append_to_header(
             'LIGHT-TIME',
             self.target_light_time,
             '[seconds] Light time to target from SPICE.',
+            header=header,
         )
         self.append_to_header(
-            'DISTANCE', self.target_distance, '[km] Distance to target from SPICE.'
+            'DISTANCE',
+            self.target_distance,
+            '[km] Distance to target from SPICE.',
+            header=header,
         )
         self.append_to_header(
-            'OBSERVER',
-            self.observer,
-            'Observer name used in SPICE.',
+            'OBSERVER', self.observer, 'Observer name used in SPICE.', header=header
         )
         self.append_to_header(
             'TARGET-FRAME',
             self.target_frame,
             'Target frame used in SPICE.',
+            header=header,
         )
         self.append_to_header(
             'OBSERVER-FRAME',
             self.observer_frame,
             'Observer frame used in SPICE.',
+            header=header,
         )
         self.append_to_header(
             'ILLUMINATION',
             self.illumination_source,
             'Illumination source used in SPICE.',
+            header=header,
         )
         self.append_to_header(
-            'ABCORR', self.aberration_correction, 'Aberration correction used in SPICE.'
+            'ABCORR',
+            self.aberration_correction,
+            'Aberration correction used in SPICE.',
+            header=header,
         )
         self.append_to_header(
-            'SUBPOINT-METHOD', self.subpoint_method, 'Subpoint method used in SPICE.'
+            'SUBPOINT-METHOD',
+            self.subpoint_method,
+            'Subpoint method used in SPICE.',
+            header=header,
         )
         self.append_to_header(
             'SURFACE-METHOD',
             self.surface_method,
             'Surface intercept method used in SPICE.',
+            header=header,
         )
         self.append_to_header(
-            'OPTIMIZATION-USED', self._optimize_speed, 'Speed optimizations used.'
+            'OPTIMIZATION-USED',
+            self._optimize_speed,
+            'Speed optimizations used.',
+            header=header,
+        )
+
+    def make_filename(self, extension='.fits') -> str:
+        """
+        Automatically generates a useful filename from the target name and date of the
+        observation, e.g. `'JUPITER_2000-01-01T123456.fits.gz'`.
+
+        Args:
+            extension: Optionally specify the file extension to add to the filename.
+
+        Returns:
+            Filename built from the target name and observation date.
+
+        """
+        return '{target}_{date}{extension}'.format(
+            target=self.target,
+            date=self.dtm.strftime('%Y-%m-%dT%H%M%S'),
+            extension=extension,
         )
 
     def save_observation(self, path: str) -> None:
@@ -540,11 +606,11 @@ class Observation(BodyXY):
             path: Filepath of output file.
         """
         with utils.filter_fits_comment_warning():
-            self.add_header_metadata()
+            data = self.data
+            header = self.header.copy()
 
-            hdu = fits.PrimaryHDU(data=self.data, header=self.header)
-            hdul = fits.HDUList([hdu])
-
+            self.add_header_metadata(header)
+            hdul = fits.HDUList([fits.PrimaryHDU(data=data, header=header)])
             for name, backplane in self.backplanes.items():
                 utils.print_progress(name)
                 img = backplane.get_img()
@@ -554,20 +620,58 @@ class Observation(BodyXY):
                 hdul.append(hdu)
             hdul.writeto(path, overwrite=True)
 
-    def make_filename(self, extension='.fits') -> str:
-        """
-        Automatically generates a useful filename from the target name and date of the
-        observation, e.g. `'JUPITER_2000-01-01T123456.fits.gz'`.
+    def save_mapped_observation(
+        self, path: str, include_backplanes: bool = True, degree_interval: float = 1
+    ) -> None:
+        with utils.filter_fits_comment_warning():
+            data = self.mapped_data(degree_interval)
+            header = self.header.copy()
 
-        Args:
-            extension: Optionally specify the file extension to add to the filename.
+            self.add_header_metadata(header)
+            self.append_to_header(
+                'DEGREE-INTERVAL',
+                degree_interval,
+                '[deg] Degree interval in output map.',
+                header=header,
+            )
+            self._add_map_wcs_to_header(header, degree_interval)
 
-        Returns:
-            Filename built from the target name and observation date.
+            hdul = fits.HDUList([fits.PrimaryHDU(data=data, header=header)])
+            if include_backplanes:
+                for name, backplane in self.backplanes.items():
+                    utils.print_progress(name)
+                    img = backplane.get_map(degree_interval)
+                    header = fits.Header([('ABOUT', backplane.description)])
+                    header.add_comment('Backplane generated by Planet Mapper software.')
+                    self._add_map_wcs_to_header(header, degree_interval)
 
-        """
-        return '{target}_{date}{extension}'.format(
-            target=self.target,
-            date=self.dtm.strftime('%Y-%m-%dT%H%M%S'),
-            extension=extension,
+                    hdu = fits.ImageHDU(data=img, header=header, name=name)
+                    hdul.append(hdu)
+            hdul.writeto(path, overwrite=True)
+
+    def _add_map_wcs_to_header(
+        self, header: fits.Header, degree_interval: float
+    ) -> None:
+        lons, lats = self._make_map_lonlat_arrays(degree_interval)
+
+        # Add new values
+        header['CTYPE1'] = 'Planetographic longitude, positive {}'.format(
+            self.positive_longitude_direction
         )
+        header['CUNIT1'] = 'deg'
+        header['CRPIX1'] = 1
+        header['CRVAL1'] = lons[0]
+        header['CDELT1'] = lons[1] - lons[0]
+
+        header['CTYPE2'] = 'Planetographic latitude'
+        header['CUNIT2'] = 'deg'
+        header['CRPIX2'] = 1
+        header['CRVAL2'] = lats[0]
+        header['CDELT2'] = lats[1] - lats[0]
+
+        # Remove values which correspond to previous projection
+        for a in ['1', '2']:
+            for b in ['1', '2', '3']:
+                for key in [f'PC{a}_{b}', f'PC{b}_{a}', f'CD{a}_{b}', f'CD{b}_{a}']:
+                    header.remove(key, ignore_missing=True, remove_all=True)
+                
