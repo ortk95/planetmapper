@@ -9,4 +9,5 @@ Planet Mapper
    utils
    data_loader
    gui
+   kernel_downloader
    default_backplanes

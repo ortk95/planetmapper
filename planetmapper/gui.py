@@ -85,7 +85,7 @@ class GUI:
         self.observation = Observation(path, *args, **kwargs)
 
         # TODO add option to create from Observation
-        self.step_size = 10
+        self.step_size = 1
 
         self.shortcuts: dict[Callable[[], Any], list[str]] = {
             self.increase_step: [']'],
@@ -528,7 +528,7 @@ class GUI:
         self.fig = plt.figure()
         self.ax = self.fig.add_axes([0.06, 0.03, 0.93, 0.96])
         self.transform = (
-            self.observation.get_matplotlib_radec2xy_transform() + self.ax.transData
+            self.observation.matplotlib_radec2xy_transform() + self.ax.transData
         )
 
         self.replot_all()
@@ -619,6 +619,7 @@ class GUI:
                         ha='center',
                         va='center',
                         weight='bold',
+                        size='small',
                         transform=self.transform,
                         clip_on=True,
                         **self.plot_settings['poles'],
@@ -629,7 +630,7 @@ class GUI:
     def replot_grid(self) -> None:
         self.remove_artists('grid')
         interval = self.plot_settings['_'].setdefault('grid_interval', 30)
-        for ra, dec in self.observation.visible_latlon_grid_radec(interval):
+        for ra, dec in self.observation.visible_lonlat_grid_radec(interval):
             self.plot_handles['grid'].extend(
                 self.ax.plot(
                     ra,
@@ -714,25 +715,23 @@ class GUI:
     # Image
     def image_sum(self) -> np.ndarray:
         return 100 * utils.normalise(
-            np.flipud(np.nansum(self.observation.data, axis=0))
+            np.nansum(self.observation.data, axis=0)
         ) ** self.plot_settings['_'].setdefault('image_gamma', 1)
 
     def image_single(self) -> np.ndarray:
         return 100 * utils.normalise(
-            np.flipud(
-                self.observation.data[
-                    self.plot_settings['_'].setdefault('image_idx_single', 0)
-                ]
-            )
+            self.observation.data[
+                self.plot_settings['_'].setdefault('image_idx_single', 0)
+            ]
         ) ** self.plot_settings['_'].setdefault('image_gamma', 1)
 
     def image_rgb(self) -> np.ndarray:
         r = self.observation.data[self.plot_settings['_'].setdefault('image_idx_r', 0)]
         g = self.observation.data[self.plot_settings['_'].setdefault('image_idx_g', 0)]
         b = self.observation.data[self.plot_settings['_'].setdefault('image_idx_b', 0)]
-        return utils.normalise(
-            np.flipud(np.stack((r, g, b), axis=2))
-        ) ** self.plot_settings['_'].setdefault('image_gamma', 1)
+        return utils.normalise(np.stack((r, g, b), axis=2)) ** self.plot_settings[
+            '_'
+        ].setdefault('image_gamma', 1)
 
     # Keybindings
     def bind_keyboard(self) -> None:
@@ -851,7 +850,7 @@ class GUI:
             return
         print(path)
         utils.print_progress(c1='c')
-        self.observation.save(path)
+        self.observation.save_observation(path)
         utils.print_progress('saved', c1='c')
 
 

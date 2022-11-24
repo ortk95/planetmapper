@@ -2,11 +2,13 @@ import datetime
 import glob
 import os
 from typing import TypeVar
+import astropy.time
 
 import numpy as np
 import spiceypy as spice
 
-KERNEL_PATH = '~/spice/naif/generic_kernels/'
+KERNEL_PATH = '~/spice_kernels/'
+KERNEL_PATTERNS = ('**/spk/**/*.bsp', '**/pck/**/*.tpc', '**/lsk/**/*.tls')
 
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
 
@@ -81,6 +83,21 @@ class SpiceBase:
         # i.e. this lets python know it is UTC
         return datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%f%z')
 
+    @staticmethod
+    def mjd2dtm(mjd: float) -> datetime.datetime:
+        """
+        Convert Modified Julian Date into a python datetime object.
+
+        Args:
+            mjd: Float representing MJD.
+
+        Returns:
+            Python datetime object corresponding to `mjd`. This datetieme is timezone
+            aware and set to the UTC timezone.
+        """
+        dtm: datetime.datetime = astropy.time.Time(mjd, format='mjd').datetime
+        return dtm.astimezone(datetime.timezone.utc)
+
     def speed_of_light(self) -> float:
         """
         Return the speed of light in km/s. This is a convenience function to call
@@ -131,7 +148,7 @@ class SpiceBase:
         Attempt to intelligently SPICE kernels using `spice.furnsh`.
 
         Args:
-            kernel_path: Path to directory where generic_kernels are stored.
+            kernel_path: Path to directory where kernels are stored.
             manual_kernels: Optional manual list of paths to kernels to load instead of
                 using `kernel_path`.
             only_if_needed: If this is `True`, kernels will only be loaded once per
@@ -144,14 +161,13 @@ class SpiceBase:
             kernels = manual_kernels
         else:
             kernel_path = os.path.expanduser(kernel_path)
-            pcks = sorted(glob.glob(kernel_path + 'pck/*.tpc'))
-            spks1 = sorted(glob.glob(kernel_path + 'spk/planets/de*.bsp'))
-            spks2 = sorted(glob.glob(kernel_path + 'spk/satellites/*.bsp'))
-            lsks = sorted(glob.glob(kernel_path + 'lsk/naif*.tls'))
-            jwst = sorted(
-                glob.glob(kernel_path + '../../jwst/**/*.bsp', recursive=True)
-            )
-            kernels = [pcks[-1], spks1[-1], *spks2, lsks[-1], *jwst]
+            kernels = set()
+            for pattern in KERNEL_PATTERNS:
+                kernels.update(
+                    glob.glob(os.path.join(kernel_path, pattern), recursive=True)
+                )
+            kernels = sorted(kernels)
+
         for kernel in kernels:
             spice.furnsh(kernel)
         cls._KERNELS_LOADED = True
@@ -169,8 +185,8 @@ class SpiceBase:
             arr: Array of values of length :math:`n`.
 
         Returns:
-            Array of values of length :math:`n + 1` where the final value is the same as the
-            first value.
+            Array of values of length :math:`n + 1` where the final value is the same as 
+            the first value.
         """
         return np.append(arr, [arr[0]], axis=0)
 

@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import spiceypy as spice
 from matplotlib.axes import Axes
-from matplotlib.transforms import Transform
+import matplotlib.transforms
 from spiceypy.utils.exceptions import NotFoundError
 
 from .base import SpiceBase
@@ -29,12 +29,13 @@ class Body(SpiceBase):
 
     Args:
         target: Name of target body.
-        utc: Time of observation. This can be any string datetime representation
-            compatible with SPICE (e.g. '2000-12-31T23:59:59') or a Python datetime
-            object. The time is assumed to be UTC unless otherwise specified (e.g. by
-            using a timezone aware Python datetime). For the string formats accepted by
-            SPICE, see
-            https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/utc2et_c.html.
+        utc: Time of observation. This can be provided in a variety of formats and is
+            assumed to be UTC unless otherwised specified. The accepted formats are: any
+            `string` datetime representation compatible with SPICE (e.g.
+            `'2000-12-31T23:59:59'` - see
+            https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/utc2et_c.html
+            for the acceptable string formats), a Python `datetime` object, or a `float`
+            representing the Modified Julian Date (MJD) of the observation.
         observer: Name of observing body. Defaults to 'EARTH'.
         observer_frame: Observer reference frame.
         illumination_source: Illumination source (e.g. the sun).
@@ -42,13 +43,13 @@ class Body(SpiceBase):
             in SPICE.
         subpoint_method: Method used to calculate the sub-observer point in SPICE.
         surface_method: Method used to calculate surface intercepts in SPICE.
-        **kwargs: Additional arguments are passed to `SpiceBase`.
+        **kwargs: Additional arguments are passed to :class:`SpiceBase`.
     """
 
     def __init__(
         self,
         target: str,
-        utc: str | datetime.datetime,
+        utc: str | datetime.datetime | float,
         observer: str = 'EARTH',
         *,
         observer_frame: str = 'J2000',
@@ -147,6 +148,8 @@ class Body(SpiceBase):
 
         # Process inputs
         self.target = self.standardise_body_name(target)
+        if isinstance(utc, float):
+            utc = self.mjd2dtm(utc)
         if isinstance(utc, datetime.datetime):
             # convert input datetime to UTC, then to a string compatible with spice
             utc = utc.astimezone(datetime.timezone.utc)
@@ -236,11 +239,18 @@ class Body(SpiceBase):
             *self._obsvec2radec_radians(self._subpoint_obsvec)
         )
 
-        # Create empty lists
+        # Create empty lists/blank values
         self.ring_radii = set()
         self.other_bodies_of_interest = []
         self.coordinates_of_interest_lonlat = []
         self.coordinates_of_interest_radec = []
+
+        self._matrix_km2radec = None
+        self._matrix_radec2km = None
+        self._mpl_transform_km2radec_radians = None
+        self._mpl_transform_radec2km_radians = None
+        self._mpl_transform_km2radec = None
+        self._mpl_transform_radec2km = None
 
         # Run custom setup
         if self.target == 'SATURN':
@@ -534,6 +544,87 @@ class Body(SpiceBase):
             *self._targvec_arr2radec_arrs_radians(targvec_arr, condition_func)
         )
 
+    # Coordinate transformations km <-> radec
+    def _get_km2radec_matrix_radians(self) -> np.ndarray:
+        # Based on code in BodyXY._get_xy2radec_matrix_radians()
+        # TODO make this actually work
+        if self._matrix_km2radec is None:
+            r_km = self.r_eq
+            r_radians = np.arcsin(r_km / self.target_distance)
+            s = r_radians / r_km
+            theta = -np.deg2rad(self.north_pole_angle())
+            stretch_matrix = np.array(
+                [[-1 / np.abs(np.cos(self._target_dec_radians)), 0], [0, 1]]
+            )
+            rotation_matrix = self._rotation_matrix_radians(theta)
+            transform_matrix_2x2 = s * np.matmul(rotation_matrix, stretch_matrix)
+
+            v0 = np.array([0, 0])
+            a0 = np.array([self._target_ra_radians, self._target_dec_radians])
+            offset_vector = a0 - np.matmul(transform_matrix_2x2, v0)
+
+            transform_matrix_3x3 = np.identity(3)
+            transform_matrix_3x3[:2, :2] = transform_matrix_2x2
+            transform_matrix_3x3[:2, 2] = offset_vector
+            self._matrix_km2radec = transform_matrix_3x3
+        return self._matrix_km2radec
+
+    def _get_radec2km_matrix_radians(self) -> np.ndarray:
+        if self._matrix_radec2km is None:
+            self._matrix_radec2km = np.linalg.inv(self._get_km2radec_matrix_radians())
+        return self._matrix_radec2km
+
+    def _km2radec_radians(self, km_x: float, km_y: float) -> tuple[float, float]:
+        a = self._get_km2radec_matrix_radians().dot(np.array([km_x, km_y, 1]))
+        return a[0], a[1]
+
+    def _radec2km_radians(self, ra: float, dec: float) -> tuple[float, float]:
+        v = self._get_radec2km_matrix_radians().dot(np.array([ra, dec, 1]))
+        return v[0], v[1]
+
+    def km2radec(self, km_x: float, km_y: float) -> tuple[float, float]:
+        # TODO docstring
+        return self._radian_pair2degrees(*self._km2radec_radians(km_x, km_y))
+
+    def radec2km(self, ra: float, dec: float) -> tuple[float, float]:
+        return self._radec2km_radians(*self._degree_pair2radians(ra, dec))
+
+    def _get_matplotlib_radec2km_transform_radians(
+        self,
+    ) -> matplotlib.transforms.Affine2D:
+        if self._mpl_transform_radec2km_radians is None:
+            self._mpl_transform_radec2km_radians = matplotlib.transforms.Affine2D(
+                self._get_radec2km_matrix_radians()
+            )
+        return self._mpl_transform_radec2km_radians
+
+    def matplotlib_radec2km_transform(
+        self, ax: Axes | None = None
+    ) -> matplotlib.transforms.Transform:
+        # TODO docstring
+        if self._mpl_transform_radec2km is None:
+            transform_rad2deg = matplotlib.transforms.Affine2D().scale(np.deg2rad(1))
+            self._mpl_transform_radec2km = (
+                transform_rad2deg + self._get_matplotlib_radec2km_transform_radians()
+            )  #  type: ignore
+        transform = self._mpl_transform_radec2km
+        if ax:
+            transform = transform + ax.transData
+        return transform
+
+    def matplotlib_km2radec_transform(
+        self, ax: Axes | None = None
+    ) -> matplotlib.transforms.Transform:
+        # TODO dosctring
+        if self._mpl_transform_km2radec is None:
+            self._mpl_transform_km2radec = (
+                self.matplotlib_radec2km_transform().inverted()
+            )
+        transform = self._mpl_transform_km2radec
+        if ax:
+            transform = transform + ax.transData
+        return transform
+
     # General
     def _illumf_from_targvec_radians(
         self, targvec: np.ndarray
@@ -733,7 +824,7 @@ class Body(SpiceBase):
         return self._test_if_targvec_illuminated(self.lonlat2targvec(lon, lat))
 
     # Lonlat grid
-    def visible_latlon_grid_radec(
+    def visible_lonlat_grid_radec(
         self, interval: float = 30, **kwargs
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
@@ -745,7 +836,7 @@ class Body(SpiceBase):
 
         For example, to plot gridlines with a 45 degree interval, use::
 
-            lines = body.visible_latlon_grid_radec(interval=45)
+            lines = body.visible_lonlat_grid_radec(interval=45)
             for ra, dec in lines:
                 plt.plot(ra, dec)
 
@@ -840,7 +931,7 @@ class Body(SpiceBase):
     def _radial_velocity_from_state(
         self, position: np.ndarray, velocity: np.ndarray, _lt: float | None = None
     ) -> float:
-        # lt argument is meaningless but there for convenience when chaining with 
+        # lt argument is meaningless but there for convenience when chaining with
         # _state_from_targvec
         # dot the velocity with the normalised position vector to get radial component
         return velocity.dot(self.unit_vector(position))
@@ -962,6 +1053,13 @@ class Body(SpiceBase):
         )
         return self.targvec2lonlat(targvec[0])
 
+    # Other
+    def north_pole_angle(self) -> float:
+        # TODO docstring
+        np_ra, np_dec = self.lonlat2radec(0, 90)
+        theta = np.arctan2(self.target_ra - np_ra, np_dec - self.target_dec)
+        return np.rad2deg(theta)
+
     # Description
     def get_description(self, multiline: bool = True) -> str:
         """
@@ -1012,30 +1110,49 @@ class Body(SpiceBase):
         return poles
 
     def _plot_wireframe(
-        self, transform: None | Transform, ax: Axes | None = None
+        self,
+        transform: None | matplotlib.transforms.Transform,
+        ax: Axes | None = None,
+        color: str | tuple[float, float, float] = 'k',
+        **kwargs,
     ) -> Axes:
         """Plot generic wireframe representation of the observation"""
         if ax is None:
-            fig, ax = plt.subplots()
+            ax = cast(Axes, plt.gca())
 
         if transform is None:
             transform = ax.transData
         else:
             transform = transform + ax.transData
 
-        for ra, dec in self.visible_latlon_grid_radec(30):
-            ax.plot(ra, dec, color='silver', linestyle=':', transform=transform)
+        for ra, dec in self.visible_lonlat_grid_radec(30):
+            ax.plot(
+                ra,
+                dec,
+                color=color,
+                linestyle=':',
+                alpha=0.5,
+                transform=transform,
+                **kwargs,
+            )
 
-        ax.plot(*self.limb_radec(), color='k', linewidth=0.5, transform=transform)
+        ax.plot(
+            *self.limb_radec(),
+            color=color,
+            linewidth=0.5,
+            transform=transform,
+            **kwargs,
+        )
         ax.plot(
             *self.terminator_radec(),
-            color='k',
+            color=color,
             linestyle='--',
             transform=transform,
+            **kwargs,
         )
 
         ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination()
-        ax.plot(ra_day, dec_day, color='k', transform=transform)
+        ax.plot(ra_day, dec_day, color=color, transform=transform, **kwargs)
 
         for lon, lat, s in self.get_poles_to_plot():
             ra, dec = self.lonlat2radec(lon, lat)
@@ -1045,14 +1162,16 @@ class Body(SpiceBase):
                 s,
                 ha='center',
                 va='center',
+                size='small',
                 weight='bold',
-                color='grey',
+                color=color,
                 path_effects=[
                     path_effects.Stroke(linewidth=3, foreground='w'),
                     path_effects.Normal(),
                 ],
                 transform=transform,
                 clip_on=True,
+                **kwargs,
             )
 
         for lon, lat in self.coordinates_of_interest_lonlat:
@@ -1062,21 +1181,23 @@ class Body(SpiceBase):
                     ra,
                     dec,
                     marker='x',  # type: ignore
-                    color='k',
+                    color=color,
                     transform=transform,
+                    **kwargs,
                 )
         for ra, dec in self.coordinates_of_interest_radec:
             ax.scatter(
                 ra,
                 dec,
                 marker='+',  # type: ignore
-                color='k',
+                color=color,
                 transform=transform,
+                **kwargs,
             )
 
         for radius in self.ring_radii:
             ra, dec = self.ring_radec(radius)
-            ax.plot(ra, dec, color='k', linewidth=0.5, transform=transform)
+            ax.plot(ra, dec, color=color, linewidth=0.5, transform=transform, **kwargs)
 
         for body in self.other_bodies_of_interest:
             ra = body.target_ra
@@ -1088,49 +1209,80 @@ class Body(SpiceBase):
                 size='small',
                 ha='center',
                 va='center',
-                color='grey',
+                color=color,
+                alpha=0.5,
                 transform=transform,
                 clip_on=True,
+                **kwargs,
             )
             ax.scatter(
                 ra,
                 dec,
                 marker='+',  # type: ignore
-                color='k',
+                color=color,
                 transform=transform,
+                **kwargs,
             )
         ax.set_title(self.get_description(multiline=True))
         return ax
 
     def plot_wireframe_radec(
-        self, ax: Axes | None = None, show: bool = True, dms_ticks: bool = True
+        self,
+        ax: Axes | None = None,
+        show: bool = False,
+        color: str | tuple[float, float, float] = 'k',
+        dms_ticks: bool = True,
+        **kwargs,
     ) -> Axes:
         """
         Plot basic wireframe representation of the observation using RA/Dec sky
         coordinates.
 
         Args:
-            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
-                a new figure and axis is created.
-            show: Toggle showing the plotted figure with `plt.show()`.
+            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), uses
+                `plt.gca()` to get the currently active axis.
+            show: Toggle immediately showing the plotted figure with `plt.show()`.
+            color: Matplotlib color used for to plot the wireframe.
             dms_ticks: Toggle between showing ticks as degrees, minutes and seconds
                 (e.g. 12°34′56″) or decimal degrees (e.g. 12.582).
 
         Returns:
             The axis containing the plotted wireframe.
         """
-        ax = self._plot_wireframe(transform=None, ax=ax)
+        ax = self._plot_wireframe(transform=None, ax=ax, color=color, **kwargs)
 
         ax.set_xlabel('Right Ascension')
         ax.set_ylabel('Declination')
         ax.set_aspect(1 / np.cos(self._target_dec_radians), adjustable='datalim')
-        ax.invert_xaxis()
+        if not ax.xaxis_inverted():
+            ax.invert_xaxis()
 
         if dms_ticks:
             ax.yaxis.set_major_locator(utils.DMSLocator())
             ax.yaxis.set_major_formatter(utils.DMSFormatter())
             ax.xaxis.set_major_locator(utils.DMSLocator())
             ax.xaxis.set_major_formatter(utils.DMSFormatter())
+
+        if show:
+            plt.show()
+        return ax
+
+    def plot_wireframe_km(
+        self,
+        ax: Axes | None = None,
+        show: bool = False,
+        color: str | tuple[float, float, float] = 'k',
+        **kwargs,
+    ) -> Axes:
+        # TODO docstring
+
+        transform = self.matplotlib_radec2km_transform()
+        ax = self._plot_wireframe(transform=transform, ax=ax, color=color, **kwargs)
+
+        ax.set_xlabel('Projected distance (km)')
+        ax.set_ylabel('Projected distance (km)')
+        ax.ticklabel_format(style='sci', scilimits=(-3, 3))
+        ax.set_aspect(1, adjustable='datalim')
 
         if show:
             plt.show()

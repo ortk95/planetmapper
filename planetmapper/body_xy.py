@@ -1,20 +1,30 @@
 import datetime
 import math
 from functools import wraps, lru_cache, partial
-from typing import Any, Callable, Iterable, NamedTuple, ParamSpec, TypeVar, Protocol
+from typing import (
+    Any,
+    Callable,
+    Iterable,
+    NamedTuple,
+    ParamSpec,
+    TypeVar,
+    Protocol,
+    Concatenate,
+)
 
 import matplotlib.patches
 import matplotlib.pyplot as plt
 import matplotlib.transforms
 import numpy as np
+import scipy.interpolate
 from matplotlib.axes import Axes
 from spiceypy.utils.exceptions import NotFoundError
-import spiceypy as spice
 
 from .body import Body
 
 T = TypeVar('T')
 S = TypeVar('S')
+P = ParamSpec('P')
 
 _cache_stable_result = lru_cache(maxsize=128)
 
@@ -38,6 +48,32 @@ def _cache_clearable_result(fn: Callable[[S], T]) -> Callable[[S], T]:
         k = fn.__name__
         if k not in self._cache:
             self._cache[k] = fn(self)
+        return self._cache[k]
+
+    return decorated
+
+
+def _cache_clearable_result_with_args(
+    fn: Callable[Concatenate[S, P], T]
+) -> Callable[Concatenate[S, P], T]:
+    """
+    Decorator to cache the output of a method call with variable arguments.
+
+    This requires that the class has a `self._cache` dict which can be used to store
+    the cached result. The dictionary key is derived from the name of the decorated
+    function.
+
+    The results cached by this decorator can be cleared using `self._cache.clear()`, so
+    this is useful for results which need to be invalidated (i.e. backplane images
+    which are invalidated the moment the disc params are changed). If the result is
+    stable (i.e. backplane maps) then use `_cache_stable_result` instead.
+    """
+
+    @wraps(fn)
+    def decorated(self, *args: P.args, **kwargs: P.kwargs):
+        k = (fn.__name__, args, frozenset(kwargs.items()))
+        if k not in self._cache:
+            self._cache[k] = fn(self, *args, **kwargs)
         return self._cache[k]
 
     return decorated
@@ -148,7 +184,7 @@ class BodyXY(Body):
     def __init__(
         self,
         target: str,
-        utc: str | datetime.datetime,
+        utc: str | datetime.datetime | float,
         nx: int = 0,
         ny: int = 0,
         *,
@@ -233,8 +269,11 @@ class BodyXY(Body):
             self._y0 = self._ny / 2 - 0.5
             self._r0 = 0.9 * (min(self._x0, self._y0))
 
-        self._matplotlib_transform: matplotlib.transforms.Affine2D | None = None
-        self._matplotlib_transform_radians: matplotlib.transforms.Affine2D | None = None
+        self._mpl_transform_radec2xy: matplotlib.transforms.Affine2D | None = None
+        self._mpl_transform_xy2radec: matplotlib.transforms.Transform | None = None
+        self._mpl_transform_radec2xy_radians: matplotlib.transforms.Affine2D | None = (
+            None
+        )
 
         self.backplanes = {}
         self._register_default_backplanes()
@@ -644,22 +683,22 @@ class BodyXY(Body):
         """
         return self._radec_arrs2xy_arrs(*self.terminator_radec(**kwargs))
 
-    def visible_latlon_grid_xy(
+    def visible_lonlat_grid_xy(
         self, *args, **kwargs
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
-        Pixel coordinate version of :func:`Body.visible_latlon_grid_radec`.
+        Pixel coordinate version of :func:`Body.visible_lonlat_grid_radec`.
 
         Args:
-            *args: Passed to :func:`Body.visible_latlon_grid_radec`.
-            **kwargs: Passed to :func:`Body.visible_latlon_grid_radec`.
+            *args: Passed to :func:`Body.visible_lonlat_grid_radec`.
+            **kwargs: Passed to :func:`Body.visible_lonlat_grid_radec`.
 
         Returns:
             List of `(x, y)` coordinate array tuples.
         """
         return [
-            self._radec_arrs2xy_arrs(*np.deg2rad(rd))
-            for rd in self.visible_latlon_grid_radec(*args, **kwargs)
+            self._radec_arrs2xy_arrs(*rd)
+            for rd in self.visible_lonlat_grid_radec(*args, **kwargs)
         ]
 
     def ring_xy(self, radius: float, **kwargs) -> tuple[np.ndarray, np.ndarray]:
@@ -679,31 +718,98 @@ class BodyXY(Body):
     def _get_matplotlib_radec2xy_transform_radians(
         self,
     ) -> matplotlib.transforms.Affine2D:
-        if self._matplotlib_transform_radians is None:
-            self._matplotlib_transform_radians = matplotlib.transforms.Affine2D(
+        if self._mpl_transform_radec2xy_radians is None:
+            self._mpl_transform_radec2xy_radians = matplotlib.transforms.Affine2D(
                 self._get_radec2xy_matrix_radians()
             )
-        return self._matplotlib_transform_radians
+        return self._mpl_transform_radec2xy_radians
 
-    def get_matplotlib_radec2xy_transform(self) -> matplotlib.transforms.Affine2D:
+    def matplotlib_radec2xy_transform(
+        self, ax: Axes | None = None
+    ) -> matplotlib.transforms.Transform:
         """
         Get matplotlib transform which converts RA/Dec sky coordinates to image pixel
         coordinates.
 
-        The transform is a mutalbe object which can be dynamically updated using
+        The transform is a mutable object which can be dynamically updated using
         :func:`update_transform` when the `radec` to `xy` coordinate conversion changes.
         This can be useful for plotting data (e.g. the planet's limb) using RA/Dec
         coordinates onto an axis using image pixel coordinates when fitting the disc.
 
+        Args:
+            ax: Optionally specify a matplotlib axis to return
+                `transform_radec2xy + ax.transData`. This value can then be used in the
+                `transform` keyword argument of a Matplotlib function without any
+                further modification.
+
         Returns:
             Matplotlib transformation from `radec` to `xy` coordinates.
         """
-        if self._matplotlib_transform is None:
+        if self._mpl_transform_radec2xy is None:
             transform_rad2deg = matplotlib.transforms.Affine2D().scale(np.deg2rad(1))
-            self._matplotlib_transform = (
+            self._mpl_transform_radec2xy = (
                 transform_rad2deg + self._get_matplotlib_radec2xy_transform_radians()
             )  #  type: ignore
-        return self._matplotlib_transform  #  type: ignore
+        transform = self._mpl_transform_radec2xy
+        if ax:
+            transform = transform + ax.transData
+        return transform
+
+    def matplotlib_xy2radec_transform(
+        self, ax: Axes | None = None
+    ) -> matplotlib.transforms.Transform:
+        """
+        Get matplotlib transform which converts image pixel coordinates to RA/Dec sky
+        coordinates.
+
+        The transform is a mutable object which can be dynamically updated using
+        :func:`update_transform` when the `radec` to `xy` coordinate conversion changes.
+        This can be useful for plotting data (e.g. an observed image) using image xy
+        coordinates onto an axis using RA/Dec coordinates. ::
+
+            # Plot an observed image on an RA/Dec axis with a wireframe of the target
+            ax = obs.plot_wireframe_radec()
+            ax.autoscale_view()
+            ax.autoscale(False) # Prevent imshow breaking autoscale
+            ax.imshow(
+                img,
+                origin='lower',
+                transform=obs.matplotlib_xy2radec_transform(ax),
+                )
+
+        Args:
+            ax: Optionally specify a matplotlib axis to return
+                `transform_radec2xy + ax.transData`. This value can then be used in the
+                `transform` keyword argument of a Matplotlib function without any
+                further modification.
+
+        Returns:
+            Matplotlib transformation from `xy` to `radec` coordinates.
+        """
+        if self._mpl_transform_xy2radec is None:
+            self._mpl_transform_xy2radec = (
+                self.matplotlib_radec2xy_transform().inverted()
+            )
+        transform = self._mpl_transform_xy2radec
+        if ax:
+            transform = transform + ax.transData
+        return transform
+
+    def matplotlib_xy2km_transform(
+        self, ax: Axes | None
+    ) -> matplotlib.transforms.Transform:
+        return (
+            self.matplotlib_xy2radec_transform()
+            + self.matplotlib_radec2km_transform(ax)
+        )
+
+    def matplotlib_km2xy_transform(
+        self, ax: Axes | None
+    ) -> matplotlib.transforms.Transform:
+        return (
+            self.matplotlib_km2radec_transform()
+            + self.matplotlib_radec2xy_transform(ax)
+        )
 
     def update_transform(self) -> None:
         """
@@ -715,22 +821,29 @@ class BodyXY(Body):
         )
 
     # Plotting
-    def plot_wireframe_xy(self, ax: Axes | None = None, show: bool = True) -> Axes:
+    def plot_wireframe_xy(
+        self,
+        ax: Axes | None = None,
+        show: bool = False,
+        color: str | tuple[float, float, float] = 'k',
+    ) -> Axes:
         """
         Plot basic wireframe representation of the observation using image pixel
         coordinates.
 
         Args:
-            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
-                a new figure and axis is created.
-            show: Toggle showing the plotted figure with `plt.show()`
+            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), uses
+                `plt.gca()` to get the currently active axis.
+            show: Toggle immediately showing the plotted figure with `plt.show()`.
+            color: Matplotlib color used for to plot the wireframe.
+
 
         Returns:
             The axis containing the plotted wireframe.
         """
         # Generate affine transformation from radec in degrees -> xy
-        transform = self.get_matplotlib_radec2xy_transform()
-        ax = self._plot_wireframe(transform=transform, ax=ax)
+        transform = self.matplotlib_radec2xy_transform()
+        ax = self._plot_wireframe(transform=transform, ax=ax, color=color)
 
         if self._test_if_img_size_valid():
             ax.set_xlim(-0.5, self._nx - 0.5)
@@ -742,6 +855,40 @@ class BodyXY(Body):
         if show:
             plt.show()
         return ax
+
+    # Mapping
+    def map_img(self, img: np.ndarray, degree_interval: float = 1) -> np.ndarray:
+        """
+        Project an observed image onto a lon/lat grid.
+
+        The map projection is performed using `scipy.interpolate.RectBivariateSpline`
+        using linear interpolation (i.e. spline degrees `kx` and `ky` are set to 1).
+
+        Args:
+            img: Observed image where pixel coordinates correspond to the `xy` pixel
+                coordinates (e.g. those used in :func:`get_x0`).
+            degree_interval: Interval in degrees between the longitude/latitude points
+                in the mapped output. Passed to :func:`get_x_map` and :func:`get_y_map`
+                when generating the coordinates used for the projection.
+
+        Returns:
+            Array containing cylindrical map of the values in `img` at each location on
+            the surface of the target body. Locations which are not visible have a value
+            of NaN.
+        """
+        x_map = self.get_x_map(degree_interval)
+        y_map = self.get_y_map(degree_interval)
+        interpolator = scipy.interpolate.RectBivariateSpline(
+            np.arange(img.shape[1]), np.arange(img.shape[0]), img, kx=1, ky=1
+        )
+        projected = self._make_empty_map(degree_interval)
+        for a, b in self._iterate_image(projected.shape):
+            x = x_map[a, b]
+            if math.isnan(x):
+                continue
+            y = y_map[a, b]  # y should never be nan when x is not nan
+            projected[a, b] = interpolator(y, x)
+        return projected
 
     # Backplane management
     @staticmethod
@@ -809,6 +956,36 @@ class BodyXY(Body):
         """
         print(self.backplane_summary_string())
 
+    def get_backplane(self, name: str) -> Backplane:
+        """
+        Convenience function to retrieve a backplane registered to :attr:`backplanes`.
+
+        This method is equivilent to ::
+
+            body.backplanes[self.standardise_backplane_name(name)]
+
+        Args:
+            name: Name of the desired backplane. This is standardised with
+                :func:`standardise_backplane_name` and used to choose a registered
+                backplane from :attr:`backplanes`.
+
+        Returns:
+            Backplane registered with `name`.
+
+        Raises:
+            BackplaneNotFoundError: if `name` is not registered as a backplane.
+        """
+        name = self.standardise_backplane_name(name)
+        try:
+            return self.backplanes[name]
+        except:
+            raise BackplaneNotFoundError(
+                '{n!r} not found. Currently registered backplanes are: {r}.'.format(
+                    n=name,
+                    r=', '.join([repr(n) for n in self.backplanes.keys()]),
+                )
+            )
+
     def get_backplane_img(self, name: str) -> np.ndarray:
         """
         Generate backplane image.
@@ -822,7 +999,7 @@ class BodyXY(Body):
 
         This method is equivilent to ::
 
-            body.backplanes[body.standardise_backplane_name(name)].get_img().copy()
+            body.get_backplane(name).get_img().copy()
 
         Args:
             name: Name of the desired backplane. This is standardised with
@@ -844,7 +1021,7 @@ class BodyXY(Body):
 
         This method is equivilent to ::
 
-            body.backplanes[self.standardise_backplane_name(degree_interval)].get_map().copy()
+            body.get_backplane(name).get_map(degree_interval).copy()
 
         Args:
             name: Name of the desired backplane. This is standardised with
@@ -864,7 +1041,7 @@ class BodyXY(Body):
         )
 
     def plot_backplane_img(
-        self, name: str, ax: Axes | None = None, show: bool = True, **kwargs
+        self, name: str, ax: Axes | None = None, show: bool = False, **kwargs
     ) -> Axes:
         """
         Plot a backplane image with the wireframe outline of the target.
@@ -885,8 +1062,7 @@ class BodyXY(Body):
         Returns:
             The axis containing the plotted data.
         """
-        name = self.standardise_backplane_name(name)
-        backplane = self.backplanes[name]
+        backplane = self.get_backplane(name)
         ax = self.plot_wireframe_xy(ax, show=False)
         im = ax.imshow(backplane.get_img(), origin='lower', **kwargs)
         plt.colorbar(im, label=backplane.description)
@@ -898,7 +1074,7 @@ class BodyXY(Body):
         self,
         name: str,
         ax: Axes | None = None,
-        show: bool = True,
+        show: bool = False,
         degree_interval: float = 1,
         **kwargs,
     ) -> Axes:
@@ -921,8 +1097,7 @@ class BodyXY(Body):
         """
         if ax is None:
             fig, ax = plt.subplots()
-        name = self.standardise_backplane_name(name)
-        backplane = self.backplanes[name]
+        backplane = self.get_backplane(name)
 
         if self.positive_longitude_direction == 'W':
             extent = [360, 0, -90, 90]
@@ -954,15 +1129,15 @@ class BodyXY(Body):
     def _register_default_backplanes(self) -> None:
         self.register_backplane(
             'LON-GRAPHIC',
-            'Planetographic longitude [deg]',
+            'Planetographic longitude, positive {ew} [deg]'.format(
+                ew=self.positive_longitude_direction
+            ),
             self.get_lon_img,
             self.get_lon_map,
         )
         self.register_backplane(
             'LAT-GRAPHIC',
-            'Planetographic latitude, positive {ew} [deg]'.format(
-                ew=self.positive_longitude_direction
-            ),
+            'Planetographic latitude [deg]',
             self.get_lat_img,
             self.get_lat_map,
         )
@@ -1250,6 +1425,7 @@ class BodyXY(Body):
         """
         return self._get_radec_map(degree_interval)[:, :, 1]
 
+    @_cache_clearable_result_with_args
     def _get_xy_map(self, degree_interval: float) -> np.ndarray:
         out = self._make_empty_map(degree_interval, 2)
         radec_map = self._get_radec_map(degree_interval)
@@ -1514,6 +1690,10 @@ class BodyXY(Body):
         )
 
 
+class BackplaneNotFoundError(Exception):
+    pass
+
+
 def _make_backplane_documentation_str() -> str:
     class _BodyXY_ForDocumentation(BodyXY):
         def __init__(self):
@@ -1551,7 +1731,9 @@ def _make_backplane_documentation_str() -> str:
             '- Image function: :func:`planetmapper.{}`'.format(bp.get_img.__qualname__)
         )
         msg.append(
-            '- Map function: :func:`planetmapper.{}`'.format(bp.get_map.__qualname__)
+            '- Map function: :func:`planetmapper.{}`'.format(
+                bp.get_map.__qualname__  # type: ignore
+            )
         )
         msg.append('')
     return '\n'.join(msg)
