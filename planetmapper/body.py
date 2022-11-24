@@ -1126,10 +1126,23 @@ class Body(SpiceBase):
             transform = transform + ax.transData
 
         for ra, dec in self.visible_lonlat_grid_radec(30):
-            ax.plot(ra, dec, color=color, linestyle=':', alpha=0.5, transform=transform,        **kwargs
-)
+            ax.plot(
+                ra,
+                dec,
+                color=color,
+                linestyle=':',
+                alpha=0.5,
+                transform=transform,
+                **kwargs,
+            )
 
-        ax.plot(*self.limb_radec(), color=color, linewidth=0.5, transform=transform, **kwargs)
+        ax.plot(
+            *self.limb_radec(),
+            color=color,
+            linewidth=0.5,
+            transform=transform,
+            **kwargs,
+        )
         ax.plot(
             *self.terminator_radec(),
             color=color,
@@ -1139,7 +1152,7 @@ class Body(SpiceBase):
         )
 
         ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination()
-        ax.plot(ra_day, dec_day, color=color, transform=transform ,       **kwargs)
+        ax.plot(ra_day, dec_day, color=color, transform=transform, **kwargs)
 
         for lon, lat, s in self.get_poles_to_plot():
             ra, dec = self.lonlat2radec(lon, lat)
@@ -1169,7 +1182,8 @@ class Body(SpiceBase):
                     dec,
                     marker='x',  # type: ignore
                     color=color,
-                    transform=transform,**kwargs
+                    transform=transform,
+                    **kwargs,
                 )
         for ra, dec in self.coordinates_of_interest_radec:
             ax.scatter(
@@ -1177,13 +1191,13 @@ class Body(SpiceBase):
                 dec,
                 marker='+',  # type: ignore
                 color=color,
-                transform=transform,**kwargs
+                transform=transform,
+                **kwargs,
             )
 
         for radius in self.ring_radii:
             ra, dec = self.ring_radec(radius)
-            ax.plot(ra, dec, color=color, linewidth=0.5, transform=transform ,       **kwargs
-)
+            ax.plot(ra, dec, color=color, linewidth=0.5, transform=transform, **kwargs)
 
         for body in self.other_bodies_of_interest:
             ra = body.target_ra
@@ -1198,14 +1212,16 @@ class Body(SpiceBase):
                 color=color,
                 alpha=0.5,
                 transform=transform,
-                clip_on=True,**kwargs
+                clip_on=True,
+                **kwargs,
             )
             ax.scatter(
                 ra,
                 dec,
                 marker='+',  # type: ignore
                 color=color,
-                transform=transform,**kwargs
+                transform=transform,
+                **kwargs,
             )
         ax.set_title(self.get_description(multiline=True))
         return ax
@@ -1215,7 +1231,8 @@ class Body(SpiceBase):
         ax: Axes | None = None,
         show: bool = False,
         color: str | tuple[float, float, float] = 'k',
-        dms_ticks: bool = True,**kwargs
+        dms_ticks: bool = True,
+        **kwargs,
     ) -> Axes:
         """
         Plot basic wireframe representation of the observation using RA/Dec sky
@@ -1237,7 +1254,8 @@ class Body(SpiceBase):
         ax.set_xlabel('Right Ascension')
         ax.set_ylabel('Declination')
         ax.set_aspect(1 / np.cos(self._target_dec_radians), adjustable='datalim')
-        ax.invert_xaxis()
+        if not ax.xaxis_inverted():
+            ax.invert_xaxis()
 
         if dms_ticks:
             ax.yaxis.set_major_locator(utils.DMSLocator())
@@ -1253,7 +1271,8 @@ class Body(SpiceBase):
         self,
         ax: Axes | None = None,
         show: bool = False,
-        color: str | tuple[float, float, float] = 'k',**kwargs
+        color: str | tuple[float, float, float] = 'k',
+        **kwargs,
     ) -> Axes:
         # TODO docstring
 
