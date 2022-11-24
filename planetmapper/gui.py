@@ -98,7 +98,7 @@ class GUI:
             self.rotate_left: ['<less>', ','],
             self.increase_radius: ['+', '='],
             self.decrease_radius: ['-', '_'],
-            self.save: ['<Control-s>'],
+            self.save_observation: ['<Control-s>'],
         }
         self.shortcuts_to_keep_in_entry = ['<Control-s>']
 
@@ -290,14 +290,21 @@ class GUI:
         )
 
         # IO controls
-        label_frame = ttk.LabelFrame(frame, text='Output')
+        label_frame = ttk.LabelFrame(frame, text='Save')
         label_frame.pack(fill='x')
 
         self.add_tooltip(
-            ttk.Button(label_frame, text='Save backplanes', command=self.save),
-            f'Save FITS file with backplane data',
-            self.save,
-        ).pack()
+            ttk.Button(
+                label_frame, text='Save observation', command=self.save_observation
+            ),
+            f'Save FITS file of the observation with backplane data',
+            self.save_observation,
+        ).grid(row=0, column=0)
+        self.add_tooltip(
+            ttk.Button(label_frame, text='Save map', command=self.save_mapped),
+            f'Save FITS file of the mapped observation with backplane data',
+            self.save_mapped,
+        ).grid(row=0, column=1)
 
     def build_main_controls_section(
         self,
@@ -833,24 +840,35 @@ class GUI:
             pass
 
     # File IO
-    def save(self) -> None:
+    def save_observation(self) -> None:
         path = tkinter.filedialog.asksaveasfilename(
-            title='Save FITS file',
+            title='Save FITS file of observation',
             parent=self.root,
-            # defaultextension='.fits',
-            initialfile=self.observation.make_filename(),
-            # filetypes=[
-            #     ('FITS', '*.fits'),
-            #     ('Compressed FITS', '*.fits.gz')
-            # ],
+            initialfile=self.observation.make_filename(suffix='_observation'),
         )
         # TODO add some validation
         # TODO add some progress UI
-        if path is None:
+        if path is None or path == '':
             return
-        print(path)
+
+        print('Saving', path)
         utils.print_progress(c1='c')
         self.observation.save_observation(path)
+        utils.print_progress('saved', c1='c')
+
+    def save_mapped(self) -> None:
+        path = tkinter.filedialog.asksaveasfilename(
+            title='Save FITS file of mapped observation',
+            parent=self.root,
+            initialfile=self.observation.make_filename(suffix='_mapped'),
+        )
+        # TODO add some validation
+        # TODO add some progress UI
+        if path is None or path == '':
+            return
+        print('Saving', path)
+        utils.print_progress(c1='c')
+        self.observation.save_mapped_observation(path)
         utils.print_progress('saved', c1='c')
 
 

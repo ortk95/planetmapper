@@ -571,22 +571,25 @@ class Observation(BodyXY):
             header=header,
         )
 
-    def make_filename(self, extension='.fits') -> str:
+    def make_filename(self, extension:str='.fits', prefix:str='', suffix:str='') -> str:
         """
         Automatically generates a useful filename from the target name and date of the
         observation, e.g. `'JUPITER_2000-01-01T123456.fits.gz'`.
 
         Args:
             extension: Optionally specify the file extension to add to the filename.
+            prefix: Optionally specify filename prefix.
+            suffix: Optionally specify filename suffix.
 
         Returns:
             Filename built from the target name and observation date.
-
         """
-        return '{target}_{date}{extension}'.format(
+        return '{prefix}{target}_{date}{suffix}{extension}'.format(
+            prefix=prefix,
             target=self.target,
             date=self.dtm.strftime('%Y-%m-%dT%H%M%S'),
             extension=extension,
+            suffix=suffix,
         )
 
     def save_observation(self, path: str) -> None:
