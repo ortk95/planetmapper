@@ -5,3 +5,4 @@ Pillow
 spiceypy
 scipy
 photutils
+tqdm

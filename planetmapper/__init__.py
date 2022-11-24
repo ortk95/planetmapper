@@ -70,7 +70,7 @@ from .body_xy import Backplane, BodyXY
 from .observation import Observation
 from . import gui
 from . import utils
-
+from . import kernel_downloader
 __all__ = [
     'SpiceBase',
     'Body',
@@ -79,4 +79,5 @@ __all__ = [
     'Observation',
     'gui',
     'utils',
+    'kernel_downloader',
 ]

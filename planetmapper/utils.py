@@ -11,6 +11,7 @@ import warnings
 from datetime import datetime
 import numpy as np
 import matplotlib.ticker
+import pathlib
 
 
 class DMSFormatter(matplotlib.ticker.FuncFormatter):
@@ -330,3 +331,21 @@ def normalise(values, top=1, bottom=0, single_value=None):
     else:
         values = values - vmin
     return values * (top - bottom) + bottom
+
+def check_path(path: str):
+    """
+    Checks if file path's directory tree exists, and creates it if necessary.
+
+    Assumes path is to a file if `os.path.split(path)[1]` contains '.',
+    otherwise assumes path is to a directory.
+    """
+    if os.path.isdir(path):
+        return
+    if '.' in os.path.split(path)[1]:
+        path = os.path.split(path)[0]
+        if os.path.isdir(path):
+            return
+    if path == '':
+        return
+    print('Creating directory path "{}"'.format(path))
+    pathlib.Path(path).mkdir(parents=True, exist_ok=True)
