@@ -22,6 +22,7 @@ import scipy.interpolate
 # gui.run()
 try:
     obs  #  type: ignore
+    raise NameError
 except NameError:
     obs = planetmapper.Observation(
         'data/jupiter_small.jpg',

@@ -13,7 +13,7 @@ from astropy.utils.exceptions import AstropyWarning
 import scipy.ndimage
 import photutils.aperture
 from . import common, utils
-from .body_xy import BodyXY
+from .body_xy import BodyXY, _cache_clearable_result, _cache_clearable_result_with_args
 
 T = TypeVar('T')
 S = TypeVar('S')
@@ -382,6 +382,27 @@ class Observation(BodyXY):
         self.set_r0(r0)
         self.set_disc_method('fit_r0')
 
+    # Mapping
+    @_cache_clearable_result_with_args
+    def map_data(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        Projects the observed :attr:`data` onto a lon/lat grid using
+        :func:`BodyXY.map_img`.
+
+        Args:
+            degree_interval: Interval in degrees between the longitude/latitude points.
+                Passed to :func:`BodyXY.map_img`.
+
+        Returns:
+            Array containing a cube of cylindrical map of the values in :attr:`data` at
+            each location on the surface of the target body. Locations which are not
+            visible have a value of NaN.
+        """
+        projected = []
+        for img in self.data:
+            projected.append(self.map_img(img, degree_interval=degree_interval))
+        return np.array(projected)
+
     # Output
     def append_to_header(
         self,
@@ -502,7 +523,7 @@ class Observation(BodyXY):
             'OPTIMIZATION-USED', self._optimize_speed, 'Speed optimizations used.'
         )
 
-    def save(self, path: str) -> None:
+    def save_observation(self, path: str) -> None:
         """
         Save a FITS file containing the observed data and generated backplanes.
 

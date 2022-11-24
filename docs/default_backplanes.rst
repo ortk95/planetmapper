@@ -17,7 +17,7 @@ This page lists the backplanes which are automatically registered to every insta
 
 ------------
 
-`LAT-GRAPHIC` Planetographic latitude,[deg]
+`LAT-GRAPHIC` Planetographic latitude [deg]
 
 - Image function: :func:`planetmapper.BodyXY.get_lat_img`
 - Map function: :func:`planetmapper.BodyXY.get_lat_map`

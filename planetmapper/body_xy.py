@@ -54,8 +54,8 @@ def _cache_clearable_result(fn: Callable[[S], T]) -> Callable[[S], T]:
 
 
 def _cache_clearable_result_with_args(
-    fn: Callable[[Concatenate[S, P]], T]
-) -> Callable[[Concatenate[S, P]], T]:
+    fn: Callable[Concatenate[S, P], T]
+) -> Callable[Concatenate[S, P], T]:
     """
     Decorator to cache the output of a method call with variable arguments.
 

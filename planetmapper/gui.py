@@ -850,7 +850,7 @@ class GUI:
             return
         print(path)
         utils.print_progress(c1='c')
-        self.observation.save(path)
+        self.observation.save_observation(path)
         utils.print_progress('saved', c1='c')
 
 
