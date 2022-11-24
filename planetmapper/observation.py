@@ -623,6 +623,21 @@ class Observation(BodyXY):
     def save_mapped_observation(
         self, path: str, include_backplanes: bool = True, degree_interval: float = 1
     ) -> None:
+        """
+        Save a FITS file containing the mapped observation in a cylindrical projection.
+
+        The mapped data is generated using :func:`mapped_data`, and mapped backplane
+        data is saved by default.
+
+        For larger image sizes, the map projection and backplane generation can be slow,
+        so this function may take some time to complete.
+
+        Args:
+            path: Filepath of output file.
+            include_backplanes: Toggle generating and saving backplanes to output FITS
+                file.
+            degree_interval: Interval in degrees between the longitude/latitude points.
+        """
         with utils.filter_fits_comment_warning():
             data = self.mapped_data(degree_interval)
             header = self.header.copy()
@@ -674,4 +689,3 @@ class Observation(BodyXY):
             for b in ['1', '2', '3']:
                 for key in [f'PC{a}_{b}', f'PC{b}_{a}', f'CD{a}_{b}', f'CD{b}_{a}']:
                     header.remove(key, ignore_missing=True, remove_all=True)
-                
