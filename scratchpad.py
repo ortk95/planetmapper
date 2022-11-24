@@ -3,6 +3,7 @@
 """Script for testing stuff during development (TODO delete in final version)"""
 import planetmapper.data_loader
 import planetmapper
+from planetmapper import utils
 import numpy as np
 import datetime
 import matplotlib.pyplot as plt
@@ -11,26 +12,32 @@ import matplotlib.patheffects as path_effects
 import astropy.io.fits
 import matplotlib.ticker
 from functools import lru_cache
+import scipy.interpolate
 
-body = planetmapper.Body('Saturn', datetime.datetime.now())
-body.plot_wireframe_radec(color='r')
-body = planetmapper.Body(
-    'Saturn', datetime.datetime.now() + datetime.timedelta(hours=1)
-)
-body.plot_wireframe_radec(color='b')
-print('DONE')
+# gui = planetmapper.gui.GUI(
+#             'data/jupiter.jpg',
+#             target='jupiter',
+#             utc='2020-08-25 02:30:40',
+#                     )
+# gui.run()
+try:
+    obs  #  type: ignore
+except NameError:
+    obs = planetmapper.Observation(
+        'data/jupiter_small.jpg',
+        target='jupiter',
+        utc='2020-08-25 02:30:40',
+    )
+    obs.set_disc_params(
+        x0=135.626383468748,
+        y0=118.52747744865971,
+        r0=81.5,
+        rotation=352.0,
+    )
+# obs.plot_backplane_img('lat-graphic')
+# obs.plot_backplane_map('pixel-x')
+utils.print_progress('start')
+img = np.nansum(obs.data, axis=0)
 
-
-from planetmapper.kernel_downloader import download_urls
-
-# Download all kernel files in generic_kernels/pck
-download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/')
-
-# Download specific kernel file
-download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk/naif0012.tls')
-
-# Download multiple sets of kernel files
-download_urls(
-    'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/',
-    'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/',
-)
+plt.imshow(obs.map_img(img), origin='lower')
+plt.show()

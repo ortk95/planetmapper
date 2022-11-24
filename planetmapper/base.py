@@ -7,7 +7,8 @@ import astropy.time
 import numpy as np
 import spiceypy as spice
 
-KERNEL_PATH = '~/spice/naif/'
+KERNEL_PATH = '~/spice_kernels/'
+KERNEL_PATTERNS = ('**/spk/**/*.bsp', '**/pck/**/*.tpc', '**/lsk/**/*.tls')
 
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
 
@@ -160,20 +161,13 @@ class SpiceBase:
             kernels = manual_kernels
         else:
             kernel_path = os.path.expanduser(kernel_path)
-            kernels = []
-            for pattern in ('**/spk/**/*.bsp', '**/pck/**/*.tpc', '**/lsk/**/*.tls'):
-                kernels.extend(glob.glob(os.path.join(kernel_path, pattern), recursive=True))
-            kernels.sort()
+            kernels = set()
+            for pattern in KERNEL_PATTERNS:
+                kernels.update(
+                    glob.glob(os.path.join(kernel_path, pattern), recursive=True)
+                )
+            kernels = sorted(kernels)
 
-            # kernel_path = os.path.expanduser(kernel_path)
-            # pcks = sorted(glob.glob(kernel_path + 'pck/*.tpc'))
-            # spks1 = sorted(glob.glob(kernel_path + 'spk/planets/de*.bsp'))
-            # spks2 = sorted(glob.glob(kernel_path + 'spk/satellites/*.bsp'))
-            # lsks = sorted(glob.glob(kernel_path + 'lsk/naif*.tls'))
-            # jwst = sorted(
-            #     glob.glob(kernel_path + '../../jwst/**/*.bsp', recursive=True)
-            # )
-            # kernels = [pcks[-1], spks1[-1], *spks2, lsks[-1], *jwst]
         for kernel in kernels:
             spice.furnsh(kernel)
         cls._KERNELS_LOADED = True
@@ -191,8 +185,8 @@ class SpiceBase:
             arr: Array of values of length :math:`n`.
 
         Returns:
-            Array of values of length :math:`n + 1` where the final value is the same as the
-            first value.
+            Array of values of length :math:`n + 1` where the final value is the same as 
+            the first value.
         """
         return np.append(arr, [arr[0]], axis=0)
 

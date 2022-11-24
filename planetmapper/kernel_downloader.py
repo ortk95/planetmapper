@@ -4,7 +4,7 @@
 Utility to help downloading spice kernels.
 
 Will download local copy of kernels with same directory structutre as on 
-https://naif.jpl.nasa.gov/. Set `LOCAL_ROOT` to choose the location that the kernelss
+https://naif.jpl.nasa.gov/. Set `LOCAL_ROOT` to choose the location that the kernels
 are downloaded to.
 
 These functions can be used to download a set of URLS. For example: ::
@@ -29,8 +29,9 @@ import urllib.request
 import urllib.parse
 import tqdm
 from . import utils
+from .base import KERNEL_PATH
 
-LOCAL_ROOT = '~/spice/'
+LOCAL_ROOT = KERNEL_PATH
 URL_ROOT = 'https://naif.jpl.nasa.gov/pub/'
 
 

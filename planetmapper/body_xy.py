@@ -1,20 +1,30 @@
 import datetime
 import math
 from functools import wraps, lru_cache, partial
-from typing import Any, Callable, Iterable, NamedTuple, ParamSpec, TypeVar, Protocol
+from typing import (
+    Any,
+    Callable,
+    Iterable,
+    NamedTuple,
+    ParamSpec,
+    TypeVar,
+    Protocol,
+    Concatenate,
+)
 
 import matplotlib.patches
 import matplotlib.pyplot as plt
 import matplotlib.transforms
 import numpy as np
+import scipy.interpolate
 from matplotlib.axes import Axes
 from spiceypy.utils.exceptions import NotFoundError
-import spiceypy as spice
 
 from .body import Body
 
 T = TypeVar('T')
 S = TypeVar('S')
+P = ParamSpec('P')
 
 _cache_stable_result = lru_cache(maxsize=128)
 
@@ -38,6 +48,32 @@ def _cache_clearable_result(fn: Callable[[S], T]) -> Callable[[S], T]:
         k = fn.__name__
         if k not in self._cache:
             self._cache[k] = fn(self)
+        return self._cache[k]
+
+    return decorated
+
+
+def _cache_clearable_result_with_args(
+    fn: Callable[[Concatenate[S, P]], T]
+) -> Callable[[Concatenate[S, P]], T]:
+    """
+    Decorator to cache the output of a method call with variable arguments.
+
+    This requires that the class has a `self._cache` dict which can be used to store
+    the cached result. The dictionary key is derived from the name of the decorated
+    function.
+
+    The results cached by this decorator can be cleared using `self._cache.clear()`, so
+    this is useful for results which need to be invalidated (i.e. backplane images
+    which are invalidated the moment the disc params are changed). If the result is
+    stable (i.e. backplane maps) then use `_cache_stable_result` instead.
+    """
+
+    @wraps(fn)
+    def decorated(self, *args: P.args, **kwargs: P.kwargs):
+        k = (fn.__name__, args, frozenset(kwargs.items()))
+        if k not in self._cache:
+            self._cache[k] = fn(self, *args, **kwargs)
         return self._cache[k]
 
     return decorated
@@ -759,11 +795,21 @@ class BodyXY(Body):
             transform = transform + ax.transData
         return transform
 
-    def matplotlib_xy2km_transform(self, ax:Axes|None)-> matplotlib.transforms.Transform:
-        return self.matplotlib_xy2radec_transform() + self.matplotlib_radec2km_transform(ax)
-    
-    def matplotlib_km2xy_transform(self, ax:Axes|None)-> matplotlib.transforms.Transform:
-        return self.matplotlib_km2radec_transform() + self.matplotlib_radec2xy_transform(ax)
+    def matplotlib_xy2km_transform(
+        self, ax: Axes | None
+    ) -> matplotlib.transforms.Transform:
+        return (
+            self.matplotlib_xy2radec_transform()
+            + self.matplotlib_radec2km_transform(ax)
+        )
+
+    def matplotlib_km2xy_transform(
+        self, ax: Axes | None
+    ) -> matplotlib.transforms.Transform:
+        return (
+            self.matplotlib_km2radec_transform()
+            + self.matplotlib_radec2xy_transform(ax)
+        )
 
     def update_transform(self) -> None:
         """
@@ -809,6 +855,40 @@ class BodyXY(Body):
         if show:
             plt.show()
         return ax
+
+    # Mapping
+    def map_img(self, img: np.ndarray, degree_interval: float = 1) -> np.ndarray:
+        """
+        Project an observed image onto a lon/lat grid.
+
+        The map projection is performed using `scipy.interpolate.RectBivariateSpline`
+        using linear interpolation (i.e. spline degrees `kx` and `ky` are set to 1).
+
+        Args:
+            img: Observed image where pixel coordinates correspond to the `xy` pixel
+                coordinates (e.g. those used in :func:`get_x0`).
+            degree_interval: Interval in degrees between the longitude/latitude points
+                in the mapped output. Passed to :func:`get_x_map` and :func:`get_y_map`
+                when generating the coordinates used for the projection.
+
+        Returns:
+            Array containing cylindrical map of the values in `img` at each location on
+            the surface of the target body. Locations which are not visible have a value
+            of NaN.
+        """
+        x_map = self.get_x_map(degree_interval)
+        y_map = self.get_y_map(degree_interval)
+        interpolator = scipy.interpolate.RectBivariateSpline(
+            np.arange(img.shape[1]), np.arange(img.shape[0]), img, kx=1, ky=1
+        )
+        projected = self._make_empty_map(degree_interval)
+        for a, b in self._iterate_image(projected.shape):
+            x = x_map[a, b]
+            if math.isnan(x):
+                continue
+            y = y_map[a, b]  # y should never be nan when x is not nan
+            projected[a, b] = interpolator(y, x)
+        return projected
 
     # Backplane management
     @staticmethod
@@ -876,6 +956,36 @@ class BodyXY(Body):
         """
         print(self.backplane_summary_string())
 
+    def get_backplane(self, name: str) -> Backplane:
+        """
+        Convenience function to retrieve a backplane registered to :attr:`backplanes`.
+
+        This method is equivilent to ::
+
+            body.backplanes[self.standardise_backplane_name(name)]
+
+        Args:
+            name: Name of the desired backplane. This is standardised with
+                :func:`standardise_backplane_name` and used to choose a registered
+                backplane from :attr:`backplanes`.
+
+        Returns:
+            Backplane registered with `name`.
+
+        Raises:
+            BackplaneNotFoundError: if `name` is not registered as a backplane.
+        """
+        name = self.standardise_backplane_name(name)
+        try:
+            return self.backplanes[name]
+        except:
+            raise BackplaneNotFoundError(
+                '{n!r} not found. Currently registered backplanes are: {r}.'.format(
+                    n=name,
+                    r=', '.join([repr(n) for n in self.backplanes.keys()]),
+                )
+            )
+
     def get_backplane_img(self, name: str) -> np.ndarray:
         """
         Generate backplane image.
@@ -889,7 +999,7 @@ class BodyXY(Body):
 
         This method is equivilent to ::
 
-            body.backplanes[body.standardise_backplane_name(name)].get_img().copy()
+            body.get_backplane(name).get_img().copy()
 
         Args:
             name: Name of the desired backplane. This is standardised with
@@ -911,7 +1021,7 @@ class BodyXY(Body):
 
         This method is equivilent to ::
 
-            body.backplanes[self.standardise_backplane_name(degree_interval)].get_map().copy()
+            body.get_backplane(name).get_map(degree_interval).copy()
 
         Args:
             name: Name of the desired backplane. This is standardised with
@@ -952,8 +1062,7 @@ class BodyXY(Body):
         Returns:
             The axis containing the plotted data.
         """
-        name = self.standardise_backplane_name(name)
-        backplane = self.backplanes[name]
+        backplane = self.get_backplane(name)
         ax = self.plot_wireframe_xy(ax, show=False)
         im = ax.imshow(backplane.get_img(), origin='lower', **kwargs)
         plt.colorbar(im, label=backplane.description)
@@ -988,8 +1097,7 @@ class BodyXY(Body):
         """
         if ax is None:
             fig, ax = plt.subplots()
-        name = self.standardise_backplane_name(name)
-        backplane = self.backplanes[name]
+        backplane = self.get_backplane(name)
 
         if self.positive_longitude_direction == 'W':
             extent = [360, 0, -90, 90]
@@ -1029,7 +1137,7 @@ class BodyXY(Body):
         )
         self.register_backplane(
             'LAT-GRAPHIC',
-            'Planetographic latitude,[deg]',
+            'Planetographic latitude [deg]',
             self.get_lat_img,
             self.get_lat_map,
         )
@@ -1317,6 +1425,7 @@ class BodyXY(Body):
         """
         return self._get_radec_map(degree_interval)[:, :, 1]
 
+    @_cache_clearable_result_with_args
     def _get_xy_map(self, degree_interval: float) -> np.ndarray:
         out = self._make_empty_map(degree_interval, 2)
         radec_map = self._get_radec_map(degree_interval)
@@ -1579,6 +1688,10 @@ class BodyXY(Body):
         return self.calculate_doppler_factor(
             self.get_radial_velocity_map(degree_interval)
         )
+
+
+class BackplaneNotFoundError(Exception):
+    pass
 
 
 def _make_backplane_documentation_str() -> str:
