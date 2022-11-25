@@ -1,9 +1,5 @@
 """
-Helpful utilities
-
-Mainly stuff from `tools` in https://github.com/ortk95/astro-tools and PhD repo.
-
-TODO clean this and remove testing stuff for final version.
+Various general helpful utilities.
 """
 import os
 import traceback
@@ -11,7 +7,31 @@ import warnings
 from datetime import datetime
 import numpy as np
 import matplotlib.ticker
+from matplotlib.axes import Axes
 import pathlib
+
+
+def format_radec_axes(ax: Axes, dec: float, dms_ticks:bool=True) -> None:
+    """
+    Format an axis to display RA/Dec coordinates nicely.
+
+    Args:
+        ax: Matplotlib axis to format.
+        dec: Declination in degrees of centre of axis.
+        dms_ticks: Toggle between showing ticks as degrees, minutes and seconds
+            (e.g. 12°34′56″) or decimal degrees (e.g. 12.582).
+    """
+    ax.set_xlabel('Right Ascension')
+    ax.set_ylabel('Declination')
+    ax.set_aspect(1 / np.cos(np.deg2rad(dec)), adjustable='datalim')
+    if not ax.xaxis_inverted():
+        ax.invert_xaxis()
+
+    if dms_ticks:
+        ax.yaxis.set_major_locator(DMSLocator())
+        ax.yaxis.set_major_formatter(DMSFormatter())
+        ax.xaxis.set_major_locator(DMSLocator())
+        ax.xaxis.set_major_formatter(DMSFormatter())
 
 
 class DMSFormatter(matplotlib.ticker.FuncFormatter):
@@ -153,7 +173,12 @@ def decimal_degrees_to_dms(decimal_degrees: float) -> tuple[int, int, float]:
     return int(degrees), int(minutes), seconds
 
 
+
+
 class filter_fits_comment_warning(warnings.catch_warnings):
+    """
+    Context manager to hide FITS `Card is too long, comment will be truncated` warnings.
+    """
     def __enter__(self):
         out = super().__enter__()
         warnings.filterwarnings(

@@ -1251,17 +1251,7 @@ class Body(SpiceBase):
         """
         ax = self._plot_wireframe(transform=None, ax=ax, color=color, **kwargs)
 
-        ax.set_xlabel('Right Ascension')
-        ax.set_ylabel('Declination')
-        ax.set_aspect(1 / np.cos(self._target_dec_radians), adjustable='datalim')
-        if not ax.xaxis_inverted():
-            ax.invert_xaxis()
-
-        if dms_ticks:
-            ax.yaxis.set_major_locator(utils.DMSLocator())
-            ax.yaxis.set_major_formatter(utils.DMSFormatter())
-            ax.xaxis.set_major_locator(utils.DMSLocator())
-            ax.xaxis.set_major_formatter(utils.DMSFormatter())
+        utils.format_radec_axes(ax, self.target_dec, dms_ticks)
 
         if show:
             plt.show()
