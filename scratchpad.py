@@ -16,10 +16,11 @@ import scipy.interpolate
 
 utils.print_progress('start')
 gui = planetmapper.gui.GUI()
-# gui.set_observation(planetmapper.Observation(
-#     'data/jupiter.jpg',
-#     target='jupiter',
-#     utc='2020-08-25 02:30:40'))
+gui.set_observation(
+    planetmapper.Observation(
+        'data/jupiter_small.jpg', target='jupiter', utc='2020-08-25 02:30:40'
+    )
+)
 gui.run()
 # try:
 #     obs  #  type: ignore
