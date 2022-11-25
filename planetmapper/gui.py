@@ -78,6 +78,14 @@ GRID_INTERVALS = ['10', '30', '45', '90']
 CMAPS = ['gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis']
 
 
+def _main(*args):
+    """Called with `python3 -m planetmapper`"""
+    print('Launching planetmapper...')
+    gui = GUI()
+    if args:
+        gui.set_observation(Observation(args[0]))
+    gui.run()
+
 class Quit(Exception):
     pass
 
@@ -177,6 +185,7 @@ class GUI:
         """
         Run the GUI.
         """
+        print('Running user interface...')
         try:
             self.get_observation()
         except Quit:

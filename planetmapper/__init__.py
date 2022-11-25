@@ -66,10 +66,7 @@ https://spiceypy.readthedocs.io/en/main/documentation.html
 https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/
 
 """
-print(
-    'WARNING: planetmapper in active development, and may break/change/not work at all'
-)
-print('Bugs can be reported at https://github.com/ortk95/planetmapper/issues/new')
+import sys
 from .common import __version__, __author__, __url__
 from .base import SpiceBase
 from .body import Body
@@ -88,3 +85,6 @@ __all__ = [
     'utils',
     'kernel_downloader',
 ]
+
+if __name__ == '__main__':
+    gui._main(*sys.argv[1:])
