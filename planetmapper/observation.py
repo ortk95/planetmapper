@@ -61,9 +61,10 @@ class Observation(BodyXY):
     """
 
     FITS_FILE_EXTENSIONS = ('.fits', '.fits.gz')
-    """File extensions which will be read as FITS files."""
-    IMAGE_FILE_EXTENSIONS = ('.png', '.jpg', '.jpeg')
-    """File extensions which will be read as image files."""
+    """
+    File extensions which will be read as FITS files. All other file extensions will be
+    assumed to be images.
+    """
     FITS_KEYWORD = 'PLANMAP'
     """FITS keyword used in metadata added to header of output FITS files."""
 
@@ -140,10 +141,8 @@ class Observation(BodyXY):
         assert self.path is not None
         if any(self.path.endswith(ext) for ext in self.FITS_FILE_EXTENSIONS):
             self._load_fits_data()
-        elif any(self.path.endswith(ext) for ext in self.IMAGE_FILE_EXTENSIONS):
-            self._load_image_data()
         else:
-            raise ValueError(f'Unexpected file type for {self.path!r}')
+            self._load_image_data()
 
     def _load_fits_data(self):
         assert self.path is not None
