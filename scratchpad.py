@@ -41,7 +41,9 @@ import scipy.interpolate
 # obs.save_mapped_observation('data/juputer_small_test.fits')
 
 
-obs = planetmapper.Observation(
-        'data/jupiter_small.jpg', target='jupiter', utc='2020-08-25 02:30:40'
-    )
-obs.run_gui()
+# obs = planetmapper.Observation(
+#         'data/europa.fits.gz'
+#     )
+# obs.run_gui()
+
+planetmapper.gui.GUI().run()
