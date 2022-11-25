@@ -14,7 +14,6 @@ import scipy.ndimage
 import photutils.aperture
 from . import common, utils
 from .body_xy import BodyXY, _cache_clearable_result, _cache_clearable_result_with_args
-from .gui import GUI
 
 T = TypeVar('T')
 S = TypeVar('S')
@@ -716,6 +715,7 @@ class Observation(BodyXY):
             # At this point, you can use the manually fitted observation
             observation.plot_wireframe_xy()
         """
+        from .gui import GUI
         gui = GUI(allow_open=False)
         gui.set_observation(self)
         gui.run()
