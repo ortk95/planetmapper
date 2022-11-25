@@ -84,12 +84,10 @@ class Quit(Exception):
 
 class GUI:
     MINIMUM_SIZE = (800, 600)
-    DEFAULT_GEOMETRY = '800x600+15+15'
+    DEFAULT_GEOMETRY = '800x650+15+15'
 
-    def __init__(self) -> None:
-        # if path is None:
-        #     path = tkinter.filedialog.askopenfilename(title='Open FITS file')
-        #     # TODO add configuration for target, date etc.
+    def __init__(self, allow_open: bool = True) -> None:
+        self.allow_open = allow_open
 
         self._observation: Observation | None = None
         self.step_size = 1
@@ -105,9 +103,10 @@ class GUI:
             self.rotate_left: ['<less>', ','],
             self.increase_radius: ['+', '='],
             self.decrease_radius: ['-', '_'],
-            self.save_observation: ['<Control-s>'],
+            self.save_button: ['<Control-s>'],
+            self.load_observation: ['<Control-s>'],
         }
-        self.shortcuts_to_keep_in_entry = ['<Control-s>']
+        self.shortcuts_to_keep_in_entry = ['<Control-s>', '<Control-o>']
 
         self.setter_callbacks: defaultdict[
             SETTER_KEY, list[Callable[[float], Any]]
@@ -189,7 +188,8 @@ class GUI:
         # TODO do something when closed to kill figure etc.?
 
     def load_observation(self) -> None:
-        ObservationSetttings(gui=self, first_run=self._observation is None)
+        if self.allow_open:
+            OpenObservation(gui=self, first_run=self._observation is None)
         if self._observation is None:
             raise Quit
 
@@ -216,7 +216,7 @@ class GUI:
 
         if self.gui_built:
             self.run_all_ui_callbacks()
-            self.replot_all()
+            self.rebuild_plot()
             self.root.title(self.get_observation().get_description(multiline=False))
 
     def get_observation(self) -> Observation:
@@ -277,6 +277,34 @@ class GUI:
         frame.pack()
         self.notebook.add(frame, text='Controls')
 
+        buttons = [
+            (
+                'Open...',
+                'Open a new observation, change target/date/observer, and adjust kernel settings',
+                self.load_observation,
+                0,
+                0,
+            ),
+            (
+                'Save...',
+                'Save FITS files of the observation and mapped observation with backplane data',
+                self.save_button,
+                1,
+                0,
+            ),
+        ]
+        if not self.allow_open:
+            del buttons[0]
+
+        self.build_main_controls_section(
+            frame=frame,
+            label='File',
+            buttons=buttons,
+            button_tooltip_base='{hint}',
+            entry_tooltip='',
+            numeric_entries=[],
+        )
+
         self.build_main_controls_section(
             frame=frame,
             label='Position',
@@ -336,23 +364,6 @@ class GUI:
             entry_tooltip='Set the step size when clicking buttons',
             numeric_entries=['step'],
         )
-
-        # IO controls
-        label_frame = ttk.LabelFrame(frame, text='Save')
-        label_frame.pack(fill='x')
-
-        self.add_tooltip(
-            ttk.Button(
-                label_frame, text='Save observation', command=self.save_observation
-            ),
-            f'Save FITS file of the observation with backplane data',
-            self.save_observation,
-        ).grid(row=0, column=0)
-        self.add_tooltip(
-            ttk.Button(label_frame, text='Save map', command=self.save_mapped),
-            f'Save FITS file of the mapped observation with backplane data',
-            self.save_mapped,
-        ).grid(row=0, column=1)
 
     def build_main_controls_section(
         self,
@@ -569,15 +580,15 @@ class GUI:
 
     def update_plot(self) -> None:
         self.get_observation().update_transform()
+        # print(
+        #     'x0={x0}, y0={y0}, r0={r0}, rotation={rotation}'.format(
+        #         x0=self.get_observation().get_x0(),
+        #         y0=self.get_observation().get_y0(),
+        #         r0=self.get_observation().get_r0(),
+        #         rotation=self.get_observation().get_rotation(),
+        #     )
+        # )
         self.canvas.draw()
-        print(
-            'x0={x0}, y0={y0}, r0={r0}, rotation={rotation}'.format(
-                x0=self.get_observation().get_x0(),
-                y0=self.get_observation().get_y0(),
-                r0=self.get_observation().get_r0(),
-                rotation=self.get_observation().get_rotation(),
-            )
-        )
 
     def build_plot(self) -> None:
         self.fig = plt.figure()
@@ -591,6 +602,11 @@ class GUI:
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
         self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
+
+    def rebuild_plot(self) -> None:
+        self.replot_all()
+        self.format_plot()
+        self.update_plot()
 
     def replot_all(self) -> None:
         self.replot_image()
@@ -898,39 +914,100 @@ class GUI:
             pass
 
     # File IO
-    def save_observation(self) -> None:
-        path = tkinter.filedialog.asksaveasfilename(
-            title='Save FITS file of observation',
-            parent=self.root,
-            initialfile=self.get_observation().make_filename(suffix='_observation'),
-        )
-        # TODO add some validation
-        # TODO add some progress UI
-        if path is None or path == '':
-            return
-
-        print('Saving', path)
-        utils.print_progress(c1='c')
-        self.get_observation().save_observation(path)
-        utils.print_progress('saved', c1='c')
-
-    def save_mapped(self) -> None:
-        path = tkinter.filedialog.asksaveasfilename(
-            title='Save FITS file of mapped observation',
-            parent=self.root,
-            initialfile=self.get_observation().make_filename(suffix='_mapped'),
-        )
-        # TODO add some validation
-        # TODO add some progress UI
-        if path is None or path == '':
-            return
-        print('Saving', path)
-        utils.print_progress(c1='c')
-        self.get_observation().save_mapped_observation(path)
-        utils.print_progress('saved', c1='c')
+    def save_button(self) -> None:
+        SaveObservation(self)
 
 
-class ObservationSetttings:
+class Popup:
+    def get_int(
+        self,
+        string_variable: tk.StringVar | str,
+        name: str,
+        positive: bool = True,
+        minimum: int | None = None,
+        maximum: int | None = None,
+    ) -> int:
+        if isinstance(string_variable, tk.StringVar):
+            s = string_variable.get()
+        else:
+            s = string_variable
+        try:
+            value = int(s)
+        except ValueError:
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing {name}',
+                message=f'Could not convert {name} {s!r} to float',
+            )
+            raise
+
+        if not np.isfinite(value):
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing {name}',
+                message=f'{name.capitalize()} must be finite',
+            )
+            raise ValueError
+
+        if positive and not value > 0:
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing {name}',
+                message=f'{name.capitalize()} must be greater than zero',
+            )
+            raise ValueError
+
+        if minimum is not None and value < minimum:
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing {name}',
+                message=f'{name.capitalize()} must not be less than {minimum}',
+            )
+            raise ValueError
+
+        if maximum is not None and value > maximum:
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing {name}',
+                message=f'{name.capitalize()} must not be greater than {maximum}',
+            )
+            raise ValueError
+
+        return value
+
+    def get_float(
+        self,
+        string_variable: tk.StringVar | str,
+        name: str,
+        positive: bool = True,
+        finite: bool = True,
+    ) -> float:
+        if isinstance(string_variable, tk.StringVar):
+            s = string_variable.get()
+        else:
+            s = string_variable
+        try:
+            value = float(s)
+        except ValueError:
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing {name}',
+                message=f'Could not convert {name} {s!r} to float',
+            )
+            raise
+
+        if finite and not math.isfinite(value):
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing {name}',
+                message=f'{name.capitalize()} must be finite',
+            )
+            raise ValueError
+
+        if positive and not value > 0:
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing {name}',
+                message=f'{name.capitalize()} must be greater than zero',
+            )
+            raise ValueError
+
+        return value
+
+
+class OpenObservation(Popup):
     def __init__(self, gui: GUI, first_run: bool) -> None:
         self.gui = gui
         self.first_run = first_run
@@ -952,7 +1029,7 @@ class ObservationSetttings:
             geometry = self.gui.DEFAULT_GEOMETRY
         else:
             self.window = tk.Toplevel(self.gui.root)
-            self.window.title('Observatiton settings')
+            self.window.title('Observation settings')
             self.window.grab_set()
             self.window.transient(self.gui.root)
             geometry = self.gui.root.geometry()
@@ -990,8 +1067,14 @@ class ObservationSetttings:
 
         self.menu_frame = ttk.Frame(window_frame)
         self.menu_frame.pack(side='top', padx=10, pady=10, fill='x')
+
+        self.heading_frame = ttk.Frame(self.menu_frame)
+        self.heading_frame.pack(fill='x')
+
         self.grid_frame = ttk.Frame(self.menu_frame)
         self.grid_frame.pack(fill='x')
+
+        self.window.protocol('WM_DELETE_WINDOW', self.close_window)
 
     def make_menu(self):
         kwargs = {}
@@ -1009,6 +1092,12 @@ class ObservationSetttings:
         self.stringvars['observer'] = tk.StringVar(
             value=str(kwargs.get('observer', 'EARTH'))
         )
+
+        heading = '\n'.join(
+            ['Select a FITS or image (e.g. PNG, JPEG) file to navigate and map']
+        )
+
+        ttk.Label(self.heading_frame, text=heading + '\n').pack()
 
         self.grid: list[tuple[tk.Widget, ...]] = [
             (
@@ -1050,7 +1139,8 @@ class ObservationSetttings:
 
     def get_path(self):
         path = tkinter.filedialog.askopenfilename(
-            title='Choose observation', parent=self.window
+            title='Choose observation',
+            parent=self.window,
         )
         kwargs = {'path': path}
         if any(path.endswith(ext) for ext in Observation.FITS_FILE_EXTENSIONS):
@@ -1135,6 +1225,7 @@ class ObservationSetttings:
             )
             return False
         self.gui.set_observation(observation)
+        self.gui.kernels = kernels
         return True
 
     def click_cancel(self) -> None:
@@ -1142,6 +1233,7 @@ class ObservationSetttings:
 
     def close_window(self, *_) -> None:
         self.window.destroy()
+        base.load_kernels(*self.gui.kernels, clear_before=True)
 
     def add_to_menu_grid(
         self, grid: list[tuple[tk.Widget, ...]], frame: ttk.Frame | None = None
@@ -1162,7 +1254,232 @@ class ObservationSetttings:
                 widget.grid(row=row, column=1 + idx, sticky='ew', columnspan=colspan)
 
 
-class ArtistSetting:
+class SaveObservation(Popup):
+    def __init__(self, gui: GUI) -> None:
+        self.gui = gui
+
+        self.make_widget()
+        self.make_menu()
+
+    def make_widget(self) -> None:
+        self.window = tk.Toplevel(self.gui.root)
+        self.window.title('Save observation')
+        self.window.grab_set()
+        self.window.transient(self.gui.root)
+
+        x, y = (int(s) for s in self.gui.root.geometry().split('+')[1:])
+        self.window.geometry(
+            '{sz}+{x:.0f}+{y:.0f}'.format(
+                sz='600x350',
+                x=x + 50,
+                y=y + 50,
+            )
+        )
+
+        frame = ttk.Frame(self.window)
+        frame.pack(side='bottom', fill='x')
+        frame = ttk.Frame(frame)
+        frame.pack(padx=10, pady=10)
+
+        self.save_button = ttk.Button(
+            frame, text='Save', width=10, command=self.click_save
+        )
+        self.save_button.grid(row=0, column=0, padx=2)
+        ttk.Button(frame, text='Cancel', width=10, command=self.click_cancel).grid(
+            row=0, column=1, padx=2
+        )
+
+        self.window.bind('<Escape>', self.close_window)
+
+        window_frame = ttk.Frame(self.window)
+        window_frame.pack(expand=True, fill='both')
+
+        self.menu_frame = ttk.Frame(window_frame)
+        self.menu_frame.pack(side='top', padx=10, pady=10, fill='x')
+
+        self.heading_frame = ttk.Frame(self.menu_frame)
+        self.heading_frame.pack(fill='x')
+
+        self.grid_frame = ttk.Frame(self.menu_frame)
+        self.grid_frame.pack(fill='x')
+
+    def add_to_menu_grid(
+        self, grid: list[tuple[tk.Widget, ...]], frame: ttk.Frame | None = None
+    ) -> None:
+        if frame is None:
+            frame = self.grid_frame
+        ncols = max(len(row) for row in grid)
+        for grid_row in grid:
+            row = frame.grid_size()[1]
+            label = grid_row[0]
+            widgets = grid_row[1:]
+            label.grid(row=row, column=0, sticky='w', pady=5)
+            for idx, widget in enumerate(widgets):
+                if idx == len(widgets) - 1:
+                    colspan = ncols - len(widgets)
+                else:
+                    colspan = 1
+                widget.grid(row=row, column=1 + idx, sticky='ew', columnspan=colspan)
+
+    def make_menu(self):
+        path = self.gui.get_observation().path
+        if path is not None:
+            root, _ = os.path.splitext(path)
+            path_nav = os.path.abspath(root + '_nav.fits')
+            path_map = os.path.abspath(root + '_map.fits')
+        else:
+            path_nav = os.path.abspath(
+                self.gui.get_observation().make_filename(suffix='_nav')
+            )
+            path_map = os.path.abspath(
+                self.gui.get_observation().make_filename(suffix='_map')
+            )
+
+        self.save_nav = tk.IntVar(value=1)
+        self.save_map = tk.IntVar(value=1)
+        self.path_nav = tk.StringVar(value=path_nav)
+        self.path_map = tk.StringVar(value=path_map)
+        self.degree_interval = tk.StringVar(value=str(1))
+
+        self.save_nav.trace_add('write', self.save_nav_toggle)
+        self.save_map.trace_add('write', self.save_map_toggle)
+
+        self.nav_widgets: list[tk.Widget] = []
+        self.map_widgets: list[tk.Widget] = []
+
+        self.grid_frame.grid_columnconfigure(1, weight=1)
+        label_kw = dict(column=0, sticky='w', pady=5)
+
+        # Navigated
+        ttk.Checkbutton(
+            self.grid_frame, text='Save navigated observation', variable=self.save_nav
+        ).grid(row=0, column=1, columnspan=2, sticky='ew')
+
+        ttk.Label(self.grid_frame, text='Path: ').grid(row=1, **label_kw)
+        w = ttk.Entry(self.grid_frame, textvariable=self.path_nav)
+        w.grid(row=1, column=1, sticky='ew')
+        self.nav_widgets.append(w)
+        w = ttk.Button(self.grid_frame, text='...', width=3, command=self.get_path_nav)
+        w.grid(row=1, column=2)
+        self.nav_widgets.append(w)
+
+        ttk.Label(self.grid_frame, text=' ').grid(row=2, **label_kw)
+
+        # Mapped
+        ttk.Checkbutton(
+            self.grid_frame, text='Save mapped observation', variable=self.save_map
+        ).grid(row=3, column=1, columnspan=2, sticky='ew')
+
+        ttk.Label(self.grid_frame, text='Path: ').grid(row=4, **label_kw)
+        w = ttk.Entry(self.grid_frame, textvariable=self.path_map)
+        w.grid(row=4, column=1, sticky='ew')
+        self.map_widgets.append(w)
+        w = ttk.Button(self.grid_frame, text='...', width=3, command=self.get_path_map)
+        w.grid(row=4, column=2, sticky='w')
+        self.map_widgets.append(w)
+
+        ttk.Label(self.grid_frame, text='Degree interval: ').grid(row=5, **label_kw)
+        w = ttk.Entry(self.grid_frame, textvariable=self.degree_interval, width=10)
+        w.grid(row=5, column=1, sticky='w')
+        self.map_widgets.append(w)
+
+        message = '\n'.join(
+            [
+                '',
+                'Click SAVE below to save the requested files',
+                '',
+                'For larger files, backplane generation, mapping, and saving can take ~1 minute',
+            ]
+        )
+        ttk.Label(self.menu_frame, text='\n' + message, justify='center').pack()
+
+    def get_path_nav(self) -> None:
+        self.get_path(self.path_nav)
+
+    def get_path_map(self) -> None:
+        self.get_path(self.path_map)
+
+    def get_path(self, stringvar: tk.StringVar) -> None:
+        path = tkinter.filedialog.asksaveasfilename(
+            parent=self.window,
+            confirmoverwrite=True,
+            initialfile=stringvar.get(),
+        )
+        if len(path.strip()) > 0:
+            stringvar.set(path)
+
+    def save_nav_toggle(self, *_) -> None:
+        self.toggle(self.save_nav, self.nav_widgets)
+
+    def save_map_toggle(self, *_) -> None:
+        self.toggle(self.save_map, self.map_widgets)
+
+    def toggle(self, intvar: tk.IntVar, widgets: list[tk.Widget]) -> None:
+        enabled = bool(intvar.get())
+        for widget in widgets:
+            if enabled:
+                widget['state'] = 'normal'
+            else:
+                widget['state'] = 'disable'
+        if any(iv.get() for iv in [self.save_nav, self.save_map]):
+            self.save_button['state'] = 'normal'
+        else:
+            self.save_button['state'] = 'disable'
+
+    def click_save(self) -> None:
+        if self.run_save():
+            self.close_window()
+
+    def click_cancel(self) -> None:
+        self.close_window()
+
+    def close_window(self, *_) -> None:
+        self.window.destroy()
+
+    def run_save(self) -> bool:
+        save_nav = bool(self.save_map.get())
+        save_map = bool(self.save_map.get())
+
+        path_map = self.path_map.get().strip()
+        path_nav = self.path_nav.get().strip()
+
+        degree_interval = 1
+
+        if (save_nav and len(path_nav) == 0) or (save_map and len(path_map) == 0):
+            tkinter.messagebox.showwarning(
+                title=f'Error saving file', message=f'File paths must not be empty'
+            )
+            return False
+
+        if save_map:
+            degree_interval = self.get_float(
+                self.degree_interval, name='degree interval', positive=True, finite=True
+            )
+
+        # If we get to this point, everything should (hopefully) be working
+        try:
+            if save_nav:
+                self.gui.get_observation().save_observation(path_nav)
+            if save_map:
+                self.gui.get_observation().save_mapped_observation(
+                    path_map, degree_interval=degree_interval
+                )
+        except Exception as e:
+            tkinter.messagebox.showwarning(
+                title=f'Error saving files',
+                message='Error: {e}',
+            )
+            return False
+
+        self.gui.help_hint.configure(
+            text='File{s} saved successfully'.format(
+                s='s' if save_nav and save_map else ''
+            )
+        )
+        return True
+
+
+class ArtistSetting(Popup):
     def __init__(
         self,
         gui: GUI,
@@ -1299,93 +1616,6 @@ class ArtistSetting:
             row = frame.grid_size()[1]
             label.grid(row=row, column=0, sticky='w', pady=5)
             widget.grid(row=row, column=1, sticky='w')
-
-    def get_int(
-        self,
-        string_variable: tk.StringVar | str,
-        name: str,
-        positive: bool = True,
-        minimum: int | None = None,
-        maximum: int | None = None,
-    ) -> int:
-        if isinstance(string_variable, tk.StringVar):
-            s = string_variable.get()
-        else:
-            s = string_variable
-        try:
-            value = int(s)
-        except ValueError:
-            tkinter.messagebox.showwarning(
-                title=f'Error parsing {name}',
-                message=f'Could not convert {name} {s!r} to float',
-            )
-            raise
-
-        if not np.isfinite(value):
-            tkinter.messagebox.showwarning(
-                title=f'Error parsing {name}',
-                message=f'{name.capitalize()} must be finite',
-            )
-            raise ValueError
-
-        if positive and not value > 0:
-            tkinter.messagebox.showwarning(
-                title=f'Error parsing {name}',
-                message=f'{name.capitalize()} must be greater than zero',
-            )
-            raise ValueError
-
-        if minimum is not None and value < minimum:
-            tkinter.messagebox.showwarning(
-                title=f'Error parsing {name}',
-                message=f'{name.capitalize()} must not be less than {minimum}',
-            )
-            raise ValueError
-
-        if maximum is not None and value > maximum:
-            tkinter.messagebox.showwarning(
-                title=f'Error parsing {name}',
-                message=f'{name.capitalize()} must not be greater than {maximum}',
-            )
-            raise ValueError
-
-        return value
-
-    def get_float(
-        self,
-        string_variable: tk.StringVar | str,
-        name: str,
-        positive: bool = True,
-        finite: bool = True,
-    ) -> float:
-        if isinstance(string_variable, tk.StringVar):
-            s = string_variable.get()
-        else:
-            s = string_variable
-        try:
-            value = float(s)
-        except ValueError:
-            tkinter.messagebox.showwarning(
-                title=f'Error parsing {name}',
-                message=f'Could not convert {name} {s!r} to float',
-            )
-            raise
-
-        if finite and not math.isfinite(value):
-            tkinter.messagebox.showwarning(
-                title=f'Error parsing {name}',
-                message=f'{name.capitalize()} must be finite',
-            )
-            raise ValueError
-
-        if positive and not value > 0:
-            tkinter.messagebox.showwarning(
-                title=f'Error parsing {name}',
-                message=f'{name.capitalize()} must be greater than zero',
-            )
-            raise ValueError
-
-        return value
 
     def get_window_size(self) -> str:
         return '350x350'

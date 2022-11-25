@@ -575,7 +575,9 @@ class Observation(BodyXY):
             header=header,
         )
 
-    def make_filename(self, extension:str='.fits', prefix:str='', suffix:str='') -> str:
+    def make_filename(
+        self, extension: str = '.fits', prefix: str = '', suffix: str = ''
+    ) -> str:
         """
         Automatically generates a useful filename from the target name and date of the
         observation, e.g. `'JUPITER_2000-01-01T123456.fits.gz'`.
@@ -696,3 +698,24 @@ class Observation(BodyXY):
             for b in ['1', '2', '3']:
                 for key in [f'PC{a}_{b}', f'PC{b}_{a}', f'CD{a}_{b}', f'CD{b}_{a}']:
                     header.remove(key, ignore_missing=True, remove_all=True)
+
+    def run_gui(self) -> None:
+        """
+        Run an interactive GUI to display and adjust the fitted observation.
+
+        This modifies the `Observation` object in-place, so can be used within a script
+        to e.g. interactively fit the planet's disc ::
+
+            # Loaad in some datta
+            observation = planetmapper.Observation('exciting_data.fits')
+
+            # Use the GUI to manually fit the disc and set the x0,y0,r0,rotation values
+            observation.run_gui()
+
+            # At this point, you can use the manually fitted observation
+            observation.plot_wireframe_xy()
+        """
+        from .gui import GUI
+        gui = GUI(allow_open=False)
+        gui.set_observation(self)
+        gui.run()
