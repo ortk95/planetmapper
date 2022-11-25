@@ -86,10 +86,8 @@ class GUI:
     MINIMUM_SIZE = (800, 600)
     DEFAULT_GEOMETRY = '800x650+15+15'
 
-    def __init__(self) -> None:
-        # if path is None:
-        #     path = tkinter.filedialog.askopenfilename(title='Open FITS file')
-        #     # TODO add configuration for target, date etc.
+    def __init__(self, allow_open: bool = True) -> None:
+        self.allow_open = allow_open
 
         self._observation: Observation | None = None
         self.step_size = 1
@@ -190,7 +188,8 @@ class GUI:
         # TODO do something when closed to kill figure etc.?
 
     def load_observation(self) -> None:
-        OpenObservation(gui=self, first_run=self._observation is None)
+        if self.allow_open:
+            OpenObservation(gui=self, first_run=self._observation is None)
         if self._observation is None:
             raise Quit
 
@@ -278,25 +277,29 @@ class GUI:
         frame.pack()
         self.notebook.add(frame, text='Controls')
 
+        buttons = [
+            (
+                'Open...',
+                'Open a new observation, change target/date/observer, and adjust kernel settings',
+                self.load_observation,
+                0,
+                0,
+            ),
+            (
+                'Save...',
+                'Save FITS files of the observation and mapped observation with backplane data',
+                self.save_button,
+                1,
+                0,
+            ),
+        ]
+        if not self.allow_open:
+            del buttons[0]
+
         self.build_main_controls_section(
             frame=frame,
             label='File',
-            buttons=[
-                (
-                    'Open...',
-                    'Open a new observation, change target/date/observer, and adjust kernel settings',
-                    self.load_observation,
-                    0,
-                    0,
-                ),
-                (
-                    'Save...',
-                    'Save FITS files of the observation and mapped observation with backplane data',
-                    self.save_button,
-                    1,
-                    0,
-                ),
-            ],
+            buttons=buttons,
             button_tooltip_base='{hint}',
             entry_tooltip='',
             numeric_entries=[],

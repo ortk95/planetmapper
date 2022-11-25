@@ -14,14 +14,14 @@ import matplotlib.ticker
 from functools import lru_cache
 import scipy.interpolate
 
-utils.print_progress('start')
-gui = planetmapper.gui.GUI()
-gui.set_observation(
-    planetmapper.Observation(
-        'data/jupiter_small.jpg', target='jupiter', utc='2020-08-25 02:30:40'
-    )
-)
-gui.run()
+# utils.print_progress('start')
+# gui = planetmapper.gui.GUI()
+# gui.set_observation(
+#     planetmapper.Observation(
+#         'data/jupiter_small.jpg', target='jupiter', utc='2020-08-25 02:30:40'
+#     )
+# )
+# gui.run()
 # try:
 #     obs  #  type: ignore
 #     raise NameError
@@ -39,3 +39,9 @@ gui.run()
 #     )
 # utils.print_progress('mapping...')
 # obs.save_mapped_observation('data/juputer_small_test.fits')
+
+
+obs = planetmapper.Observation(
+        'data/jupiter_small.jpg', target='jupiter', utc='2020-08-25 02:30:40'
+    )
+obs.run_gui()
