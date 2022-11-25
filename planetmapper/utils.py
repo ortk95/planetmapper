@@ -2,13 +2,14 @@
 Various general helpful utilities.
 """
 import os
+import pathlib
 import traceback
 import warnings
 from datetime import datetime
-import numpy as np
+
 import matplotlib.ticker
+import numpy as np
 from matplotlib.axes import Axes
-import pathlib
 
 
 def format_radec_axes(ax: Axes, dec: float, dms_ticks:bool=True) -> None:

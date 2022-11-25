@@ -1,32 +1,29 @@
-import datetime
-import sys
+import math
 import os
 import tkinter as tk
-from tkinter import ttk
-import tkinter.filedialog
 import tkinter.colorchooser
+import tkinter.filedialog
 import tkinter.messagebox
 import tkinter.scrolledtext
-from typing import TypeVar, Callable, Any, Literal, TypeAlias
+from collections import defaultdict
+from tkinter import ttk
+from typing import Any, Callable, Literal, TypeVar
+
+import matplotlib.cm
+import matplotlib.colors
+import matplotlib.markers
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import numpy as np
-import math
-from collections import defaultdict
-import matplotlib.colors
-import matplotlib.markers
-import matplotlib.cm
-from matplotlib.axes import Axes
-from matplotlib.text import Text
+import spiceypy as spice
+from astropy.io import fits
 from matplotlib.artist import Artist
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from astropy.io import fits
-import spiceypy as spice
-from . import utils
-from . import data_loader
-from . import base
-from .observation import Observation
+from matplotlib.text import Text
+
+from . import base, data_loader, utils
 from .body import Body, NotFoundError
+from .observation import Observation
 
 Widget = TypeVar('Widget', bound=tk.Widget)
 SETTER_KEY = Literal[

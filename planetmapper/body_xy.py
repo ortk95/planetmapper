@@ -1,15 +1,15 @@
 import datetime
 import math
-from functools import wraps, lru_cache, partial
+from functools import lru_cache, wraps
 from typing import (
     Any,
     Callable,
+    Concatenate,
     Iterable,
     NamedTuple,
     ParamSpec,
-    TypeVar,
     Protocol,
-    Concatenate,
+    TypeVar,
 )
 
 import matplotlib.patches

@@ -66,7 +66,6 @@ https://spiceypy.readthedocs.io/en/main/documentation.html
 https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/
 
 """
-import sys
 from .common import __version__, __author__, __url__
 from .base import SpiceBase
 from .body import Body
@@ -75,6 +74,7 @@ from .observation import Observation
 from . import gui
 from . import utils
 from . import kernel_downloader
+
 __all__ = [
     'SpiceBase',
     'Body',
@@ -85,6 +85,7 @@ __all__ = [
     'utils',
     'kernel_downloader',
 ]
+
 
 def main():
     """:meta private:"""

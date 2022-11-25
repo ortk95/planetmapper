@@ -1,17 +1,16 @@
 import datetime
-from typing import Callable, cast, Literal
+from typing import Callable, Literal, cast
 
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
+import matplotlib.transforms
 import numpy as np
 import spiceypy as spice
 from matplotlib.axes import Axes
-import matplotlib.transforms
 from spiceypy.utils.exceptions import NotFoundError
 
+from . import data_loader, utils
 from .base import SpiceBase
-from . import data_loader
-from . import utils
 
 
 class Body(SpiceBase):

@@ -25,9 +25,11 @@ These functions can be used to download a set of URLS. For example: ::
 
 """
 import os
-import urllib.request
 import urllib.parse
+import urllib.request
+
 import tqdm
+
 from . import utils
 from .base import KERNEL_PATH
 

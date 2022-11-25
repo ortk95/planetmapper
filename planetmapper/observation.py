@@ -1,19 +1,18 @@
 import datetime
 import os
 import warnings
-import math
-from functools import wraps, lru_cache, partial
-from typing import Any, Callable, Iterable, NamedTuple, ParamSpec, TypeVar, Concatenate
+from typing import ParamSpec, TypeVar
 
-import numpy as np
-import PIL.Image
-from astropy.io import fits
 import astropy.wcs
-from astropy.utils.exceptions import AstropyWarning
-import scipy.ndimage
+import numpy as np
 import photutils.aperture
+import PIL.Image
+import scipy.ndimage
+from astropy.io import fits
+from astropy.utils.exceptions import AstropyWarning
+
 from . import common, utils
-from .body_xy import BodyXY, _cache_clearable_result, _cache_clearable_result_with_args
+from .body_xy import BodyXY, _cache_clearable_result_with_args
 
 T = TypeVar('T')
 S = TypeVar('S')
@@ -719,7 +718,7 @@ class Observation(BodyXY):
 
             # At this point, you can use the manually fitted observation
             observation.plot_wireframe_xy()
-        
+
         .. note ::
 
             The `Open...` button is disabled for user interfaces created by this method
@@ -731,6 +730,7 @@ class Observation(BodyXY):
             manually using :func:`planetmapper.gui.GUI.run`.
         """
         from .gui import GUI
+
         gui = GUI(allow_open=False)
         gui.set_observation(self)
         gui.run()
