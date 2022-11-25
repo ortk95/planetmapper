@@ -2,8 +2,8 @@ import datetime
 import glob
 import os
 from typing import TypeVar
-import astropy.time
 
+import astropy.time
 import numpy as np
 import spiceypy as spice
 
