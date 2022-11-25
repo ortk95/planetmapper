@@ -720,6 +720,16 @@ class Observation(BodyXY):
 
             # At this point, you can use the manually fitted observation
             observation.plot_wireframe_xy()
+        
+        .. note ::
+
+            The `Open...` button is disabled for user interfaces created by this method
+            to ensure that only one :class:`Observation` object is modified by thte user
+            interface.
+
+            If you want the full user interface functionality instead, then call
+            `python3 -m planetmapper` from the command line or create and run a user
+            interface manually using :func:`planetmapper.gui.GUI.run`.
         """
         from .gui import GUI
         gui = GUI(allow_open=False)
