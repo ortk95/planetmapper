@@ -1,5 +1,6 @@
 import datetime
 import sys
+import os
 import tkinter as tk
 from tkinter import ttk
 import tkinter.filedialog
@@ -19,8 +20,11 @@ from matplotlib.axes import Axes
 from matplotlib.text import Text
 from matplotlib.artist import Artist
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from astropy.io import fits
+import spiceypy as spice
 from . import utils
 from . import data_loader
+from . import base
 from .observation import Observation
 from .body import Body, NotFoundError
 
@@ -74,6 +78,10 @@ GRID_INTERVALS = ['10', '30', '45', '90']
 CMAPS = ['gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis']
 
 
+class Quit(Exception):
+    pass
+
+
 class GUI:
     MINIMUM_SIZE = (800, 600)
     DEFAULT_GEOMETRY = '800x600+15+15'
@@ -84,7 +92,6 @@ class GUI:
         #     # TODO add configuration for target, date etc.
 
         self._observation: Observation | None = None
-
         self.step_size = 1
 
         self.shortcuts: dict[Callable[[], Any], list[str]] = {
@@ -112,8 +119,12 @@ class GUI:
                 'r0': [lambda f: self.get_observation().set_r0(f)],
                 'rotation': [lambda f: self.get_observation().set_rotation(f)],
                 'step': [lambda f: self.set_step(f)],
-                'plate_scale_arcsec': [lambda f: self.get_observation().set_plate_scale_arcsec(f)],
-                'plate_scale_km': [lambda f: self.get_observation().set_plate_scale_km(f)],
+                'plate_scale_arcsec': [
+                    lambda f: self.get_observation().set_plate_scale_arcsec(f)
+                ],
+                'plate_scale_km': [
+                    lambda f: self.get_observation().set_plate_scale_km(f)
+                ],
             },
         )
         self.ui_callbacks: defaultdict[
@@ -153,6 +164,10 @@ class GUI:
             ),
         }
 
+        self.kernels: list[str] = [
+            os.path.join(base.KERNEL_PATH, pattern) for pattern in base.KERNEL_PATTERNS
+        ]
+
         self.event_time_to_ignore = None
         self.gui_built = False
 
@@ -163,13 +178,20 @@ class GUI:
         """
         Run the GUI.
         """
+        try:
+            self.get_observation()
+        except Quit:
+            print('App quit')
+            return
         self.build_gui()
         self.bind_keyboard()
         self.root.mainloop()
         # TODO do something when closed to kill figure etc.?
 
-    def load_observation(self, *args, **kwargs) -> None:
-        raise NotImplementedError
+    def load_observation(self) -> None:
+        ObservationSetttings(gui=self, first_run=self._observation is None)
+        if self._observation is None:
+            raise Quit
 
     def set_observation(self, observation: Observation) -> None:
         self._observation = observation
@@ -199,7 +221,8 @@ class GUI:
 
     def get_observation(self) -> Observation:
         if self._observation is None:
-            raise NotImplementedError
+            self.load_observation()
+        assert self._observation is not None
         return self._observation
 
     # GUI Building
@@ -207,12 +230,7 @@ class GUI:
         self.root = tk.Tk()
         self.root.geometry(self.DEFAULT_GEOMETRY)
         self.root.minsize(*self.MINIMUM_SIZE)
-        self.configure_style()
-
-        self.root.title('planetmapper')
-
-        self.get_observation()
-
+        self.configure_style(self.root)
         self.root.title(self.get_observation().get_description(multiline=False))
 
         self.hint_frame = tk.Frame(self.root)
@@ -231,8 +249,10 @@ class GUI:
 
         self.gui_built = True
 
-    def configure_style(self) -> None:
-        self.style = ttk.Style(self.root)
+    def configure_style(self, root: tk.Tk | None) -> None:
+        if root is None:
+            root = self.root
+        self.style = ttk.Style(root)
         self.style.theme_use('default')
         # TODO add padding etc. here
         for element in ['TEntry', 'TCombobox', 'TSpinbox', 'TButton', 'TLabel']:
@@ -908,6 +928,238 @@ class GUI:
         utils.print_progress(c1='c')
         self.get_observation().save_mapped_observation(path)
         utils.print_progress('saved', c1='c')
+
+
+class ObservationSetttings:
+    def __init__(self, gui: GUI, first_run: bool) -> None:
+        self.gui = gui
+        self.first_run = first_run
+        try:
+            self.gui.root
+        except AttributeError:
+            self.first_run = True
+        self.make_widget()
+        self.make_menu()
+
+        if self.first_run:
+            self.window.mainloop()
+
+    def make_widget(self) -> None:
+        if self.first_run:
+            self.window = tk.Tk()
+            self.window.title('planetmapper')
+            self.gui.configure_style(self.window)
+            geometry = self.gui.DEFAULT_GEOMETRY
+        else:
+            self.window = tk.Toplevel(self.gui.root)
+            self.window.title('Observatiton settings')
+            self.window.grab_set()
+            self.window.transient(self.gui.root)
+            geometry = self.gui.root.geometry()
+
+        x, y = (int(s) for s in geometry.split('+')[1:])
+        self.window.geometry(
+            '{sz}+{x:.0f}+{y:.0f}'.format(
+                sz='600x400',
+                x=x + 50,
+                y=y + 50,
+            )
+        )
+
+        frame = ttk.Frame(self.window)
+        frame.pack(side='bottom', fill='x')
+        frame = ttk.Frame(frame)
+        frame.pack(padx=10, pady=10)
+        for idx, (text, command) in enumerate(
+            [
+                ('OK', self.click_ok),
+                ('Cancel', self.click_cancel),
+                ('Apply', self.click_apply),
+            ]
+        ):
+            ttk.Button(frame, text=text, width=7, command=command).grid(
+                row=0,
+                column=idx,
+                padx=2,
+            )
+        if not self.first_run:
+            self.window.bind('<Escape>', self.close_window)
+
+        window_frame = ttk.Frame(self.window)
+        window_frame.pack(expand=True, fill='both')
+
+        self.menu_frame = ttk.Frame(window_frame)
+        self.menu_frame.pack(side='top', padx=10, pady=10, fill='x')
+        self.grid_frame = ttk.Frame(self.menu_frame)
+        self.grid_frame.pack(fill='x')
+
+    def make_menu(self):
+        kwargs = {}
+        self.stringvars: dict[str, tk.StringVar] = {}
+        observation = self.gui._observation
+        if observation is not None:
+            kwargs['path'] = observation.path
+            kwargs['target'] = observation.target
+            kwargs['utc'] = observation.utc
+            kwargs['observer'] = observation.observer
+
+        self.stringvars['path'] = tk.StringVar(value=str(kwargs.get('path', '')))
+        self.stringvars['target'] = tk.StringVar(value=str(kwargs.get('target', '')))
+        self.stringvars['utc'] = tk.StringVar(value=str(kwargs.get('utc', '')))
+        self.stringvars['observer'] = tk.StringVar(
+            value=str(kwargs.get('observer', 'EARTH'))
+        )
+
+        self.grid: list[tuple[tk.Widget, ...]] = [
+            (
+                ttk.Label(self.grid_frame, text='Path: '),
+                ttk.Entry(
+                    self.grid_frame,
+                    textvariable=self.stringvars['path'],
+                    state='disabled',
+                ),
+                ttk.Button(self.grid_frame, text='Open', command=self.get_path),
+            ),
+            (
+                ttk.Label(self.grid_frame, text='Target: '),
+                ttk.Entry(self.grid_frame, textvariable=self.stringvars['target']),
+            ),
+            (
+                ttk.Label(self.grid_frame, text='Date (UTC): '),
+                ttk.Entry(self.grid_frame, textvariable=self.stringvars['utc']),
+            ),
+            (
+                ttk.Label(self.grid_frame, text='Observer: '),
+                ttk.Entry(self.grid_frame, textvariable=self.stringvars['observer']),
+            ),
+        ]
+        self.add_to_menu_grid(self.grid)
+        self.grid_frame.grid_columnconfigure(1, weight=1)
+
+        value = '\n'.join(self.gui.kernels)
+        label = '\n'.join(
+            [
+                'List of paths of SPICE kernels to load, with each path listed on a new line.',
+                'User "~" and glob (e.g. "*", "**") patterns will be automatically expanded:',
+            ]
+        )
+        ttk.Label(self.menu_frame, text='\n' + label).pack(fill='x')
+        self.kernel_txt = tkinter.scrolledtext.ScrolledText(self.menu_frame)
+        self.kernel_txt.pack(fill='both')
+        self.kernel_txt.insert('1.0', value)
+
+    def get_path(self):
+        path = tkinter.filedialog.askopenfilename(
+            title='Choose observation', parent=self.window
+        )
+        kwargs = {'path': path}
+        if any(path.endswith(ext) for ext in Observation.FITS_FILE_EXTENSIONS):
+            with fits.open(path) as hdul:
+                header = hdul[0].header  # type: ignore
+            Observation._add_kw_from_header(kwargs, header)
+        for k, v in kwargs.items():
+            if v:
+                self.stringvars[k].set(str(v))
+
+    def click_ok(self) -> None:
+        if self.apply_changes():
+            self.close_window()
+
+    def click_apply(self) -> None:
+        self.apply_changes()
+
+    def apply_changes(self) -> bool:
+        kwargs = {k: v.get() for k, v in self.stringvars.items()}
+        for k, v in kwargs.items():
+            if isinstance(v, str) and len(v.strip()) == 0:
+                tkinter.messagebox.showwarning(
+                    title=f'Error parsing {k}', message=f'{k!r} must not be empty'
+                )
+                return False
+
+        string = self.kernel_txt.get('1.0', 'end')
+        kernels = [k.strip() for k in string.splitlines()]
+        base.load_kernels(*kernels, clear_before=True)
+
+        kernel_help = 'Check for typos and make sure you have listed all the required SPICE kernels'
+
+        sb = base.SpiceBase(load_kernels=False)
+        try:
+            target = sb.standardise_body_name(kwargs['target'])
+        except:
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing target',
+                message='Target name {!r} not recognised\n{}'.format(
+                    kwargs['target'], kernel_help
+                ),
+            )
+            return False
+
+        try:
+            observer = sb.standardise_body_name(kwargs['observer'])
+        except:
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing observer',
+                message='Observer name {!r} not recognised\n{}'.format(
+                    kwargs['observer'], kernel_help
+                ),
+            )
+            return False
+
+        if target == observer:
+            tkinter.messagebox.showwarning(
+                title=f'Target and observer identical',
+                message='Target and observer must correspond to different bodies',
+            )
+            return False
+
+        try:
+            kwargs['utc'] = float(kwargs['utc'])  #  type: ignore
+        except ValueError:
+            try:
+                spice.utc2et(kwargs['utc'])
+            except:
+                tkinter.messagebox.showwarning(
+                    title=f'Error parsing utc',
+                    message='Could not parse {!r}\n{}'.format(
+                        kwargs['utc'], kernel_help
+                    ),
+                )
+                return False
+        try:
+            observation = Observation(**kwargs, load_kernels=False)
+        except Exception as e:
+            tkinter.messagebox.showwarning(
+                title=f'Error processing inputs',
+                message='Error: {e}',
+            )
+            return False
+        self.gui.set_observation(observation)
+        return True
+
+    def click_cancel(self) -> None:
+        self.close_window()
+
+    def close_window(self, *_) -> None:
+        self.window.destroy()
+
+    def add_to_menu_grid(
+        self, grid: list[tuple[tk.Widget, ...]], frame: ttk.Frame | None = None
+    ) -> None:
+        if frame is None:
+            frame = self.grid_frame
+        ncols = max(len(row) for row in grid)
+        for grid_row in grid:
+            row = frame.grid_size()[1]
+            label = grid_row[0]
+            widgets = grid_row[1:]
+            label.grid(row=row, column=0, sticky='w', pady=5)
+            for idx, widget in enumerate(widgets):
+                if idx == len(widgets) - 1:
+                    colspan = ncols - len(widgets)
+                else:
+                    colspan = 1
+                widget.grid(row=row, column=1 + idx, sticky='ew', columnspan=colspan)
 
 
 class ArtistSetting:

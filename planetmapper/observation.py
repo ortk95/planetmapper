@@ -116,7 +116,7 @@ class Observation(BodyXY):
         if self.header is not None:
             # use values from header to fill in arguments (e.g. target) which aren't
             # specified by the user
-            self._add_kw_from_header(kwargs)
+            self._add_kw_from_header(kwargs, self.header)
         super().__init__(nx=self.data.shape[2], ny=self.data.shape[1], **kwargs)
 
         if self.header is None:
@@ -160,7 +160,7 @@ class Observation(BodyXY):
                         header = hdu.header.copy()
                     break
             else:
-                raise ValueError('No data foundin provided FITS file')
+                raise ValueError('No data found in provided FITS file')
         self.data = data
         self.header = header
 
@@ -178,13 +178,14 @@ class Observation(BodyXY):
             image = np.moveaxis(image, 2, 0)
         self.data = image
 
-    def _add_kw_from_header(self, kw: dict):
+    @staticmethod
+    def _add_kw_from_header(kw: dict, header: fits.Header):
         # fill in kwargs with values from header (if they aren't specified by the user)
 
         if 'target' not in kw:
             for k in ['OBJECT', 'TARGET', 'TARGNAME']:
                 try:
-                    kw.setdefault('target', self.header[k])
+                    kw.setdefault('target', header[k])
                     break
                 except KeyError:
                     continue
@@ -192,7 +193,10 @@ class Observation(BodyXY):
         if 'observer' not in kw:
             for k in ['TELESCOP']:
                 try:
-                    kw.setdefault('observer', self.header[k])
+                    value = header[k]
+                    if value.startswith('ESO-'):
+                        value = 'EARTH'
+                    kw.setdefault('observer', 'EARTH')
                     break
                 except KeyError:
                     continue
@@ -200,17 +204,17 @@ class Observation(BodyXY):
         if 'utc' not in kw:
             for k in [
                 'MJD-AVG',
+                'EXPMID',
                 'DATE-AVG',
             ]:
-                # TODO do this better - maybe use MJD?
                 try:
-                    kw.setdefault('utc', self.header[k])
+                    kw.setdefault('utc', header[k])
                     break
                 except KeyError:
                     continue
 
             try:
-                kw.setdefault('utc', self.header['MJD-AVG'])
+                kw.setdefault('utc', header['MJD-AVG'])
             except KeyError:
                 pass
 
@@ -218,8 +222,8 @@ class Observation(BodyXY):
                 # If the header has a MJD value for the start and end of the
                 # observation, average them and use astropy to convert this
                 # mid-observation MJD into a fits format time string
-                beg = float(self.header['MJD-BEG'])  #  type: ignore
-                end = float(self.header['MJD-END'])  #  type: ignore
+                beg = float(header['MJD-BEG'])  #  type: ignore
+                end = float(header['MJD-END'])  #  type: ignore
                 mjd = (beg + end) / 2
                 kw.setdefault('utc', mjd)
             except:
@@ -232,7 +236,7 @@ class Observation(BodyXY):
                 'DATE-END',
             ]:
                 try:
-                    kw.setdefault('utc', self.header[k])
+                    kw.setdefault('utc', header[k])
                     break
                 except KeyError:
                     continue
