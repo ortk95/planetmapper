@@ -727,8 +727,8 @@ class Observation(BodyXY):
             interface.
 
             If you want the full user interface functionality instead, then call
-            `python3 -m planetmapper` from the command line or create and run a user
-            interface manually using :func:`planetmapper.gui.GUI.run`.
+            `planetmapper` from the command line or create and run a user interface
+            manually using :func:`planetmapper.gui.GUI.run`.
         """
         from .gui import GUI
         gui = GUI(allow_open=False)

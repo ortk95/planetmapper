@@ -86,5 +86,5 @@ __all__ = [
     'kernel_downloader',
 ]
 
-if __name__ == '__main__':
-    gui._main(*sys.argv[1:])
+def _main():
+    gui._main()

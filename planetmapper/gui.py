@@ -96,8 +96,8 @@ class GUI:
 
     This class does not usually need to be run directly, as a GUI can be created 
     directly from an :class:`planetmapper.Observation` object using 
-    :func:`planetmapper.Observation.run_gui`, or by running `python3 -m planetmapper`
-    from the command line.
+    :func:`planetmapper.Observation.run_gui`, or by calling `planetmapper` from the
+    command line.
     """
     MINIMUM_SIZE = (800, 600)
     DEFAULT_GEOMETRY = '800x650+15+15'
