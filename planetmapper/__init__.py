@@ -86,5 +86,6 @@ __all__ = [
     'kernel_downloader',
 ]
 
-def _main():
+def main():
+    """:meta private:"""
     gui._main()
