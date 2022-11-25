@@ -21,11 +21,18 @@ declination which define the position in the sky of a point from the point of vi
 the observer. These coordinates are expressed in degrees. See 
 https://en.wikipedia.org/wiki/Equatorial_coordinate_system for more.
 
-`lonlat` planetographic on target body. These are the planetographic longitude and
-latitude coordinates of a point on the surface of the target body. These coordinates are 
-expressed in degrees. See https://en.wikipedia.org/wiki/Planetary_coordinate_system and 
+`lonlat` planetographic coordinates on target body. These are the planetographic 
+longitude and latitude coordinates of a point on the surface of the target body. These 
+coordinates are expressed in degrees. See 
+https://en.wikipedia.org/wiki/Planetary_coordinate_system and 
 https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/recpgr_c.html#Particulars for
 more.
+
+`km` defines the distance in the image plane from the centre of the target body in km
+with the target's north pole pointing up. This coordinate system is similar to the
+`radec` and `xy` coordinate systems, but has the image zoomed so that the planet's 
+radius is fixed and rotated so that the north pole points up. It can therefore be useful
+for comparing observations of the same target taken at different times.
 
 =============================================   =====
 Dimension                                       Unit
@@ -59,10 +66,7 @@ https://spiceypy.readthedocs.io/en/main/documentation.html
 https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/
 
 """
-print(
-    'WARNING: planetmapper in active development, and may break/change/not work at all'
-)
-print('Bugs can be reported at https://github.com/ortk95/planetmapper/issues/new')
+import sys
 from .common import __version__, __author__, __url__
 from .base import SpiceBase
 from .body import Body
@@ -81,3 +85,6 @@ __all__ = [
     'utils',
     'kernel_downloader',
 ]
+
+if __name__ == '__main__':
+    gui._main(*sys.argv[1:])

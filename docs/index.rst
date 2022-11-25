@@ -10,4 +10,10 @@ Planet Mapper
    data_loader
    gui
    kernel_downloader
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Appendix
+
    default_backplanes
