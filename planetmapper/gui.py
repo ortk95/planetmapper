@@ -76,7 +76,7 @@ CMAPS = ['gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis']
 
 
 def _main(*args):
-    """Called with `python3 -m planetmapper`"""
+    """Called with `planetmapper` from the command line"""
     print('Launching planetmapper...')
     gui = GUI()
     if args:
@@ -1790,49 +1790,48 @@ class PlotImageSetting(ArtistSetting):
         )
 
     def apply_settings(self) -> bool:
-        settings = self.gui.plot_settings[self.key]
-        general_settings = self.gui.plot_settings['_']
-
+        settings = {}
+        general_settings = {}
         try:
             image_mode = self.image_mode.get()
-            image_idx_single = self.get_idx(
-                self.image_idx_single, 'wavelength index (single)'
-            )
-            image_idx_r = self.get_idx(self.image_idx_r, 'wavelength index (red)')
-            image_idx_g = self.get_idx(self.image_idx_g, 'wavelength index (green)')
-            image_idx_b = self.get_idx(self.image_idx_b, 'wavelength index (blue)')
-            image_gamma = self.get_float(self.image_gamma, 'gamma', positive=False)
-            image_vmin = self.get_float(self.image_vmin, 'vmin', positive=False)
-            image_vmax = self.get_float(self.image_vmax, 'vmax', positive=False)
+            general_settings['image_mode'] = image_mode
+            if image_mode == 'single':
+                general_settings['image_idx_single'] = self.get_idx(
+                    self.image_idx_single, 'wavelength index (single)'
+                )
+            if image_mode == 'rgb':
+                general_settings['image_idx_r'] = self.get_idx(self.image_idx_r, 'wavelength index (red)')
+                general_settings['image_idx_g'] = self.get_idx(self.image_idx_g, 'wavelength index (green)')
+                general_settings['image_idx_b'] = self.get_idx(self.image_idx_b, 'wavelength index (blue)')
+            
+            general_settings['image_gamma'] = self.get_float(self.image_gamma, 'gamma', positive=False)
+            if image_mode in {'single', 'sum'}:
+                settings['vmin'] = self.get_float(self.image_vmin, 'vmin', positive=False)
+                settings['vmax'] = self.get_float(self.image_vmax, 'vmax', positive=False)
+                if settings['vmin'] >= settings['vmax']:
+                    tkinter.messagebox.showwarning(
+                        title='Error parsing limits',
+                        message=f'vmin must be less than vmax',
+                    )
+                    return False
         except ValueError:
             return False
 
-        try:
-            cmap = self.cmap.get()
-            matplotlib.cm.get_cmap(cmap)
-        except ValueError:
-            tkinter.messagebox.showwarning(
-                title='Error parsing colormap',
-                message=f'Unrecognised matplotlib colormap {self.cmap.get()!r}',
-            )
-            return False
+        if image_mode in {'single', 'sum'}:
+            try:
+                cmap = self.cmap.get()
+                matplotlib.cm.get_cmap(cmap)
+            except ValueError:
+                tkinter.messagebox.showwarning(
+                    title='Error parsing colormap',
+                    message=f'Unrecognised matplotlib colormap {self.cmap.get()!r}',
+                )
+                return False
+            settings['cmap'] = cmap
 
-        if image_vmin >= image_vmax:
-            tkinter.messagebox.showwarning(
-                title='Error parsing limits',
-                message=f'vmin must be less than vmax',
-            )
-            return False
 
-        settings['cmap'] = cmap
-        settings['vmin'] = image_vmin
-        settings['vmax'] = image_vmax
-        general_settings['image_mode'] = image_mode
-        general_settings['image_idx_single'] = image_idx_single
-        general_settings['image_idx_r'] = image_idx_r
-        general_settings['image_idx_g'] = image_idx_g
-        general_settings['image_idx_b'] = image_idx_b
-        general_settings['image_gamma'] = image_gamma
+        self.gui.plot_settings[self.key].update(settings)
+        self.gui.plot_settings['_'].update(general_settings)
         return True
 
     def get_window_size(self) -> str:
