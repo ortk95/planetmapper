@@ -15,11 +15,11 @@ from functools import lru_cache
 import scipy.interpolate
 
 utils.print_progress('start')
-gui = planetmapper.gui.GUI(
+gui = planetmapper.gui.GUI()
+gui.set_observation(planetmapper.Observation(    
     'data/jupiter.jpg',
     target='jupiter',
-    utc='2020-08-25 02:30:40',
-)
+    utc='2020-08-25 02:30:40'))
 gui.run()
 # try:
 #     obs  #  type: ignore

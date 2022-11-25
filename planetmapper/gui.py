@@ -78,15 +78,13 @@ class GUI:
     MINIMUM_SIZE = (800, 600)
     DEFAULT_GEOMETRY = '800x600+15+15'
 
-    def __init__(self, path: str | None = None, *args, **kwargs) -> None:
-        if path is None:
-            path = tkinter.filedialog.askopenfilename(title='Open FITS file')
-            # TODO add configuration for target, date etc.
+    def __init__(self) -> None:
+        # if path is None:
+        #     path = tkinter.filedialog.askopenfilename(title='Open FITS file')
+        #     # TODO add configuration for target, date etc.
 
-        self._observation : Observation|None = None
+        self._observation: Observation | None = None
 
-
-        # TODO add option to create from Observation
         self.step_size = 1
 
         self.shortcuts: dict[Callable[[], Any], list[str]] = {
@@ -109,13 +107,13 @@ class GUI:
         ] = defaultdict(
             list,
             {
-                'x0': [self.get_observation().set_x0],
-                'y0': [self.get_observation().set_y0],
-                'r0': [self.get_observation().set_r0],
-                'rotation': [self.get_observation().set_rotation],
-                'step': [self.set_step],
-                'plate_scale_arcsec': [self.get_observation().set_plate_scale_arcsec],
-                'plate_scale_km': [self.get_observation().set_plate_scale_km],
+                'x0': [lambda f: self.get_observation().set_x0(f)],
+                'y0': [lambda f: self.get_observation().set_y0(f)],
+                'r0': [lambda f: self.get_observation().set_r0(f)],
+                'rotation': [lambda f: self.get_observation().set_rotation(f)],
+                'step': [lambda f: self.set_step(f)],
+                'plate_scale_arcsec': [lambda f: self.get_observation().set_plate_scale_arcsec(f)],
+                'plate_scale_km': [lambda f: self.get_observation().set_plate_scale_km(f)],
             },
         )
         self.ui_callbacks: defaultdict[
@@ -123,13 +121,13 @@ class GUI:
         ] = defaultdict(set)
 
         self.getters: dict[SETTER_KEY, Callable[[], float]] = {
-            'x0': self.get_observation().get_x0,
-            'y0': self.get_observation().get_y0,
-            'r0': self.get_observation().get_r0,
-            'rotation': self.get_observation().get_rotation,
+            'x0': lambda: self.get_observation().get_x0(),
+            'y0': lambda: self.get_observation().get_y0(),
+            'r0': lambda: self.get_observation().get_r0(),
+            'rotation': lambda: self.get_observation().get_rotation(),
             'step': lambda: self.step_size,
-            'plate_scale_arcsec': self.get_observation().get_plate_scale_arcsec,
-            'plate_scale_km': self.get_observation().get_plate_scale_km,
+            'plate_scale_arcsec': lambda: self.get_observation().get_plate_scale_arcsec(),
+            'plate_scale_km': lambda: self.get_observation().get_plate_scale_km(),
         }
         self.plot_handles: defaultdict[PLOT_KEY, list[Artist]] = defaultdict(list)
         self.plot_settings: defaultdict[PLOT_KEY, dict] = defaultdict(dict)
@@ -137,42 +135,26 @@ class GUI:
             self.plot_settings[k] = v.copy()
 
         self.disc_finding_routines: dict[Callable[[], None], tuple[str, str]] = {
-            self.get_observation().disc_from_wcs: (
+            lambda: self.get_observation().disc_from_wcs(): (
                 'Use FITS WCS',
                 'Set disc parameters using WCS information in the observation\'s FITS header',
             ),
-            self.get_observation().fit_disc_position: (
+            lambda: self.get_observation().fit_disc_position(): (
                 'Fit disc position',
                 'Set x0 and y0 so that the planet\'s disc is fit to the brightest part of the data',
             ),
-            self.get_observation().fit_disc_radius: (
+            lambda: self.get_observation().fit_disc_radius(): (
                 'Fit disc radius',
                 'Set r0 by calculating the radius around (x0, y0) where the brightness decrease is the fastest',
             ),
-            self.get_observation().centre_disc: (
+            lambda: self.get_observation().centre_disc(): (
                 'Centre disc',
                 'Centre the target\'s planetary disc and make it fill ~90% of the observation',
             ),
         }
 
-        self.image_modes: dict[IMAGE_MODE, tuple[Callable[[], np.ndarray], str]] = {
-            'single': (self.image_single, 'Single wavelength'),
-            'sum': (self.image_sum, 'Sum all wavelengths'),
-            'rgb': (self.image_rgb, 'RGB composite'),
-        }
-        n_wavl = self.get_observation().data.shape[0]
-        if n_wavl < 2:
-            del self.image_modes['sum']
-        if n_wavl < 3:
-            del self.image_modes['rgb']
-        if n_wavl == 1:
-            self.plot_settings['_']['image_mode'] = 'single'
-        elif n_wavl == 3:
-            self.plot_settings['_']['image_mode'] = 'rgb'
-        else:
-            self.plot_settings['_']['image_mode'] = 'sum'
-
         self.event_time_to_ignore = None
+        self.gui_built = False
 
     def __repr__(self) -> str:
         return f'InteractiveObservation()'
@@ -192,6 +174,29 @@ class GUI:
     def set_observation(self, observation: Observation) -> None:
         self._observation = observation
 
+        self.image_modes: dict[IMAGE_MODE, tuple[Callable[[], np.ndarray], str]] = {
+            'single': (self.image_single, 'Single wavelength'),
+            'sum': (self.image_sum, 'Sum all wavelengths'),
+            'rgb': (self.image_rgb, 'RGB composite'),
+        }
+        n_wavl = self.get_observation().data.shape[0]
+        if n_wavl < 2:
+            del self.image_modes['sum']
+        if n_wavl < 3:
+            del self.image_modes['rgb']
+
+        if n_wavl == 1:
+            self.plot_settings['_']['image_mode'] = 'single'
+        elif n_wavl == 3 and not self.gui_built:
+            self.plot_settings['_']['image_mode'] = 'rgb'
+        else:
+            self.plot_settings['_']['image_mode'] = 'sum'
+
+        if self.gui_built:
+            self.run_all_ui_callbacks()
+            self.replot_all()
+            self.root.title(self.get_observation().get_description(multiline=False))
+
     def get_observation(self) -> Observation:
         if self._observation is None:
             raise NotImplementedError
@@ -202,8 +207,13 @@ class GUI:
         self.root = tk.Tk()
         self.root.geometry(self.DEFAULT_GEOMETRY)
         self.root.minsize(*self.MINIMUM_SIZE)
-        self.root.title(self.get_observation().get_description(multiline=False))
         self.configure_style()
+
+        self.root.title('planetmapper')
+
+        self.get_observation()
+
+        self.root.title(self.get_observation().get_description(multiline=False))
 
         self.hint_frame = tk.Frame(self.root)
         self.hint_frame.pack(side='bottom', fill='x')
@@ -218,6 +228,8 @@ class GUI:
         self.build_help_hint()
         self.build_controls()
         self.update_plot()
+
+        self.gui_built = True
 
     def configure_style(self) -> None:
         self.style = ttk.Style(self.root)
@@ -749,9 +761,15 @@ class GUI:
         ) ** self.plot_settings['_'].setdefault('image_gamma', 1)
 
     def image_rgb(self) -> np.ndarray:
-        r = self.get_observation().data[self.plot_settings['_'].setdefault('image_idx_r', 0)]
-        g = self.get_observation().data[self.plot_settings['_'].setdefault('image_idx_g', 0)]
-        b = self.get_observation().data[self.plot_settings['_'].setdefault('image_idx_b', 0)]
+        r = self.get_observation().data[
+            self.plot_settings['_'].setdefault('image_idx_r', 0)
+        ]
+        g = self.get_observation().data[
+            self.plot_settings['_'].setdefault('image_idx_g', 0)
+        ]
+        b = self.get_observation().data[
+            self.plot_settings['_'].setdefault('image_idx_b', 0)
+        ]
         return utils.normalise(np.stack((r, g, b), axis=2)) ** self.plot_settings[
             '_'
         ].setdefault('image_gamma', 1)
@@ -840,10 +858,14 @@ class GUI:
         self.set_value('x0', self.get_observation().get_x0() - self.step_size)
 
     def rotate_left(self) -> None:
-        self.set_value('rotation', self.get_observation().get_rotation() - self.step_size)
+        self.set_value(
+            'rotation', self.get_observation().get_rotation() - self.step_size
+        )
 
     def rotate_right(self) -> None:
-        self.set_value('rotation', self.get_observation().get_rotation() + self.step_size)
+        self.set_value(
+            'rotation', self.get_observation().get_rotation() + self.step_size
+        )
 
     def increase_radius(self) -> None:
         self.set_value('r0', self.get_observation().get_r0() + self.step_size)
