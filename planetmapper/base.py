@@ -161,15 +161,9 @@ class SpiceBase:
             kernels = manual_kernels
         else:
             kernel_path = os.path.expanduser(kernel_path)
-            kernels = set()
-            for pattern in KERNEL_PATTERNS:
-                kernels.update(
-                    glob.glob(os.path.join(kernel_path, pattern), recursive=True)
-                )
-            kernels = sorted(kernels)
+            kernels = [os.path.join(kernel_path, pattern) for pattern in KERNEL_PATTERNS]
 
-        for kernel in kernels:
-            spice.furnsh(kernel)
+        load_kernels(*kernels)
         cls._KERNELS_LOADED = True
 
     @staticmethod
@@ -270,3 +264,23 @@ class SpiceBase:
                 * np.cos(np.deg2rad(ra1) - np.deg2rad(ra2))
             )
         )
+
+
+def load_kernels(*paths, clear_before: bool = False):
+    """
+    Load spice kernels defined by patterns
+
+    Args:
+        *paths: Paths to spice kernels, evaluated using `glob.glob` with
+            `recursive=True`.
+        clear_before: Clear kernel pool before loading new kernels.
+    """
+    if clear_before:
+        spice.kclear()
+    kernels = set()
+    for pattern in paths:
+        kernels.update(
+            glob.glob(os.path.expanduser(pattern), recursive=True)
+        )
+    for kernel in sorted(kernels):
+        spice.furnsh(kernel)

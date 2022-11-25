@@ -1,5 +1,6 @@
 import datetime
 import sys
+import os
 import tkinter as tk
 from tkinter import ttk
 import tkinter.filedialog
@@ -19,8 +20,11 @@ from matplotlib.axes import Axes
 from matplotlib.text import Text
 from matplotlib.artist import Artist
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from astropy.io import fits
+import spiceypy as spice
 from . import utils
 from . import data_loader
+from . import base
 from .observation import Observation
 from .body import Body, NotFoundError
 
@@ -74,17 +78,20 @@ GRID_INTERVALS = ['10', '30', '45', '90']
 CMAPS = ['gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis']
 
 
+class Quit(Exception):
+    pass
+
+
 class GUI:
     MINIMUM_SIZE = (800, 600)
     DEFAULT_GEOMETRY = '800x600+15+15'
 
-    def __init__(self, path: str | None = None, *args, **kwargs) -> None:
-        if path is None:
-            path = tkinter.filedialog.askopenfilename(title='Open FITS file')
-            # TODO add configuration for target, date etc.
-        self.observation = Observation(path, *args, **kwargs)
+    def __init__(self) -> None:
+        # if path is None:
+        #     path = tkinter.filedialog.askopenfilename(title='Open FITS file')
+        #     # TODO add configuration for target, date etc.
 
-        # TODO add option to create from Observation
+        self._observation: Observation | None = None
         self.step_size = 1
 
         self.shortcuts: dict[Callable[[], Any], list[str]] = {
@@ -98,7 +105,7 @@ class GUI:
             self.rotate_left: ['<less>', ','],
             self.increase_radius: ['+', '='],
             self.decrease_radius: ['-', '_'],
-            self.save: ['<Control-s>'],
+            self.save_observation: ['<Control-s>'],
         }
         self.shortcuts_to_keep_in_entry = ['<Control-s>']
 
@@ -107,13 +114,17 @@ class GUI:
         ] = defaultdict(
             list,
             {
-                'x0': [self.observation.set_x0],
-                'y0': [self.observation.set_y0],
-                'r0': [self.observation.set_r0],
-                'rotation': [self.observation.set_rotation],
-                'step': [self.set_step],
-                'plate_scale_arcsec': [self.observation.set_plate_scale_arcsec],
-                'plate_scale_km': [self.observation.set_plate_scale_km],
+                'x0': [lambda f: self.get_observation().set_x0(f)],
+                'y0': [lambda f: self.get_observation().set_y0(f)],
+                'r0': [lambda f: self.get_observation().set_r0(f)],
+                'rotation': [lambda f: self.get_observation().set_rotation(f)],
+                'step': [lambda f: self.set_step(f)],
+                'plate_scale_arcsec': [
+                    lambda f: self.get_observation().set_plate_scale_arcsec(f)
+                ],
+                'plate_scale_km': [
+                    lambda f: self.get_observation().set_plate_scale_km(f)
+                ],
             },
         )
         self.ui_callbacks: defaultdict[
@@ -121,13 +132,13 @@ class GUI:
         ] = defaultdict(set)
 
         self.getters: dict[SETTER_KEY, Callable[[], float]] = {
-            'x0': self.observation.get_x0,
-            'y0': self.observation.get_y0,
-            'r0': self.observation.get_r0,
-            'rotation': self.observation.get_rotation,
+            'x0': lambda: self.get_observation().get_x0(),
+            'y0': lambda: self.get_observation().get_y0(),
+            'r0': lambda: self.get_observation().get_r0(),
+            'rotation': lambda: self.get_observation().get_rotation(),
             'step': lambda: self.step_size,
-            'plate_scale_arcsec': self.observation.get_plate_scale_arcsec,
-            'plate_scale_km': self.observation.get_plate_scale_km,
+            'plate_scale_arcsec': lambda: self.get_observation().get_plate_scale_arcsec(),
+            'plate_scale_km': lambda: self.get_observation().get_plate_scale_km(),
         }
         self.plot_handles: defaultdict[PLOT_KEY, list[Artist]] = defaultdict(list)
         self.plot_settings: defaultdict[PLOT_KEY, dict] = defaultdict(dict)
@@ -135,59 +146,92 @@ class GUI:
             self.plot_settings[k] = v.copy()
 
         self.disc_finding_routines: dict[Callable[[], None], tuple[str, str]] = {
-            self.observation.disc_from_wcs: (
+            lambda: self.get_observation().disc_from_wcs(): (
                 'Use FITS WCS',
                 'Set disc parameters using WCS information in the observation\'s FITS header',
             ),
-            self.observation.fit_disc_position: (
+            lambda: self.get_observation().fit_disc_position(): (
                 'Fit disc position',
                 'Set x0 and y0 so that the planet\'s disc is fit to the brightest part of the data',
             ),
-            self.observation.fit_disc_radius: (
+            lambda: self.get_observation().fit_disc_radius(): (
                 'Fit disc radius',
                 'Set r0 by calculating the radius around (x0, y0) where the brightness decrease is the fastest',
             ),
-            self.observation.centre_disc: (
+            lambda: self.get_observation().centre_disc(): (
                 'Centre disc',
                 'Centre the target\'s planetary disc and make it fill ~90% of the observation',
             ),
         }
+
+        self.kernels: list[str] = [
+            os.path.join(base.KERNEL_PATH, pattern) for pattern in base.KERNEL_PATTERNS
+        ]
+
+        self.event_time_to_ignore = None
+        self.gui_built = False
+
+    def __repr__(self) -> str:
+        return f'InteractiveObservation()'
+
+    def run(self) -> None:
+        """
+        Run the GUI.
+        """
+        try:
+            self.get_observation()
+        except Quit:
+            print('App quit')
+            return
+        self.build_gui()
+        self.bind_keyboard()
+        self.root.mainloop()
+        # TODO do something when closed to kill figure etc.?
+
+    def load_observation(self) -> None:
+        ObservationSetttings(gui=self, first_run=self._observation is None)
+        if self._observation is None:
+            raise Quit
+
+    def set_observation(self, observation: Observation) -> None:
+        self._observation = observation
 
         self.image_modes: dict[IMAGE_MODE, tuple[Callable[[], np.ndarray], str]] = {
             'single': (self.image_single, 'Single wavelength'),
             'sum': (self.image_sum, 'Sum all wavelengths'),
             'rgb': (self.image_rgb, 'RGB composite'),
         }
-        n_wavl = self.observation.data.shape[0]
+        n_wavl = self.get_observation().data.shape[0]
         if n_wavl < 2:
             del self.image_modes['sum']
         if n_wavl < 3:
             del self.image_modes['rgb']
+
         if n_wavl == 1:
             self.plot_settings['_']['image_mode'] = 'single'
-        elif n_wavl == 3:
+        elif n_wavl == 3 and not self.gui_built:
             self.plot_settings['_']['image_mode'] = 'rgb'
         else:
             self.plot_settings['_']['image_mode'] = 'sum'
 
-        self.event_time_to_ignore = None
+        if self.gui_built:
+            self.run_all_ui_callbacks()
+            self.replot_all()
+            self.root.title(self.get_observation().get_description(multiline=False))
 
-    def __repr__(self) -> str:
-        return f'InteractiveObservation()'
-
-    def run(self) -> None:
-        self.build_gui()
-        self.bind_keyboard()
-        self.root.mainloop()
-        # TODO do something when closed to kill figure etc.?
+    def get_observation(self) -> Observation:
+        if self._observation is None:
+            self.load_observation()
+        assert self._observation is not None
+        return self._observation
 
     # GUI Building
     def build_gui(self) -> None:
         self.root = tk.Tk()
         self.root.geometry(self.DEFAULT_GEOMETRY)
         self.root.minsize(*self.MINIMUM_SIZE)
-        self.root.title(self.observation.get_description(multiline=False))
-        self.configure_style()
+        self.configure_style(self.root)
+        self.root.title(self.get_observation().get_description(multiline=False))
 
         self.hint_frame = tk.Frame(self.root)
         self.hint_frame.pack(side='bottom', fill='x')
@@ -203,8 +247,12 @@ class GUI:
         self.build_controls()
         self.update_plot()
 
-    def configure_style(self) -> None:
-        self.style = ttk.Style(self.root)
+        self.gui_built = True
+
+    def configure_style(self, root: tk.Tk | None) -> None:
+        if root is None:
+            root = self.root
+        self.style = ttk.Style(root)
         self.style.theme_use('default')
         # TODO add padding etc. here
         for element in ['TEntry', 'TCombobox', 'TSpinbox', 'TButton', 'TLabel']:
@@ -290,14 +338,21 @@ class GUI:
         )
 
         # IO controls
-        label_frame = ttk.LabelFrame(frame, text='Output')
+        label_frame = ttk.LabelFrame(frame, text='Save')
         label_frame.pack(fill='x')
 
         self.add_tooltip(
-            ttk.Button(label_frame, text='Save backplanes', command=self.save),
-            f'Save FITS file with backplane data',
-            self.save,
-        ).pack()
+            ttk.Button(
+                label_frame, text='Save observation', command=self.save_observation
+            ),
+            f'Save FITS file of the observation with backplane data',
+            self.save_observation,
+        ).grid(row=0, column=0)
+        self.add_tooltip(
+            ttk.Button(label_frame, text='Save map', command=self.save_mapped),
+            f'Save FITS file of the mapped observation with backplane data',
+            self.save_mapped,
+        ).grid(row=0, column=1)
 
     def build_main_controls_section(
         self,
@@ -410,7 +465,7 @@ class GUI:
             label='Lon/Lat POI',
             hint='points of interest on the surface of the target (click Edit to define POI)',
             callbacks=[self.replot_coordinates_lonlat],
-            coordinate_list=self.observation.coordinates_of_interest_lonlat,
+            coordinate_list=self.get_observation().coordinates_of_interest_lonlat,
             menu_label='\n'.join(
                 [
                     'List of Lon/Lat points of interest.',
@@ -427,7 +482,7 @@ class GUI:
             label='RA/Dec POI',
             hint='points of interest in the sky (click Edit to define POI)',
             callbacks=[self.replot_coordinates_radec],
-            coordinate_list=self.observation.coordinates_of_interest_radec,
+            coordinate_list=self.get_observation().coordinates_of_interest_radec,
             menu_label='\n'.join(
                 [
                     'List of RA/Dec points of interest.',
@@ -513,14 +568,14 @@ class GUI:
         return widget
 
     def update_plot(self) -> None:
-        self.observation.update_transform()
+        self.get_observation().update_transform()
         self.canvas.draw()
         print(
             'x0={x0}, y0={y0}, r0={r0}, rotation={rotation}'.format(
-                x0=self.observation.get_x0(),
-                y0=self.observation.get_y0(),
-                r0=self.observation.get_r0(),
-                rotation=self.observation.get_rotation(),
+                x0=self.get_observation().get_x0(),
+                y0=self.get_observation().get_y0(),
+                r0=self.get_observation().get_r0(),
+                rotation=self.get_observation().get_rotation(),
             )
         )
 
@@ -528,7 +583,7 @@ class GUI:
         self.fig = plt.figure()
         self.ax = self.fig.add_axes([0.06, 0.03, 0.93, 0.96])
         self.transform = (
-            self.observation.matplotlib_radec2xy_transform() + self.ax.transData
+            self.get_observation().matplotlib_radec2xy_transform() + self.ax.transData
         )
 
         self.replot_all()
@@ -550,8 +605,8 @@ class GUI:
 
     def format_plot(self):
         self.fig.set_dpi(100)
-        self.ax.set_xlim(-0.5, self.observation._nx - 0.5)
-        self.ax.set_ylim(-0.5, self.observation._ny - 0.5)
+        self.ax.set_xlim(-0.5, self.get_observation()._nx - 0.5)
+        self.ax.set_ylim(-0.5, self.get_observation()._ny - 0.5)
         self.ax.xaxis.set_tick_params(labelsize='x-small')
         self.ax.yaxis.set_tick_params(labelsize='x-small')
         self.ax.set_facecolor('k')
@@ -576,7 +631,7 @@ class GUI:
         self.remove_artists('limb_dayside')
         self.plot_handles['limb'].extend(
             self.ax.plot(
-                *self.observation.limb_radec(),
+                *self.get_observation().limb_radec(),
                 transform=self.transform,
                 **self.plot_settings['limb'],
             )
@@ -586,7 +641,7 @@ class GUI:
             dec_day,
             ra_night,
             dec_night,
-        ) = self.observation.limb_radec_by_illumination()
+        ) = self.get_observation().limb_radec_by_illumination()
         self.plot_handles['limb_dayside'].extend(
             self.ax.plot(
                 ra_day,
@@ -600,7 +655,7 @@ class GUI:
         self.remove_artists('terminator')
         self.plot_handles['terminator'].extend(
             self.ax.plot(
-                *self.observation.terminator_radec(),
+                *self.get_observation().terminator_radec(),
                 transform=self.transform,
                 **self.plot_settings['terminator'],
             )
@@ -608,8 +663,8 @@ class GUI:
 
     def replot_poles(self):
         self.remove_artists('poles')
-        for lon, lat, s in self.observation.get_poles_to_plot():
-            ra, dec = self.observation.lonlat2radec(lon, lat)
+        for lon, lat, s in self.get_observation().get_poles_to_plot():
+            ra, dec = self.get_observation().lonlat2radec(lon, lat)
             self.plot_handles['poles'].append(
                 self.ax.add_artist(
                     OutlinedText(
@@ -630,7 +685,7 @@ class GUI:
     def replot_grid(self) -> None:
         self.remove_artists('grid')
         interval = self.plot_settings['_'].setdefault('grid_interval', 30)
-        for ra, dec in self.observation.visible_lonlat_grid_radec(interval):
+        for ra, dec in self.get_observation().visible_lonlat_grid_radec(interval):
             self.plot_handles['grid'].extend(
                 self.ax.plot(
                     ra,
@@ -642,9 +697,9 @@ class GUI:
 
     def replot_coordinates_lonlat(self) -> None:
         self.remove_artists('coordinates_lonlat')
-        for lon, lat in self.observation.coordinates_of_interest_lonlat:
-            if self.observation.test_if_lonlat_visible(lon, lat):
-                ra, dec = self.observation.lonlat2radec(lon, lat)
+        for lon, lat in self.get_observation().coordinates_of_interest_lonlat:
+            if self.get_observation().test_if_lonlat_visible(lon, lat):
+                ra, dec = self.get_observation().lonlat2radec(lon, lat)
                 self.plot_handles['coordinates_lonlat'].append(
                     self.ax.scatter(
                         ra,
@@ -656,7 +711,7 @@ class GUI:
 
     def replot_coordinates_radec(self) -> None:
         self.remove_artists('coordinates_radec')
-        for ra, dec in self.observation.coordinates_of_interest_radec:
+        for ra, dec in self.get_observation().coordinates_of_interest_radec:
             self.plot_handles['coordinates_radec'].append(
                 self.ax.scatter(
                     ra,
@@ -668,8 +723,8 @@ class GUI:
 
     def replot_rings(self) -> None:
         self.remove_artists('rings')
-        for radius in self.observation.ring_radii:
-            ra, dec = self.observation.ring_radec(radius)
+        for radius in self.get_observation().ring_radii:
+            ra, dec = self.get_observation().ring_radec(radius)
             self.plot_handles['rings'].extend(
                 self.ax.plot(
                     ra,
@@ -682,7 +737,7 @@ class GUI:
     def replot_other_bodies(self) -> None:
         self.remove_artists('other_bodies_labels')
         self.remove_artists('other_bodies')
-        for body in self.observation.other_bodies_of_interest:
+        for body in self.get_observation().other_bodies_of_interest:
             ra = body.target_ra
             dec = body.target_dec
 
@@ -715,20 +770,26 @@ class GUI:
     # Image
     def image_sum(self) -> np.ndarray:
         return 100 * utils.normalise(
-            np.nansum(self.observation.data, axis=0)
+            np.nansum(self.get_observation().data, axis=0)
         ) ** self.plot_settings['_'].setdefault('image_gamma', 1)
 
     def image_single(self) -> np.ndarray:
         return 100 * utils.normalise(
-            self.observation.data[
+            self.get_observation().data[
                 self.plot_settings['_'].setdefault('image_idx_single', 0)
             ]
         ) ** self.plot_settings['_'].setdefault('image_gamma', 1)
 
     def image_rgb(self) -> np.ndarray:
-        r = self.observation.data[self.plot_settings['_'].setdefault('image_idx_r', 0)]
-        g = self.observation.data[self.plot_settings['_'].setdefault('image_idx_g', 0)]
-        b = self.observation.data[self.plot_settings['_'].setdefault('image_idx_b', 0)]
+        r = self.get_observation().data[
+            self.plot_settings['_'].setdefault('image_idx_r', 0)
+        ]
+        g = self.get_observation().data[
+            self.plot_settings['_'].setdefault('image_idx_g', 0)
+        ]
+        b = self.get_observation().data[
+            self.plot_settings['_'].setdefault('image_idx_b', 0)
+        ]
         return utils.normalise(np.stack((r, g, b), axis=2)) ** self.plot_settings[
             '_'
         ].setdefault('image_gamma', 1)
@@ -781,77 +842,324 @@ class GUI:
         self.set_value('step', self.step_size / 10, update_plot=False)
 
     def move_up(self) -> None:
-        self.set_value('y0', self.observation.get_y0() + self.step_size)
+        self.set_value('y0', self.get_observation().get_y0() + self.step_size)
 
     def move_up_right(self) -> None:
         self.set_value(
-            'y0', self.observation.get_y0() + self.step_size, update_plot=False
+            'y0', self.get_observation().get_y0() + self.step_size, update_plot=False
         )
-        self.set_value('x0', self.observation.get_x0() + self.step_size)
+        self.set_value('x0', self.get_observation().get_x0() + self.step_size)
 
     def move_right(self) -> None:
-        self.set_value('x0', self.observation.get_x0() + self.step_size)
+        self.set_value('x0', self.get_observation().get_x0() + self.step_size)
 
     def move_down_right(self) -> None:
         self.set_value(
-            'y0', self.observation.get_y0() - self.step_size, update_plot=False
+            'y0', self.get_observation().get_y0() - self.step_size, update_plot=False
         )
-        self.set_value('x0', self.observation.get_x0() + self.step_size)
+        self.set_value('x0', self.get_observation().get_x0() + self.step_size)
 
     def move_down(self) -> None:
-        self.set_value('y0', self.observation.get_y0() - self.step_size)
+        self.set_value('y0', self.get_observation().get_y0() - self.step_size)
 
     def move_down_left(self) -> None:
         self.set_value(
-            'y0', self.observation.get_y0() - self.step_size, update_plot=False
+            'y0', self.get_observation().get_y0() - self.step_size, update_plot=False
         )
-        self.set_value('x0', self.observation.get_x0() - self.step_size)
+        self.set_value('x0', self.get_observation().get_x0() - self.step_size)
 
     def move_left(self) -> None:
-        self.set_value('x0', self.observation.get_x0() - self.step_size)
+        self.set_value('x0', self.get_observation().get_x0() - self.step_size)
 
     def move_up_left(self) -> None:
         self.set_value(
-            'y0', self.observation.get_y0() + self.step_size, update_plot=False
+            'y0', self.get_observation().get_y0() + self.step_size, update_plot=False
         )
-        self.set_value('x0', self.observation.get_x0() - self.step_size)
+        self.set_value('x0', self.get_observation().get_x0() - self.step_size)
 
     def rotate_left(self) -> None:
-        self.set_value('rotation', self.observation.get_rotation() - self.step_size)
+        self.set_value(
+            'rotation', self.get_observation().get_rotation() - self.step_size
+        )
 
     def rotate_right(self) -> None:
-        self.set_value('rotation', self.observation.get_rotation() + self.step_size)
+        self.set_value(
+            'rotation', self.get_observation().get_rotation() + self.step_size
+        )
 
     def increase_radius(self) -> None:
-        self.set_value('r0', self.observation.get_r0() + self.step_size)
+        self.set_value('r0', self.get_observation().get_r0() + self.step_size)
 
     def decrease_radius(self) -> None:
         try:
-            self.set_value('r0', self.observation.get_r0() - self.step_size)
+            self.set_value('r0', self.get_observation().get_r0() - self.step_size)
         except ValueError:
             # hide value error message when trying to go r0<0
             pass
 
     # File IO
-    def save(self) -> None:
+    def save_observation(self) -> None:
         path = tkinter.filedialog.asksaveasfilename(
-            title='Save FITS file',
+            title='Save FITS file of observation',
             parent=self.root,
-            # defaultextension='.fits',
-            initialfile=self.observation.make_filename(),
-            # filetypes=[
-            #     ('FITS', '*.fits'),
-            #     ('Compressed FITS', '*.fits.gz')
-            # ],
+            initialfile=self.get_observation().make_filename(suffix='_observation'),
         )
         # TODO add some validation
         # TODO add some progress UI
-        if path is None:
+        if path is None or path == '':
             return
-        print(path)
+
+        print('Saving', path)
         utils.print_progress(c1='c')
-        self.observation.save_observation(path)
+        self.get_observation().save_observation(path)
         utils.print_progress('saved', c1='c')
+
+    def save_mapped(self) -> None:
+        path = tkinter.filedialog.asksaveasfilename(
+            title='Save FITS file of mapped observation',
+            parent=self.root,
+            initialfile=self.get_observation().make_filename(suffix='_mapped'),
+        )
+        # TODO add some validation
+        # TODO add some progress UI
+        if path is None or path == '':
+            return
+        print('Saving', path)
+        utils.print_progress(c1='c')
+        self.get_observation().save_mapped_observation(path)
+        utils.print_progress('saved', c1='c')
+
+
+class ObservationSetttings:
+    def __init__(self, gui: GUI, first_run: bool) -> None:
+        self.gui = gui
+        self.first_run = first_run
+        try:
+            self.gui.root
+        except AttributeError:
+            self.first_run = True
+        self.make_widget()
+        self.make_menu()
+
+        if self.first_run:
+            self.window.mainloop()
+
+    def make_widget(self) -> None:
+        if self.first_run:
+            self.window = tk.Tk()
+            self.window.title('planetmapper')
+            self.gui.configure_style(self.window)
+            geometry = self.gui.DEFAULT_GEOMETRY
+        else:
+            self.window = tk.Toplevel(self.gui.root)
+            self.window.title('Observatiton settings')
+            self.window.grab_set()
+            self.window.transient(self.gui.root)
+            geometry = self.gui.root.geometry()
+
+        x, y = (int(s) for s in geometry.split('+')[1:])
+        self.window.geometry(
+            '{sz}+{x:.0f}+{y:.0f}'.format(
+                sz='600x400',
+                x=x + 50,
+                y=y + 50,
+            )
+        )
+
+        frame = ttk.Frame(self.window)
+        frame.pack(side='bottom', fill='x')
+        frame = ttk.Frame(frame)
+        frame.pack(padx=10, pady=10)
+        for idx, (text, command) in enumerate(
+            [
+                ('OK', self.click_ok),
+                ('Cancel', self.click_cancel),
+                ('Apply', self.click_apply),
+            ]
+        ):
+            ttk.Button(frame, text=text, width=7, command=command).grid(
+                row=0,
+                column=idx,
+                padx=2,
+            )
+        if not self.first_run:
+            self.window.bind('<Escape>', self.close_window)
+
+        window_frame = ttk.Frame(self.window)
+        window_frame.pack(expand=True, fill='both')
+
+        self.menu_frame = ttk.Frame(window_frame)
+        self.menu_frame.pack(side='top', padx=10, pady=10, fill='x')
+        self.grid_frame = ttk.Frame(self.menu_frame)
+        self.grid_frame.pack(fill='x')
+
+    def make_menu(self):
+        kwargs = {}
+        self.stringvars: dict[str, tk.StringVar] = {}
+        observation = self.gui._observation
+        if observation is not None:
+            kwargs['path'] = observation.path
+            kwargs['target'] = observation.target
+            kwargs['utc'] = observation.utc
+            kwargs['observer'] = observation.observer
+
+        self.stringvars['path'] = tk.StringVar(value=str(kwargs.get('path', '')))
+        self.stringvars['target'] = tk.StringVar(value=str(kwargs.get('target', '')))
+        self.stringvars['utc'] = tk.StringVar(value=str(kwargs.get('utc', '')))
+        self.stringvars['observer'] = tk.StringVar(
+            value=str(kwargs.get('observer', 'EARTH'))
+        )
+
+        self.grid: list[tuple[tk.Widget, ...]] = [
+            (
+                ttk.Label(self.grid_frame, text='Path: '),
+                ttk.Entry(
+                    self.grid_frame,
+                    textvariable=self.stringvars['path'],
+                    state='disabled',
+                ),
+                ttk.Button(self.grid_frame, text='Open', command=self.get_path),
+            ),
+            (
+                ttk.Label(self.grid_frame, text='Target: '),
+                ttk.Entry(self.grid_frame, textvariable=self.stringvars['target']),
+            ),
+            (
+                ttk.Label(self.grid_frame, text='Date (UTC): '),
+                ttk.Entry(self.grid_frame, textvariable=self.stringvars['utc']),
+            ),
+            (
+                ttk.Label(self.grid_frame, text='Observer: '),
+                ttk.Entry(self.grid_frame, textvariable=self.stringvars['observer']),
+            ),
+        ]
+        self.add_to_menu_grid(self.grid)
+        self.grid_frame.grid_columnconfigure(1, weight=1)
+
+        value = '\n'.join(self.gui.kernels)
+        label = '\n'.join(
+            [
+                'List of paths of SPICE kernels to load, with each path listed on a new line.',
+                'User "~" and glob (e.g. "*", "**") patterns will be automatically expanded:',
+            ]
+        )
+        ttk.Label(self.menu_frame, text='\n' + label).pack(fill='x')
+        self.kernel_txt = tkinter.scrolledtext.ScrolledText(self.menu_frame)
+        self.kernel_txt.pack(fill='both')
+        self.kernel_txt.insert('1.0', value)
+
+    def get_path(self):
+        path = tkinter.filedialog.askopenfilename(
+            title='Choose observation', parent=self.window
+        )
+        kwargs = {'path': path}
+        if any(path.endswith(ext) for ext in Observation.FITS_FILE_EXTENSIONS):
+            with fits.open(path) as hdul:
+                header = hdul[0].header  # type: ignore
+            Observation._add_kw_from_header(kwargs, header)
+        for k, v in kwargs.items():
+            if v:
+                self.stringvars[k].set(str(v))
+
+    def click_ok(self) -> None:
+        if self.apply_changes():
+            self.close_window()
+
+    def click_apply(self) -> None:
+        self.apply_changes()
+
+    def apply_changes(self) -> bool:
+        kwargs = {k: v.get() for k, v in self.stringvars.items()}
+        for k, v in kwargs.items():
+            if isinstance(v, str) and len(v.strip()) == 0:
+                tkinter.messagebox.showwarning(
+                    title=f'Error parsing {k}', message=f'{k!r} must not be empty'
+                )
+                return False
+
+        string = self.kernel_txt.get('1.0', 'end')
+        kernels = [k.strip() for k in string.splitlines()]
+        base.load_kernels(*kernels, clear_before=True)
+
+        kernel_help = 'Check for typos and make sure you have listed all the required SPICE kernels'
+
+        sb = base.SpiceBase(load_kernels=False)
+        try:
+            target = sb.standardise_body_name(kwargs['target'])
+        except:
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing target',
+                message='Target name {!r} not recognised\n{}'.format(
+                    kwargs['target'], kernel_help
+                ),
+            )
+            return False
+
+        try:
+            observer = sb.standardise_body_name(kwargs['observer'])
+        except:
+            tkinter.messagebox.showwarning(
+                title=f'Error parsing observer',
+                message='Observer name {!r} not recognised\n{}'.format(
+                    kwargs['observer'], kernel_help
+                ),
+            )
+            return False
+
+        if target == observer:
+            tkinter.messagebox.showwarning(
+                title=f'Target and observer identical',
+                message='Target and observer must correspond to different bodies',
+            )
+            return False
+
+        try:
+            kwargs['utc'] = float(kwargs['utc'])  #  type: ignore
+        except ValueError:
+            try:
+                spice.utc2et(kwargs['utc'])
+            except:
+                tkinter.messagebox.showwarning(
+                    title=f'Error parsing utc',
+                    message='Could not parse {!r}\n{}'.format(
+                        kwargs['utc'], kernel_help
+                    ),
+                )
+                return False
+        try:
+            observation = Observation(**kwargs, load_kernels=False)
+        except Exception as e:
+            tkinter.messagebox.showwarning(
+                title=f'Error processing inputs',
+                message='Error: {e}',
+            )
+            return False
+        self.gui.set_observation(observation)
+        return True
+
+    def click_cancel(self) -> None:
+        self.close_window()
+
+    def close_window(self, *_) -> None:
+        self.window.destroy()
+
+    def add_to_menu_grid(
+        self, grid: list[tuple[tk.Widget, ...]], frame: ttk.Frame | None = None
+    ) -> None:
+        if frame is None:
+            frame = self.grid_frame
+        ncols = max(len(row) for row in grid)
+        for grid_row in grid:
+            row = frame.grid_size()[1]
+            label = grid_row[0]
+            widgets = grid_row[1:]
+            label.grid(row=row, column=0, sticky='w', pady=5)
+            for idx, widget in enumerate(widgets):
+                if idx == len(widgets) - 1:
+                    colspan = ncols - len(widgets)
+                else:
+                    colspan = 1
+                widget.grid(row=row, column=1 + idx, sticky='ew', columnspan=colspan)
 
 
 class ArtistSetting:
@@ -1127,7 +1435,7 @@ class PlotImageSetting(ArtistSetting):
         # Settings
         frame = ttk.Frame(self.grid_frame)
         frame.pack()
-        idx_max = self.gui.observation.data.shape[0] - 1
+        idx_max = self.gui.get_observation().data.shape[0] - 1
 
         class IndexInput(ttk.Spinbox):
             def __init__(self, textvariable: tk.StringVar):
@@ -1232,7 +1540,7 @@ class PlotImageSetting(ArtistSetting):
                 widget['state'] = 'disable'
 
     def get_idx(self, stirng_variable: tk.StringVar, name: str) -> int:
-        sz = self.gui.observation.data.shape[0]
+        sz = self.gui.get_observation().data.shape[0]
         return self.get_int(
             stirng_variable, name=name, positive=False, minimum=-sz, maximum=sz - 1
         )
@@ -1371,9 +1679,9 @@ class PlotGridSetting(PlotLineSetting):
 class PlotRingsSetting(PlotLineSetting):
     def make_menu(self) -> None:
         super().make_menu()
-        radii_selected = self.gui.observation.ring_radii.copy()
+        radii_selected = self.gui.get_observation().ring_radii.copy()
         radii_options = data_loader.get_ring_radii().setdefault(
-            self.gui.observation.target, {}
+            self.gui.get_observation().target, {}
         )
 
         ttk.Label(self.menu_frame, text='').pack(fill='x')  # Add a spacer
@@ -1429,8 +1737,8 @@ class PlotRingsSetting(PlotLineSetting):
             if iv.get():
                 rings.extend(radii)
 
-        self.gui.observation.ring_radii.clear()
-        self.gui.observation.ring_radii.update(rings)
+        self.gui.get_observation().ring_radii.clear()
+        self.gui.get_observation().ring_radii.update(rings)
         return super().apply_settings()
 
     def get_window_size(self) -> str:
@@ -1605,7 +1913,7 @@ class PlotOutlinedTextSetting(ArtistSetting):
 class GenericOtherBodySetting(ArtistSetting):
     def add_other_body_menu_setting(self):
         value = '\n'.join(
-            b.target for b in self.gui.observation.other_bodies_of_interest
+            b.target for b in self.gui.get_observation().other_bodies_of_interest
         )
         label = '\n'.join(
             [
@@ -1628,15 +1936,15 @@ class GenericOtherBodySetting(ArtistSetting):
             line = line.strip()
             if line:
                 try:
-                    bodies.append(self.gui.observation.create_other_body(line))
+                    bodies.append(self.gui.get_observation().create_other_body(line))
                 except NotFoundError:
                     tkinter.messagebox.showwarning(
                         title=f'Error parsing target name',
                         message=f'Target {line!r} is not recognised by SPICE',
                     )
                     return False
-        self.gui.observation.other_bodies_of_interest.clear()
-        self.gui.observation.other_bodies_of_interest[:] = bodies
+        self.gui.get_observation().other_bodies_of_interest.clear()
+        self.gui.get_observation().other_bodies_of_interest[:] = bodies
         return True
 
     def get_window_size(self) -> str:
