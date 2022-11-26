@@ -19,17 +19,20 @@ import tools
 # values will take longer but will generally give more reliable results.
 repeat = 100  # Number of times to repeat timing loop
 number = 100  # Number of times statement is called in each timing loop
+import planetmapper
 
 
 # Define any variables, module imports etc. to use in the snippets here...
-x = 1
+body = planetmapper.BodyXY('Jupiter', '2022-01-01')
+body.none = None
+body.fn = lambda x: x
 
 # Define code snippets as a list of strings to execute here...
 statements = [
-    # 'np.isnan(x)',
-    'math.isnan(x)',
-    # 'np.isfinite(x)',
-    'math.isfinite(x)',
+    'body.none is None',
+    'bool(body.none)',
+    'body.fn is None',
+    'bool(body.fn)',
 ]
 
 # statements = ['out = ' + s for s in statements]

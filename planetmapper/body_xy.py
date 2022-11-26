@@ -4,7 +4,7 @@ from functools import lru_cache, wraps
 from typing import (
     Any,
     Callable,
-    Concatenate,
+    Concatenate, 
     Iterable,
     NamedTuple,
     ParamSpec,

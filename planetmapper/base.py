@@ -1,7 +1,8 @@
 import datetime
 import glob
 import os
-from typing import TypeVar
+from typing import TypeVar, Callable, Concatenate, ParamSpec
+from functools import wraps
 
 import astropy.time
 import numpy as np
@@ -11,6 +12,38 @@ KERNEL_PATH = '~/spice_kernels/'
 KERNEL_PATTERNS = ('**/spk/**/*.bsp', '**/pck/**/*.tpc', '**/lsk/**/*.tls')
 
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
+
+
+T = TypeVar('T')
+S = TypeVar('S')
+P = ParamSpec('P')
+
+
+def _progress_decorator(
+    fn: Callable[Concatenate[S, P], T]
+) -> Callable[Concatenate[S, P], T]:
+    @wraps(fn)
+    def decorated(self: 'SpiceBase', *args: P.args, **kwargs: P.kwargs):
+        if self._progress_hook is None:
+            return fn(self, *args, **kwargs)  # type: ignore
+        else:
+            self._progress_call_stack.append(fn.__qualname__)
+            self._update_progress_hook(0)
+            try:
+                out = fn(self, *args, **kwargs)  # type: ignore
+            except:
+                self._progress_call_stack.pop()
+                raise
+            self._update_progress_hook(1)
+            self._progress_call_stack.pop()
+            return out
+
+    return decorated  # type: ignore
+
+
+class ProgressHook:
+    def __call__(self, progress: float, stack: list[str]) -> None:
+        ...
 
 
 class SpiceBase:
@@ -40,6 +73,9 @@ class SpiceBase:
     ) -> None:
         super().__init__()
         self._optimize_speed = optimize_speed
+
+        self._progress_hook: ProgressHook | None = None
+        self._progress_call_stack: list[str] = []
 
         if load_kernels:
             self.load_spice_kernels(
@@ -161,7 +197,9 @@ class SpiceBase:
             kernels = manual_kernels
         else:
             kernel_path = os.path.expanduser(kernel_path)
-            kernels = [os.path.join(kernel_path, pattern) for pattern in KERNEL_PATTERNS]
+            kernels = [
+                os.path.join(kernel_path, pattern) for pattern in KERNEL_PATTERNS
+            ]
 
         load_kernels(*kernels)
         cls._KERNELS_LOADED = True
@@ -179,7 +217,7 @@ class SpiceBase:
             arr: Array of values of length :math:`n`.
 
         Returns:
-            Array of values of length :math:`n + 1` where the final value is the same as 
+            Array of values of length :math:`n + 1` where the final value is the same as
             the first value.
         """
         return np.append(arr, [arr[0]], axis=0)
@@ -265,6 +303,19 @@ class SpiceBase:
             )
         )
 
+    def _set_progress_hook(self, progress_hook: ProgressHook) -> None:
+        self._progress_hook = progress_hook
+        self._progress_call_stack = []
+
+    def _remove_progress_hook(self) -> None:
+        self._progress_hook = None
+        self._progress_call_stack = []
+
+    def _update_progress_hook(self, progress: float) -> None:
+        """Update progress hook with `progress` of current function between 0 & 1"""
+        if self._progress_hook is not None:
+            self._progress_hook(progress, self._progress_call_stack)
+
 
 def load_kernels(*paths, clear_before: bool = False):
     """
@@ -279,8 +330,6 @@ def load_kernels(*paths, clear_before: bool = False):
         spice.kclear()
     kernels = set()
     for pattern in paths:
-        kernels.update(
-            glob.glob(os.path.expanduser(pattern), recursive=True)
-        )
+        kernels.update(glob.glob(os.path.expanduser(pattern), recursive=True))
     for kernel in sorted(kernels):
         spice.furnsh(kernel)
