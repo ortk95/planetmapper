@@ -161,6 +161,10 @@ class BodyXY(Body):
         body.get_backplane_img('EMISSION') # Takes ~10s to execute
         body.get_backplane_img('INCIDENCE') # Executes instantly
 
+    You can optionally display a progress bar for long running processes like backplane
+    generation by `show_progress=True` when creating a `BodyXY` instance (or any other
+    instance which derives from :class:`SpiceBase`).
+
     The size of the image can be specified by using the `nx` and `ny` parameters to
     specify the number of pixels in the x and y dimensions of the image respectively.
     If `nx` and `ny` are equal (i.e. the image is square), then the parameter `sz` can
@@ -880,7 +884,7 @@ class BodyXY(Body):
         x_map = self.get_x_map(degree_interval)
         y_map = self.get_y_map(degree_interval)
         interpolator = scipy.interpolate.RectBivariateSpline(
-            np.arange(img.shape[1]), np.arange(img.shape[0]), img, kx=1, ky=1
+            np.arange(img.shape[0]), np.arange(img.shape[1]), img, kx=1, ky=1
         )
         projected = self._make_empty_map(degree_interval)
         for a, b in self._iterate_image(projected.shape):
@@ -1392,7 +1396,9 @@ class BodyXY(Body):
     def _get_radec_map(self, degree_interval: float) -> np.ndarray:
         out = self._make_empty_map(degree_interval, 2)
         visible = self._get_illumf_map(degree_interval)[:, :, 4]
-        for a, b, targvec in self._enumerate_targvec_map(degree_interval, progress=True):
+        for a, b, targvec in self._enumerate_targvec_map(
+            degree_interval, progress=True
+        ):
             if visible[a, b]:
                 out[a, b] = self._obsvec2radec_radians(self._targvec2obsvec(targvec))
         return np.rad2deg(out)
@@ -1440,6 +1446,7 @@ class BodyXY(Body):
             observer. Locations which are not visible have a value of NaN.
         """
         return self._get_radec_map(degree_interval)[:, :, 1]
+
     @progress_decorator
     @_cache_clearable_result_with_args
     def _get_xy_map(self, degree_interval: float) -> np.ndarray:
@@ -1516,7 +1523,9 @@ class BodyXY(Body):
     @_cache_stable_result
     def _get_illumf_map(self, degree_interval: float) -> np.ndarray:
         out = self._make_empty_map(degree_interval, 5)
-        for a, b, targvec in self._enumerate_targvec_map(degree_interval, progress=True):
+        for a, b, targvec in self._enumerate_targvec_map(
+            degree_interval, progress=True
+        ):
             out[a, b] = self._illumf_from_targvec_radians(targvec)
         return np.rad2deg(out)
 
@@ -1611,7 +1620,9 @@ class BodyXY(Body):
         position_map = self._make_empty_map(degree_interval, 3)
         velocity_map = self._make_empty_map(degree_interval, 3)
         lt_map = self._make_empty_map(degree_interval)
-        for a, b, targvec in self._enumerate_targvec_map(degree_interval, progress=True):
+        for a, b, targvec in self._enumerate_targvec_map(
+            degree_interval, progress=True
+        ):
             (
                 position_map[a, b],
                 velocity_map[a, b],
@@ -1678,7 +1689,9 @@ class BodyXY(Body):
         """
         out = self._make_empty_map(degree_interval)
         position_map, velocity_map, lt_map = self._get_state_maps(degree_interval)
-        for a, b, targvec in self._enumerate_targvec_map(degree_interval, progress=True):
+        for a, b, targvec in self._enumerate_targvec_map(
+            degree_interval, progress=True
+        ):
             out[a, b] = self._radial_velocity_from_state(
                 position_map[a, b], velocity_map[a, b]
             )

@@ -7,7 +7,7 @@ import astropy.time
 import numpy as np
 import spiceypy as spice
 
-from .progress import ProgressHook
+from . import progress
 
 KERNEL_PATH = '~/spice_kernels/'
 KERNEL_PATTERNS = ('**/spk/**/*.bsp', '**/pck/**/*.tpc', '**/lsk/**/*.tls')
@@ -22,6 +22,10 @@ class SpiceBase:
     This is the base class for all the main classes used in planetmapper.
 
     Args:
+        show_progress: Show progress bars for long running processes. This is mainly
+            useful for complex functions in derived classess, such as backplane
+            generatiton in :class:`BodyXY`. These progress bars can be quite messy, but
+            can be useful to keep track of very long operations.
         optimize_speed: Toggle speed optimizations. For typical observations, the
             optimizations can make code significantly faster with no effect on accuracy,
             so should generally be left enabled.
@@ -35,6 +39,7 @@ class SpiceBase:
 
     def __init__(
         self,
+        show_progress: bool = False,
         optimize_speed: bool = True,
         load_kernels: bool = True,
         kernel_path: str = KERNEL_PATH,
@@ -43,8 +48,11 @@ class SpiceBase:
         super().__init__()
         self._optimize_speed = optimize_speed
 
-        self._progress_hook: ProgressHook | None = None
+        self._progress_hook: progress.ProgressHook | None = None
         self._progress_call_stack: list[str] = []
+
+        if show_progress:
+            self._set_progress_hook(progress.TqdmProgressHook())
 
         if load_kernels:
             self.load_spice_kernels(
@@ -272,7 +280,7 @@ class SpiceBase:
             )
         )
 
-    def _set_progress_hook(self, progress_hook: ProgressHook) -> None:
+    def _set_progress_hook(self, progress_hook: progress.ProgressHook) -> None:
         self._progress_hook = progress_hook
         self._progress_call_stack = []
 

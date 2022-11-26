@@ -11,14 +11,6 @@ import matplotlib.pyplot as plt
 from planetmapper import utils
 
 body = planetmapper.BodyXY('Saturn', '2022-01-01', sz=500)
-# body = planetmapper.Observation('data/europa.fits.gz')
+body = planetmapper.Observation('data/europa.fits.gz', show_progress=True)
 
-body._set_progress_hook(planetmapper.progress.TqdmProgressHook())
-utils.print_progress()
-for bp in body.backplanes.values():
-    bp.get_img()
-    utils.print_progress(bp.name)
-
-for bp in body.backplanes.values():
-    bp.get_img()
-    utils.print_progress(bp.name)
+body.save_mapped_observation('data/test.fits.gz')
