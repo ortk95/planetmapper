@@ -10,12 +10,17 @@ import planetmapper.progress
 import matplotlib.pyplot as plt
 from planetmapper import utils
 
-body = planetmapper.BodyXY('Saturn', '2022-01-01', sz=500)
-body = planetmapper.Observation(
-    'data/jupiter_small.jpg', target='jupiter', utc='2022-01-01'
-)
+# body = planetmapper.BodyXY('Saturn', '2022-01-01', sz=500)
+# body = planetmapper.Observation(
+#     'data/jupiter_small.jpg', target='jupiter', utc='2022-01-01'
+# )
 # body = planetmapper.Observation(
 #     '/Users/ortk1/Dropbox/PhD/data/jwst/saturn/SATURN-75N/stage3/d1_fringe_nav/Level3_ch1-long_s3d_nav.fits'
 # )
+
+body = planetmapper.Observation(
+    'data/europa.fits.gz'
+)
+body.run_gui()
 # body._set_progress_hook(planetmapper.progress.CLIProgressHook(leave=True))
-body.save_observation('data/test.fits.gz', show_progress=True, print_info=True)
+# body.save_observation('data/test.fits.gz', show_progress=True, print_info=True)

@@ -13,7 +13,7 @@ from astropy.utils.exceptions import AstropyWarning
 
 from . import common, utils
 from .body_xy import BodyXY, _cache_clearable_result_with_args
-from .progress import progress_decorator, SaveMapProgressHookCLI, SaveObsProgressHookCLI
+from .progress import progress_decorator, SaveMapProgressHookCLI, SaveNavProgressHookCLI
 
 T = TypeVar('T')
 S = TypeVar('S')
@@ -624,7 +624,7 @@ class Observation(BodyXY):
         """
         if show_progress and self._get_progress_hook() is None:
             print_info = False
-            self._set_progress_hook(SaveObsProgressHookCLI())
+            self._set_progress_hook(SaveNavProgressHookCLI())
         else:
             show_progress = False
 

@@ -44,8 +44,9 @@ class CLIProgressHook(ProgressHook):
     """
     General progress hook to display progress of each decorated function individually.
     """
-    def __init__(self, leave: bool | None = None) -> None:
-        super().__init__()
+
+    def __init__(self, leave: bool | None = None,*args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         self.leave = leave
         self.bars: dict[tuple[str, ...], tqdm.tqdm] = {}
 
@@ -67,20 +68,22 @@ class CLIProgressHook(ProgressHook):
         if progress == 1:
             self.bars[key].close()
 
+
 # Specific progress hooks for use in saving
 class SaveProgressHook(ProgressHook):
     """
     Base class for progress hook to use when saving data.
 
     The subclasses attempt to roughly work out the overall progress by using some
-    very quick benchmarks I've manually thrown together (`weights`). These are not 
+    very quick benchmarks I've manually thrown together (`weights`). These are not
     accurate at all, but do give a better idea of the progress level than just giving
     e.g. the number of backplanes generated. It could definitely be improved by e.g.
     calculating the fraction of the observation which is on-disc, but this is basically
     just cosmetic and progress bars are hard (https://xkcd.com/612/).
     """
-    def __init__(self) -> None:
-        super().__init__()
+
+    def __init__(self,*args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         self.fudge_factor = 1.01
         self.total_progress = 0
         self.progress_parts: dict[str, float] = {}
@@ -116,9 +119,9 @@ class SaveProgressHook(ProgressHook):
         return ''
 
 
-class SaveObsProgressHook(SaveProgressHook):
-    def __init__(self) -> None:
-        super().__init__()
+class SaveNavProgressHook(SaveProgressHook):
+    def __init__(self,*args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         self.weights: dict[str, float] = {
             'BodyXY._get_targvec_img': 100,
             'BodyXY._get_lonlat_img': 50,
@@ -135,8 +138,8 @@ class SaveObsProgressHook(SaveProgressHook):
 
 
 class SaveMapProgressHook(SaveProgressHook):
-    def __init__(self, n_wavelengths: int) -> None:
-        super().__init__()
+    def __init__(self, n_wavelengths: int,*args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         self.n_wavelengths = n_wavelengths
         self.weights: dict[str, float] = {
             'Observation.get_mapped_data': n_wavelengths * 5,
@@ -155,8 +158,8 @@ class SaveMapProgressHook(SaveProgressHook):
 
 
 class SaveProgressHookCLI(SaveProgressHook):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         self.bar = tqdm.tqdm(
             total=100,
             desc=self.get_description(),
@@ -172,11 +175,11 @@ class SaveProgressHookCLI(SaveProgressHook):
             self.bar.close()
 
 
+class SaveNavProgressHookCLI(SaveNavProgressHook, SaveProgressHookCLI):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+
 class SaveMapProgressHookCLI(SaveMapProgressHook, SaveProgressHookCLI):
-    def __init__(self, n_wavelengths: int) -> None:
-        super().__init__(n_wavelengths)
-
-
-class SaveObsProgressHookCLI(SaveObsProgressHook, SaveProgressHookCLI):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, n_wavelengths: int, *args, **kwargs) -> None:
+        super().__init__(n_wavelengths, *args, **kwargs)
