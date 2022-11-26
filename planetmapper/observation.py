@@ -722,7 +722,7 @@ class Observation(BodyXY):
         .. note ::
 
             The `Open...` button is disabled for user interfaces created by this method
-            to ensure that only one :class:`Observation` object is modified by thte user
+            to ensure that only one :class:`Observation` object is modified by the user
             interface.
 
             If you want the full user interface functionality instead, then call

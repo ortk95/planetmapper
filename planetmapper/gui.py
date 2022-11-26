@@ -96,7 +96,7 @@ class GUI:
     :func:`planetmapper.Observation.run_gui`, or by calling `planetmapper` from the
     command line.
     """
-    MINIMUM_SIZE = (800, 600)
+    MINIMUM_SIZE = (600, 600)
     DEFAULT_GEOMETRY = '800x650+15+15'
 
     def __init__(self, allow_open: bool = True) -> None:
