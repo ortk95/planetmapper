@@ -600,7 +600,9 @@ class Observation(BodyXY):
         )
 
     @progress_decorator
-    def save_observation(self, path: str, show_progress: bool = False, print_info: bool = True) -> None:
+    def save_observation(
+        self, path: str, show_progress: bool = False, print_info: bool = True
+    ) -> None:
         """
         Save a FITS file containing the observed data and generated backplanes.
 
@@ -629,7 +631,7 @@ class Observation(BodyXY):
         if print_info:
             print('Saving observation to', path)
 
-        progress_max = 2 + len(self.backplanes)
+        progress_max = 10 + len(self.backplanes)
         with utils.filter_fits_comment_warning():
             data = self.data
             header = self.header.copy()

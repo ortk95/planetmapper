@@ -41,6 +41,9 @@ class ProgressHook:
 
 
 class CLIProgressHook(ProgressHook):
+    """
+    General progress hook to display progress of each decorated function individually.
+    """
     def __init__(self, leave: bool | None = None) -> None:
         super().__init__()
         self.leave = leave
@@ -64,8 +67,18 @@ class CLIProgressHook(ProgressHook):
         if progress == 1:
             self.bars[key].close()
 
-
+# Specific progress hooks for use in saving
 class SaveProgressHook(ProgressHook):
+    """
+    Base class for progress hook to use when saving data.
+
+    The subclasses attempt to roughly work out the overall progress by using some
+    very quick benchmarks I've manually thrown together (`weights`). These are not 
+    accurate at all, but do give a better idea of the progress level than just giving
+    e.g. the number of backplanes generated. It could definitely be improved by e.g.
+    calculating the fraction of the observation which is on-disc, but this is basically
+    just cosmetic and progress bars are hard (https://xkcd.com/612/).
+    """
     def __init__(self) -> None:
         super().__init__()
         self.fudge_factor = 1.01
