@@ -1292,8 +1292,8 @@ class BodyXY(Body):
                 continue  # leave values as nan if pixel is not on the disc
         return out
 
-    @progress_decorator
     @_cache_stable_result
+    @progress_decorator
     def _get_targvec_map(self, degree_interval: float) -> np.ndarray:
         out = self._make_empty_map(degree_interval, 3)
         lons, lats = self._make_map_lonlat_arrays(degree_interval)
@@ -1321,16 +1321,16 @@ class BodyXY(Body):
         for a, b in self._iterate_image(targvec_map.shape, progress=progress):
             yield a, b, targvec_map[a, b]
 
-    @progress_decorator
     @_cache_clearable_result
+    @progress_decorator
     def _get_lonlat_img(self) -> np.ndarray:
         out = self._make_empty_img(2)
         for y, x, targvec in self._enumerate_targvec_img(progress=True):
             out[y, x] = self._targvec2lonlat_radians(targvec)
         return np.rad2deg(out)
 
-    @progress_decorator
     @_cache_stable_result
+    @progress_decorator
     def _get_lonlat_map(self, degree_interval: float) -> np.ndarray:
         out = self._make_empty_map(degree_interval, 2)
         for a, b, targvec in self._enumerate_targvec_map(
@@ -1383,16 +1383,16 @@ class BodyXY(Body):
         """
         return self._get_lonlat_map(degree_interval)[:, :, 1]
 
-    @progress_decorator
     @_cache_clearable_result
+    @progress_decorator
     def _get_radec_img(self) -> np.ndarray:
         out = self._make_empty_img(2)
         for y, x in self._iterate_image(out.shape, progress=True):
             out[y, x] = self._xy2radec_radians(x, y)
         return np.rad2deg(out)
 
-    @progress_decorator
     @_cache_stable_result
+    @progress_decorator
     def _get_radec_map(self, degree_interval: float) -> np.ndarray:
         out = self._make_empty_map(degree_interval, 2)
         visible = self._get_illumf_map(degree_interval)[:, :, 4]
@@ -1447,8 +1447,8 @@ class BodyXY(Body):
         """
         return self._get_radec_map(degree_interval)[:, :, 1]
 
-    @progress_decorator
     @_cache_clearable_result_with_args
+    @progress_decorator
     def _get_xy_map(self, degree_interval: float) -> np.ndarray:
         out = self._make_empty_map(degree_interval, 2)
         radec_map = self._get_radec_map(degree_interval)
@@ -1510,8 +1510,8 @@ class BodyXY(Body):
         """
         return self._get_xy_map(degree_interval)[:, :, 1]
 
-    @progress_decorator
     @_cache_clearable_result
+    @progress_decorator
     def _get_illumination_gie_img(self) -> np.ndarray:
         out = self._make_empty_img(3)
         for y, x, targvec in self._enumerate_targvec_img(progress=True):
@@ -1519,8 +1519,8 @@ class BodyXY(Body):
             out[y, x] = self._illumination_angles_from_targvec_radians(targvec)
         return np.rad2deg(out)
 
-    @progress_decorator
     @_cache_stable_result
+    @progress_decorator
     def _get_illumf_map(self, degree_interval: float) -> np.ndarray:
         out = self._make_empty_map(degree_interval, 5)
         for a, b, targvec in self._enumerate_targvec_map(
@@ -1598,8 +1598,8 @@ class BodyXY(Body):
         """
         return self._get_illumf_map(degree_interval)[:, :, 2]
 
-    @progress_decorator
     @_cache_clearable_result
+    @progress_decorator
     def _get_state_imgs(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         position_img = self._make_empty_img(3)
         velocity_img = self._make_empty_img(3)
@@ -1612,8 +1612,8 @@ class BodyXY(Body):
             ) = self._state_from_targvec(targvec)
         return position_img, velocity_img, lt_img
 
-    @progress_decorator
     @_cache_stable_result
+    @progress_decorator
     def _get_state_maps(
         self, degree_interval: float
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -1655,8 +1655,8 @@ class BodyXY(Body):
         position_map, velocity_map, lt_map = self._get_state_maps(degree_interval)
         return lt_map * self.speed_of_light()
 
-    @progress_decorator
     @_cache_clearable_result
+    @progress_decorator
     def get_radial_velocity_img(self) -> np.ndarray:
         """
         See also :func:`get_backplane_img`.
@@ -1674,8 +1674,8 @@ class BodyXY(Body):
             )
         return out
 
-    @progress_decorator
     @_cache_stable_result
+    @progress_decorator
     def get_radial_velocity_map(self, degree_interval: float = 1) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
