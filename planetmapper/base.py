@@ -1,49 +1,18 @@
 import datetime
 import glob
 import os
-from typing import TypeVar, Callable, Concatenate, ParamSpec
-from functools import wraps
+from typing import TypeVar
 
 import astropy.time
 import numpy as np
 import spiceypy as spice
 
+from .progress import ProgressHook
+
 KERNEL_PATH = '~/spice_kernels/'
 KERNEL_PATTERNS = ('**/spk/**/*.bsp', '**/pck/**/*.tpc', '**/lsk/**/*.tls')
 
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
-
-
-T = TypeVar('T')
-S = TypeVar('S')
-P = ParamSpec('P')
-
-
-def _progress_decorator(
-    fn: Callable[Concatenate[S, P], T]
-) -> Callable[Concatenate[S, P], T]:
-    @wraps(fn)
-    def decorated(self: 'SpiceBase', *args: P.args, **kwargs: P.kwargs):
-        if self._progress_hook is None:
-            return fn(self, *args, **kwargs)  # type: ignore
-        else:
-            self._progress_call_stack.append(fn.__qualname__)
-            self._update_progress_hook(0)
-            try:
-                out = fn(self, *args, **kwargs)  # type: ignore
-            except:
-                self._progress_call_stack.pop()
-                raise
-            self._update_progress_hook(1)
-            self._progress_call_stack.pop()
-            return out
-
-    return decorated  # type: ignore
-
-
-class ProgressHook:
-    def __call__(self, progress: float, stack: list[str]) -> None:
-        ...
 
 
 class SpiceBase:

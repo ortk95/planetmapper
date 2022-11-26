@@ -10,8 +10,7 @@ from matplotlib.axes import Axes
 from spiceypy.utils.exceptions import NotFoundError
 
 from . import data_loader, utils
-from .base import SpiceBase, _progress_decorator
-
+from .base import SpiceBase
 
 class Body(SpiceBase):
     """
