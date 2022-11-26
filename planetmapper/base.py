@@ -52,7 +52,7 @@ class SpiceBase:
         self._progress_call_stack: list[str] = []
 
         if show_progress:
-            self._set_progress_hook(progress.TqdmProgressHook())
+            self._set_progress_hook(progress.CLIProgressHook())
 
         if load_kernels:
             self.load_spice_kernels(
@@ -283,6 +283,9 @@ class SpiceBase:
     def _set_progress_hook(self, progress_hook: progress.ProgressHook) -> None:
         self._progress_hook = progress_hook
         self._progress_call_stack = []
+
+    def _get_progress_hook(self) -> progress.ProgressHook|None:
+        return self._progress_hook
 
     def _remove_progress_hook(self) -> None:
         self._progress_hook = None

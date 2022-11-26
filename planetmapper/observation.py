@@ -13,7 +13,7 @@ from astropy.utils.exceptions import AstropyWarning
 
 from . import common, utils
 from .body_xy import BodyXY, _cache_clearable_result_with_args
-from .progress import progress_decorator
+from .progress import progress_decorator, SaveMapProgressHookCLI, SaveObsProgressHookCLI
 
 T = TypeVar('T')
 S = TypeVar('S')
@@ -599,7 +599,8 @@ class Observation(BodyXY):
             suffix=suffix,
         )
 
-    def save_observation(self, path: str, print_info:bool=True) -> None:
+    @progress_decorator
+    def save_observation(self, path: str, show_progress: bool = False, print_info: bool = True) -> None:
         """
         Save a FITS file containing the observed data and generated backplanes.
 
@@ -614,17 +615,31 @@ class Observation(BodyXY):
 
         Args:
             path: Filepath of output file.
+            show_progress: Display a progress bar rather than printing progress info.
+                This does not have an effect if `show_progress=True` was set when
+                creating this `Observation`.
             print_info: Toggle printing of progress information (defaults to `True`).
         """
+        if show_progress and self._get_progress_hook() is None:
+            print_info = False
+            self._set_progress_hook(SaveObsProgressHookCLI())
+        else:
+            show_progress = False
+
         if print_info:
             print('Saving observation to', path)
+
+        progress_max = 2 + len(self.backplanes)
         with utils.filter_fits_comment_warning():
             data = self.data
             header = self.header.copy()
 
+            self._update_progress_hook(1 / progress_max)
+
             self.add_header_metadata(header)
             hdul = fits.HDUList([fits.PrimaryHDU(data=data, header=header)])
-            for name, backplane in self.backplanes.items():
+            for bp_idx, (name, backplane) in enumerate(self.backplanes.items()):
+                self._update_progress_hook((bp_idx + 1) / progress_max)
                 if print_info:
                     print(' Creating backplane:', name)
                 img = backplane.get_img()
@@ -639,9 +654,18 @@ class Observation(BodyXY):
         if print_info:
             print('File saved')
 
+        if show_progress:
+            self._update_progress_hook(1)
+            self._remove_progress_hook()
+
+    @progress_decorator
     def save_mapped_observation(
-        self, path: str, include_backplanes: bool = True, degree_interval: float = 1,
-        print_info:bool=True
+        self,
+        path: str,
+        include_backplanes: bool = True,
+        degree_interval: float = 1,
+        show_progress: bool = False,
+        print_info: bool = True,
     ) -> None:
         """
         Save a FITS file containing the mapped observation in a cylindrical projection.
@@ -657,15 +681,28 @@ class Observation(BodyXY):
             include_backplanes: Toggle generating and saving backplanes to output FITS
                 file.
             degree_interval: Interval in degrees between the longitude/latitude points.
+            show_progress: Display a progress bar rather than printing progress info.
+                This does not have an effect if `show_progress=True` was set when
+                creating this `Observation`.
             print_info: Toggle printing of progress information (defaults to `True`).
         """
+        if show_progress and self._get_progress_hook() is None:
+            print_info = False
+            self._set_progress_hook(SaveMapProgressHookCLI(len(self.data)))
+        else:
+            show_progress = False
+
         if print_info:
             print('Saving map to', path)
+
+        progress_max = 15 + (len(self.backplanes) if include_backplanes else 0)
         with utils.filter_fits_comment_warning():
             if print_info:
                 print(' Projecting mapped data...')
             data = self.get_mapped_data(degree_interval)
             header = self.header.copy()
+
+            self._update_progress_hook(1 / progress_max)
 
             self.add_header_metadata(header)
             self.append_to_header(
@@ -678,7 +715,8 @@ class Observation(BodyXY):
 
             hdul = fits.HDUList([fits.PrimaryHDU(data=data, header=header)])
             if include_backplanes:
-                for name, backplane in self.backplanes.items():
+                for bp_idx, (name, backplane) in enumerate(self.backplanes.items()):
+                    self._update_progress_hook((bp_idx + 1) / progress_max)
                     if print_info:
                         print(' Creating backplane:', name)
                     img = backplane.get_map(degree_interval)
@@ -694,6 +732,10 @@ class Observation(BodyXY):
             hdul.writeto(path, overwrite=True)
         if print_info:
             print('File saved')
+
+        if show_progress:
+            self._update_progress_hook(1)
+            self._remove_progress_hook()
 
     def _add_map_wcs_to_header(
         self, header: fits.Header, degree_interval: float
