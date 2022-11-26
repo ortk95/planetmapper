@@ -1361,6 +1361,8 @@ class SaveObservation(Popup):
         self.path_map = tk.StringVar(value=path_map)
         self.degree_interval = tk.StringVar(value=str(1))
 
+        self.keep_open = tk.IntVar(value=1)
+
         self.save_nav.trace_add('write', self.save_nav_toggle)
         self.save_map.trace_add('write', self.save_map_toggle)
 
@@ -1409,9 +1411,16 @@ class SaveObservation(Popup):
                 'Click SAVE below to save the requested files',
                 '',
                 'For larger files, backplane generation, mapping, and saving can take ~1 minute',
+                '',
             ]
         )
         ttk.Label(self.menu_frame, text='\n' + message, justify='center').pack()
+
+        ttk.Checkbutton(
+            self.menu_frame,
+            text='Keep popup open after saving files',
+            variable=self.keep_open,
+        ).pack()
 
     def get_path_nav(self) -> None:
         self.get_path(self.path_nav)
@@ -1458,10 +1467,12 @@ class SaveObservation(Popup):
 
     def try_run_save(self) -> bool:
         save_nav = bool(self.save_map.get())
-        save_map = bool(self.save_map.get())
+        save_map = bool(self.save_nav.get())
 
         path_map = self.path_map.get().strip()
         path_nav = self.path_nav.get().strip()
+
+        keep_open = bool(self.keep_open.get())
 
         degree_interval = 1
 
@@ -1485,6 +1496,7 @@ class SaveObservation(Popup):
             save_map=save_map,
             path_map=path_map,
             degree_interval=degree_interval,
+            keep_open=keep_open,
         )
         try:
             saving_process.run_save()
@@ -1496,13 +1508,14 @@ class SaveObservation(Popup):
             return False
         finally:
             self.gui.get_observation()._remove_progress_hook()
-            saving_process.destroy()
 
         self.gui.help_hint.configure(
             text='File{s} saved successfully'.format(
                 s='s' if save_nav and save_map else ''
             )
         )
+        if keep_open:
+            return False
         return True
 
 
@@ -1515,6 +1528,7 @@ class SavingProgress(Popup):
         save_map: bool,
         path_map: str,
         degree_interval: float,
+        keep_open: bool,
     ):
         self.parent = parent
         self.parent.saving_progress_window = self
@@ -1525,6 +1539,8 @@ class SavingProgress(Popup):
         self.path_map = path_map
         self.degree_interval = degree_interval
 
+        self.keep_open = keep_open
+
         self.make_window()
         self.make_required_widgets()
 
@@ -1532,11 +1548,11 @@ class SavingProgress(Popup):
         self.window = tk.Toplevel(self.parent.window)
         self.window.transient(self.parent.window)
         self.window.grab_set()
-        self.window.title('Saving files')
+        self.window.title('Saving files...')
 
         x, y = (int(s) for s in self.parent.window.geometry().split('+')[1:])
         self.window.geometry(
-            '{sz}+{x:.0f}+{y:.0f}'.format(sz='300x150', x=x + 50, y=y + 50)
+            '{sz}+{x:.0f}+{y:.0f}'.format(sz='500x175', x=x + 50, y=y + 50)
         )
 
         self.frame = ttk.Frame(self.window)
@@ -1547,6 +1563,15 @@ class SavingProgress(Popup):
             self.nav_widgets = self.make_widgets('Saving navigated observation...')
         if self.save_map:
             self.map_widgets = self.make_widgets('Saving mapped observation...')
+        if self.keep_open:
+            button_frame = ttk.Frame(self.frame)
+            button_frame.pack(padx=10, pady=10, fill='x')
+            self.close_button = ttk.Button(
+                button_frame,
+                command=self.click_close,
+                text='Close',
+                width=10,
+            )
 
     def make_widgets(self, label: str) -> dict[str, tk.Widget]:
         frame = ttk.Frame(self.frame)
@@ -1583,6 +1608,13 @@ class SavingProgress(Popup):
                 self.path_map, degree_interval=self.degree_interval, **save_kwargs
             )
             observation._remove_progress_hook()
+        if self.keep_open:
+            self.close_button.pack()
+            self.window.title('Saving files complete')
+
+    def click_close(self) -> None:
+        self.destroy()
+        self.parent.close_window()
 
     def destroy(self) -> None:
         self.window.destroy()
