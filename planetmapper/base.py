@@ -7,6 +7,8 @@ import astropy.time
 import numpy as np
 import spiceypy as spice
 
+from . import progress
+
 KERNEL_PATH = '~/spice_kernels/'
 KERNEL_PATTERNS = ('**/spk/**/*.bsp', '**/pck/**/*.tpc', '**/lsk/**/*.tls')
 
@@ -20,6 +22,10 @@ class SpiceBase:
     This is the base class for all the main classes used in planetmapper.
 
     Args:
+        show_progress: Show progress bars for long running processes. This is mainly
+            useful for complex functions in derived classess, such as backplane
+            generatiton in :class:`BodyXY`. These progress bars can be quite messy, but
+            can be useful to keep track of very long operations.
         optimize_speed: Toggle speed optimizations. For typical observations, the
             optimizations can make code significantly faster with no effect on accuracy,
             so should generally be left enabled.
@@ -33,6 +39,7 @@ class SpiceBase:
 
     def __init__(
         self,
+        show_progress: bool = False,
         optimize_speed: bool = True,
         load_kernels: bool = True,
         kernel_path: str = KERNEL_PATH,
@@ -40,6 +47,12 @@ class SpiceBase:
     ) -> None:
         super().__init__()
         self._optimize_speed = optimize_speed
+
+        self._progress_hook: progress.ProgressHook | None = None
+        self._progress_call_stack: list[str] = []
+
+        if show_progress:
+            self._set_progress_hook(progress.CLIProgressHook())
 
         if load_kernels:
             self.load_spice_kernels(
@@ -161,7 +174,9 @@ class SpiceBase:
             kernels = manual_kernels
         else:
             kernel_path = os.path.expanduser(kernel_path)
-            kernels = [os.path.join(kernel_path, pattern) for pattern in KERNEL_PATTERNS]
+            kernels = [
+                os.path.join(kernel_path, pattern) for pattern in KERNEL_PATTERNS
+            ]
 
         load_kernels(*kernels)
         cls._KERNELS_LOADED = True
@@ -179,7 +194,7 @@ class SpiceBase:
             arr: Array of values of length :math:`n`.
 
         Returns:
-            Array of values of length :math:`n + 1` where the final value is the same as 
+            Array of values of length :math:`n + 1` where the final value is the same as
             the first value.
         """
         return np.append(arr, [arr[0]], axis=0)
@@ -265,6 +280,22 @@ class SpiceBase:
             )
         )
 
+    def _set_progress_hook(self, progress_hook: progress.ProgressHook) -> None:
+        self._progress_hook = progress_hook
+        self._progress_call_stack = []
+
+    def _get_progress_hook(self) -> progress.ProgressHook|None:
+        return self._progress_hook
+
+    def _remove_progress_hook(self) -> None:
+        self._progress_hook = None
+        self._progress_call_stack = []
+
+    def _update_progress_hook(self, progress: float) -> None:
+        """Update progress hook with `progress` of current function between 0 & 1"""
+        if self._progress_hook is not None:
+            self._progress_hook(progress, self._progress_call_stack)
+
 
 def load_kernels(*paths, clear_before: bool = False):
     """
@@ -279,8 +310,6 @@ def load_kernels(*paths, clear_before: bool = False):
         spice.kclear()
     kernels = set()
     for pattern in paths:
-        kernels.update(
-            glob.glob(os.path.expanduser(pattern), recursive=True)
-        )
+        kernels.update(glob.glob(os.path.expanduser(pattern), recursive=True))
     for kernel in sorted(kernels):
         spice.furnsh(kernel)

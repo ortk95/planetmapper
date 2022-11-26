@@ -24,6 +24,7 @@ from matplotlib.text import Text
 from . import base, data_loader, utils
 from .body import Body, NotFoundError
 from .observation import Observation
+from . import progress
 
 Widget = TypeVar('Widget', bound=tk.Widget)
 SETTER_KEY = Literal[
@@ -83,6 +84,7 @@ def _main(*args):
         gui.set_observation(Observation(args[0]))
     gui.run()
 
+
 class Quit(Exception):
     pass
 
@@ -91,12 +93,13 @@ class GUI:
     """
     Class to create and run graphical user interface to fit observations.
 
-    This class does not usually need to be run directly, as a GUI can be created 
-    directly from an :class:`planetmapper.Observation` object using 
+    This class does not usually need to be run directly, as a GUI can be created
+    directly from an :class:`planetmapper.Observation` object using
     :func:`planetmapper.Observation.run_gui`, or by calling `planetmapper` from the
     command line.
     """
-    MINIMUM_SIZE = (800, 600)
+
+    MINIMUM_SIZE = (600, 600)
     DEFAULT_GEOMETRY = '800x650+15+15'
 
     def __init__(self, allow_open: bool = True) -> None:
@@ -1021,6 +1024,7 @@ class Popup:
         return value
 
 
+# File IO popups
 class OpenObservation(Popup):
     def __init__(self, gui: GUI, first_run: bool) -> None:
         self.gui = gui
@@ -1317,6 +1321,8 @@ class SaveObservation(Popup):
         self.grid_frame = ttk.Frame(self.menu_frame)
         self.grid_frame.pack(fill='x')
 
+        self.saving_progress_window: SavingProgress | None = None
+
     def add_to_menu_grid(
         self, grid: list[tuple[tk.Widget, ...]], frame: ttk.Frame | None = None
     ) -> None:
@@ -1354,6 +1360,8 @@ class SaveObservation(Popup):
         self.path_nav = tk.StringVar(value=path_nav)
         self.path_map = tk.StringVar(value=path_map)
         self.degree_interval = tk.StringVar(value=str(1))
+
+        self.keep_open = tk.IntVar(value=1)
 
         self.save_nav.trace_add('write', self.save_nav_toggle)
         self.save_map.trace_add('write', self.save_map_toggle)
@@ -1403,9 +1411,16 @@ class SaveObservation(Popup):
                 'Click SAVE below to save the requested files',
                 '',
                 'For larger files, backplane generation, mapping, and saving can take ~1 minute',
+                '',
             ]
         )
         ttk.Label(self.menu_frame, text='\n' + message, justify='center').pack()
+
+        ttk.Checkbutton(
+            self.menu_frame,
+            text='Keep popup open after saving files',
+            variable=self.keep_open,
+        ).pack()
 
     def get_path_nav(self) -> None:
         self.get_path(self.path_nav)
@@ -1441,7 +1456,7 @@ class SaveObservation(Popup):
             self.save_button['state'] = 'disable'
 
     def click_save(self) -> None:
-        if self.run_save():
+        if self.try_run_save():
             self.close_window()
 
     def click_cancel(self) -> None:
@@ -1450,12 +1465,14 @@ class SaveObservation(Popup):
     def close_window(self, *_) -> None:
         self.window.destroy()
 
-    def run_save(self) -> bool:
+    def try_run_save(self) -> bool:
         save_nav = bool(self.save_map.get())
-        save_map = bool(self.save_map.get())
+        save_map = bool(self.save_nav.get())
 
         path_map = self.path_map.get().strip()
         path_nav = self.path_nav.get().strip()
+
+        keep_open = bool(self.keep_open.get())
 
         degree_interval = 1
 
@@ -1471,28 +1488,176 @@ class SaveObservation(Popup):
             )
 
         # If we get to this point, everything should (hopefully) be working
+
+        saving_process = SavingProgress(
+            self,
+            save_nav=save_nav,
+            path_nav=path_nav,
+            save_map=save_map,
+            path_map=path_map,
+            degree_interval=degree_interval,
+            keep_open=keep_open,
+        )
         try:
-            if save_nav:
-                self.gui.get_observation().save_observation(path_nav)
-            if save_map:
-                self.gui.get_observation().save_mapped_observation(
-                    path_map, degree_interval=degree_interval
-                )
+            saving_process.run_save()
         except Exception as e:
             tkinter.messagebox.showwarning(
                 title=f'Error saving files',
                 message='Error: {e}',
             )
             return False
+        finally:
+            self.gui.get_observation()._remove_progress_hook()
 
         self.gui.help_hint.configure(
             text='File{s} saved successfully'.format(
                 s='s' if save_nav and save_map else ''
             )
         )
+        if keep_open:
+            return False
         return True
 
 
+class SavingProgress(Popup):
+    def __init__(
+        self,
+        parent: SaveObservation,
+        save_nav: bool,
+        path_nav: str,
+        save_map: bool,
+        path_map: str,
+        degree_interval: float,
+        keep_open: bool,
+    ):
+        self.parent = parent
+        self.parent.saving_progress_window = self
+
+        self.save_nav = save_nav
+        self.path_nav = path_nav
+        self.save_map = save_map
+        self.path_map = path_map
+        self.degree_interval = degree_interval
+
+        self.keep_open = keep_open
+
+        self.make_window()
+        self.make_required_widgets()
+
+    def make_window(self) -> None:
+        self.window = tk.Toplevel(self.parent.window)
+        self.window.transient(self.parent.window)
+        self.window.grab_set()
+        self.window.title('Saving files...')
+
+        x, y = (int(s) for s in self.parent.window.geometry().split('+')[1:])
+        self.window.geometry(
+            '{sz}+{x:.0f}+{y:.0f}'.format(sz='500x175', x=x + 50, y=y + 50)
+        )
+
+        self.frame = ttk.Frame(self.window)
+        self.frame.pack(expand=True, fill='both')
+
+    def make_required_widgets(self) -> None:
+        if self.save_nav:
+            self.nav_widgets = self.make_widgets('Saving navigated observation...')
+        if self.save_map:
+            self.map_widgets = self.make_widgets('Saving mapped observation...')
+        if self.keep_open:
+            button_frame = ttk.Frame(self.frame)
+            button_frame.pack(padx=10, pady=10, fill='x')
+            self.close_button = ttk.Button(
+                button_frame,
+                command=self.click_close,
+                text='Close',
+                width=10,
+            )
+
+    def make_widgets(self, label: str) -> dict[str, tk.Widget]:
+        frame = ttk.Frame(self.frame)
+        frame.pack(padx=10, pady=10, fill='x')
+        widgets = {}
+
+        text_frame = ttk.Frame(frame)
+        text_frame.pack(fill='x')
+
+        widgets['label'] = ttk.Label(text_frame, text=label, justify='left')
+        widgets['label'].pack(side='left')
+
+        widgets['message'] = ttk.Label(text_frame, text='', justify='right')
+        widgets['message'].pack(side='right')
+
+        widgets['bar'] = ttk.Progressbar(frame)
+        widgets['bar'].pack(fill='x')
+
+        return widgets
+
+    def run_save(self) -> None:
+        save_kwargs = dict(show_progress=False, print_info=True)
+        observation = self.parent.gui.get_observation()
+        if self.save_nav:
+            observation._set_progress_hook(SaveNavProgressHookGUI(**self.nav_widgets))
+            observation.save_observation(self.path_nav, **save_kwargs)
+            observation._remove_progress_hook()
+        if self.save_map:
+            n_wavelengths = len(self.parent.gui.get_observation().data)
+            observation._set_progress_hook(
+                SaveMapProgressHookGUI(n_wavelengths, **self.map_widgets)
+            )
+            observation.save_mapped_observation(
+                self.path_map, degree_interval=self.degree_interval, **save_kwargs
+            )
+            observation._remove_progress_hook()
+        if self.keep_open:
+            self.close_button.pack()
+            self.window.title('Saving files complete')
+
+    def click_close(self) -> None:
+        self.destroy()
+        self.parent.close_window()
+
+    def destroy(self) -> None:
+        self.window.destroy()
+        self.parent.gui.get_observation()._remove_progress_hook()
+        self.parent.saving_progress_window = None
+
+
+# Progress hooks
+class SaveProgressHookGUI(progress.SaveProgressHook):
+    def __init__(
+        self,
+        label: ttk.Label,
+        bar: ttk.Progressbar,
+        message: ttk.Label,
+        *args,
+        **kwargs,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.label = label
+        self.bar = bar
+        self.message = message
+
+    def update_bar(self, progress_change: float) -> None:
+        if self.progress_parts.get(self.default_key, 0) >= 1:
+            self.bar['value'] = 100
+            self.message.configure(text='Complete')
+        else:
+            self.bar['value'] = self.overall_progress * 100
+            self.message.configure(text=format(self.overall_progress, '.0%'))
+        self.bar.update_idletasks()
+
+
+class SaveNavProgressHookGUI(progress.SaveNavProgressHook, SaveProgressHookGUI):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+
+class SaveMapProgressHookGUI(progress.SaveMapProgressHook, SaveProgressHookGUI):
+    def __init__(self, n_wavelengths: int, *args, **kwargs) -> None:
+        super().__init__(n_wavelengths, *args, **kwargs)
+
+
+# Artist settings popups
 class ArtistSetting(Popup):
     def __init__(
         self,
@@ -1800,14 +1965,26 @@ class PlotImageSetting(ArtistSetting):
                     self.image_idx_single, 'wavelength index (single)'
                 )
             if image_mode == 'rgb':
-                general_settings['image_idx_r'] = self.get_idx(self.image_idx_r, 'wavelength index (red)')
-                general_settings['image_idx_g'] = self.get_idx(self.image_idx_g, 'wavelength index (green)')
-                general_settings['image_idx_b'] = self.get_idx(self.image_idx_b, 'wavelength index (blue)')
-            
-            general_settings['image_gamma'] = self.get_float(self.image_gamma, 'gamma', positive=False)
+                general_settings['image_idx_r'] = self.get_idx(
+                    self.image_idx_r, 'wavelength index (red)'
+                )
+                general_settings['image_idx_g'] = self.get_idx(
+                    self.image_idx_g, 'wavelength index (green)'
+                )
+                general_settings['image_idx_b'] = self.get_idx(
+                    self.image_idx_b, 'wavelength index (blue)'
+                )
+
+            general_settings['image_gamma'] = self.get_float(
+                self.image_gamma, 'gamma', positive=False
+            )
             if image_mode in {'single', 'sum'}:
-                settings['vmin'] = self.get_float(self.image_vmin, 'vmin', positive=False)
-                settings['vmax'] = self.get_float(self.image_vmax, 'vmax', positive=False)
+                settings['vmin'] = self.get_float(
+                    self.image_vmin, 'vmin', positive=False
+                )
+                settings['vmax'] = self.get_float(
+                    self.image_vmax, 'vmax', positive=False
+                )
                 if settings['vmin'] >= settings['vmax']:
                     tkinter.messagebox.showwarning(
                         title='Error parsing limits',
@@ -1828,7 +2005,6 @@ class PlotImageSetting(ArtistSetting):
                 )
                 return False
             settings['cmap'] = cmap
-
 
         self.gui.plot_settings[self.key].update(settings)
         self.gui.plot_settings['_'].update(general_settings)
@@ -2212,6 +2388,7 @@ class PlotOtherBodyTextSetting(PlotTextSetting, GenericOtherBodySetting):
         return self.apply_other_body_setting() and super().apply_settings()
 
 
+# Generic artist settting elements
 class ColourButton(ttk.Button):
     def __init__(
         self,
@@ -2308,6 +2485,7 @@ class NumericEntry:
         self._enable_callback = True
 
 
+# Plotting stuff
 class OutlinedText(Text):
     def __init__(
         self,

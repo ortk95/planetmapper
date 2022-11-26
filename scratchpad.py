@@ -1,49 +1,26 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Script for testing stuff during development (TODO delete in final version)"""
-import planetmapper.data_loader
+"""Script for testing stuff during development"""
+import tqdm
+import tkinter as tk
+from tkinter import ttk
+from time import sleep
 import planetmapper
-from planetmapper import utils
-import numpy as np
-import datetime
+import planetmapper.progress
 import matplotlib.pyplot as plt
-from matplotlib.text import Text
-import matplotlib.patheffects as path_effects
-import astropy.io.fits
-import matplotlib.ticker
-from functools import lru_cache
-import scipy.interpolate
+from planetmapper import utils
 
-# utils.print_progress('start')
-# gui = planetmapper.gui.GUI()
-# gui.set_observation(
-#     planetmapper.Observation(
-#         'data/jupiter_small.jpg', target='jupiter', utc='2020-08-25 02:30:40'
-#     )
+# body = planetmapper.BodyXY('Saturn', '2022-01-01', sz=500)
+# body = planetmapper.Observation(
+#     'data/jupiter_small.jpg', target='jupiter', utc='2022-01-01'
 # )
-# gui.run()
-# try:
-#     obs  #  type: ignore
-#     raise NameError
-# except NameError:
-#     obs = planetmapper.Observation(
-#         'data/jupiter_small.jpg',
-#         target='jupiter',
-#         utc='2020-08-25 02:30:40',
-#     )
-#     obs.set_disc_params(
-#         x0=135.626383468748,
-#         y0=118.52747744865971,
-#         r0=81.5,
-#         rotation=352.0,
-#     )
-# utils.print_progress('mapping...')
-# obs.save_mapped_observation('data/juputer_small_test.fits')
+# body = planetmapper.Observation(
+#     '/Users/ortk1/Dropbox/PhD/data/jwst/saturn/SATURN-75N/stage3/d1_fringe_nav/Level3_ch1-long_s3d_nav.fits'
+# )
 
-
-# obs = planetmapper.Observation(
-#         'data/europa.fits.gz'
-#     )
-# obs.run_gui()
-
-planetmapper.gui.GUI().run()
+body = planetmapper.Observation(
+    'data/europa.fits.gz'
+)
+body.run_gui()
+# body._set_progress_hook(planetmapper.progress.CLIProgressHook(leave=True))
+# body.save_observation('data/test.fits.gz', show_progress=True, print_info=True)
