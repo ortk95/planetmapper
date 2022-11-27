@@ -10,7 +10,8 @@ from matplotlib.axes import Axes
 from spiceypy.utils.exceptions import NotFoundError
 
 from . import data_loader, utils
-from .base import SpiceBase
+from .base import SpiceBase, Numeric
+
 
 class Body(SpiceBase):
     """
@@ -755,6 +756,29 @@ class Body(SpiceBase):
         )
         return np.deg2rad(phase), np.deg2rad(incdnc), np.deg2rad(emissn)
 
+    def _azimuth_angle_from_gie_radians(self, phase_radians: Numeric,incidence_radians:Numeric, emission_radians:Numeric) -> Numeric:
+        # Based on Henrik's code at:
+        # https://github.com/JWSTGiantPlanets/NIRSPEC-Toolkit/blob/5e2e2cc/JWSTSolarSystemPointing.py#L204-L209
+        a = np.cos(phase_radians) - np.cos(emission_radians) * np.cos(incidence_radians)
+        b = np.sqrt(1.0 - np.cos(emission_radians) ** 2) * np.sqrt(1.0 - np.cos(incidence_radians) ** 2)
+        azimuth_radians = np.pi - np.arccos(a / b)
+        return azimuth_radians
+
+    def azimuth_angle_from_lonlat(self, lon: float, lat: float) -> float:
+        """
+        Calculate the azimuth angle of a longitude/latitude coordinate on the target 
+        body.
+
+        Args:
+            lon: Longitude of point on target body.
+            lat: Latitude of point on target body.
+
+        Returns:
+            Azimuth angle in degrees.
+        """
+        azimuth_radians = self._azimuth_angle_from_gie_radians(*self._illumination_angles_from_targvec_radians(self.lonlat2targvec(lon, lat)))
+        return np.rad2deg(azimuth_radians)
+
     def terminator_radec(
         self,
         npts: int = 100,
@@ -1015,6 +1039,10 @@ class Body(SpiceBase):
         return ra_arr, dec_arr
 
     # Planetographic <-> planetocentric
+    def _targvec2lonlat_centric(self, targvec: np.ndarray) -> tuple[float, float]:
+        radius, lon_centric, lat_centric = spice.reclat(targvec)
+        return self._radian_pair2degrees(lon_centric, lat_centric)
+
     def graphic2centric_lonlat(self, lon: float, lat: float) -> tuple[float, float]:
         """
         Convert planetographic longitude/latitude to planetocentric.
@@ -1026,8 +1054,7 @@ class Body(SpiceBase):
         Returns:
             `(lon_centric, lat_centric)` tuple of planetocentric coordinates.
         """
-        radius, lon_centric, lat_centric = spice.reclat(self.lonlat2targvec(lon, lat))
-        return self._radian_pair2degrees(lon_centric, lat_centric)
+        return self._targvec2lonlat_centric(self.lonlat2targvec(lon, lat))
 
     def centric2graphic_lonlat(
         self, lon_centric: float, lat_centric: float
@@ -1053,7 +1080,13 @@ class Body(SpiceBase):
 
     # Other
     def north_pole_angle(self) -> float:
-        # TODO docstring
+        """
+        Calculate the angle of the north pole of the target body relative to the positve
+        declination direction.
+
+        Returns:
+            Angle of the north pole in degres.
+        """
         np_ra, np_dec = self.lonlat2radec(0, 90)
         theta = np.arctan2(self.target_ra - np_ra, np_dec - self.target_dec)
         return np.rad2deg(theta)

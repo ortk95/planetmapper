@@ -45,7 +45,7 @@ class CLIProgressHook(ProgressHook):
     General progress hook to display progress of each decorated function individually.
     """
 
-    def __init__(self, leave: bool | None = None,*args, **kwargs) -> None:
+    def __init__(self, leave: bool | None = None, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.leave = leave
         self.bars: dict[tuple[str, ...], tqdm.tqdm] = {}
@@ -82,7 +82,7 @@ class SaveProgressHook(ProgressHook):
     just cosmetic and progress bars are hard (https://xkcd.com/612/).
     """
 
-    def __init__(self,*args, **kwargs) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.fudge_factor = 1.01
         self.total_progress = 0
@@ -120,12 +120,13 @@ class SaveProgressHook(ProgressHook):
 
 
 class SaveNavProgressHook(SaveProgressHook):
-    def __init__(self,*args, **kwargs) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.weights: dict[str, float] = {
             'BodyXY._get_targvec_img': 100,
             'BodyXY._get_lonlat_img': 50,
             'BodyXY._get_radec_img': 5,
+            'BodyXY._get_lonlat_centric_img': 5,
             'BodyXY._get_illumination_gie_img': 50,
             'BodyXY._get_state_imgs': 30,
             'BodyXY.get_radial_velocity_img': 5,
@@ -138,7 +139,7 @@ class SaveNavProgressHook(SaveProgressHook):
 
 
 class SaveMapProgressHook(SaveProgressHook):
-    def __init__(self, n_wavelengths: int,*args, **kwargs) -> None:
+    def __init__(self, n_wavelengths: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.n_wavelengths = n_wavelengths
         self.weights: dict[str, float] = {
@@ -148,6 +149,7 @@ class SaveMapProgressHook(SaveProgressHook):
             'BodyXY._get_radec_map': 10,
             'BodyXY._get_xy_map': 10,
             'BodyXY._get_lonlat_map': 10,
+            'BodyXY._get_lonlat_centric_map': 5,
             'BodyXY._get_state_maps': 5,
             'Observation.save_mapped_observation': 20,
         }

@@ -11,6 +11,7 @@ from typing import (
     Protocol,
     TypeVar,
 )
+import warnings
 
 import matplotlib.patches
 import matplotlib.pyplot as plt
@@ -1131,82 +1132,6 @@ class BodyXY(Body):
             plt.show()
         return ax
 
-    def _register_default_backplanes(self) -> None:
-        self.register_backplane(
-            'LON-GRAPHIC',
-            'Planetographic longitude, positive {ew} [deg]'.format(
-                ew=self.positive_longitude_direction
-            ),
-            self.get_lon_img,
-            self.get_lon_map,
-        )
-        self.register_backplane(
-            'LAT-GRAPHIC',
-            'Planetographic latitude [deg]',
-            self.get_lat_img,
-            self.get_lat_map,
-        )
-        self.register_backplane(
-            'RA',
-            'Right ascension [deg]',
-            self.get_ra_img,
-            self.get_ra_map,
-        )
-        self.register_backplane(
-            'DEC',
-            'Declination [deg]',
-            self.get_dec_img,
-            self.get_dec_map,
-        )
-        self.register_backplane(
-            'PIXEL-X',
-            'Observation x pixel coordinate [pixels]',
-            self.get_x_img,
-            self.get_x_map,
-        )
-        self.register_backplane(
-            'PIXEL-Y',
-            'Observation y pixel coordinate [pixels]',
-            self.get_y_img,
-            self.get_y_map,
-        )
-        self.register_backplane(
-            'PHASE',
-            'Phase angle [deg]',
-            self.get_phase_angle_img,
-            self.get_phase_angle_map,
-        )
-        self.register_backplane(
-            'INCIDENCE',
-            'Incidence angle [deg]',
-            self.get_incidence_angle_img,
-            self.get_incidence_angle_map,
-        )
-        self.register_backplane(
-            'EMISSION',
-            'Emission angle [dec]',
-            self.get_emission_angle_img,
-            self.get_emission_angle_map,
-        )
-        self.register_backplane(
-            'DISTANCE',
-            'Distance to observer [km]',
-            self.get_distance_img,
-            self.get_distance_map,
-        )
-        self.register_backplane(
-            'RADIAL-VELOCITY',
-            'Radial velocity away from observer [km/s]',
-            self.get_radial_velocity_img,
-            self.get_radial_velocity_map,
-        )
-        self.register_backplane(
-            'DOPPLER',
-            'Doppler factor, sqrt((1 + v/c)/(1 - v/c)) where v is radial velocity',
-            self.get_doppler_img,
-            self.get_doppler_map,
-        )
-
     # Backplane generatotrs
     def _test_if_img_size_valid(self) -> bool:
         return (self._nx > 0) and (self._ny > 0)
@@ -1344,8 +1269,8 @@ class BodyXY(Body):
         See also :func:`get_backplane_img`.
 
         Returns:
-            Array containing the longitude value of each pixel in the image. Points off
-            the disc have a value of NaN.
+            Array containing the planetographic longitude value of each pixel in the 
+            image. Points off the disc have a value of NaN.
         """
         return self._get_lonlat_img()[:, :, 0]
 
@@ -1357,7 +1282,7 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
-            Array containing cylindrical map of longitude values.
+            Array containing cylindrical map of planetographic longitude values.
         """
         return self._get_lonlat_map(degree_interval)[:, :, 0]
 
@@ -1366,8 +1291,8 @@ class BodyXY(Body):
         See also :func:`get_backplane_img`.
 
         Returns:
-            Array containing the latiutude value of each pixel in the image. Points off
-            the disc have a value of NaN.
+            Array containing the planetographic latiutude value of each pixel in the 
+            image. Points off the disc have a value of NaN.
         """
         return self._get_lonlat_img()[:, :, 1]
 
@@ -1379,9 +1304,72 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
-            Array containing cylindrical map of latitude values.
+            Array containing cylindrical map of planetographic latitude values.
         """
         return self._get_lonlat_map(degree_interval)[:, :, 1]
+
+    @_cache_clearable_result
+    @progress_decorator
+    def _get_lonlat_centric_img(self) -> np.ndarray:
+        out = self._make_empty_img(2)
+        for y, x, targvec in self._enumerate_targvec_img(progress=True):
+            out[y, x] = self._targvec2lonlat_centric(targvec)
+        return out
+    
+
+    @_cache_stable_result
+    @progress_decorator
+    def _get_lonlat_centric_map(self, degree_interval: float) -> np.ndarray:
+        out = self._make_empty_map(degree_interval, 2)
+        for a, b, targvec in self._enumerate_targvec_map(
+            degree_interval, progress=True
+        ):
+            out[a, b] = self._targvec2lonlat_centric(targvec)
+        return out
+
+    def get_lon_centric_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the planetocentric longitude value of each pixel in the
+            image. Points off the disc have a value of NaN.
+        """
+        return self._get_lonlat_centric_img()[:, :, 0]
+
+    def get_lon_centric_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of planetocentric longitude values.
+        """
+        return self._get_lonlat_centric_map(degree_interval)[:, :, 0]
+
+    def get_lat_centric_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the planetocentric latititude value of each pixel in the
+            image. Points off the disc have a value of NaN.
+        """
+        return self._get_lonlat_centric_img()[:, :, 1]
+
+    def get_lat_centric_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of planetocentric latitude values.
+        """
+        return self._get_lonlat_centric_map(degree_interval)[:, :, 1]
 
     @_cache_clearable_result
     @progress_decorator
@@ -1515,7 +1503,6 @@ class BodyXY(Body):
     def _get_illumination_gie_img(self) -> np.ndarray:
         out = self._make_empty_img(3)
         for y, x, targvec in self._enumerate_targvec_img(progress=True):
-            self._update_progress_hook(y / self._ny)
             out[y, x] = self._illumination_angles_from_targvec_radians(targvec)
         return np.rad2deg(out)
 
@@ -1597,6 +1584,47 @@ class BodyXY(Body):
             on the target's surface.
         """
         return self._get_illumf_map(degree_interval)[:, :, 2]
+
+    @_cache_clearable_result
+    def get_azimuth_angle_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the azimuth angle value of each pixel in the image. Points
+            off the disc have a value of NaN.
+        """
+        phase_radians = self._get_illumination_gie_img()[:, :, 0]
+        incidence_radians= self._get_illumination_gie_img()[:, :, 1]
+        emission_radians = self._get_illumination_gie_img()[:, :, 2]
+        with warnings.catch_warnings():
+            # TODO should we do this better?
+            warnings.filterwarnings('ignore', 'divide by zero encountered in')
+            warnings.filterwarnings('ignore', 'invalid value encountered in')
+            azimuth_radians = self._azimuth_angle_from_gie_radians(phase_radians, incidence_radians,emission_radians)
+        return np.rad2deg(azimuth_radians)
+    
+    @_cache_stable_result
+    def get_azimuth_angle_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of the azimuth angle value at each point
+            on the target's surface.
+        """
+        phase_radians = self._get_illumf_map(degree_interval)[:, :, 0]
+        incidence_radians= self._get_illumf_map(degree_interval)[:, :, 1]
+        emission_radians = self._get_illumf_map(degree_interval)[:, :, 2]
+        with warnings.catch_warnings():
+            # TODO should we do this better?
+            warnings.filterwarnings('ignore', 'divide by zero encountered in')
+            warnings.filterwarnings('ignore', 'invalid value encountered in')
+            azimuth_radians = self._azimuth_angle_from_gie_radians(phase_radians, incidence_radians,emission_radians)
+        return np.rad2deg(azimuth_radians)
 
     @_cache_clearable_result
     @progress_decorator
@@ -1723,6 +1751,101 @@ class BodyXY(Body):
         """
         return self.calculate_doppler_factor(
             self.get_radial_velocity_map(degree_interval)
+        )
+    
+    # Default backplane registration
+    def _register_default_backplanes(self) -> None:
+        self.register_backplane(
+            'LON-GRAPHIC',
+            'Planetographic longitude, positive {ew} [deg]'.format(
+                ew=self.positive_longitude_direction
+            ),
+            self.get_lon_img,
+            self.get_lon_map,
+        )
+        self.register_backplane(
+            'LAT-GRAPHIC',
+            'Planetographic latitude [deg]',
+            self.get_lat_img,
+            self.get_lat_map,
+        )
+        self.register_backplane(
+            'LON-CENTRIC',
+            'Planetocentric longitude [deg]',
+            self.get_lon_centric_img,
+            self.get_lon_centric_map,
+        )
+        self.register_backplane(
+            'LAT-CENTRIC',
+            'Planetocentric latitude [deg]',
+            self.get_lat_centric_img,
+            self.get_lat_centric_map,
+        )
+        self.register_backplane(
+            'RA',
+            'Right ascension [deg]',
+            self.get_ra_img,
+            self.get_ra_map,
+        )
+        self.register_backplane(
+            'DEC',
+            'Declination [deg]',
+            self.get_dec_img,
+            self.get_dec_map,
+        )
+        self.register_backplane(
+            'PIXEL-X',
+            'Observation x pixel coordinate [pixels]',
+            self.get_x_img,
+            self.get_x_map,
+        )
+        self.register_backplane(
+            'PIXEL-Y',
+            'Observation y pixel coordinate [pixels]',
+            self.get_y_img,
+            self.get_y_map,
+        )
+        self.register_backplane(
+            'PHASE',
+            'Phase angle [deg]',
+            self.get_phase_angle_img,
+            self.get_phase_angle_map,
+        )
+        self.register_backplane(
+            'INCIDENCE',
+            'Incidence angle [deg]',
+            self.get_incidence_angle_img,
+            self.get_incidence_angle_map,
+        )
+        self.register_backplane(
+            'EMISSION',
+            'Emission angle [deg]',
+            self.get_emission_angle_img,
+            self.get_emission_angle_map,
+        )
+        self.register_backplane(
+            'AZIMUTH',
+            'Azimuth angle [deg]',
+            self.get_azimuth_angle_img,
+            self.get_azimuth_angle_map,
+        )
+        self.register_backplane(
+            'DISTANCE',
+            'Distance to observer [km]',
+            self.get_distance_img,
+            self.get_distance_map,
+        )
+        self.register_backplane(
+            'RADIAL-VELOCITY',
+            'Radial velocity away from observer [km/s]',
+            self.get_radial_velocity_img,
+            self.get_radial_velocity_map,
+        )
+        self.register_backplane(
+            'DOPPLER',
+            'Doppler factor, sqrt((1 + v/c)/(1 - v/c)) where v is radial velocity',
+            self.get_doppler_img,
+            self.get_doppler_map,
         )
 
 
