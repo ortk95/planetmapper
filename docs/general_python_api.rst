@@ -90,7 +90,7 @@ A number of different wireframe plotting options are available:
 - :func:`planetmapper.Body.plot_wireframe_km` plots in a frame centred on the target body
 - :func:`planetmapper.BodyXY.plot_wireframe_xy` plots in image x and y coordinates
 
-`plot_wireframe_km` is particularly for comparing observations taken at different times, as it standardises the rotation and size of the target. The example below shows multiple observations of Jupiter and Io taken over the space of a few hours. Jupiter moves across the the RA/Dec plot (top), but stays fixed in the km plot (bottom), making it easier to see the relative motion of Io: ::
+`plot_wireframe_km` is particularly useful for comparing observations taken at different times, as it standardises the position, orientation and size of the target body. The example below shows multiple observations of Jupiter and Io taken over the space of a few hours. Jupiter moves across the the RA/Dec plot (top), but stays fixed in the km plot (bottom), making it easier to see the relative motion of Io: ::
 
     fig, [ax_radec, ax_km] = plt.subplots(nrows=2, figsize=(6, 8), dpi=200)
 
@@ -148,7 +148,7 @@ A range of backplane images can be generated - see :ref:`default backplanes` for
     observation.save_mapped_observation('europa_mapped.fits')
 
 
-Backplanes can also be generated for images which do not exist using :class:`planetmapper.BodyXY`: ::
+Backplanes can also be generated for observations which do not exist using :class:`planetmapper.BodyXY`: ::
     
     # Create an object representing how Jupiter would appear in a 50x50 pixel image
     # taken by JWST at a specific time
