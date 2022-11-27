@@ -258,14 +258,14 @@ class Observation(BodyXY):
         self.set_r0(0.9 * (min(self.get_x0(), self.get_y0())))
         self.set_disc_method('centre_disc')
 
-    def _get_wcs_from_header(self, supress_warnings: bool = False) -> astropy.wcs.WCS:
+    def _get_wcs_from_header(self, suppress_warnings: bool = False) -> astropy.wcs.WCS:
         with warnings.catch_warnings():
-            if supress_warnings:
+            if suppress_warnings:
                 warnings.simplefilter('ignore', category=AstropyWarning)
             return astropy.wcs.WCS(self.header).celestial
 
     def disc_from_wcs(
-        self, supress_warnings: bool = False, validate: bool = True
+        self, suppress_warnings: bool = False, validate: bool = True
     ) -> None:
         """
         Set disc parameters using WCS information in the observation's FITS header.
@@ -275,14 +275,14 @@ class Observation(BodyXY):
             This WCS transform is not perfect
 
         Args:
-            supress_warnings: Hide warnings produced by astropy when calculating WCS
+            suppress_warnings: Hide warnings produced by astropy when calculating WCS
                 conversions.
             validate: Run checks to ensure the derived coordinate conversion is
                 consistent with the WCS conversion. This checks that the conversions are
                 consistent (to within 0.1") and that the input WCS data has appropriate
                 units.
         """
-        wcs = self._get_wcs_from_header(supress_warnings=supress_warnings)
+        wcs = self._get_wcs_from_header(suppress_warnings=suppress_warnings)
 
         if wcs.naxis == 0:
             raise ValueError('No WCS information found in FITS header')
@@ -355,10 +355,10 @@ class Observation(BodyXY):
         """
         Automatically find and set `r0` using aperture photometry.
 
-        This routine calculates the brighntess in concentric annular apertures around
+        This routine calculates the brightness in concentric annular apertures around
         `(x0, y0)` and sets `r0` as the radius where the brightness decreases the
         fastest. Note that this uses circular apertures, so will be less reliable for
-        targets with greater flatttening.
+        targets with greater flattening.
         """
         img = self._get_img_for_fitting()
         centroid = np.array([self.get_x0(), self.get_y0()])
@@ -774,7 +774,7 @@ class Observation(BodyXY):
         parameters until the disc is fit, then close the GUI and the `Observation`
         object will have your new values: ::
 
-            # Loaad in some datta
+            # Load in some data
             observation = planetmapper.Observation('exciting_data.fits')
 
             # Use the GUI to manually fit the disc and set the x0,y0,r0,rotation values

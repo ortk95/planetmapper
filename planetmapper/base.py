@@ -126,7 +126,7 @@ class SpiceBase:
         Calculates the doppler factor caused by a target's radial velocity relative to
         the observer. This doppler factor, :math:`D` can be used to calculate the
         doppler shift caused by this velocity as :math:`\\lambda_r = \\lambda_e D`
-        where :math:`\\lambda_r` is the wavelength recieved by the observer and
+        where :math:`\\lambda_r` is the wavelength received by the observer and
         :math:`\\lambda_e` is the wavelength emitted at the target.
 
         This doppler factor is calculated as

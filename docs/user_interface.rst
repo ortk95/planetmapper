@@ -59,8 +59,8 @@ Once you are happy with the fitting result, click Save at the top of the Control
 
 Once you click Save, your requested files will be generated and saved. Note that for larger files, this can take around a minute to complete as some of the coordinate conversion calculations are relatively complex.
 
-Example: using the UI from Python
-=================================
+Example: running the UI from Python
+===================================
 This simple example shows how you could use :func:`planetmapper.Observation.run_gui` from a Python script to fit multiple observations, then run some custom code on each of them: ::
 
     import glob
