@@ -5,7 +5,7 @@ General Python API
 This page shows some simple examples of using the PlanetMapper in Python code. For more details, see the full :ref:`API documentation <api>`.
 
 .. note::
-    The Python script used to generate the figures shown on this page can be found `here <https://github.com/ortk95/planetmapper/blob/main/planetmapper/examples/general_python_api.py>`_.
+    The Python script used to generate the figures shown on this page can be found `here <https://github.com/ortk95/planetmapper/blob/main/examples/general_python_api.py>`_.
 
 Coordinate conversions
 ======================
