@@ -5,6 +5,13 @@ A Python module for visualising, navigating and mapping Solar System observation
 
 Key features
 ============
+Fit and map observations using a full featured user interface
+-------------------------------------------------------------
+.. image:: images/gui_fitting.png
+    :width: 600
+    :alt: Screenshot of the fitting window after the disc is fit.
+
+
 Easily visualise solar system observations with just a few lines of code 
 ------------------------------------------------------------------------
 ::
@@ -22,12 +29,6 @@ Convert coordinates, generate backplanes and project maps of telescope observati
 .. image:: images/europa_backplane.png
     :width: 600
     :alt: Plot of Europa
-
-Fit and map observations using a full featured user interface
--------------------------------------------------------------
-.. image:: images/gui_fitting.png
-    :width: 600
-    :alt: Screenshot of the fitting window after the disc is fit.
 
 
 .. toctree::
