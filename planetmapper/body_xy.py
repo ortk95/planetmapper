@@ -133,7 +133,7 @@ class BodyXY(Body):
     `r0` and the `rotation` of the disc. These disc parameters can be adjusted using
     methods such as :func:`set_x0` and retrieved using methods such as :func:`get_x0`.
     It is important to note that conversions involving `xy` image pixel coordinates
-    (e.g. backplane image generatiton) will produce different results before and after
+    (e.g. backplane image generation) will produce different results before and after
     these disc parameter values are adjusted.
 
     For larger images, the generation of backplane images can be computationally
@@ -169,7 +169,7 @@ class BodyXY(Body):
     The size of the image can be specified by using the `nx` and `ny` parameters to
     specify the number of pixels in the x and y dimensions of the image respectively.
     If `nx` and `ny` are equal (i.e. the image is square), then the parameter `sz` can
-    be used instead to set both `nx` and `ny`, where `BodyXY(..., sz=50)` is equivilent
+    be used instead to set both `nx` and `ny`, where `BodyXY(..., sz=50)` is equivalent
     to `BodyXY(..., nx=50, ny=50)`.
 
     If `nx` and `ny` are not set, then some functionality (such as generating backplane
@@ -182,7 +182,7 @@ class BodyXY(Body):
         nx: Number of pixels in the x dimension of the image.
         ny: Number of pixels in the y dimension of the image.
         sz: Convenience parameter to set both `nx` and `ny` to the same value.
-            `BodyXY(..., sz=50)` is equivilent to `BodyXY(..., nx=50, ny=50)`. If `sz`
+            `BodyXY(..., sz=50)` is equivalent to `BodyXY(..., nx=50, ny=50)`. If `sz`
             is defined along with `nx` or `ny` then a `ValueError` is raised.
         **kwargs: Additional arguments are passed to :class:`Body`.
     """
@@ -210,8 +210,8 @@ class BodyXY(Body):
         self.backplanes: dict[str, Backplane]
         """
         Dictionary containing registered backplanes which can be used to calculate
-        properties (e.g. longitude/latitutde, illumination angles etc.) for each pixel 
-        in the image.
+        properties (e.g. longitude/latitude, illumination angles etc.) for each pixel in
+        the image.
 
         By default, this dictionary contains a series of 
         :ref:`default backplanes <default backplanes>`. These can be summarised using 
@@ -367,7 +367,7 @@ class BodyXY(Body):
             **kwargs: Additional arguments are passed to :func:`Body.radec2lonlat`.
 
         Returns:
-            `(lon, lat)` tuple containing the longittude and latitude of the point. If
+            `(lon, lat)` tuple containing the longitude and latitude of the point. If
             the provided pixel coordinates are missing the target body, then the `lon`
             and `lat` values will both be NaN (see :func:`Body.radec2lonlat`).
         """
@@ -408,15 +408,15 @@ class BodyXY(Body):
         """
         Convenience function to set multiple disc parameters at once.
 
-        For example, `body.set_disc_params(x0=10, r0=5)` is equivilent to calling
+        For example, `body.set_disc_params(x0=10, r0=5)` is equivalent to calling
         `body.set_x0(10)` and `body.set_r0(5)`. Any unspecified parameters will be left
         unchanged.
 
         Args:
-            x0: If specified, passsed to :func:`set_x0`.
-            y0: If specified, passsed to :func:`set_y0`.
-            r0: If specified, passsed to :func:`set_r0`.
-            rotation: If specified, passsed to :func:`set_rotation`.
+            x0: If specified, passed to :func:`set_x0`.
+            y0: If specified, passed to :func:`set_y0`.
+            r0: If specified, passed to :func:`set_r0`.
+            rotation: If specified, passed to :func:`set_rotation`.
         """
         if x0 is not None:
             self.set_x0(x0)
@@ -438,7 +438,7 @@ class BodyXY(Body):
 
             body.adjust_disc_params(dy=-3.1, drotation=42)
 
-        is equivilent to ::
+        is equivalent to ::
 
             body.set_y0(body.get_y0() - 3.1)
             body.set_rotation(body.get_rotation() + 42)
@@ -472,7 +472,7 @@ class BodyXY(Body):
             x0: New x pixel coordinate of the centre of the target body.
 
         Raises:
-            ValueEror: if `x0` is not finite.
+            ValueError: if `x0` is not finite.
         """
         if not math.isfinite(x0):
             raise ValueError('x0 must be finite')
@@ -492,7 +492,7 @@ class BodyXY(Body):
             y0: New y pixel coordinate of the centre of the target body.
 
         Raises:
-            ValueEror: if `y0` is not finite.
+            ValueError: if `y0` is not finite.
         """
         if not math.isfinite(y0):
             raise ValueError('y0 must be finite')
@@ -541,13 +541,13 @@ class BodyXY(Body):
 
         This rotation defines the angle between the upwards (positive `dec`) direction
         in the RA/Dec sky coordinates and the upwards (positive `y`) direction in the
-        image pixel coordinaates.
+        image pixel coordinates.
 
         Args:
             rotation: New rotation of the target body.
 
         Raises:
-            ValueEror: if `rotation` is not finite.
+            ValueError: if `rotation` is not finite.
         """
         if not math.isfinite(rotation):
             raise ValueError('rotation must be finite')
@@ -574,7 +574,7 @@ class BodyXY(Body):
         Sets the plate scale of the observation by changing `r0`.
 
         Args:
-            km_per_px: Kilometers per pixel plate scale at the target body.
+            km_per_px: Kilometres per pixel plate scale at the target body.
         """
         self.set_r0(self.r_eq / km_per_px)
 
@@ -598,8 +598,8 @@ class BodyXY(Body):
         dimension of the image respectively. Unspecified values will remain unchanged.
 
         Args:
-            nx: If specified, set the numebr of pixels in the x dimension.
-            ny: If specified, set the numebr of pixels in the y dimension.
+            nx: If specified, set the number of pixels in the x dimension.
+            ny: If specified, set the number of pixels in the y dimension.
         """
         if nx is not None:
             self._nx = nx
@@ -713,7 +713,7 @@ class BodyXY(Body):
 
         Args:
             radius: Radius in km of the ring from the centre of the target body.
-            **kwargs: Passedd to :func:`Body.ring_radec`.
+            **kwargs: Passed to :func:`Body.ring_radec`.
 
         Returns:
             `(x, y)` tuple of coordinate arrays.
@@ -903,7 +903,7 @@ class BodyXY(Body):
         Create a standardised version of a backplane name when finding and registering
         backplanes.
 
-        This standardisatiton is used in functions like :func:`get_backplane_img` and
+        This standardisation is used in functions like :func:`get_backplane_img` and
         :func:`plot_backplane` so that, for example `body.plot_backplane('LAT')`,
         `body.plot_backplane('Lat')` and `body.plot_backplane('lat')` all produce the
         same plot.
@@ -934,7 +934,7 @@ class BodyXY(Body):
                 :func:`standardise_backplane_name` before being registered.
             description: Longer description of backplane, including units.
             get_img: Function to generate backplane image.
-            get_map: Function to generate bakplane map.
+            get_map: Function to generate backplane map.
 
         Raises:
             ValueError: if provided backplane name is already registered.
@@ -950,7 +950,7 @@ class BodyXY(Body):
     def backplane_summary_string(self) -> str:
         """
         Returns:
-            String summaring currently registered :attr:`backplanes`.
+            String summarising currently registered :attr:`backplanes`.
         """
         return '\n'.join(
             f'{bp.name}: {bp.description}' for bp in self.backplanes.values()
@@ -966,7 +966,7 @@ class BodyXY(Body):
         """
         Convenience function to retrieve a backplane registered to :attr:`backplanes`.
 
-        This method is equivilent to ::
+        This method is equivalent to ::
 
             body.backplanes[self.standardise_backplane_name(name)]
 
@@ -1003,7 +1003,7 @@ class BodyXY(Body):
         returned image can be safely modified without affecting the cached value (unlike
         the return values from functions such as :func:`get_lon_img`).
 
-        This method is equivilent to ::
+        This method is equivalent to ::
 
             body.get_backplane(name).get_img().copy()
 
@@ -1025,7 +1025,7 @@ class BodyXY(Body):
         safely modified without affecting the cached value (unlike the return values
         from functions such as :func:`get_lon_map`).
 
-        This method is equivilent to ::
+        This method is equivalent to ::
 
             body.get_backplane(name).get_map(degree_interval).copy()
 
@@ -1291,7 +1291,7 @@ class BodyXY(Body):
         See also :func:`get_backplane_img`.
 
         Returns:
-            Array containing the planetographic latiutude value of each pixel in the 
+            Array containing the planetographic latitude value of each pixel in the 
             image. Points off the disc have a value of NaN.
         """
         return self._get_lonlat_img()[:, :, 1]
@@ -1354,7 +1354,7 @@ class BodyXY(Body):
         See also :func:`get_backplane_img`.
 
         Returns:
-            Array containing the planetocentric latititude value of each pixel in the
+            Array containing the planetocentric latitude value of each pixel in the
             image. Points off the disc have a value of NaN.
         """
         return self._get_lonlat_centric_img()[:, :, 1]
@@ -1712,7 +1712,7 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
-            Array containing cylindrical map of the observer-traget radial velocity in
+            Array containing cylindrical map of the observer-target radial velocity in
             km/s of each point on the target's surface.
         """
         out = self._make_empty_map(degree_interval)
@@ -1880,8 +1880,6 @@ def _make_backplane_documentation_str() -> str:
     msg.append('')
 
     for bp in body.backplanes.values():
-        # msg.append('`{}`'.format(bp.name))
-        # msg.append('=' * len(msg[-1]))
         msg.append('------------')
         msg.append('')
         msg.append('`{}` {}'.format(bp.name, bp.description))

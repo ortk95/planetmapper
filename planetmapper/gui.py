@@ -1345,6 +1345,9 @@ class SaveObservation(Popup):
         path = self.gui.get_observation().path
         if path is not None:
             root, _ = os.path.splitext(path)
+            if root.endswith('.fits'):
+                # deal with e.g. .fits.gz files
+                root, _ = os.path.splitext(root)
             path_nav = os.path.abspath(root + '_nav.fits')
             path_map = os.path.abspath(root + '_map.fits')
         else:

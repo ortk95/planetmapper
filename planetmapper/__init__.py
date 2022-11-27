@@ -1,4 +1,6 @@
 """
+A Python module for navigating and mapping Solar System observations.
+
 .. warning::
 
     This code is in active development, and may break/change/not work at all.
@@ -61,10 +63,11 @@ interface with SPICE:
 - `rayvec` - target frame rectangular vector from observer to point.
 
 
-For more detail about SPICE, see:
-https://spiceypy.readthedocs.io/en/main/documentation.html
-https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/
+This code makes extensive use of the the `spiceypy` package which provides a Python
+wrapper around NASA's `cspice` toolkit. For more details, see:
 
+- https://spiceypy.readthedocs.io/en/main/documentation.html
+- https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/
 """
 from .common import __version__, __author__, __url__
 from .base import SpiceBase
@@ -74,6 +77,7 @@ from .observation import Observation
 from . import gui
 from . import utils
 from . import kernel_downloader
+from . import data_loader
 
 __all__ = [
     'SpiceBase',

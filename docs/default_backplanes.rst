@@ -24,6 +24,20 @@ This page lists the backplanes which are automatically registered to every insta
 
 ------------
 
+`LON-CENTRIC` Planetocentric longitude [deg]
+
+- Image function: :func:`planetmapper.BodyXY.get_lon_centric_img`
+- Map function: :func:`planetmapper.BodyXY.get_lon_centric_map`
+
+------------
+
+`LAT-CENTRIC` Planetocentric latitude [deg]
+
+- Image function: :func:`planetmapper.BodyXY.get_lat_centric_img`
+- Map function: :func:`planetmapper.BodyXY.get_lat_centric_map`
+
+------------
+
 `RA` Right ascension [deg]
 
 - Image function: :func:`planetmapper.BodyXY.get_ra_img`
@@ -66,10 +80,17 @@ This page lists the backplanes which are automatically registered to every insta
 
 ------------
 
-`EMISSION` Emission angle [dec]
+`EMISSION` Emission angle [deg]
 
 - Image function: :func:`planetmapper.BodyXY.get_emission_angle_img`
 - Map function: :func:`planetmapper.BodyXY.get_emission_angle_map`
+
+------------
+
+`AZIMUTH` Azimuth angle [deg]
+
+- Image function: :func:`planetmapper.BodyXY.get_azimuth_angle_img`
+- Map function: :func:`planetmapper.BodyXY.get_azimuth_angle_map`
 
 ------------
 

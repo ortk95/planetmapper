@@ -6,6 +6,7 @@
 !*.rst
 !*.yaml
 !*.json
+!docs/images/*.png
 
 # Allowed paths
 !requirements.txt

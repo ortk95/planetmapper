@@ -3,7 +3,7 @@
 """
 Utility to help downloading spice kernels.
 
-Will download local copy of kernels with same directory structutre as on 
+Will download local copy of kernels with same directory structure as on 
 https://naif.jpl.nasa.gov/. Set `LOCAL_ROOT` to choose the location that the kernels
 are downloaded to.
 
@@ -89,7 +89,7 @@ def download_kernel(url: str, force_download: bool = False, note: str = '') -> N
     Download single kernel given by url.
 
     URL must be on https://naif.jpl.nasa.gov/pub/. By default will only download file if
-    if doess not already exist locally. Set `force_download=True` to override this check
+    if does not already exist locally. Set `force_download=True` to override this check
     and download the file even if it already exists locally.
 
     Args:
@@ -145,7 +145,7 @@ def _check_kernel_exists_locally(url: str) -> bool:
 
 
 def _convert_url_to_local_path(url: str) -> str:
-    """Convert a url on https://naif.jpl.nasa.gov to the equivilent local path."""
+    """Convert a url on https://naif.jpl.nasa.gov to the equavilent local path."""
     assert url.startswith(URL_ROOT), f'URL must begin with {URL_ROOT}'
     kp = _get_kernel_path(url)
     return _kernel_path_to_local_path(kp)
@@ -203,7 +203,7 @@ def download_file(url: str, local_path: str) -> None:
 
 class _DownloadProgressBar:
     """
-    Shows download progress if tqdm is installed
+    Shows download progress with tqdm
     """
 
     def __init__(self):
