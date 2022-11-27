@@ -14,6 +14,7 @@ Planet Mapper
    :caption: Examples
    
    user_interface
+   general_python_api
 
 .. toctree::
    :maxdepth: 2

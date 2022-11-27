@@ -75,6 +75,7 @@ from .observation import Observation
 from . import gui
 from . import utils
 from . import kernel_downloader
+from . import data_loader
 
 __all__ = [
     'SpiceBase',
