@@ -288,7 +288,7 @@ class Observation(BodyXY):
             raise ValueError('No WCS information found in FITS header')
 
         if validate:
-            print('WARNING: this WCS transformation is only approximate')
+            # print('WARNING: this WCS transformation is only approximate')
             # TODO do these checks better
             assert not wcs.has_distortion
             assert all(u == 'deg' for u in wcs.world_axis_units)
