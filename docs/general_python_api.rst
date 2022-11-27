@@ -1,3 +1,5 @@
+.. _python examples:
+
 General Python API
 ******************
 This page shows some simple examples of using the PlanetMapper in Python code. For more details, see the full :ref:`API documentation <api>`.
@@ -37,6 +39,8 @@ This code shows an example of using some of the functions in :class:`planetmappe
     
     In Python, any functions defined in a parent class are available in any subclasses, so for example, you can use :func:`planetmapper.Observation.lonlat2radec` exactly the same way as you can use :func:`planetmapper.Body.lonlat2radec`.
 
+
+.. _wireframes:
 
 Wireframe plots
 ===============
