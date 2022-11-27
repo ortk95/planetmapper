@@ -48,7 +48,7 @@ class TestBody(unittest.TestCase):
 
     def test_illumination(self):
         output = self.obj.illumination_angles_from_lonlat(1, 2)
-        expected = (0.0033531475561347644, 0.009694273924622665, 0.006341366070869211)
+        expected = (11.007734089805565, 31.824423998504553, 20.81747680519847)
         self.assertTrue(np.allclose(output, expected))
         self.assertTrue(self.obj.test_if_lonlat_illuminated(5, 6))
         self.assertFalse(self.obj.test_if_lonlat_illuminated(5, 180))

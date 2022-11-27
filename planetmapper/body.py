@@ -759,7 +759,7 @@ class Body(SpiceBase):
         phase, incdnc, emissn = self._illumination_angles_from_targvec_radians(
             self.lonlat2targvec(lon, lat)
         )
-        return np.deg2rad(phase), np.deg2rad(incdnc), np.deg2rad(emissn)
+        return np.rad2deg(phase), np.rad2deg(incdnc), np.rad2deg(emissn)
 
     def _azimuth_angle_from_gie_radians(self, phase_radians: Numeric,incidence_radians:Numeric, emission_radians:Numeric) -> Numeric:
         # Based on Henrik's code at:

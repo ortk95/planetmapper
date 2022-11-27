@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Simple example script"""
+"""
+Script used to generate example plots on 
+https://planetmapper.readthedocs.io/en/latest/general_python_api.html
+"""
 import os
 import matplotlib.pyplot as plt
+import numpy as np
 import planetmapper
 import planetmapper.data_loader
 
 PLOT_DIRECTORY = '../docs/images'
 
-if False:
+# Code for each plot is wrapped in an `if True` block for easy organisation and toggling
+
+
+if True:
     body = planetmapper.Body('saturn', '2020-01-01')
     fig, ax = plt.subplots(figsize=(6, 4), dpi=200)
     body.plot_wireframe_radec(ax)
@@ -17,7 +24,7 @@ if False:
     plt.close(fig)
 
 
-if False:
+if True:
     body = planetmapper.Body('neptune', '2020-01-01')
 
     # Add Triton to any wireframe plots
@@ -54,12 +61,44 @@ if True:
         body.plot_wireframe_km(ax_km, color=c)
 
         # Plot some blank data with the correct colour to go on the legend
-        ax_radec.scatter(float('nan'), float('nan'), color=c, label=date)
+        ax_radec.scatter(np.nan, np.nan, color=c, label=date)
+
     ax_radec.legend(loc='upper left')
 
-    ax_radec.set_title('plot_wireframe_radec(...)')
-    ax_km.set_title('plot_wireframe_km(...)')
+    ax_radec.set_title('Position in the sky')
+    ax_km.set_title('Position relative to Jupiter')
 
     fig.tight_layout()
     fig.savefig(os.path.join(PLOT_DIRECTORY, 'jupiter_wireframes.png'))
+    plt.close(fig)
+
+
+if True:
+    observation = planetmapper.Observation('../data/europa.fits.gz')
+
+    # Set the disc position
+    observation.set_plate_scale_arcsec(12.25e-3)
+    observation.set_disc_params(x0=110, y0=104)
+
+    fig, ax = plt.subplots(figsize=(6, 5), dpi=200)
+    observation.plot_backplane_img('LON-GRAPHIC', ax=ax)
+
+    fig.tight_layout()
+    fig.savefig(os.path.join(PLOT_DIRECTORY, 'europa_backplane.png'))
+    plt.close(fig)
+
+if True:
+    # Create an object representing how Jupiter would appear in a 50x50 pixel image
+    # taken by JWST at a specific time
+    body = planetmapper.BodyXY('jupiter', utc='2024-01-01', observer='JWST', sz=50)
+    body.set_disc_params(x0=25, y0=25, r0=20)
+
+    fig, ax = plt.subplots(figsize=(6, 5), dpi=200)
+
+    body.plot_backplane_img('RADIAL-VELOCITY', ax=ax)
+
+    radial_velocities = body.get_backplane_img('RADIAL-VELOCITY')
+    print(f'Average radial velocity: {np.nanmean(radial_velocities):.2f} km/s')
+    fig.tight_layout()
+    fig.savefig(os.path.join(PLOT_DIRECTORY, 'jupiter_backplane.png'))
     plt.close(fig)
