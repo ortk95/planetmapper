@@ -23,8 +23,8 @@ class SpiceBase:
 
     Args:
         show_progress: Show progress bars for long running processes. This is mainly
-            useful for complex functions in derived classess, such as backplane
-            generatiton in :class:`BodyXY`. These progress bars can be quite messy, but
+            useful for complex functions in derived classes, such as backplane
+            generation in :class:`BodyXY`. These progress bars can be quite messy, but
             can be useful to keep track of very long operations.
         optimize_speed: Toggle speed optimizations. For typical observations, the
             optimizations can make code significantly faster with no effect on accuracy,
@@ -167,7 +167,6 @@ class SpiceBase:
             only_if_needed: If this is `True`, kernels will only be loaded once per
                 session.
         """
-        # TODO do this better - don't necessarily need to keep running it every time
         if only_if_needed and cls._KERNELS_LOADED:
             return
         if manual_kernels:
@@ -284,7 +283,7 @@ class SpiceBase:
         self._progress_hook = progress_hook
         self._progress_call_stack = []
 
-    def _get_progress_hook(self) -> progress.ProgressHook|None:
+    def _get_progress_hook(self) -> progress.ProgressHook | None:
         return self._progress_hook
 
     def _remove_progress_hook(self) -> None:

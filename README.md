@@ -1,4 +1,4 @@
-# Planet Mapper
+# PlanetMapper
 
 [![PyPI](https://img.shields.io/pypi/v/planetmapper?logo=python&logoColor=silver)](https://pypi.org/project/planetmapper/)
 [![Documentation Status](https://readthedocs.org/projects/planetmapper/badge/?version=latest)](https://planetmapper.readthedocs.io/en/latest/?badge=latest)

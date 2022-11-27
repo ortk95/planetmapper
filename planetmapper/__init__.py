@@ -61,10 +61,11 @@ interface with SPICE:
 - `rayvec` - target frame rectangular vector from observer to point.
 
 
-For more detail about SPICE, see:
-https://spiceypy.readthedocs.io/en/main/documentation.html
-https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/
+This code makes extensive use of the the `spiceypy` package which provides a Python
+wrapper around NASA's `cspice` toolkit. For more details, see:
 
+- https://spiceypy.readthedocs.io/en/main/documentation.html
+- https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/
 """
 from .common import __version__, __author__, __url__
 from .base import SpiceBase
