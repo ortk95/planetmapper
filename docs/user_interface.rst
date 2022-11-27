@@ -7,7 +7,7 @@ Starting the user interface
 ===========================
 The easiest way to run the PlanetMapper user interface is to simply type `planetmapper` in the command line. This will launch a new interactive window where you can choose observation files to open and fit. 
 
-You can create a user interface from a :class:`planetmapper.Observation` object using the  :func:`Observation.run_gui` function. This is mainly useful if you want to combine using a user interface to fit the observation with some Python code to e.g. run some additional analysis. 
+You can create a user interface from a :class:`planetmapper.Observation` object using the  :func:`planetmapper.Observation.run_gui` function. This is mainly useful if you want to combine using a user interface to fit the observation with some Python code to e.g. run some additional analysis. 
 
 It is also possible to start a user interface directly using :func:`planetmapper.gui.GUI.run`, although the other two methods are generally more useful.
 
@@ -24,7 +24,7 @@ If your data is a FITS file, PlanetMapper will attempt to automatically fill the
 
 Once you click OK, the full fitting window should open. If you get any error messages, then double check the target, date and observer fields for any typos.
 
-.. image:: images/images/gui_fitting_initial.png
+.. image:: images/gui_fitting_initial.png
     :width: 600
     :alt: Screenshot of the fitting window before the disc is fit.
 
@@ -58,3 +58,23 @@ Once you are happy with the fitting result, click Save at the top of the Control
 - The mapped observation produces a FITS file which contains (as the name suggests...) a mapped version of the observation. This map file will also contain the various useful backplanes. The degree interval option allows you to customise the size of the output map (e.g. degree interval=1 produces a map which is 180x360, degree interval=10 produces a map which is 18x36).
 
 Once you click Save, your requested files will be generated and saved. Note that for larger files, this can take around a minute to complete as some of the coordinate conversion calculations are relatively complex.
+
+Example: using the UI from Python
+=================================
+This simple example shows how you could use :func:`planetmapper.Observation.run_gui` from a Python script to fit multiple observations, then run some custom code on each of them: ::
+
+    import glob
+    import planetmapper
+
+    for path in sorted(glob.glob('data/*.fits')):
+        observation = planetmapper.Observation(path)
+
+        # Run some custom setup
+        observation.add_other_bodies_of_interest('Io', 'Europa', 'Ganymede', 'Callisto')
+        observation.set_plate_scale_arcsec(42)
+
+        # Run the GUI to fit the observation interactively
+        # this will open a GUI window every loop
+        observation.run_gui()
+
+        # More custom code can go here to use the fitted observation...
