@@ -1,4 +1,6 @@
 """
+A Python module for navigating and mapping Solar System observations.
+
 .. warning::
 
     This code is in active development, and may break/change/not work at all.

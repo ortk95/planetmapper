@@ -1,5 +1,7 @@
 Planet Mapper
 *************
+A Python module for navigating and mapping Solar System observations.
+
 
 .. toctree::
    :maxdepth: 2
