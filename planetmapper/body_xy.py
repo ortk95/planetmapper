@@ -1880,8 +1880,6 @@ def _make_backplane_documentation_str() -> str:
     msg.append('')
 
     for bp in body.backplanes.values():
-        # msg.append('`{}`'.format(bp.name))
-        # msg.append('=' * len(msg[-1]))
         msg.append('------------')
         msg.append('')
         msg.append('`{}` {}'.format(bp.name, bp.description))
