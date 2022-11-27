@@ -1,3 +1,5 @@
+.. _gui examples:
+
 Graphical user interface
 ************************
 

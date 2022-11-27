@@ -5,15 +5,15 @@ A Python module for visualising, navigating and mapping Solar System observation
 
 Key features
 ============
-Fit and map observations using a full featured user interface
--------------------------------------------------------------
+:ref:`Fit and map observations using a full featured user interface <gui examples>`
+-----------------------------------------------------------------------------------
 .. image:: images/gui_fitting.png
     :width: 600
     :alt: Screenshot of the fitting window after the disc is fit.
 
 
-Easily visualise solar system observations with just a few lines of code 
-------------------------------------------------------------------------
+:ref:`Easily visualise solar system observations with just a few lines of code <wireframes>`
+--------------------------------------------------------------------------------------------
 ::
 
    body = planetmapper.Body('saturn', '2020-01-01')
@@ -24,8 +24,8 @@ Easily visualise solar system observations with just a few lines of code
     :width: 600
     :alt: Plot of Saturn
 
-Convert coordinates, generate backplanes and project maps of telescope observations
------------------------------------------------------------------------------------
+:ref:`Convert coordinates, generate backplanes and project maps of telescope observations <python examples>`
+------------------------------------------------------------------------------------------------------------
 .. image:: images/europa_backplane.png
     :width: 600
     :alt: Plot of Europa
