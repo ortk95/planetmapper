@@ -1015,6 +1015,11 @@ class Body(SpiceBase):
         return ra_arr, dec_arr
 
     # Planetographic <-> planetocentric
+    def _targvec2lonlat_centric(self, targvec: np.ndarray) -> tuple[float, float]:
+        radius, lon_centric, lat_centric = spice.reclat(targvec)
+        return self._radian_pair2degrees(lon_centric, lat_centric)
+
+
     def graphic2centric_lonlat(self, lon: float, lat: float) -> tuple[float, float]:
         """
         Convert planetographic longitude/latitude to planetocentric.
@@ -1026,8 +1031,7 @@ class Body(SpiceBase):
         Returns:
             `(lon_centric, lat_centric)` tuple of planetocentric coordinates.
         """
-        radius, lon_centric, lat_centric = spice.reclat(self.lonlat2targvec(lon, lat))
-        return self._radian_pair2degrees(lon_centric, lat_centric)
+        return self._targvec2lonlat_centric(self.lonlat2targvec(lon, lat))
 
     def centric2graphic_lonlat(
         self, lon_centric: float, lat_centric: float
@@ -1053,7 +1057,13 @@ class Body(SpiceBase):
 
     # Other
     def north_pole_angle(self) -> float:
-        # TODO docstring
+        """
+        Calculate the angle of the north pole of the target body relative to the positve
+        declination direction.
+
+        Returns:
+            Angle of the north pole in degres.
+        """
         np_ra, np_dec = self.lonlat2radec(0, 90)
         theta = np.arctan2(self.target_ra - np_ra, np_dec - self.target_dec)
         return np.rad2deg(theta)

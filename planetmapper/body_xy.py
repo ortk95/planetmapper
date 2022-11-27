@@ -1147,6 +1147,18 @@ class BodyXY(Body):
             self.get_lat_map,
         )
         self.register_backplane(
+            'LON-CENTRIC',
+            'Planetocentric longitude [deg]',
+            self.get_lon_centric_img,
+            self.get_lon_centric_map,
+        )
+        self.register_backplane(
+            'LAT-CENTRIC',
+            'Planetocentric latitude [deg]',
+            self.get_lat_centric_img,
+            self.get_lat_centric_map,
+        )
+        self.register_backplane(
             'RA',
             'Right ascension [deg]',
             self.get_ra_img,
@@ -1344,8 +1356,8 @@ class BodyXY(Body):
         See also :func:`get_backplane_img`.
 
         Returns:
-            Array containing the longitude value of each pixel in the image. Points off
-            the disc have a value of NaN.
+            Array containing the planetographic longitude value of each pixel in the 
+            image. Points off the disc have a value of NaN.
         """
         return self._get_lonlat_img()[:, :, 0]
 
@@ -1357,7 +1369,7 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
-            Array containing cylindrical map of longitude values.
+            Array containing cylindrical map of planetographic longitude values.
         """
         return self._get_lonlat_map(degree_interval)[:, :, 0]
 
@@ -1366,8 +1378,8 @@ class BodyXY(Body):
         See also :func:`get_backplane_img`.
 
         Returns:
-            Array containing the latiutude value of each pixel in the image. Points off
-            the disc have a value of NaN.
+            Array containing the planetographic latiutude value of each pixel in the 
+            image. Points off the disc have a value of NaN.
         """
         return self._get_lonlat_img()[:, :, 1]
 
@@ -1379,9 +1391,72 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
-            Array containing cylindrical map of latitude values.
+            Array containing cylindrical map of planetographic latitude values.
         """
         return self._get_lonlat_map(degree_interval)[:, :, 1]
+
+    @_cache_clearable_result
+    @progress_decorator
+    def _get_lonlat_centric_img(self) -> np.ndarray:
+        out = self._make_empty_img(2)
+        for y, x, targvec in self._enumerate_targvec_img(progress=True):
+            out[y, x] = self._targvec2lonlat_centric(targvec)
+        return out
+    
+
+    @_cache_stable_result
+    @progress_decorator
+    def _get_lonlat_centric_map(self, degree_interval: float) -> np.ndarray:
+        out = self._make_empty_map(degree_interval, 2)
+        for a, b, targvec in self._enumerate_targvec_map(
+            degree_interval, progress=True
+        ):
+            out[a, b] = self._targvec2lonlat_centric(targvec)
+        return out
+
+    def get_lon_centric_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the planetocentric longitude value of each pixel in the
+            image. Points off the disc have a value of NaN.
+        """
+        return self._get_lonlat_centric_img()[:, :, 0]
+
+    def get_lon_centric_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of planetocentric longitude values.
+        """
+        return self._get_lonlat_centric_map(degree_interval)[:, :, 0]
+
+    def get_lat_centric_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the planetocentric latititude value of each pixel in the
+            image. Points off the disc have a value of NaN.
+        """
+        return self._get_lonlat_centric_img()[:, :, 1]
+
+    def get_lat_centric_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of planetocentric latitude values.
+        """
+        return self._get_lonlat_centric_map(degree_interval)[:, :, 1]
 
     @_cache_clearable_result
     @progress_decorator
