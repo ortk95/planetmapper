@@ -1,6 +1,34 @@
-Planet Mapper
-*************
-A Python module for navigating and mapping Solar System observations.
+PlanetMapper
+************
+A Python module for visualising, navigating and mapping Solar System observations
+
+
+Key features
+============
+Fit and map observations using a full featured user interface
+-------------------------------------------------------------
+.. image:: images/gui_fitting.png
+    :width: 600
+    :alt: Screenshot of the fitting window after the disc is fit.
+
+
+Easily visualise solar system observations with just a few lines of code 
+------------------------------------------------------------------------
+::
+
+   body = planetmapper.Body('saturn', '2020-01-01')
+   body.plot_wireframe_radec()
+   plt.show()
+
+.. image:: images/saturn_wireframe_radec.png
+    :width: 600
+    :alt: Plot of Saturn
+
+Convert coordinates, generate backplanes and project maps of telescope observations
+-----------------------------------------------------------------------------------
+.. image:: images/europa_backplane.png
+    :width: 600
+    :alt: Plot of Europa
 
 
 .. toctree::

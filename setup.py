@@ -14,7 +14,7 @@ setuptools.setup(
     version=common.__version__,
     author=common.__author__,
     author_email='oliver.king95@gmail.com',
-    description='A Python module for navigating and mapping Solar System observations',
+    description='A Python module for visualising, navigating and mapping Solar System observations',
     long_description=long_description,
     long_description_content_type='text/markdown',
     url=common.__url__,
