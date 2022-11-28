@@ -120,7 +120,7 @@ class GUI:
             self.increase_radius: ['+', '='],
             self.decrease_radius: ['-', '_'],
             self.save_button: ['<Control-s>'],
-            self.load_observation: ['<Control-s>'],
+            self.load_observation: ['<Control-o>'],
         }
         self.shortcuts_to_keep_in_entry = ['<Control-s>', '<Control-o>']
 
@@ -625,6 +625,9 @@ class GUI:
         self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
 
     def rebuild_plot(self) -> None:
+        self.transform = (
+            self.get_observation().matplotlib_radec2xy_transform() + self.ax.transData
+        )
         self.replot_all()
         self.format_plot()
         self.update_plot()

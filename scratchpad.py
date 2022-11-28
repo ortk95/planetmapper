@@ -26,7 +26,7 @@ import numpy as np
 # body.save_mapped_observation('data/test.fits.gz', show_progress=True, print_info=False)
 
 
-# planetmapper.gui.GUI().run()
+gui = planetmapper.gui.GUI()
 
-obs = planetmapper.Observation('data/europa_nav.fits')
-obs.plot_wireframe_xy()
+gui.set_observation(planetmapper.Observation('data/europa_nav.fits'))
+gui.run()

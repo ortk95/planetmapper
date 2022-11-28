@@ -268,10 +268,10 @@ class Observation(BodyXY):
         """
         try:
             self.set_disc_params(
-                x0=self.header[self._make_fits_kw('DISC-X0')],  # type: ignore
-                y0=self.header[self._make_fits_kw('DISC-Y0')],  # type: ignore
-                r0=self.header[self._make_fits_kw('DISC-R0')],  # type: ignore
-                rotation=self.header[self._make_fits_kw('DISC-ROT')],  # type: ignore
+                x0=self.header[self._make_fits_kw('DISC X0')],  # type: ignore
+                y0=self.header[self._make_fits_kw('DISC Y0')],  # type: ignore
+                r0=self.header[self._make_fits_kw('DISC R0')],  # type: ignore
+                rotation=self.header[self._make_fits_kw('DISC ROT')],  # type: ignore
             )
         except KeyError:
             raise ValueError('No disc parameters found in FITS header')
