@@ -110,13 +110,14 @@ class GUI:
         self._observation: Observation | None = None
         self.step_size = 1
 
-        self.click_locations : list[tuple[float, float]] = []
+        self.click_locations: list[tuple[float, float]] = []
         """
         List of click locations marked on the plot in `(x, y)` pixel coordinates.
 
         This list is cleared whenever a new observation is opened.
         """
 
+        self.last_click_location: tuple[float, float] | None = None
 
         self.shortcuts: dict[Callable[[], Any], list[str]] = {
             self.increase_step: [']'],
@@ -261,8 +262,9 @@ class GUI:
             self.run_all_ui_callbacks()
             self.rebuild_plot()
             self.root.title(self.get_observation().get_description(multiline=False))
-        
+
         self.click_locations = []
+        self.last_click_location = None
 
     def get_observation(self) -> Observation:
         if self._observation is None:
@@ -313,11 +315,12 @@ class GUI:
     def build_controls(self) -> None:
         self.notebook = ttk.Notebook(self.controls_frame)
         self.notebook.pack(fill='both', expand=True)
-        self.build_main_controls()
-        self.build_disc_finding_controls()
-        self.build_plot_settings_controls()
+        self.build_main_controls_tab()
+        self.build_disc_finding_controls_tab()
+        self.build_plot_settings_controls_tab()
+        self.build_coords_tab()
 
-    def build_main_controls(self) -> None:
+    def build_main_controls_tab(self) -> None:
         frame = ttk.Frame(self.notebook)
         frame.pack()
         self.notebook.add(frame, text='Controls')
@@ -453,7 +456,7 @@ class GUI:
                     **kw,
                 )
 
-    def build_plot_settings_controls(self) -> None:
+    def build_plot_settings_controls_tab(self) -> None:
         menu = ttk.Frame(self.notebook)
         menu.pack()
         self.notebook.add(menu, text='Settings')
@@ -565,11 +568,10 @@ class GUI:
             callbacks=[self.replot_other_bodies],
         )
 
-    def build_disc_finding_controls(self) -> None:
+    def build_disc_finding_controls_tab(self) -> None:
         frame = ttk.Frame(self.notebook)
         frame.pack()
         self.notebook.add(frame, text='Find disc')
-        # self.notebook.select(frame)  # TODO delete this
 
         label_frame = ttk.LabelFrame(frame, text='Automatically find values')
         label_frame.pack(fill='x')
@@ -583,6 +585,42 @@ class GUI:
                 ),
                 description,
             ).pack(fill='x', pady=2, padx=2)
+
+    def build_coords_tab(self):
+        top_level_frame = ttk.Frame(self.notebook)
+        top_level_frame.pack()
+        self.notebook.add(top_level_frame, text='Coords')
+        self.notebook.select(top_level_frame)  # TODO delete this
+
+        message = [
+            'Click on the plot to get coordinates',
+            'Right click to clear a marked point',
+            '',
+        ]
+        ttk.Label(top_level_frame, text='\n'.join(message)).pack()
+
+        frame = ttk.Frame(top_level_frame)
+        frame.pack(padx=5, fill='x')
+        self.coords_tab_widgets: dict[str, tuple[ttk.Label, ttk.Label]] = {}
+        labels: dict[str, list[str]] = {
+            'Pixel coordinates': ['x', 'y'],
+            'Celestial coordinates': ['ra', 'dec'],
+            'Planetographic coordinates': ['lon', 'lat'],
+            'Illumination angles': ['phase', 'incidence', 'emission', 'azimuth'],
+        }
+        for name, part_labels in labels.items():
+            label_frame = ttk.LabelFrame(frame, text=name)
+            label_frame.pack(fill='x', pady=5)
+            for col in range(2):
+                label_frame.grid_columnconfigure(col, weight=1, uniform='a')
+            for row, label in enumerate(part_labels):
+                l1 = ttk.Label(label_frame, text=label)
+                l1.grid(row=row, column=0, sticky='e', pady=2, padx=5)
+
+                l2 = ttk.Label(label_frame, text='???')
+                l2.grid(row=row, column=1, sticky='w', pady=2, padx=5)
+
+                self.coords_tab_widgets[label] = (l1, l2)
 
     def make_disc_finding_fn(self, fn: Callable[[], None]) -> Callable[[], None]:
         def button_command():
@@ -837,22 +875,33 @@ class GUI:
 
     # Figure callbacks
     def figure_click_callback(self, event: MouseEvent) -> None:
-        if event.button != MouseButton.LEFT or not event.inaxes or event.dblclick:
+        if not event.inaxes or event.dblclick:
             return
-        x, y = event.xdata, event.ydata
-        if x is None or y is None:
-            return
-        
-        self.click_locations.append((x,y))
-        
+
+        if event.button == MouseButton.RIGHT:
+            self.clear_click_location()
+
+        if event.button == MouseButton.LEFT:
+            x, y = event.xdata, event.ydata
+            if x is None or y is None:
+                return
+            self.set_click_location(x, y)
+
+    def set_click_location(self, x: float, y: float) -> None:
+        self.click_locations.append((x, y))
+        self.last_click_location = (x, y)
+
+        # Print with trailing comma so can be copied straight into a list
+        print(self.make_click_json_string(x, y) + ',')
+
+    def clear_click_location(self) -> None:
+        self.last_click_location = None
+
+    def make_click_json_string(self, x: float, y: float) -> str:
         observation = self.get_observation()
 
-        ra, dec = observation.xy2radec(x, y)
         fmt = '.2f'
-        parts = [
-            f'"xy": [{x:{fmt}}, {y:{fmt}}]',
-            f'"radec": [{ra:.6f}, {dec:.6f}]',
-        ]
+        parts = [f'"xy": [{x:{fmt}}, {y:{fmt}}]']
 
         try:
             # Use targvec for a bit more speed here
@@ -877,7 +926,7 @@ class GUI:
         except NotFoundError:
             pass  # Not on disc
 
-        print('{' + ', '.join(parts) + '},')
+        return '{' + ', '.join(parts) + '}'
 
     # Image
     def image_sum(self) -> np.ndarray:
