@@ -19,6 +19,7 @@ import matplotlib.transforms
 import numpy as np
 import scipy.interpolate
 from matplotlib.axes import Axes
+from matplotlib.image import AxesImage
 from spiceypy.utils.exceptions import NotFoundError
 
 from .body import Body
@@ -1105,16 +1106,44 @@ class BodyXY(Body):
             fig, ax = plt.subplots()
         backplane = self.get_backplane(name)
 
+        im = self.imshow_map(backplane.get_map(degree_interval), ax=ax)
+        plt.colorbar(im, label=backplane.description)
+        ax.set_title(self.get_description(multiline=True))
+        if show:
+            plt.show()
+        return ax
+
+    def imshow_map(
+        self, map_img: np.ndarray, ax: Axes | None = None, **kwargs
+    ) -> AxesImage:
+        """
+        Utility function to easily plot a mapped image using `plt.imshow` with
+        appropriate extents, axis labels etc.
+
+        This is equivalent to calling `ax.imshow(map_img, origin='lower', ...)` with
+        additional code to format the axis nicely.
+
+        Args:
+            map_img: Image to plot.
+            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
+                a new figure and axis is created.
+            **kwargs: Passed to Matplotlib's `imshow` when plotting the backplane map.
+                For example, can be used to set the colormap of the plot using
+                `body.plot_backplane_map(..., cmap='Greys')`.
+
+        Returns:
+            Handle of plotted Matplotlib `AxesImage`.
+        """
+        if ax is None:
+            fig, ax = plt.subplots()
+
         if self.positive_longitude_direction == 'W':
             extent = [360, 0, -90, 90]
         else:
             extent = [0, 360, -90, 90]
 
-        im = ax.imshow(
-            backplane.get_map(degree_interval), origin='lower', extent=extent, **kwargs
-        )
-        plt.colorbar(im, label=backplane.description)
-        ax.set_title(self.get_description(multiline=True))
+        im = ax.imshow(map_img, origin='lower', extent=extent, **kwargs)
+
         ax.set_aspect(1, adjustable='box')
         ax.set_xlabel(f'Planetographic longitude ({self.positive_longitude_direction})')
         ax.set_ylabel('Planetographic latitude')
@@ -1127,10 +1156,7 @@ class BodyXY(Body):
         yt = np.arange(-90, 90.1, step)
         ax.set_yticks(yt)
         ax.set_yticklabels([f'{y:.0f}°' for y in yt])
-
-        if show:
-            plt.show()
-        return ax
+        return im
 
     # Backplane generatotrs
     def _test_if_img_size_valid(self) -> bool:
@@ -1269,7 +1295,7 @@ class BodyXY(Body):
         See also :func:`get_backplane_img`.
 
         Returns:
-            Array containing the planetographic longitude value of each pixel in the 
+            Array containing the planetographic longitude value of each pixel in the
             image. Points off the disc have a value of NaN.
         """
         return self._get_lonlat_img()[:, :, 0]
@@ -1291,7 +1317,7 @@ class BodyXY(Body):
         See also :func:`get_backplane_img`.
 
         Returns:
-            Array containing the planetographic latitude value of each pixel in the 
+            Array containing the planetographic latitude value of each pixel in the
             image. Points off the disc have a value of NaN.
         """
         return self._get_lonlat_img()[:, :, 1]
@@ -1315,7 +1341,6 @@ class BodyXY(Body):
         for y, x, targvec in self._enumerate_targvec_img(progress=True):
             out[y, x] = self._targvec2lonlat_centric(targvec)
         return out
-    
 
     @_cache_stable_result
     @progress_decorator
@@ -1595,15 +1620,17 @@ class BodyXY(Body):
             off the disc have a value of NaN.
         """
         phase_radians = self._get_illumination_gie_img()[:, :, 0]
-        incidence_radians= self._get_illumination_gie_img()[:, :, 1]
+        incidence_radians = self._get_illumination_gie_img()[:, :, 1]
         emission_radians = self._get_illumination_gie_img()[:, :, 2]
         with warnings.catch_warnings():
             # TODO should we do this better?
             warnings.filterwarnings('ignore', 'divide by zero encountered in')
             warnings.filterwarnings('ignore', 'invalid value encountered in')
-            azimuth_radians = self._azimuth_angle_from_gie_radians(phase_radians, incidence_radians,emission_radians)
+            azimuth_radians = self._azimuth_angle_from_gie_radians(
+                phase_radians, incidence_radians, emission_radians
+            )
         return np.rad2deg(azimuth_radians)
-    
+
     @_cache_stable_result
     def get_azimuth_angle_map(self, degree_interval: float = 1) -> np.ndarray:
         """
@@ -1617,13 +1644,15 @@ class BodyXY(Body):
             on the target's surface.
         """
         phase_radians = self._get_illumf_map(degree_interval)[:, :, 0]
-        incidence_radians= self._get_illumf_map(degree_interval)[:, :, 1]
+        incidence_radians = self._get_illumf_map(degree_interval)[:, :, 1]
         emission_radians = self._get_illumf_map(degree_interval)[:, :, 2]
         with warnings.catch_warnings():
             # TODO should we do this better?
             warnings.filterwarnings('ignore', 'divide by zero encountered in')
             warnings.filterwarnings('ignore', 'invalid value encountered in')
-            azimuth_radians = self._azimuth_angle_from_gie_radians(phase_radians, incidence_radians,emission_radians)
+            azimuth_radians = self._azimuth_angle_from_gie_radians(
+                phase_radians, incidence_radians, emission_radians
+            )
         return np.rad2deg(azimuth_radians)
 
     @_cache_clearable_result
@@ -1752,7 +1781,7 @@ class BodyXY(Body):
         return self.calculate_doppler_factor(
             self.get_radial_velocity_map(degree_interval)
         )
-    
+
     # Default backplane registration
     def _register_default_backplanes(self) -> None:
         self.register_backplane(

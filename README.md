@@ -31,4 +31,4 @@ plt.show()
 ![Image of Saturn generated with PlanetMapper](https://raw.githubusercontent.com/ortk95/planetmapper/main/docs/images/saturn_wireframe_radec.png)
 
 ### [Convert coordinates, generate backplanes and project maps of telescope observations](https://planetmapper.readthedocs.io/en/latest/general_python_api.html)
-![Image of Europa generated with PlanetMapper](https://raw.githubusercontent.com/ortk95/planetmapper/main/docs/images/europa_backplane.png)
+![Plot of a mapped Jupiter observation, generated with PlanetMapper](https://raw.githubusercontent.com/ortk95/planetmapper/main/docs/images/jupiter_mapped.png)

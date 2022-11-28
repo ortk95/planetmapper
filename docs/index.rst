@@ -26,9 +26,9 @@ Key features
 
 :ref:`Convert coordinates, generate backplanes and project maps of telescope observations <python examples>`
 ------------------------------------------------------------------------------------------------------------
-.. image:: images/europa_backplane.png
-    :width: 600
-    :alt: Plot of Europa
+.. image:: images/jupiter_mapped.png
+    :width: 800
+    :alt: Plot of a mapped Jupiter observation
 
 
 .. toctree::
