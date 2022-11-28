@@ -174,6 +174,23 @@ def decimal_degrees_to_dms(decimal_degrees: float) -> tuple[int, int, float]:
     return int(degrees), int(minutes), seconds
 
 
+def decimal_degrees_to_dms_str(decimal_degrees: float, seconds_fmt:str='') -> str:
+    """
+    Create nicely formated DMS string from decimal degrees value (e.g. `'12°34′56″'`).
+
+    Uses :func:`decimal_degrees_to_dms` to perform the conversion.
+
+    Args:
+        decimal_degrees: Decimal degrees.
+        seconds_fmt: Optionally specify a format string for the seconds part of the
+            returned value. For example, `seconds_fmt='.3f'` will fix three decimal
+            places for the fractional part of the seconds value.
+
+    Returns:
+        String representting the degress, minutes, seconds of the angle.
+    """
+    d, m, s = decimal_degrees_to_dms(decimal_degrees)
+    return f'{d}°{m}′{s:{seconds_fmt}}″'
 
 
 class filter_fits_comment_warning(warnings.catch_warnings):

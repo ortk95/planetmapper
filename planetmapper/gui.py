@@ -28,6 +28,7 @@ from .body import Body, NotFoundError
 from .observation import Observation
 from . import progress
 
+
 Widget = TypeVar('Widget', bound=tk.Widget)
 SETTER_KEY = Literal[
     'x0', 'y0', 'r0', 'rotation', 'step', 'plate_scale_arcsec', 'plate_scale_km'
@@ -44,6 +45,7 @@ PLOT_KEY = Literal[
     'coordinates_radec',
     'other_bodies',
     'other_bodies_labels',
+    'marked_coord',
     '_',
 ]
 IMAGE_MODE = Literal['sum', 'single', 'rgb']
@@ -59,6 +61,7 @@ DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
     'coordinates_radec': dict(zorder=3.7, marker='+', color='k', s=36),
     'other_bodies': dict(zorder=3.8, marker='+', color='w', s=36),
     'other_bodies_labels': dict(zorder=3.81, color='grey'),
+    'marked_coord': dict(zorder=4, color='cyan', linewidth=0.5, linestyle='dotted'),
     'image': dict(zorder=0.9, cmap='inferno', vmin=0, vmax=100),
     '_': dict(
         grid_interval=30,
@@ -464,7 +467,7 @@ class GUI:
 
         # Image
         frame = ttk.LabelFrame(menu, text='Observation')
-        frame.pack(fill='x')
+        frame.pack(fill='x', pady=5)
         frame.grid_columnconfigure(0, weight=1)
         PlotImageSetting(
             self,
@@ -477,7 +480,7 @@ class GUI:
 
         # Plot features
         frame = ttk.LabelFrame(menu, text='Plotted features')
-        frame.pack(fill='x')
+        frame.pack(fill='x', pady=5)
         frame.grid_columnconfigure(0, weight=1)
         PlotLineSetting(self, frame, 'limb', label='Limb', hint='the target\'s limb')
         PlotLineSetting(
@@ -568,6 +571,19 @@ class GUI:
             callbacks=[self.replot_other_bodies],
         )
 
+        # Marked coords
+        frame = ttk.LabelFrame(menu, text='Marked coords')
+        frame.pack(fill='x', pady=5)
+        frame.grid_columnconfigure(0, weight=1)
+        PlotLineSetting(
+            self,
+            frame,
+            'marked_coord',
+            label='Click location',
+            hint='the location on the image clicked when to calculate coordinates (see the Coords tab)',
+            callbacks=[self.replot_marked_coord],
+        )
+
     def build_disc_finding_controls_tab(self) -> None:
         frame = ttk.Frame(self.notebook)
         frame.pack()
@@ -590,22 +606,18 @@ class GUI:
         top_level_frame = ttk.Frame(self.notebook)
         top_level_frame.pack()
         self.notebook.add(top_level_frame, text='Coords')
-        self.notebook.select(top_level_frame)  # TODO delete this
-
-        message = [
-            'Click on the plot to get coordinates',
-            'Right click to clear a marked point',
-            '',
-        ]
-        ttk.Label(top_level_frame, text='\n'.join(message)).pack()
+        # self.notebook.select(top_level_frame)  # TODO delete this
 
         frame = ttk.Frame(top_level_frame)
         frame.pack(padx=5, fill='x')
-        self.coords_tab_widgets: dict[str, tuple[ttk.Label, ttk.Label]] = {}
-        labels: dict[str, list[str]] = {
+        self.coords_tab_labels: dict[str, ttk.Label] = {}
+        labels: dict[str, list[str | tuple[str, str]]] = {
             'Pixel coordinates': ['x', 'y'],
-            'Celestial coordinates': ['ra', 'dec'],
-            'Planetographic coordinates': ['lon', 'lat'],
+            'Celestial coordinates': [
+                ('ra', 'Right ascension'),
+                ('dec', 'Declination'),
+            ],
+            'Planetographic coordinates': [('lon', 'Longitude'), ('lat', 'Latitude')],
             'Illumination angles': ['phase', 'incidence', 'emission', 'azimuth'],
         }
         for name, part_labels in labels.items():
@@ -613,14 +625,76 @@ class GUI:
             label_frame.pack(fill='x', pady=5)
             for col in range(2):
                 label_frame.grid_columnconfigure(col, weight=1, uniform='a')
-            for row, label in enumerate(part_labels):
+            for row, kl in enumerate(part_labels):
+                if isinstance(kl, tuple):
+                    key, label = kl
+                else:
+                    key = kl
+                    label = kl.capitalize()
+                label = label + ':'
                 l1 = ttk.Label(label_frame, text=label)
-                l1.grid(row=row, column=0, sticky='e', pady=2, padx=5)
+                l1.grid(row=row, column=0, sticky='e', pady=2, padx=2)
 
-                l2 = ttk.Label(label_frame, text='???')
-                l2.grid(row=row, column=1, sticky='w', pady=2, padx=5)
+                l2 = ttk.Label(label_frame, text='')
+                l2.grid(row=row, column=1, sticky='w', pady=2, padx=2)
 
-                self.coords_tab_widgets[label] = (l1, l2)
+                self.coords_tab_labels[key] = l2
+
+        message = [
+            '',
+            'Click on the plot to get coordinates',
+            'Right click on the plot to clear',
+            '',
+            'Note that most of these values change',
+            'when you adjust the disc position',
+            '',
+        ]
+        ttk.Label(top_level_frame, text='\n'.join(message), justify='center').pack(
+            fill='x', padx=5
+        )
+
+    def update_coords_tab(self) -> None:
+        if self.last_click_location is None:
+            for k, label in self.coords_tab_labels.items():
+                label.configure(text='')
+            return
+
+        fmt = '.2f'
+        dms_fmt = '.3f'
+        observation = self.get_observation()
+        labels = self.coords_tab_labels
+
+        x, y = self.last_click_location
+        labels['x'].configure(text=f'{x:{fmt}}')
+        labels['y'].configure(text=f'{y:{fmt}}')
+
+        ra, dec = observation.xy2radec(x, y)
+        labels['ra'].configure(text=utils.decimal_degrees_to_dms_str(ra, dms_fmt))
+        labels['dec'].configure(text=utils.decimal_degrees_to_dms_str(dec, dms_fmt))
+
+        try:
+            # Use targvec for a bit more speed here
+            targvec = observation._xy2targvec(x, y)
+            lon, lat = observation.targvec2lonlat(targvec)
+            ew = observation.positive_longitude_direction
+            ns = 'N' if lat >= 0 else 'S'
+            labels['lon'].configure(text=f'{lon:{fmt}}°{ew}')
+            labels['lat'].configure(text=f'{abs(lat):{fmt}}°{ns}')
+
+            (
+                phase,
+                incdnc,
+                emissn,
+            ) = observation._illumination_angles_from_targvec_radians(targvec)
+            az = observation._azimuth_angle_from_gie_radians(phase, incdnc, emissn)
+            phase, incdnc, emissn, az = np.rad2deg((phase, incdnc, emissn, az))
+            labels['phase'].configure(text=f'{phase:{fmt}}°')
+            labels['incidence'].configure(text=f'{incdnc:{fmt}}°')
+            labels['emission'].configure(text=f'{emissn:{fmt}}°')
+            labels['azimuth'].configure(text=f'{az:{fmt}}°')
+        except NotFoundError:
+            for k in ['lon', 'lat', 'phase', 'incidence', 'emission', 'azimuth']:
+                labels[k].configure(text='')
 
     def make_disc_finding_fn(self, fn: Callable[[], None]) -> Callable[[], None]:
         def button_command():
@@ -672,6 +746,7 @@ class GUI:
         #     )
         # )
         self.canvas.draw()
+        self.update_coords_tab()
 
     def build_plot(self) -> None:
         self.fig = plt.figure()
@@ -869,6 +944,17 @@ class GUI:
                 )
             )
 
+    def replot_marked_coord(self) -> None:
+        self.remove_artists('marked_coord')
+        if self.last_click_location is not None:
+            x, y = self.last_click_location
+            self.plot_handles['marked_coord'].append(
+                self.ax.axvline(x, **self.plot_settings['marked_coord'])
+            )
+            self.plot_handles['marked_coord'].append(
+                self.ax.axhline(y, **self.plot_settings['marked_coord'])
+            )
+
     def remove_artists(self, key: PLOT_KEY) -> None:
         while self.plot_handles[key]:
             self.plot_handles[key].pop().remove()
@@ -886,6 +972,8 @@ class GUI:
             if x is None or y is None:
                 return
             self.set_click_location(x, y)
+        self.replot_marked_coord()
+        self.update_plot()
 
     def set_click_location(self, x: float, y: float) -> None:
         self.click_locations.append((x, y))
@@ -897,11 +985,15 @@ class GUI:
     def clear_click_location(self) -> None:
         self.last_click_location = None
 
-    def make_click_json_string(self, x: float, y: float) -> str:
+    def make_click_json_string(
+        self, x: float, y: float, fmt: str = '.2f', fmt_radec: str = '.6f'
+    ) -> str:
         observation = self.get_observation()
-
-        fmt = '.2f'
-        parts = [f'"xy": [{x:{fmt}}, {y:{fmt}}]']
+        ra, dec = observation.xy2radec(x, y)
+        parts = [
+            f'"xy": [{x:{fmt}}, {y:{fmt}}]',
+            f'"radec": [{ra:{fmt_radec}}, {dec:{fmt_radec}}]]',
+        ]
 
         try:
             # Use targvec for a bit more speed here
@@ -1840,6 +1932,7 @@ class ArtistSetting(Popup):
             self.button['state'] = 'disable'
         for artist in self.gui.plot_handles[self.key]:
             artist.set_visible(enabled)
+        self.gui.plot_settings[self.key]['visible'] = enabled
         self.gui.update_plot()
 
     def button_click(self) -> None:
