@@ -108,8 +108,8 @@ A number of different wireframe plotting options are available:
 
     ax_radec.legend(loc='upper left')
 
-    ax_radec.set_title('plot_wireframe_radec(...)')
-    ax_km.set_title('plot_wireframe_km(...)')
+    ax_radec.set_title('Position in the sky')
+    ax_km.set_title('Position relative to Jupiter')
 
     fig.tight_layout()
     plt.show()
@@ -119,9 +119,9 @@ A number of different wireframe plotting options are available:
     :alt: Plot of Jupiter and Io
 
 
-Observations and backplanes
-===========================
-:class:`planetmapper.Observation` objects can be created to record information about a specific observation. If the observed data is saved in a FITS file with appropriate header information, a :class:`planetmapper.Observation` object can be created using only the path to that file - target, date and observer information can all be derived automatically from the header. The example below creates an Observation object, and uses it to plot an image containing showing the longitude value of each pixel: ::
+Observations, backplanes and mapping
+====================================
+:class:`planetmapper.Observation` objects can be created to calculate information about a specific observation. If the observed data is saved in a FITS file with appropriate header information, a :class:`planetmapper.Observation` object can be created using only the path to that file - target, date and observer information can all be derived automatically from the header. The example below creates an Observation object, and uses it to plot an image containing showing the longitude value of each pixel: ::
 
     observation = planetmapper.Observation('../data/europa.fits.gz')
 
@@ -148,6 +148,73 @@ A range of backplane images can be generated - see :ref:`default backplanes` for
     observation.save_mapped_observation('europa_mapped.fits')
 
 
+Mapped data can also be manipulated and plotted directly. In the example below, we use :func:`planetmapper.Observation.get_mapped_data` and :func:`planetmapper.BodyXY.get_backplane_map` to directly access, manipulate and plot the mapped data and backplanes:[#jupiterhst]_ ::
+
+    # This uses a JPG image, so we need to manually specify details (e.g. target)
+    observation = planetmapper.Observation(
+        '../data/jupiter.jpg',
+        target='jupiter',
+        utc='2020-08-25 02:30:40',
+        observer='HST',
+        show_progress=True, # so show progress bars for slower functions
+    )
+
+    # Run the GUI to fit the disc interactively
+    observation.run_gui()
+
+    fig, axs = plt.subplots(
+        nrows=2, ncols=2, figsize=(12, 8), dpi=200, width_ratios=[1, 2]
+    )
+
+    # Do a nice RGB plot of the data in the top left
+    rgb_img = np.moveaxis(observation.data, 0, 2)  # imshow needs wavelength index last
+    axs[0, 0].imshow(rgb_img, origin='lower')
+    observation.plot_wireframe_xy(axs[0, 0])
+
+    # Plot the emission angle backplane in the bottom left
+    observation.add_other_bodies_of_interest('Europa')  # mark Europa on this plot
+    observation.plot_backplane_img('EMISSION', ax=axs[1, 0])
+
+    # Plot the mapped emission angle backplane in the bottom right
+    observation.plot_backplane_map('EMISSION', ax=axs[1, 1])
+
+
+    # Plot a mapped RGB image of the data in the top right
+    degree_interval = 0.25  # Plot maps with 4 pixels/degree
+    emission_cutoff = 80
+
+    mapped_data = observation.get_mapped_data(degree_interval)  # get the mapped data
+    rgb_map = np.moveaxis(mapped_data, 0, 2)  # imshow needs wavelength index last
+    rgb_map = planetmapper.utils.normalise(rgb_map)  # normalise to make plot look nicer
+
+    # Only plot areas with emission angles <80deg
+    emission_map = observation.get_backplane_map('EMISSION', degree_interval)
+    for idx in range(3):
+        rgb_map[:, :, idx][np.where(emission_map > emission_cutoff)] = 1
+    
+    # Display mapped image and add a useful annotation
+    observation.imshow_map(rgb_map, ax=axs[0, 1])
+    axs[0, 1].annotate(
+        f'Showing emission angles < {emission_cutoff}°',
+        (0.005, 0.99),
+        xycoords='axes fraction',
+        size='small',
+        va='top',
+    )
+
+
+    # Add some general formatting
+    for ax in axs.ravel():
+        ax.set_title('')
+    fig.suptitle(observation.get_description(multiline=False))
+    fig.tight_layout()
+
+    plt.show()
+
+.. image:: images/jupiter_mapped.png
+    :width: 800
+    :alt: Plot of a mapped Jupiter observation
+
 Backplanes can also be generated for observations which do not exist using :class:`planetmapper.BodyXY`: ::
     
     # Create an object representing how Jupiter would appear in a 50x50 pixel image
@@ -169,3 +236,6 @@ Backplanes can also be generated for observations which do not exist using :clas
 .. image:: images/jupiter_backplane.png
     :width: 600
     :alt: Plot of Jupiter's rotation
+
+
+.. [#jupiterhst] The `Jupiter image <https://hubblesite.org/contents/media/images/2020/42/4739-Image>`_ is from the OPAL program using the Hubble Space Telescope. Credit: *NASA, ESA, STScI, A. Simon (Goddard Space Flight Center), and M.H. Wong (University of California, Berkeley) and the OPAL team*
