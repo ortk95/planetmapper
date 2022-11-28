@@ -1,7 +1,7 @@
 import datetime
 import os
 import warnings
-from typing import ParamSpec, TypeVar
+from typing import ParamSpec, TypeVar, Callable, Any
 
 import astropy.wcs
 import numpy as np
@@ -177,46 +177,31 @@ class Observation(BodyXY):
             image = np.moveaxis(image, 2, 0)
         self.data = image
 
-    @staticmethod
-    def _add_kw_from_header(kw: dict, header: fits.Header):
+    @classmethod
+    def _add_kw_from_header(cls, kw: dict, header: fits.Header):
         # fill in kwargs with values from header (if they aren't specified by the user)
 
-        if 'target' not in kw:
-            for k in ['OBJECT', 'TARGET', 'TARGNAME']:
-                try:
-                    kw.setdefault('target', header[k])
-                    break
-                except KeyError:
-                    continue
+        _try_get_header_value(
+            kw,
+            header,
+            'target',
+            [cls._make_fits_kw('TARGET'), 'OBJECT', 'TARGET', 'TARGNAME'],
+        )
+        _try_get_header_value(
+            kw,
+            header,
+            'observer',
+            [cls._make_fits_kw('OBSERVER'), 'TELESCOP'],
+            value_fn=lambda v: 'EARTH' if str(v).startswith('ESO-') else v,
+        )
 
-        if 'observer' not in kw:
-            for k in ['TELESCOP']:
-                try:
-                    value = header[k]
-                    if str(value).startswith('ESO-'):
-                        value = 'EARTH'
-                    kw.setdefault('observer', 'EARTH')
-                    break
-                except KeyError:
-                    continue
-
+        _try_get_header_value(
+            kw,
+            header,
+            'utc',
+            [cls._make_fits_kw('UTC-OBS'), 'MJD-AVG', 'EXPMID', 'DATE-AVG'],
+        )
         if 'utc' not in kw:
-            for k in [
-                'MJD-AVG',
-                'EXPMID',
-                'DATE-AVG',
-            ]:
-                try:
-                    kw.setdefault('utc', header[k])
-                    break
-                except KeyError:
-                    continue
-
-            try:
-                kw.setdefault('utc', header['MJD-AVG'])
-            except KeyError:
-                pass
-
             try:
                 # If the header has a MJD value for the start and end of the
                 # observation, average them and use astropy to convert this
@@ -224,21 +209,31 @@ class Observation(BodyXY):
                 beg = float(header['MJD-BEG'])  #  type: ignore
                 end = float(header['MJD-END'])  #  type: ignore
                 mjd = (beg + end) / 2
-                kw.setdefault('utc', mjd)
+                kw['utc'] = mjd
             except:
                 pass
+            _try_get_header_value(
+                kw,
+                header,
+                'utc',
+                ['DATE-OBS', 'DATE-BEG', 'DATE-END', 'MJD-BEG', 'MJD-END'],
+            )
 
-            for k in [
-                'DATE-AVG',
-                'DATE-OBS',
-                'DATE-BEG',
-                'DATE-END',
-            ]:
-                try:
-                    kw.setdefault('utc', header[k])
-                    break
-                except KeyError:
-                    continue
+        _try_get_header_value(
+            kw, header, 'observer_frame', [cls._make_fits_kw('OBSERVER-FRAME')]
+        )
+        _try_get_header_value(
+            kw, header, 'illumination_source', [cls._make_fits_kw('ILLUMINATION')]
+        )
+        _try_get_header_value(
+            kw, header, 'aberration_correction', [cls._make_fits_kw('ABCORR')]
+        )
+        _try_get_header_value(
+            kw, header, 'subpoint_method', [cls._make_fits_kw('SUBPOINT-METHOD')]
+        )
+        _try_get_header_value(
+            kw, header, 'surface_method', [cls._make_fits_kw('SURFACE-METHOD')]
+        )
 
     def __repr__(self) -> str:
         return f'Observation({self.path!r})'  # TODO make more explicit?
@@ -436,9 +431,13 @@ class Observation(BodyXY):
         if header is None:
             header = self.header
         if hierarch_keyword:
-            keyword = f'HIERARCH {self.FITS_KEYWORD} {keyword}'
+            keyword = self._make_fits_kw(keyword)
         with utils.filter_fits_comment_warning():
             header.append(fits.Card(keyword=keyword, value=value, comment=comment))
+
+    @classmethod
+    def _make_fits_kw(cls, keyword: str) -> str:
+        return f'HIERARCH {cls.FITS_KEYWORD} {keyword}'
 
     def add_header_metadata(self, header: fits.Header | None = None):
         """
@@ -493,6 +492,9 @@ class Observation(BodyXY):
             self.get_disc_method(),
             'Method used to find disc.',
             header=header,
+        )
+        self.append_to_header(
+            'UTC-OBS', self.utc, 'UTC date of observation', header=header
         )
         self.append_to_header(
             'ET-OBS', self.et, 'J2000 ephemeris seconds of observation.', header=header
@@ -798,3 +800,22 @@ class Observation(BodyXY):
         gui = GUI(allow_open=False)
         gui.set_observation(self)
         gui.run()
+
+
+def _try_get_header_value(
+    kw: dict,
+    header: fits.Header,
+    kw_key: str,
+    header_keys: list[str],
+    value_fn: Callable[[Any], Any] | None = None,
+) -> bool:
+    if value_fn is None:
+        value_fn = lambda x: x
+    if kw_key not in kw:
+        for hk in header_keys:
+            try:
+                kw[kw_key] = value_fn(header[hk])
+                return True
+            except KeyError:
+                pass
+    return False

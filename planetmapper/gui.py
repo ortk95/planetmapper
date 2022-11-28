@@ -1166,8 +1166,11 @@ class OpenObservation(Popup):
                 header = hdul[0].header  # type: ignore
             Observation._add_kw_from_header(kwargs, header)
         for k, v in kwargs.items():
-            if v:
-                self.stringvars[k].set(str(v))
+            try:
+                if v:
+                    self.stringvars[k].set(str(v))
+            except KeyError:
+                pass
 
     def click_ok(self) -> None:
         if self.apply_changes():

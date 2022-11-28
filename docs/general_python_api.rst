@@ -4,8 +4,6 @@ General Python API
 ******************
 This page shows some simple examples of using the PlanetMapper in Python code. For more details, see the full :ref:`API documentation <api>`.
 
-.. note::
-    The Python script used to generate the figures shown on this page can be found `here <https://github.com/ortk95/planetmapper/blob/main/examples/general_python_api.py>`_.
 
 Coordinate conversions
 ======================
@@ -156,7 +154,7 @@ Mapped data can also be manipulated and plotted directly. In the example below, 
         target='jupiter',
         utc='2020-08-25 02:30:40',
         observer='HST',
-        show_progress=True, # so show progress bars for slower functions
+        show_progress=True, # show progress bars for slower functions
     )
 
     # Run the GUI to fit the disc interactively
@@ -215,6 +213,8 @@ Mapped data can also be manipulated and plotted directly. In the example below, 
     :width: 800
     :alt: Plot of a mapped Jupiter observation
 
+.. [#jupiterhst] The `Jupiter image <https://hubblesite.org/contents/media/images/2020/42/4739-Image>`_ is from the OPAL program using the Hubble Space Telescope. Credit: *NASA, ESA, STScI, A. Simon (Goddard Space Flight Center), and M.H. Wong (University of California, Berkeley) and the OPAL team*
+
 Backplanes can also be generated for observations which do not exist using :class:`planetmapper.BodyXY`: ::
     
     # Create an object representing how Jupiter would appear in a 50x50 pixel image
@@ -238,4 +238,5 @@ Backplanes can also be generated for observations which do not exist using :clas
     :alt: Plot of Jupiter's rotation
 
 
-.. [#jupiterhst] The `Jupiter image <https://hubblesite.org/contents/media/images/2020/42/4739-Image>`_ is from the OPAL program using the Hubble Space Telescope. Credit: *NASA, ESA, STScI, A. Simon (Goddard Space Flight Center), and M.H. Wong (University of California, Berkeley) and the OPAL team*
+.. note::
+    The Python script used to generate all the figures shown on this page can be found `here <https://github.com/ortk95/planetmapper/blob/main/examples/general_python_api.py>`_

@@ -9,7 +9,7 @@ Starting the user interface
 ===========================
 The easiest way to run the PlanetMapper user interface is to simply type `planetmapper` in the command line. This will launch a new interactive window where you can choose observation files to open and fit. 
 
-You can create a user interface from a :class:`planetmapper.Observation` object using the  :func:`planetmapper.Observation.run_gui` function. This is mainly useful if you want to combine using a user interface to fit the observation with some Python code to e.g. run some additional analysis. 
+You can create a user interface from a :class:`planetmapper.Observation` object using the  :func:`planetmapper.Observation.run_gui` function. This is mainly useful if you want to combine using a user interface to fit the observation with some Python code to e.g. run some additional analysis. This also gives you access to the full customisation offered by :class:`planetmapper.Observation`, allowing you to specify parameters such as `illumination_source` and `aberration_correction` which cannot be customised using the GUI alone.
 
 It is also possible to start a user interface directly using :func:`planetmapper.gui.GUI.run`, although the other two methods are generally more useful.
 
