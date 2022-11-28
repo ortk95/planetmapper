@@ -19,7 +19,9 @@ import spiceypy as spice
 from astropy.io import fits
 from matplotlib.artist import Artist
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backend_bases import MouseEvent, MouseButton
 from matplotlib.text import Text
+
 
 from . import base, data_loader, utils
 from .body import Body, NotFoundError
@@ -107,6 +109,14 @@ class GUI:
 
         self._observation: Observation | None = None
         self.step_size = 1
+
+        self.click_locations : list[tuple[float, float]] = []
+        """
+        List of click locations marked on the plot in `(x, y)` pixel coordinates.
+
+        This list is cleared whenever a new observation is opened.
+        """
+
 
         self.shortcuts: dict[Callable[[], Any], list[str]] = {
             self.increase_step: [']'],
@@ -251,6 +261,8 @@ class GUI:
             self.run_all_ui_callbacks()
             self.rebuild_plot()
             self.root.title(self.get_observation().get_description(multiline=False))
+        
+        self.click_locations = []
 
     def get_observation(self) -> Observation:
         if self._observation is None:
@@ -636,6 +648,10 @@ class GUI:
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
         self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
 
+        self.fig.canvas.callbacks.connect(
+            'button_press_event', self.figure_click_callback
+        )
+
     def rebuild_plot(self) -> None:
         self.transform = (
             self.get_observation().matplotlib_radec2xy_transform() + self.ax.transData
@@ -818,6 +834,50 @@ class GUI:
     def remove_artists(self, key: PLOT_KEY) -> None:
         while self.plot_handles[key]:
             self.plot_handles[key].pop().remove()
+
+    # Figure callbacks
+    def figure_click_callback(self, event: MouseEvent) -> None:
+        if event.button != MouseButton.LEFT or not event.inaxes or event.dblclick:
+            return
+        x, y = event.xdata, event.ydata
+        if x is None or y is None:
+            return
+        
+        self.click_locations.append((x,y))
+        
+        observation = self.get_observation()
+
+        ra, dec = observation.xy2radec(x, y)
+        fmt = '.2f'
+        parts = [
+            f'"xy": [{x:{fmt}}, {y:{fmt}}]',
+            f'"radec": [{ra:.6f}, {dec:.6f}]',
+        ]
+
+        try:
+            # Use targvec for a bit more speed here
+            targvec = observation._xy2targvec(x, y)
+            lon, lat = observation.targvec2lonlat(targvec)
+            (
+                phase,
+                incdnc,
+                emissn,
+            ) = observation._illumination_angles_from_targvec_radians(targvec)
+            az = observation._azimuth_angle_from_gie_radians(phase, incdnc, emissn)
+            phase, incdnc, emissn, az = np.rad2deg((phase, incdnc, emissn, az))
+            parts.extend(
+                [
+                    f'"lonlat": [{lon:{fmt}}, {lat:{fmt}}]',
+                    f'"phase": {phase:{fmt}}',
+                    f'"incidence": {incdnc:{fmt}}',
+                    f'"emission": {emissn:{fmt}}',
+                    f'"azimuth": {az:{fmt}}',
+                ]
+            )
+        except NotFoundError:
+            pass  # Not on disc
+
+        print('{' + ', '.join(parts) + '},')
 
     # Image
     def image_sum(self) -> np.ndarray:
