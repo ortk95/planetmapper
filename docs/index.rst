@@ -37,7 +37,6 @@ Key features
 
    installation
    spice_kernels
-   common_issues
 
 .. toctree::
    :maxdepth: 2
@@ -62,3 +61,4 @@ Key features
    :caption: Appendix
 
    default_backplanes
+   common_issues

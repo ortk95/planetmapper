@@ -24,6 +24,9 @@ To start, type `planetmapper` into a command line and press enter. This will ope
 
 If your data is a FITS file, PlanetMapper will attempt to automatically fill the target, date and observer fields for you with information from the FITS header (but it's worth double checking that the values are what you expect). The date should be in a format which `can be understood by SPICE <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/utc2et_c.html#Examples>`_ (such as `YYYY-mm-ddTHH:MM:SS`) and should be in UTC. You can also specify a list of :ref:`SPICE kernels` to load here - if you're unsure then the default values will probably work.
 
+.. hint::
+    The target, date and observer fields are passed directly to the `target`, `utc` and `observer` parameters of a :class:`planetmapper.Observation` object, so check the full documentation for :class:`planetmapper.Observation` and :class:`planetmapper.Body` for details of what formats are accepted.
+
 Once you click OK, the full fitting window should open. If you get any error messages, then double check the target, date and observer fields for any typos.
 
 .. image:: images/gui_fitting_initial.png
@@ -56,8 +59,8 @@ You can also use the settings tab to mark points of interest to help with fittin
 
 Once you are happy with the fitting result, click Save at the top of the Controls tab. This will open a window where you can choose which files to output. You can customise which files to output (with the 'Save navigated observation' and 'Save mapped observation' checkboxes) and choose the filepath where these files will be saved.
 
-- The navigated observation is similar to the input file, with additional 'FITS backplanes' containing useful information such as the longitude/latitude coordinates for each pixel in the image.
-- The mapped observation produces a FITS file which contains (as the name suggests...) a mapped version of the observation. This map file will also contain the various useful backplanes. The degree interval option allows you to customise the size of the output map (e.g. degree interval=1 produces a map which is 180x360, degree interval=10 produces a map which is 18x36).
+- The navigated observation is similar to the input file, with additional 'FITS backplanes' containing useful information such as the longitude/latitude coordinates for each pixel in the image. This file is generated using the function :func:`planetmapper.Observation.save_observation`.
+- The mapped observation produces a FITS file which contains (as the name suggests...) a mapped version of the observation. This map file will also contain the various useful backplanes. The degree interval option allows you to customise the size of the output map (e.g. degree interval=1 produces a map which is 180x360, degree interval=10 produces a map which is 18x36). This file is generated using the function :func:`planetmapper.Observation.save_mapped_observation`.
 
 Once you click Save, your requested files will be generated and saved. Note that for larger files, this can take around a minute to complete as some of the coordinate conversion calculations are relatively complex.
 

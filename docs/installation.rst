@@ -25,3 +25,6 @@ First steps
 The core logic of PlanetMapper uses a series of files called ':ref:`SPICE kernels`' which contain the information about the positions and properties of Solar System bodies. Therefore, once you have PlanetMapper installed, you will need to :ref:`download the appropriate kernels <SPICE kernels>` before you can properly use PlanetMapper.
 
 Once you have the SPICE kernels downloaded, you can type `planetmapper` in the command line to open an interactive window, or `import planetmapper` in a Python script to get the full functionality.
+
+.. hint::
+    Check the :ref:`list of common issues<common issues>` if you encounter any problems when using PlanetMapper

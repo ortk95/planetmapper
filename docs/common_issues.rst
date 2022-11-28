@@ -1,3 +1,5 @@
+.. _common issues:
+
 Common issues
 *************
 
