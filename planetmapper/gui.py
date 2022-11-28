@@ -1476,8 +1476,8 @@ class SaveObservation(Popup):
         self.window.destroy()
 
     def try_run_save(self) -> bool:
-        save_nav = bool(self.save_map.get())
-        save_map = bool(self.save_nav.get())
+        save_nav = bool(self.save_nav.get())
+        save_map = bool(self.save_map.get())
 
         path_map = self.path_map.get().strip()
         path_nav = self.path_nav.get().strip()
