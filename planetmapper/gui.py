@@ -215,6 +215,18 @@ class GUI:
             raise Quit
 
     def set_observation(self, observation: Observation) -> None:
+        """
+        Set the observation used in the GUI.
+
+        For example, to run the GUI with the data in `'europa.fits'`, use: ::
+
+            gui = planetmapper.gui.GUI()
+            gui.set_observation(planetmapper.Observation('europa.fits'))
+            gui.run()
+
+        Args:
+            observation: Observation to fit.
+        """
         self._observation = observation
 
         self.image_modes: dict[IMAGE_MODE, tuple[Callable[[], np.ndarray], str]] = {
