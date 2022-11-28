@@ -10,27 +10,27 @@ A Python module for navigating and mapping Solar System observations.
 The core logic of this code is based on conversion between different coordinate systems
 of interest. The `xy` and `radec` coordinate systems define positions from the point of
 view of the observer while the `lonlat` coordinate system defines locations on the
-surface of the target body.
+surface of the target body:
 
-`xy` image pixel coordinates. These coordinates count the number of pixels in an
+`xy`: image pixel coordinates. These coordinates count the number of pixels in an
 observed image with the bottom left pixel defined as `(0,0)`, and the `x` and `y`
 coordinates defined as normal. Integer coordinates represent the middle of the
 corresponding pixel, so `(0, 3)` covers `x` values from -0.5 to 0.5 and `y` values from
 2.5 to 3.5.
 
-`radec` observer frame RA/Dec sky coordinates. These are the right ascension and
+`radec`: observer frame RA/Dec sky coordinates. These are the right ascension and
 declination which define the position in the sky of a point from the point of view of
 the observer. These coordinates are expressed in degrees. See 
 https://en.wikipedia.org/wiki/Equatorial_coordinate_system for more.
 
-`lonlat` planetographic coordinates on target body. These are the planetographic 
+`lonlat`: planetographic coordinates on target body. These are the planetographic 
 longitude and latitude coordinates of a point on the surface of the target body. These 
 coordinates are expressed in degrees. See 
 https://en.wikipedia.org/wiki/Planetary_coordinate_system and 
 https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/recpgr_c.html#Particulars for
 more.
 
-`km` defines the distance in the image plane from the centre of the target body in km
+`km`: defines the distance in the image plane from the centre of the target body in km
 with the target's north pole pointing up. This coordinate system is similar to the
 `radec` and `xy` coordinate systems, but has the image zoomed so that the planet's 
 radius is fixed and rotated so that the north pole points up. It can therefore be useful
