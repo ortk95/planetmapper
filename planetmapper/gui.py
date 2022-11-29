@@ -650,7 +650,7 @@ class GUI:
         top_level_frame = ttk.Frame(self.notebook)
         top_level_frame.pack()
         self.notebook.add(top_level_frame, text='Coords')
-        self.notebook.select(top_level_frame)  # TODO delete this
+        # self.notebook.select(top_level_frame)  # TODO delete this
 
         frame = ttk.Frame(top_level_frame)
         frame.pack(padx=5, fill='x')
