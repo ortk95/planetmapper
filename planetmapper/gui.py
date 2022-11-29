@@ -832,7 +832,7 @@ class GUI:
         ra, dec = coords['ra'], coords['dec']
         parts = [
             f'"xy": [{x:{fmt}}, {y:{fmt}}]',
-            f'"radec": [{ra:{fmt_radec}}, {dec:{fmt_radec}}]]',
+            f'"radec": [{ra:{fmt_radec}}, {dec:{fmt_radec}}]',
         ]
 
         try:
@@ -1375,7 +1375,7 @@ class OpenObservation(Popup):
     def make_widget(self) -> None:
         if self.first_run:
             self.window = tk.Tk()
-            self.window.title('planetmapper')
+            self.window.title('PlanetMapper')
             self.gui.configure_style(self.window)
             geometry = self.gui.DEFAULT_GEOMETRY
         else:
