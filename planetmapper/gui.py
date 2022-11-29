@@ -122,6 +122,8 @@ class GUI:
         """
 
         self.last_click_location: tuple[float, float] | None = None
+        self.coords_formatted_str: str | None = None
+        self.coords_machine_str: str | None = None
 
         self.shortcuts: dict[Callable[[], Any], list[str]] = {
             self.increase_step: [']'],
@@ -136,6 +138,7 @@ class GUI:
             self.decrease_radius: ['-', '_'],
             self.save_button: ['<Control-s>'],
             self.load_observation: ['<Control-o>'],
+            self.copy_machine_coord_values: ['<Control-c>'],
         }
         self.shortcuts_to_keep_in_entry = ['<Control-s>', '<Control-o>']
 
@@ -268,7 +271,7 @@ class GUI:
             self.root.title(self.get_observation().get_description(multiline=False))
 
         self.click_locations = []
-        self.last_click_location = None
+        self.clear_click_location()
 
     def get_observation(self) -> Observation:
         if self._observation is None:
@@ -647,12 +650,12 @@ class GUI:
         top_level_frame = ttk.Frame(self.notebook)
         top_level_frame.pack()
         self.notebook.add(top_level_frame, text='Coords')
-        # self.notebook.select(top_level_frame)  # TODO delete this
+        self.notebook.select(top_level_frame)  # TODO delete this
 
         frame = ttk.Frame(top_level_frame)
         frame.pack(padx=5, fill='x')
         self.coords_tab_labels: dict[str, ttk.Label] = {}
-        labels: dict[str, list[str | tuple[str, str]]] = {
+        self.coords_labels: dict[str, list[str | tuple[str, str]]] = {
             'Pixel coordinates': ['x', 'y'],
             'Celestial coordinates': [
                 ('ra', 'Right ascension'),
@@ -661,7 +664,7 @@ class GUI:
             'Planetographic coordinates': [('lon', 'Longitude'), ('lat', 'Latitude')],
             'Illumination angles': ['phase', 'incidence', 'emission', 'azimuth'],
         }
-        for name, part_labels in labels.items():
+        for name, part_labels in self.coords_labels.items():
             label_frame = ttk.LabelFrame(frame, text=name)
             label_frame.pack(fill='x', pady=5)
             for col in range(2):
@@ -681,6 +684,32 @@ class GUI:
 
                 self.coords_tab_labels[key] = l2
 
+        button_frame = ttk.Frame(frame)
+        button_frame.pack(fill='x', pady=5)
+
+        self.coords_copy_formatted_button = self.add_tooltip(
+            ttk.Button(
+                button_frame,
+                text='Copy formatted values',
+                command=self.copy_formatted_coord_values,
+                state='disable',
+            ),
+            'Copy formatted coordinate values',
+            self.copy_formatted_coord_values,
+        )
+        self.coords_copy_formatted_button.pack(fill='x', pady=2, padx=2)
+        self.coords_copy_machine_button = self.add_tooltip(
+            ttk.Button(
+                button_frame,
+                text='Copy machine readable values',
+                command=self.copy_machine_coord_values,
+                state='disable',
+            ),
+            'Copy machine readable coordinate values, compatible with Python, JSON, etc.',
+            self.copy_machine_coord_values,
+        )
+        self.coords_copy_machine_button.pack(fill='x', pady=2, padx=2)
+
         message = [
             '',
             'Click on the plot to get coordinates',
@@ -694,49 +723,124 @@ class GUI:
             fill='x', padx=5
         )
 
-    def update_coords(self) -> None:
+    def get_click_coords(self) -> dict[str, float]:
         if self.last_click_location is None:
-            for k, label in self.coords_tab_labels.items():
-                label.configure(text='')
-            return
-
-        fmt = '.2f'
-        dms_fmt = '.3f'
+            return {}
+        out: dict[str, float] = {}
         observation = self.get_observation()
-        labels = self.coords_tab_labels
-
         x, y = self.last_click_location
-        labels['x'].configure(text=f'{x:{fmt}}')
-        labels['y'].configure(text=f'{y:{fmt}}')
-
-        ra, dec = observation.xy2radec(x, y)
-        labels['ra'].configure(text=utils.decimal_degrees_to_dms_str(ra, dms_fmt))
-        labels['dec'].configure(text=utils.decimal_degrees_to_dms_str(dec, dms_fmt))
-
+        out['x'] = x
+        out['y'] = y
+        out['ra'], out['dec'] = observation.xy2radec(x, y)
         try:
-            # Use targvec for a bit more speed here
             targvec = observation._xy2targvec(x, y)
-            lon, lat = observation.targvec2lonlat(targvec)
-            ew = observation.positive_longitude_direction
-            ns = 'N' if lat >= 0 else 'S'
-            labels['lon'].configure(text=f'{lon:{fmt}}°{ew}')
-            labels['lat'].configure(text=f'{abs(lat):{fmt}}°{ns}')
-
+            out['lon'], out['lat'] = observation.targvec2lonlat(targvec)
             (
                 phase,
                 incdnc,
                 emissn,
             ) = observation._illumination_angles_from_targvec_radians(targvec)
             az = observation._azimuth_angle_from_gie_radians(phase, incdnc, emissn)
-            phase, incdnc, emissn, az = np.rad2deg((phase, incdnc, emissn, az))
-            labels['phase'].configure(text=f'{phase:{fmt}}°')
-            labels['incidence'].configure(text=f'{incdnc:{fmt}}°')
-            labels['emission'].configure(text=f'{emissn:{fmt}}°')
-            labels['azimuth'].configure(text=f'{az:{fmt}}°')
+            (
+                out['phase'],
+                out['incidence'],
+                out['emission'],
+                out['azimuth'],
+            ) = np.rad2deg((phase, incdnc, emissn, az))
         except NotFoundError:
-            for k in ['lon', 'lat', 'phase', 'incidence', 'emission', 'azimuth']:
-                labels[k].configure(text='')
-            
+            pass
+        return out
+
+    def update_coords(self, print_coords: bool = False) -> None:
+        if self.last_click_location is None:
+            for k, label in self.coords_tab_labels.items():
+                label.configure(text='')
+            return
+
+        coords = self.get_click_coords()
+        coords_strs = self.get_click_coords_formatted_strings(coords)
+        if print_coords:
+            # Print with trailing comma so can be copied straight into a list
+            print(self.make_click_json_string(coords) + ',')
+
+        self.coords_machine_str = self.make_click_json_string(
+            coords, fmt='', fmt_radec=''
+        )
+        self.coords_formatted_str = self.make_click_formatted_string(coords_strs)
+
+        for k, label in self.coords_tab_labels.items():
+            label.configure(text=coords_strs.get(k, ''))
+
+    def get_click_coords_formatted_strings(
+        self, coords: dict[str, float], fmt: str = '.2f', dms_fmt: str = '.3f'
+    ) -> dict[str, str]:
+        out: dict[str, str] = {}
+        x, y = coords['x'], coords['y']
+        observation = self.get_observation()
+
+        out['x'] = f'{x:{fmt}}'
+        out['y'] = f'{y:{fmt}}'
+
+        ra, dec = coords['ra'], coords['dec']
+        out['ra'] = utils.decimal_degrees_to_dms_str(ra, dms_fmt)
+        out['dec'] = utils.decimal_degrees_to_dms_str(dec, dms_fmt)
+
+        try:
+            # Use targvec for a bit more speed here
+            lon, lat = coords['lon'], coords['lat']
+            ew = observation.positive_longitude_direction
+            ns = 'N' if lat >= 0 else 'S'
+            out['lon'] = f'{lon:{fmt}}°{ew}'
+            out['lat'] = f'{abs(lat):{fmt}}°{ns}'
+
+            out['phase'] = f'{coords["phase"]:{fmt}}°'
+            out['incidence'] = f'{coords["incidence"]:{fmt}}°'
+            out['emission'] = f'{coords["emission"]:{fmt}}°'
+            out['azimuth'] = f'{coords["azimuth"]:{fmt}}°'
+        except KeyError:
+            pass
+        return out
+
+    def make_click_formatted_string(self, coords_strs: dict[str, str]) -> str:
+        msg = []
+        for name, part_labels in self.coords_labels.items():
+            msg.append(name)
+            for row, kl in enumerate(part_labels):
+                if isinstance(kl, tuple):
+                    key, label = kl
+                else:
+                    key = kl
+                    label = kl.capitalize()
+                value = coords_strs.get(key, '')
+                msg.append(f'  - {label}: {value}')
+        return '\n'.join(msg)
+
+    def make_click_json_string(
+        self, coords: dict[str, float], fmt: str = '.2f', fmt_radec: str = '.6f'
+    ) -> str:
+        x, y = coords['x'], coords['y']
+        ra, dec = coords['ra'], coords['dec']
+        parts = [
+            f'"xy": [{x:{fmt}}, {y:{fmt}}]',
+            f'"radec": [{ra:{fmt_radec}}, {dec:{fmt_radec}}]]',
+        ]
+
+        try:
+            # Use targvec for a bit more speed here
+            lon, lat = coords['lon'], coords['lat']
+            parts.extend(
+                [
+                    f'"lonlat": [{lon:{fmt}}, {lat:{fmt}}]',
+                    f'"phase": {coords["phase"]:{fmt}}',
+                    f'"incidence": {coords["incidence"]:{fmt}}',
+                    f'"emission": {coords["emission"]:{fmt}}',
+                    f'"azimuth": {coords["azimuth"]:{fmt}}',
+                ]
+            )
+        except KeyError:
+            pass  # Not on disc
+        return '{' + ', '.join(parts) + '}'
+
     def figure_click_callback(self, event: MouseEvent) -> None:
         if not event.inaxes or event.dblclick:
             return
@@ -750,56 +854,42 @@ class GUI:
                 return
             self.set_click_location(x, y)
         self.replot_marked_coord()
-        self.update_plot()
+        self.update_plot(print_coords=True)
 
     def set_click_location(self, x: float, y: float) -> None:
         self.click_locations.append((x, y))
         self.last_click_location = (x, y)
-
-        # Print with trailing comma so can be copied straight into a list
-        print(self.make_click_json_string(x, y) + ',')
+        for button in [
+            self.coords_copy_formatted_button,
+            self.coords_copy_machine_button,
+        ]:
+            button['state'] = 'normal'
 
     def clear_click_location(self) -> None:
         self.last_click_location = None
-
-    def make_click_json_string(
-        self, x: float, y: float, fmt: str = '.2f', fmt_radec: str = '.6f'
-    ) -> str:
-        observation = self.get_observation()
-        ra, dec = observation.xy2radec(x, y)
-        parts = [
-            f'"xy": [{x:{fmt}}, {y:{fmt}}]',
-            f'"radec": [{ra:{fmt_radec}}, {dec:{fmt_radec}}]]',
-        ]
-
+        self.coords_formatted_str = None
+        self.coords_machine_str = None
         try:
-            # Use targvec for a bit more speed here
-            targvec = observation._xy2targvec(x, y)
-            lon, lat = observation.targvec2lonlat(targvec)
-            (
-                phase,
-                incdnc,
-                emissn,
-            ) = observation._illumination_angles_from_targvec_radians(targvec)
-            az = observation._azimuth_angle_from_gie_radians(phase, incdnc, emissn)
-            phase, incdnc, emissn, az = np.rad2deg((phase, incdnc, emissn, az))
-            parts.extend(
-                [
-                    f'"lonlat": [{lon:{fmt}}, {lat:{fmt}}]',
-                    f'"phase": {phase:{fmt}}',
-                    f'"incidence": {incdnc:{fmt}}',
-                    f'"emission": {emissn:{fmt}}',
-                    f'"azimuth": {az:{fmt}}',
-                ]
-            )
-        except NotFoundError:
-            pass  # Not on disc
+            for button in [
+                self.coords_copy_formatted_button,
+                self.coords_copy_machine_button,
+            ]:
+                button['state'] = 'disable'
+        except AttributeError:
+            pass
 
-        return '{' + ', '.join(parts) + '}'
+    def copy_formatted_coord_values(self) -> None:
+        self.copy_to_clipboard(self.coords_formatted_str)
 
+    def copy_machine_coord_values(self) -> None:
+        self.copy_to_clipboard(self.coords_machine_str)
+
+    def copy_to_clipboard(self, s: str) -> None:
+        self.root.clipboard_clear()
+        self.root.clipboard_append(s)
 
     # Plotting
-    def update_plot(self) -> None:
+    def update_plot(self, print_coords: bool = False) -> None:
         self.get_observation().update_transform()
         # print(
         #     'x0={x0}, y0={y0}, r0={r0}, rotation={rotation}'.format(
@@ -810,7 +900,7 @@ class GUI:
         #     )
         # )
         self.canvas.draw()
-        self.update_coords()
+        self.update_coords(print_coords=print_coords)
 
     def build_plot(self) -> None:
         self.fig = plt.figure()
