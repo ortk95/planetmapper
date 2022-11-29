@@ -790,7 +790,7 @@ class Observation(BodyXY):
                 for key in [f'PC{a}_{b}', f'PC{b}_{a}', f'CD{a}_{b}', f'CD{b}_{a}']:
                     header.remove(key, ignore_missing=True, remove_all=True)
 
-    def run_gui(self) -> None:
+    def run_gui(self) -> list[tuple[float, float]]:
         """
         Run an interactive GUI to display and adjust the fitted observation.
 
@@ -807,6 +807,15 @@ class Observation(BodyXY):
 
             # At this point, you can use the manually fitted observation
             observation.plot_wireframe_xy()
+        
+        The return value can also be used to interactively select a locations:::
+            
+            observation = planetmapper.Observation('exciting_data.fits')
+            clicks = observation.run_gui()
+            ax = observation.plot_wireframe_radec()
+            for x, y in clicks:
+                ra, dec = observation.xy2radec()
+                ax.scatter(ra, dec)
 
         .. note ::
 
@@ -817,12 +826,17 @@ class Observation(BodyXY):
             If you want the full user interface functionality instead, then call
             `planetmapper` from the command line or create and run a user interface
             manually using :func:`planetmapper.gui.GUI.run`.
+
+        Returns:
+            List of `(x, y)` pixel coordinate tuples corresponding to where the user
+            clicked on the plot window to mark a location.
         """
-        from .gui import GUI
+        from .gui import GUI  # Prevent circular imports
 
         gui = GUI(allow_open=False)
         gui.set_observation(self)
         gui.run()
+        return gui.click_locations
 
 
 def _try_get_header_value(

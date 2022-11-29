@@ -8,6 +8,7 @@ import tkinter.scrolledtext
 from collections import defaultdict
 from tkinter import ttk
 from typing import Any, Callable, Literal, TypeVar
+from functools import lru_cache
 
 import matplotlib.cm
 import matplotlib.colors
@@ -18,13 +19,18 @@ import numpy as np
 import spiceypy as spice
 from astropy.io import fits
 from matplotlib.artist import Artist
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.backend_bases import MouseEvent, MouseButton
 from matplotlib.text import Text
+import matplotlib as mpl
+
+from matplotlib.backends._backend_tk import NavigationToolbar2Tk  # TODO delete this
 
 from . import base, data_loader, utils
 from .body import Body, NotFoundError
 from .observation import Observation
 from . import progress
+
 
 Widget = TypeVar('Widget', bound=tk.Widget)
 SETTER_KEY = Literal[
@@ -42,6 +48,7 @@ PLOT_KEY = Literal[
     'coordinates_radec',
     'other_bodies',
     'other_bodies_labels',
+    'marked_coord',
     '_',
 ]
 IMAGE_MODE = Literal['sum', 'single', 'rgb']
@@ -57,6 +64,7 @@ DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
     'coordinates_radec': dict(zorder=3.7, marker='+', color='k', s=36),
     'other_bodies': dict(zorder=3.8, marker='+', color='w', s=36),
     'other_bodies_labels': dict(zorder=3.81, color='grey'),
+    'marked_coord': dict(zorder=4, color='cyan', linewidth=0.5, linestyle='dotted'),
     'image': dict(zorder=0.9, cmap='inferno', vmin=0, vmax=100),
     '_': dict(
         grid_interval=30,
@@ -108,6 +116,17 @@ class GUI:
         self._observation: Observation | None = None
         self.step_size = 1
 
+        self.click_locations: list[tuple[float, float]] = []
+        """
+        List of click locations marked on the plot in `(x, y)` pixel coordinates.
+
+        This list is cleared whenever a new observation is opened.
+        """
+
+        self.last_click_location: tuple[float, float] | None = None
+        self.coords_formatted_str: str | None = None
+        self.coords_machine_str: str | None = None
+
         self.shortcuts: dict[Callable[[], Any], list[str]] = {
             self.increase_step: [']'],
             self.decrease_step: ['['],
@@ -121,6 +140,7 @@ class GUI:
             self.decrease_radius: ['-', '_'],
             self.save_button: ['<Control-s>'],
             self.load_observation: ['<Control-o>'],
+            self.copy_machine_coord_values: ['<Control-c>'],
         }
         self.shortcuts_to_keep_in_entry = ['<Control-s>', '<Control-o>']
 
@@ -203,10 +223,16 @@ class GUI:
         except Quit:
             print('App quit')
             return
-        self.build_gui()
-        self.bind_keyboard()
-        self.root.mainloop()
-        # TODO do something when closed to kill figure etc.?
+        # Disable keyboard shortcuts
+        context = {}
+        for k in mpl.rcParams:
+            if k.startswith('keymap.'):
+                context[k] = []
+        with mpl.rc_context(context):
+            self.build_gui()
+            self.bind_keyboard()
+            self.root.mainloop()
+            # TODO do something when closed to kill figure etc.?
 
     def load_observation(self) -> None:
         if self.allow_open:
@@ -252,6 +278,9 @@ class GUI:
             self.rebuild_plot()
             self.root.title(self.get_observation().get_description(multiline=False))
 
+        self.click_locations = []
+        self.clear_click_location()
+
     def get_observation(self) -> Observation:
         if self._observation is None:
             self.load_observation()
@@ -266,13 +295,13 @@ class GUI:
         self.configure_style(self.root)
         self.root.title(self.get_observation().get_description(multiline=False))
 
-        self.hint_frame = tk.Frame(self.root)
+        self.hint_frame = ttk.Frame(self.root)
         self.hint_frame.pack(side='bottom', fill='x')
 
-        self.controls_frame = tk.Frame(self.root)
+        self.controls_frame = ttk.Frame(self.root)
         self.controls_frame.pack(side='left', fill='y')
 
-        self.plot_frame = tk.Frame(self.root)
+        self.plot_frame = ttk.Frame(self.root)
         self.plot_frame.pack(side='top', fill='both', expand=True)
 
         self.build_plot()
@@ -301,11 +330,12 @@ class GUI:
     def build_controls(self) -> None:
         self.notebook = ttk.Notebook(self.controls_frame)
         self.notebook.pack(fill='both', expand=True)
-        self.build_main_controls()
-        self.build_disc_finding_controls()
-        self.build_plot_settings_controls()
+        self.build_main_controls_tab()
+        self.build_disc_finding_controls_tab()
+        self.build_plot_settings_controls_tab()
+        self.build_coords_tab()
 
-    def build_main_controls(self) -> None:
+    def build_main_controls_tab(self) -> None:
         frame = ttk.Frame(self.notebook)
         frame.pack()
         self.notebook.add(frame, text='Controls')
@@ -441,7 +471,7 @@ class GUI:
                     **kw,
                 )
 
-    def build_plot_settings_controls(self) -> None:
+    def build_plot_settings_controls_tab(self) -> None:
         menu = ttk.Frame(self.notebook)
         menu.pack()
         self.notebook.add(menu, text='Settings')
@@ -449,7 +479,7 @@ class GUI:
 
         # Image
         frame = ttk.LabelFrame(menu, text='Observation')
-        frame.pack(fill='x')
+        frame.pack(fill='x', pady=5)
         frame.grid_columnconfigure(0, weight=1)
         PlotImageSetting(
             self,
@@ -462,7 +492,7 @@ class GUI:
 
         # Plot features
         frame = ttk.LabelFrame(menu, text='Plotted features')
-        frame.pack(fill='x')
+        frame.pack(fill='x', pady=5)
         frame.grid_columnconfigure(0, weight=1)
         PlotLineSetting(self, frame, 'limb', label='Limb', hint='the target\'s limb')
         PlotLineSetting(
@@ -553,11 +583,23 @@ class GUI:
             callbacks=[self.replot_other_bodies],
         )
 
-    def build_disc_finding_controls(self) -> None:
+        # Marked coords
+        frame = ttk.LabelFrame(menu, text='Marked coords')
+        frame.pack(fill='x', pady=5)
+        frame.grid_columnconfigure(0, weight=1)
+        PlotLineSetting(
+            self,
+            frame,
+            'marked_coord',
+            label='Click location',
+            hint='the location on the image clicked when to calculate coordinates (see the Coords tab)',
+            callbacks=[self.replot_marked_coord],
+        )
+
+    def build_disc_finding_controls_tab(self) -> None:
         frame = ttk.Frame(self.notebook)
         frame.pack()
         self.notebook.add(frame, text='Find disc')
-        # self.notebook.select(frame)  # TODO delete this
 
         label_frame = ttk.LabelFrame(frame, text='Automatically find values')
         label_frame.pack(fill='x')
@@ -586,7 +628,9 @@ class GUI:
         return button_command
 
     def build_help_hint(self) -> None:
-        self.help_hint = tk.Label(self.hint_frame, text='', foreground='black')
+        frame = ttk.Frame(self.hint_frame)
+        frame.pack(fill='x', padx=5, pady=1)
+        self.help_hint = ttk.Label(frame, text='')
         self.help_hint.pack(side='left')
 
     def add_tooltip(
@@ -611,17 +655,261 @@ class GUI:
         widget.bind('<Leave>', f_leave)
         return widget
 
-    def update_plot(self) -> None:
+    # Coords
+    def build_coords_tab(self):
+        top_level_frame = ttk.Frame(self.notebook)
+        top_level_frame.pack()
+        self.notebook.add(top_level_frame, text='Coords')
+        # self.notebook.select(top_level_frame)  # TODO delete this
+
+        frame = ttk.Frame(top_level_frame)
+        frame.pack(padx=5, fill='x')
+        self.coords_tab_labels: dict[str, ttk.Label] = {}
+        self.coords_labels: dict[str, list[str | tuple[str, str]]] = {
+            'Pixel coordinates': ['x', 'y'],
+            'Celestial coordinates': [
+                ('ra', 'Right ascension'),
+                ('dec', 'Declination'),
+            ],
+            'Planetographic coordinates': [('lon', 'Longitude'), ('lat', 'Latitude')],
+            'Illumination angles': ['phase', 'incidence', 'emission', 'azimuth'],
+        }
+        for name, part_labels in self.coords_labels.items():
+            label_frame = ttk.LabelFrame(frame, text=name)
+            label_frame.pack(fill='x', pady=5)
+            for col in range(2):
+                label_frame.grid_columnconfigure(col, weight=1, uniform='a')
+            for row, kl in enumerate(part_labels):
+                if isinstance(kl, tuple):
+                    key, label = kl
+                else:
+                    key = kl
+                    label = kl.capitalize()
+                label = label + ':'
+                l1 = ttk.Label(label_frame, text=label)
+                l1.grid(row=row, column=0, sticky='e', pady=2, padx=2)
+
+                l2 = ttk.Label(label_frame, text='')
+                l2.grid(row=row, column=1, sticky='w', pady=2, padx=2)
+
+                self.coords_tab_labels[key] = l2
+
+        button_frame = ttk.Frame(frame)
+        button_frame.pack(fill='x', pady=5)
+
+        self.coords_copy_formatted_button = self.add_tooltip(
+            ttk.Button(
+                button_frame,
+                text='Copy formatted values',
+                command=self.copy_formatted_coord_values,
+                state='disable',
+            ),
+            'Copy formatted coordinate values',
+            self.copy_formatted_coord_values,
+        )
+        self.coords_copy_formatted_button.pack(fill='x', pady=2, padx=2)
+        self.coords_copy_machine_button = self.add_tooltip(
+            ttk.Button(
+                button_frame,
+                text='Copy machine readable values',
+                command=self.copy_machine_coord_values,
+                state='disable',
+            ),
+            'Copy machine readable coordinate values, compatible with Python, JSON, etc.',
+            self.copy_machine_coord_values,
+        )
+        self.coords_copy_machine_button.pack(fill='x', pady=2, padx=2)
+
+        message = [
+            '',
+            'Click on the plot to get coordinates',
+            'Right click on the plot to clear',
+            '',
+            'Note that most of these values change',
+            'when you adjust the disc position',
+            '',
+        ]
+        ttk.Label(top_level_frame, text='\n'.join(message), justify='center').pack(
+            fill='x', padx=5
+        )
+
+    def get_click_coords(self) -> dict[str, float]:
+        if self.last_click_location is None:
+            return {}
+        out: dict[str, float] = {}
+        observation = self.get_observation()
+        x, y = self.last_click_location
+        out['x'] = x
+        out['y'] = y
+        out['ra'], out['dec'] = observation.xy2radec(x, y)
+        try:
+            targvec = observation._xy2targvec(x, y)
+            out['lon'], out['lat'] = observation.targvec2lonlat(targvec)
+            (
+                phase,
+                incdnc,
+                emissn,
+            ) = observation._illumination_angles_from_targvec_radians(targvec)
+            az = observation._azimuth_angle_from_gie_radians(phase, incdnc, emissn)
+            (
+                out['phase'],
+                out['incidence'],
+                out['emission'],
+                out['azimuth'],
+            ) = np.rad2deg((phase, incdnc, emissn, az))
+        except NotFoundError:
+            pass
+        return out
+
+    def update_coords(self, print_coords: bool = False) -> None:
+        if self.last_click_location is None:
+            for k, label in self.coords_tab_labels.items():
+                label.configure(text='')
+            return
+
+        coords = self.get_click_coords()
+        coords_strs = self.get_click_coords_formatted_strings(coords)
+        if print_coords:
+            # Print with trailing comma so can be copied straight into a list
+            print(self.make_click_json_string(coords) + ',')
+
+        self.coords_machine_str = self.make_click_json_string(
+            coords, fmt='', fmt_radec=''
+        )
+        self.coords_formatted_str = self.make_click_formatted_string(coords_strs)
+
+        for k, label in self.coords_tab_labels.items():
+            label.configure(text=coords_strs.get(k, ''))
+
+    def get_click_coords_formatted_strings(
+        self, coords: dict[str, float], fmt: str = '.2f', dms_fmt: str = '.3f'
+    ) -> dict[str, str]:
+        out: dict[str, str] = {}
+        x, y = coords['x'], coords['y']
+        observation = self.get_observation()
+
+        out['x'] = f'{x:{fmt}}'
+        out['y'] = f'{y:{fmt}}'
+
+        ra, dec = coords['ra'], coords['dec']
+        out['ra'] = utils.decimal_degrees_to_dms_str(ra, dms_fmt)
+        out['dec'] = utils.decimal_degrees_to_dms_str(dec, dms_fmt)
+
+        try:
+            # Use targvec for a bit more speed here
+            lon, lat = coords['lon'], coords['lat']
+            ew = observation.positive_longitude_direction
+            ns = 'N' if lat >= 0 else 'S'
+            out['lon'] = f'{lon:{fmt}}°{ew}'
+            out['lat'] = f'{abs(lat):{fmt}}°{ns}'
+
+            out['phase'] = f'{coords["phase"]:{fmt}}°'
+            out['incidence'] = f'{coords["incidence"]:{fmt}}°'
+            out['emission'] = f'{coords["emission"]:{fmt}}°'
+            out['azimuth'] = f'{coords["azimuth"]:{fmt}}°'
+        except KeyError:
+            pass
+        return out
+
+    def make_click_formatted_string(self, coords_strs: dict[str, str]) -> str:
+        msg = []
+        for name, part_labels in self.coords_labels.items():
+            msg.append(name)
+            for row, kl in enumerate(part_labels):
+                if isinstance(kl, tuple):
+                    key, label = kl
+                else:
+                    key = kl
+                    label = kl.capitalize()
+                value = coords_strs.get(key, '')
+                msg.append(f'  - {label}: {value}')
+        return '\n'.join(msg)
+
+    def make_click_json_string(
+        self, coords: dict[str, float], fmt: str = '.2f', fmt_radec: str = '.6f'
+    ) -> str:
+        x, y = coords['x'], coords['y']
+        ra, dec = coords['ra'], coords['dec']
+        parts = [
+            f'"xy": [{x:{fmt}}, {y:{fmt}}]',
+            f'"radec": [{ra:{fmt_radec}}, {dec:{fmt_radec}}]]',
+        ]
+
+        try:
+            # Use targvec for a bit more speed here
+            lon, lat = coords['lon'], coords['lat']
+            parts.extend(
+                [
+                    f'"lonlat": [{lon:{fmt}}, {lat:{fmt}}]',
+                    f'"phase": {coords["phase"]:{fmt}}',
+                    f'"incidence": {coords["incidence"]:{fmt}}',
+                    f'"emission": {coords["emission"]:{fmt}}',
+                    f'"azimuth": {coords["azimuth"]:{fmt}}',
+                ]
+            )
+        except KeyError:
+            pass  # Not on disc
+        return '{' + ', '.join(parts) + '}'
+
+    def figure_click_callback(self, event: MouseEvent) -> None:
+        if not event.inaxes or event.dblclick:
+            return
+
+        try:
+            # Disable when panning/zooming
+            if self.toolbar.mode._navigate_mode is not None:
+                return
+        except:
+            pass
+
+        if event.button == MouseButton.RIGHT:
+            self.clear_click_location()
+
+        if event.button == MouseButton.LEFT:
+            x, y = event.xdata, event.ydata
+            if x is None or y is None:
+                return
+            self.set_click_location(x, y)
+        self.replot_marked_coord()
+        self.update_plot(print_coords=True)
+
+    def set_click_location(self, x: float, y: float) -> None:
+        self.click_locations.append((x, y))
+        self.last_click_location = (x, y)
+        for button in [
+            self.coords_copy_formatted_button,
+            self.coords_copy_machine_button,
+        ]:
+            button['state'] = 'normal'
+
+    def clear_click_location(self) -> None:
+        self.last_click_location = None
+        self.coords_formatted_str = None
+        self.coords_machine_str = None
+        try:
+            for button in [
+                self.coords_copy_formatted_button,
+                self.coords_copy_machine_button,
+            ]:
+                button['state'] = 'disable'
+        except AttributeError:
+            pass
+
+    def copy_formatted_coord_values(self) -> None:
+        self.copy_to_clipboard(self.coords_formatted_str)
+
+    def copy_machine_coord_values(self) -> None:
+        self.copy_to_clipboard(self.coords_machine_str)
+
+    def copy_to_clipboard(self, s: str) -> None:
+        self.root.clipboard_clear()
+        self.root.clipboard_append(s)
+
+    # Plotting
+    def update_plot(self, print_coords: bool = False) -> None:
         self.get_observation().update_transform()
-        # print(
-        #     'x0={x0}, y0={y0}, r0={r0}, rotation={rotation}'.format(
-        #         x0=self.get_observation().get_x0(),
-        #         y0=self.get_observation().get_y0(),
-        #         r0=self.get_observation().get_r0(),
-        #         rotation=self.get_observation().get_rotation(),
-        #     )
-        # )
         self.canvas.draw()
+        self.update_coords(print_coords=print_coords)
 
     def build_plot(self) -> None:
         self.fig = plt.figure()
@@ -635,6 +923,21 @@ class GUI:
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
         self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
+
+        toolbar_frame = tk.Frame(self.plot_frame)
+        toolbar_frame.pack(side='bottom', fill='x')
+        tk.Label(toolbar_frame, text='\N{NO-BREAK SPACE}').pack(side='left')
+        self.toolbar = CustomNavigationToolbar(
+            self.canvas,
+            toolbar_frame,
+            pack_toolbar=False,
+            gui=self,
+        )
+        self.toolbar.pack(side='bottom', fill='x')
+
+        self.fig.canvas.callbacks.connect(
+            'button_press_event', self.figure_click_callback
+        )
 
     def rebuild_plot(self) -> None:
         self.transform = (
@@ -661,7 +964,7 @@ class GUI:
         self.ax.set_ylim(-0.5, self.get_observation()._ny - 0.5)
         self.ax.xaxis.set_tick_params(labelsize='x-small')
         self.ax.yaxis.set_tick_params(labelsize='x-small')
-        self.ax.set_facecolor('k')
+        self.ax.set_facecolor('0.1')
         self.ax.set_axisbelow(True)
 
     def replot_image(self):
@@ -813,6 +1116,17 @@ class GUI:
                     transform=self.transform,
                     **self.plot_settings['other_bodies'],
                 )
+            )
+
+    def replot_marked_coord(self) -> None:
+        self.remove_artists('marked_coord')
+        if self.last_click_location is not None:
+            x, y = self.last_click_location
+            self.plot_handles['marked_coord'].append(
+                self.ax.axvline(x, **self.plot_settings['marked_coord'])
+            )
+            self.plot_handles['marked_coord'].append(
+                self.ax.axhline(y, **self.plot_settings['marked_coord'])
             )
 
     def remove_artists(self, key: PLOT_KEY) -> None:
@@ -1731,6 +2045,7 @@ class ArtistSetting(Popup):
             self.button['state'] = 'disable'
         for artist in self.gui.plot_handles[self.key]:
             artist.set_visible(enabled)
+        self.gui.plot_settings[self.key]['visible'] = enabled
         self.gui.update_plot()
 
     def button_click(self) -> None:
@@ -2459,7 +2774,7 @@ class NumericEntry:
 
         if label is None:
             label = key
-        self.label = ttk.Label(parent, text=label + ' = ')
+        self.label = ttk.Label(parent, text=label + ': ')
 
         self.sv = tk.StringVar()
         self.sv.trace_add('write', self.text_input)
@@ -2531,3 +2846,33 @@ class OutlinedText(Text):
                 path_effects.Normal(),
             ]  # type: ignore
         )
+
+
+class CustomNavigationToolbar(NavigationToolbar2Tk):
+    def __init__(self, canvas, window, *, pack_toolbar: bool = True, gui: GUI) -> None:
+        # Default tooltips don't work with tk (on my laptop with dark mode at lease)
+        # so disable them here by setting to None, then use our custom tooltips instead.
+        # This list also removes the Save and Subplots buttons which we don't want.
+        self.toolitems = (
+            ('Home', None, 'home', 'home'),
+            ('Back', None, 'back', 'back'),
+            ('Forward', None, 'forward', 'forward'),
+            (None, None, None, None),
+            ('Pan', None, 'move', 'pan'),
+            ('Zoom', None, 'zoom_to_rect', 'zoom'),
+        )
+        super().__init__(canvas, window, pack_toolbar=pack_toolbar)
+        try:
+            self._message_label.configure(foreground='#666666')
+        except:
+            pass
+        try:
+            for name, button in self._buttons.items():
+                # Get default tooltips from super() and use them
+                for text, tooltip_text, image_file, callback in super().toolitems:
+                    if text == name:
+                        hint = tooltip_text.replace('\n', ', ')
+                        gui.add_tooltip(button, hint)
+                        break
+        except:
+            pass

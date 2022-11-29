@@ -14,7 +14,7 @@ You can create a user interface from a :class:`planetmapper.Observation` object 
 It is also possible to start a user interface directly using :func:`planetmapper.gui.GUI.run`, although the other two methods are generally more useful.
 
 
-Example: fitting an observation
+Fitting an observation
 ===============================
 To start, type `planetmapper` into a command line and press enter. This will open a window where you can choose a file to open:
  
@@ -45,7 +45,7 @@ Once the disc is fit, it should look something like the image above. If you want
     :width: 600
     :alt: Screenshot of the customisation options.
 
-You can also fully customise the appearance of the plot on the right to make fitting easier (or if you just fancy a more exciting colour scheme). In the settings tab, you can toggle the visibility of different plotted elements, and you can click on Edit to customise them further. It can be particularly useful to customise the colour scale and brightness of the observed image to increase the contrast around the limb.
+You can fully customise the appearance of the plot on the right to make fitting easier (or if you just fancy a more exciting colour scheme). In the settings tab, you can toggle the visibility of different plotted elements, and you can click on Edit to customise them further. It can be particularly useful to customise the colour scale and brightness of the observed image to increase the contrast around the limb. The zoom and pan buttons beneath the plot can be used to move around the image - click the home button to reset to the default view
 
 You can also use the settings tab to mark points of interest to help with fitting. For example:
 
@@ -64,7 +64,14 @@ Once you are happy with the fitting result, click Save at the top of the Control
 
 Once you click Save, your requested files will be generated and saved. Note that for larger files, this can take around a minute to complete as some of the coordinate conversion calculations are relatively complex.
 
-Example: running the UI from Python
+.. image:: images/gui_coords_selection.png
+    :width: 600
+    :alt: Screenshot of selecting coordinates.
+
+You can also use the user interace to directly measure the coordinates of points of interest. Simply click on a location in the plot and the coordinate values for that location will be displayed in the 'Coords' tab. The coordinate values will also be printed to the command line in a machine readable format that can easily be copied directly into a Python script, JSON database etc. If clicking on the plot isn't updating the coordinates for you, make sure you don't have the pan or zoom buttons selected.
+    
+
+Running the UI from Python
 ===================================
 This simple example shows how you could use :func:`planetmapper.Observation.run_gui` from a Python script to fit multiple observations, then run some custom code on each of them: ::
 
@@ -78,8 +85,12 @@ This simple example shows how you could use :func:`planetmapper.Observation.run_
         observation.add_other_bodies_of_interest('Io', 'Europa', 'Ganymede', 'Callisto')
         observation.set_plate_scale_arcsec(42)
 
-        # Run the GUI to fit the observation interactively
-        # this will open a GUI window every loop
-        observation.run_gui()
+        # Run the GUI to fit the observation interactively 
+        # This will open a GUI window every loop
+        coords = observation.run_gui()
 
         # More custom code can go here to use the fitted observation...
+        # for example, we can print some values for the last click location 
+        if coords:
+            x, y = coords[-1]
+            print(observation.xy2lonlat(x, y))
