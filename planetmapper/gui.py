@@ -8,6 +8,7 @@ import tkinter.scrolledtext
 from collections import defaultdict
 from tkinter import ttk
 from typing import Any, Callable, Literal, TypeVar
+from functools import lru_cache
 
 import matplotlib.cm
 import matplotlib.colors
@@ -602,6 +603,46 @@ class GUI:
                 description,
             ).pack(fill='x', pady=2, padx=2)
 
+    def make_disc_finding_fn(self, fn: Callable[[], None]) -> Callable[[], None]:
+        def button_command():
+            try:
+                fn()
+            except ValueError as e:
+                tkinter.messagebox.showwarning(
+                    title='Error finding disc',
+                    message=str(e),
+                )
+            self.run_all_ui_callbacks(update_plot=True)
+
+        return button_command
+
+    def build_help_hint(self) -> None:
+        self.help_hint = tk.Label(self.hint_frame, text='', foreground='black')
+        self.help_hint.pack(side='left')
+
+    def add_tooltip(
+        self, widget: Widget, msg: str, shortcut_fn: Callable | None = None
+    ) -> Widget:
+        if shortcut_fn is not None:
+            keys = self.shortcuts.get(shortcut_fn, None)
+            if keys is not None:
+                key = keys[0]
+                key = key.replace('<less>', '<').upper()
+                if key[0] == '<' and key[-1] == '>' and len(key) > 2:
+                    key = key[1:-1]
+                msg = f'{msg} (keyboard shortcut: {key})'
+
+        def f_enter(event):
+            self.help_hint.configure(text=msg)
+
+        def f_leave(event):
+            self.help_hint.configure(text='')
+
+        widget.bind('<Enter>', f_enter)
+        widget.bind('<Leave>', f_leave)
+        return widget
+
+    # Coords
     def build_coords_tab(self):
         top_level_frame = ttk.Frame(self.notebook)
         top_level_frame.pack()
@@ -653,7 +694,7 @@ class GUI:
             fill='x', padx=5
         )
 
-    def update_coords_tab(self) -> None:
+    def update_coords(self) -> None:
         if self.last_click_location is None:
             for k, label in self.coords_tab_labels.items():
                 label.configure(text='')
@@ -695,46 +736,69 @@ class GUI:
         except NotFoundError:
             for k in ['lon', 'lat', 'phase', 'incidence', 'emission', 'azimuth']:
                 labels[k].configure(text='')
+            
+    def figure_click_callback(self, event: MouseEvent) -> None:
+        if not event.inaxes or event.dblclick:
+            return
 
-    def make_disc_finding_fn(self, fn: Callable[[], None]) -> Callable[[], None]:
-        def button_command():
-            try:
-                fn()
-            except ValueError as e:
-                tkinter.messagebox.showwarning(
-                    title='Error finding disc',
-                    message=str(e),
-                )
-            self.run_all_ui_callbacks(update_plot=True)
+        if event.button == MouseButton.RIGHT:
+            self.clear_click_location()
 
-        return button_command
+        if event.button == MouseButton.LEFT:
+            x, y = event.xdata, event.ydata
+            if x is None or y is None:
+                return
+            self.set_click_location(x, y)
+        self.replot_marked_coord()
+        self.update_plot()
 
-    def build_help_hint(self) -> None:
-        self.help_hint = tk.Label(self.hint_frame, text='', foreground='black')
-        self.help_hint.pack(side='left')
+    def set_click_location(self, x: float, y: float) -> None:
+        self.click_locations.append((x, y))
+        self.last_click_location = (x, y)
 
-    def add_tooltip(
-        self, widget: Widget, msg: str, shortcut_fn: Callable | None = None
-    ) -> Widget:
-        if shortcut_fn is not None:
-            keys = self.shortcuts.get(shortcut_fn, None)
-            if keys is not None:
-                key = keys[0]
-                key = key.replace('<less>', '<').upper()
-                if key[0] == '<' and key[-1] == '>' and len(key) > 2:
-                    key = key[1:-1]
-                msg = f'{msg} (keyboard shortcut: {key})'
+        # Print with trailing comma so can be copied straight into a list
+        print(self.make_click_json_string(x, y) + ',')
 
-        def f_enter(event):
-            self.help_hint.configure(text=msg)
+    def clear_click_location(self) -> None:
+        self.last_click_location = None
 
-        def f_leave(event):
-            self.help_hint.configure(text='')
+    def make_click_json_string(
+        self, x: float, y: float, fmt: str = '.2f', fmt_radec: str = '.6f'
+    ) -> str:
+        observation = self.get_observation()
+        ra, dec = observation.xy2radec(x, y)
+        parts = [
+            f'"xy": [{x:{fmt}}, {y:{fmt}}]',
+            f'"radec": [{ra:{fmt_radec}}, {dec:{fmt_radec}}]]',
+        ]
 
-        widget.bind('<Enter>', f_enter)
-        widget.bind('<Leave>', f_leave)
-        return widget
+        try:
+            # Use targvec for a bit more speed here
+            targvec = observation._xy2targvec(x, y)
+            lon, lat = observation.targvec2lonlat(targvec)
+            (
+                phase,
+                incdnc,
+                emissn,
+            ) = observation._illumination_angles_from_targvec_radians(targvec)
+            az = observation._azimuth_angle_from_gie_radians(phase, incdnc, emissn)
+            phase, incdnc, emissn, az = np.rad2deg((phase, incdnc, emissn, az))
+            parts.extend(
+                [
+                    f'"lonlat": [{lon:{fmt}}, {lat:{fmt}}]',
+                    f'"phase": {phase:{fmt}}',
+                    f'"incidence": {incdnc:{fmt}}',
+                    f'"emission": {emissn:{fmt}}',
+                    f'"azimuth": {az:{fmt}}',
+                ]
+            )
+        except NotFoundError:
+            pass  # Not on disc
 
+        return '{' + ', '.join(parts) + '}'
+
+
+    # Plotting
     def update_plot(self) -> None:
         self.get_observation().update_transform()
         # print(
@@ -746,7 +810,7 @@ class GUI:
         #     )
         # )
         self.canvas.draw()
-        self.update_coords_tab()
+        self.update_coords()
 
     def build_plot(self) -> None:
         self.fig = plt.figure()
@@ -958,67 +1022,6 @@ class GUI:
     def remove_artists(self, key: PLOT_KEY) -> None:
         while self.plot_handles[key]:
             self.plot_handles[key].pop().remove()
-
-    # Figure callbacks
-    def figure_click_callback(self, event: MouseEvent) -> None:
-        if not event.inaxes or event.dblclick:
-            return
-
-        if event.button == MouseButton.RIGHT:
-            self.clear_click_location()
-
-        if event.button == MouseButton.LEFT:
-            x, y = event.xdata, event.ydata
-            if x is None or y is None:
-                return
-            self.set_click_location(x, y)
-        self.replot_marked_coord()
-        self.update_plot()
-
-    def set_click_location(self, x: float, y: float) -> None:
-        self.click_locations.append((x, y))
-        self.last_click_location = (x, y)
-
-        # Print with trailing comma so can be copied straight into a list
-        print(self.make_click_json_string(x, y) + ',')
-
-    def clear_click_location(self) -> None:
-        self.last_click_location = None
-
-    def make_click_json_string(
-        self, x: float, y: float, fmt: str = '.2f', fmt_radec: str = '.6f'
-    ) -> str:
-        observation = self.get_observation()
-        ra, dec = observation.xy2radec(x, y)
-        parts = [
-            f'"xy": [{x:{fmt}}, {y:{fmt}}]',
-            f'"radec": [{ra:{fmt_radec}}, {dec:{fmt_radec}}]]',
-        ]
-
-        try:
-            # Use targvec for a bit more speed here
-            targvec = observation._xy2targvec(x, y)
-            lon, lat = observation.targvec2lonlat(targvec)
-            (
-                phase,
-                incdnc,
-                emissn,
-            ) = observation._illumination_angles_from_targvec_radians(targvec)
-            az = observation._azimuth_angle_from_gie_radians(phase, incdnc, emissn)
-            phase, incdnc, emissn, az = np.rad2deg((phase, incdnc, emissn, az))
-            parts.extend(
-                [
-                    f'"lonlat": [{lon:{fmt}}, {lat:{fmt}}]',
-                    f'"phase": {phase:{fmt}}',
-                    f'"incidence": {incdnc:{fmt}}',
-                    f'"emission": {emissn:{fmt}}',
-                    f'"azimuth": {az:{fmt}}',
-                ]
-            )
-        except NotFoundError:
-            pass  # Not on disc
-
-        return '{' + ', '.join(parts) + '}'
 
     # Image
     def image_sum(self) -> np.ndarray:
@@ -2661,7 +2664,7 @@ class NumericEntry:
 
         if label is None:
             label = key
-        self.label = ttk.Label(parent, text=label + ' = ')
+        self.label = ttk.Label(parent, text=label + ': ')
 
         self.sv = tk.StringVar()
         self.sv.trace_add('write', self.text_input)
