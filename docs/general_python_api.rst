@@ -1,8 +1,8 @@
 .. _python examples:
 
-General Python API
-******************
-This page shows some simple examples of using the PlanetMapper in Python code. For more details, see the full :ref:`API documentation <api>`.
+Python module
+*************
+This page shows some simple examples of using the `planetmapper` module in Python code. For more details, see the full :ref:`API documentation <api>`.
 
 
 Coordinate conversions

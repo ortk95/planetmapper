@@ -1,12 +1,6 @@
 """
 A Python module for navigating and mapping Solar System observations.
 
-.. warning::
-
-    This code is in active development, and may break/change/not work at all.
-
-    Bugs can be reported at https://github.com/ortk95/planetmapper/issues/new
-
 The core logic of this code is based on conversion between different coordinate systems
 of interest. The `xy` and `radec` coordinate systems define positions from the point of
 view of the observer while the `lonlat` coordinate system defines locations on the
@@ -68,6 +62,13 @@ wrapper around NASA's `cspice` toolkit. For more details, see:
 
 - https://spiceypy.readthedocs.io/en/main/documentation.html
 - https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/
+
+.. warning::
+
+    This code is in active development, so may contain bugs!
+
+    Any issues and bugs can be reported at
+    https://github.com/ortk95/planetmapper/issues/new
 """
 from .common import __version__, __author__, __url__
 from .base import SpiceBase
