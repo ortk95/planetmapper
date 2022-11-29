@@ -19,10 +19,12 @@ import numpy as np
 import spiceypy as spice
 from astropy.io import fits
 from matplotlib.artist import Artist
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.backend_bases import MouseEvent, MouseButton
 from matplotlib.text import Text
+import matplotlib as mpl
 
+from matplotlib.backends._backend_tk import NavigationToolbar2Tk  # TODO delete this
 
 from . import base, data_loader, utils
 from .body import Body, NotFoundError
@@ -221,10 +223,16 @@ class GUI:
         except Quit:
             print('App quit')
             return
-        self.build_gui()
-        self.bind_keyboard()
-        self.root.mainloop()
-        # TODO do something when closed to kill figure etc.?
+        # Disable keyboard shortcuts
+        context = {}
+        for k in mpl.rcParams:
+            if k.startswith('keymap.'):
+                context[k] = []
+        with mpl.rc_context(context):
+            self.build_gui()
+            self.bind_keyboard()
+            self.root.mainloop()
+            # TODO do something when closed to kill figure etc.?
 
     def load_observation(self) -> None:
         if self.allow_open:
@@ -287,13 +295,13 @@ class GUI:
         self.configure_style(self.root)
         self.root.title(self.get_observation().get_description(multiline=False))
 
-        self.hint_frame = tk.Frame(self.root)
+        self.hint_frame = ttk.Frame(self.root)
         self.hint_frame.pack(side='bottom', fill='x')
 
-        self.controls_frame = tk.Frame(self.root)
+        self.controls_frame = ttk.Frame(self.root)
         self.controls_frame.pack(side='left', fill='y')
 
-        self.plot_frame = tk.Frame(self.root)
+        self.plot_frame = ttk.Frame(self.root)
         self.plot_frame.pack(side='top', fill='both', expand=True)
 
         self.build_plot()
@@ -620,7 +628,9 @@ class GUI:
         return button_command
 
     def build_help_hint(self) -> None:
-        self.help_hint = tk.Label(self.hint_frame, text='', foreground='black')
+        frame = ttk.Frame(self.hint_frame)
+        frame.pack(fill='x', padx=5, pady=1)
+        self.help_hint = ttk.Label(frame, text='')
         self.help_hint.pack(side='left')
 
     def add_tooltip(
@@ -891,14 +901,6 @@ class GUI:
     # Plotting
     def update_plot(self, print_coords: bool = False) -> None:
         self.get_observation().update_transform()
-        # print(
-        #     'x0={x0}, y0={y0}, r0={r0}, rotation={rotation}'.format(
-        #         x0=self.get_observation().get_x0(),
-        #         y0=self.get_observation().get_y0(),
-        #         r0=self.get_observation().get_r0(),
-        #         rotation=self.get_observation().get_rotation(),
-        #     )
-        # )
         self.canvas.draw()
         self.update_coords(print_coords=print_coords)
 
@@ -914,6 +916,18 @@ class GUI:
 
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
         self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
+
+        toolbar_frame = tk.Frame(self.plot_frame)
+        toolbar_frame.pack(side='bottom', fill='x')
+        tk.Label(toolbar_frame, text='\N{NO-BREAK SPACE}').pack(side='left')
+
+        self.toolbar = CustomNavigationToolbar(
+            self.canvas,
+            toolbar_frame,
+            pack_toolbar=False,
+            gui=self,
+        )
+        self.toolbar.pack(side='bottom', fill='x')
 
         self.fig.canvas.callbacks.connect(
             'button_press_event', self.figure_click_callback
@@ -2826,3 +2840,33 @@ class OutlinedText(Text):
                 path_effects.Normal(),
             ]  # type: ignore
         )
+
+
+class CustomNavigationToolbar(NavigationToolbar2Tk):
+    def __init__(self, canvas, window, *, pack_toolbar: bool = True, gui: GUI) -> None:
+        # Default tooltips don't work with tk (on my laptop with dark mode at lease)
+        # so disable them here by setting to None, then use our custom tooltips instead.
+        # This list also removes the Save and Subplots buttons which we don't want.
+        self.toolitems = (
+            ('Home', None, 'home', 'home'),
+            ('Back', None, 'back', 'back'),
+            ('Forward', None, 'forward', 'forward'),
+            (None, None, None, None),
+            ('Pan', None, 'move', 'pan'),
+            ('Zoom', None, 'zoom_to_rect', 'zoom'),
+        )
+        super().__init__(canvas, window, pack_toolbar=pack_toolbar)
+        try:
+            self._message_label.configure(foreground='#666666')
+        except:
+            pass
+        try:
+            for name, button in self._buttons.items():
+                # Get default tooltips from super() and use them
+                for text, tooltip_text, image_file, callback in super().toolitems:
+                    if text == name:
+                        hint = tooltip_text.replace('\n', '. ') + '.'
+                        gui.add_tooltip(button, hint)
+                        break
+        except:
+            pass
