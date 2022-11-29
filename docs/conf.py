@@ -13,7 +13,7 @@ from planetmapper.common import __version__
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'Planet Mapper'
+project = 'PlanetMapper'
 copyright = '2022, Oliver King'
 author = 'Oliver King'
 version = __version__
