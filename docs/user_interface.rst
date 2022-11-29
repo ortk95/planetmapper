@@ -68,7 +68,7 @@ Once you click Save, your requested files will be generated and saved. Note that
     :width: 600
     :alt: Screenshot of selecting coordinates.
 
-You can also use the user interace to directly measure the coordinates of points of interest. Simply click on a location in the plot and the coordinate values for that location will be displayed in the 'Coords' tab. The coordinate values will also be printed to the command line in a machine readable format that can easily be copied directly into a Python script, JSON database etc. If clicking on the plot isn't updating the coordinates for you, make sure you don't have the pan or zoom buttons selected.
+You can also use the user interface to directly measure the coordinates of points of interest. Simply click on a location in the plot and the coordinate values for that location will be displayed in the 'Coords' tab. The coordinate values will also be printed to the command line in a machine readable format that can easily be copied directly into a Python script, JSON database etc. If clicking on the plot isn't updating the coordinates for you, make sure you don't have the pan or zoom buttons selected.
     
 
 Running the UI from Python
