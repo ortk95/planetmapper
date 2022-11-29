@@ -28,5 +28,5 @@ import numpy as np
 
 gui = planetmapper.gui.GUI()
 
-gui.set_observation(planetmapper.Observation('data/europa_nav.fits'))
+# gui.set_observation(planetmapper.Observation('data/europa_nav.fits'))
 gui.run()
