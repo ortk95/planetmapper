@@ -855,6 +855,13 @@ class GUI:
         if not event.inaxes or event.dblclick:
             return
 
+        try:
+            # Disable when panning/zooming
+            if self.toolbar.mode._navigate_mode is not None:
+                return
+        except:
+            pass
+
         if event.button == MouseButton.RIGHT:
             self.clear_click_location()
 
@@ -920,7 +927,6 @@ class GUI:
         toolbar_frame = tk.Frame(self.plot_frame)
         toolbar_frame.pack(side='bottom', fill='x')
         tk.Label(toolbar_frame, text='\N{NO-BREAK SPACE}').pack(side='left')
-
         self.toolbar = CustomNavigationToolbar(
             self.canvas,
             toolbar_frame,
@@ -958,7 +964,7 @@ class GUI:
         self.ax.set_ylim(-0.5, self.get_observation()._ny - 0.5)
         self.ax.xaxis.set_tick_params(labelsize='x-small')
         self.ax.yaxis.set_tick_params(labelsize='x-small')
-        self.ax.set_facecolor('k')
+        self.ax.set_facecolor('0.1')
         self.ax.set_axisbelow(True)
 
     def replot_image(self):
@@ -2865,7 +2871,7 @@ class CustomNavigationToolbar(NavigationToolbar2Tk):
                 # Get default tooltips from super() and use them
                 for text, tooltip_text, image_file, callback in super().toolitems:
                     if text == name:
-                        hint = tooltip_text.replace('\n', '. ') + '.'
+                        hint = tooltip_text.replace('\n', ', ')
                         gui.add_tooltip(button, hint)
                         break
         except:
