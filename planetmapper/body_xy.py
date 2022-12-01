@@ -1619,9 +1619,9 @@ class BodyXY(Body):
             Array containing the azimuth angle value of each pixel in the image. Points
             off the disc have a value of NaN.
         """
-        phase_radians = self._get_illumination_gie_img()[:, :, 0]
-        incidence_radians = self._get_illumination_gie_img()[:, :, 1]
-        emission_radians = self._get_illumination_gie_img()[:, :, 2]
+        phase_radians = np.deg2rad(self._get_illumination_gie_img()[:, :, 0])
+        incidence_radians = np.deg2rad(self._get_illumination_gie_img()[:, :, 1])
+        emission_radians = np.deg2rad(self._get_illumination_gie_img()[:, :, 2])
         with warnings.catch_warnings():
             # TODO should we do this better?
             warnings.filterwarnings('ignore', 'divide by zero encountered in')
@@ -1643,9 +1643,9 @@ class BodyXY(Body):
             Array containing cylindrical map of the azimuth angle value at each point
             on the target's surface.
         """
-        phase_radians = self._get_illumf_map(degree_interval)[:, :, 0]
-        incidence_radians = self._get_illumf_map(degree_interval)[:, :, 1]
-        emission_radians = self._get_illumf_map(degree_interval)[:, :, 2]
+        phase_radians = np.deg2rad(self._get_illumf_map(degree_interval)[:, :, 0])
+        incidence_radians = np.deg2rad(self._get_illumf_map(degree_interval)[:, :, 1])
+        emission_radians = np.deg2rad(self._get_illumf_map(degree_interval)[:, :, 2])
         with warnings.catch_warnings():
             # TODO should we do this better?
             warnings.filterwarnings('ignore', 'divide by zero encountered in')
