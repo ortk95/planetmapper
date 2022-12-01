@@ -26,7 +26,10 @@ import numpy as np
 # body.save_mapped_observation('data/test.fits.gz', show_progress=True, print_info=False)
 
 
-gui = planetmapper.gui.GUI()
+# gui = planetmapper.gui.GUI()
 
 # gui.set_observation(planetmapper.Observation('data/europa_nav.fits'))
-gui.run()
+# gui.run()
+obs = planetmapper.Observation('data/europa_nav.fits')
+
+obs.plot_backplane_img('AZIMUTH')
