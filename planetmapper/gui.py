@@ -1286,7 +1286,7 @@ class Popup:
         except ValueError:
             tkinter.messagebox.showwarning(
                 title=f'Error parsing {name}',
-                message=f'Could not convert {name} {s!r} to float',
+                message=f'Could not convert {name} {s!r} to int',
             )
             raise
 
