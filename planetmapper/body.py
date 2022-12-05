@@ -23,7 +23,7 @@ class Body(SpiceBase):
     that are passed to SPICE functions which can almost always be left as their default
     values.
 
-    The `target` and `observer` names are passed to 
+    The `target` and `observer` names are passed to
     :func:`SpiceBase.standardise_body_name`, so a variety of formats are acceptable. For
     example `'jupiter'`, `'JUPITER'`, `' Jupiter '`, `'599'` and `599` will
     all resolve to `'JUPITER'`.
@@ -52,9 +52,9 @@ class Body(SpiceBase):
 
     def __init__(
         self,
-        target: str|int,
+        target: str | int,
         utc: str | datetime.datetime | float,
-        observer: str|int = 'EARTH',
+        observer: str | int = 'EARTH',
         *,
         observer_frame: str = 'J2000',
         illumination_source: str = 'SUN',
@@ -761,17 +761,24 @@ class Body(SpiceBase):
         )
         return np.rad2deg(phase), np.rad2deg(incdnc), np.rad2deg(emissn)
 
-    def _azimuth_angle_from_gie_radians(self, phase_radians: Numeric,incidence_radians:Numeric, emission_radians:Numeric) -> Numeric:
+    def _azimuth_angle_from_gie_radians(
+        self,
+        phase_radians: Numeric,
+        incidence_radians: Numeric,
+        emission_radians: Numeric,
+    ) -> Numeric:
         # Based on Henrik's code at:
         # https://github.com/JWSTGiantPlanets/NIRSPEC-Toolkit/blob/5e2e2cc/JWSTSolarSystemPointing.py#L204-L209
         a = np.cos(phase_radians) - np.cos(emission_radians) * np.cos(incidence_radians)
-        b = np.sqrt(1.0 - np.cos(emission_radians) ** 2) * np.sqrt(1.0 - np.cos(incidence_radians) ** 2)
+        b = np.sqrt(1.0 - np.cos(emission_radians) ** 2) * np.sqrt(
+            1.0 - np.cos(incidence_radians) ** 2
+        )
         azimuth_radians = np.pi - np.arccos(a / b)
         return azimuth_radians
 
     def azimuth_angle_from_lonlat(self, lon: float, lat: float) -> float:
         """
-        Calculate the azimuth angle of a longitude/latitude coordinate on the target 
+        Calculate the azimuth angle of a longitude/latitude coordinate on the target
         body.
 
         Args:
@@ -781,7 +788,11 @@ class Body(SpiceBase):
         Returns:
             Azimuth angle in degrees.
         """
-        azimuth_radians = self._azimuth_angle_from_gie_radians(*self._illumination_angles_from_targvec_radians(self.lonlat2targvec(lon, lat)))
+        azimuth_radians = self._azimuth_angle_from_gie_radians(
+            *self._illumination_angles_from_targvec_radians(
+                self.lonlat2targvec(lon, lat)
+            )
+        )
         return np.rad2deg(azimuth_radians)
 
     def terminator_radec(
@@ -1086,7 +1097,7 @@ class Body(SpiceBase):
     # Other
     def north_pole_angle(self) -> float:
         """
-        Calculate the angle of the north pole of the target body relative to the 
+        Calculate the angle of the north pole of the target body relative to the
         positive declination direction.
 
         Returns:
@@ -1150,6 +1161,7 @@ class Body(SpiceBase):
         transform: None | matplotlib.transforms.Transform,
         ax: Axes | None = None,
         color: str | tuple[float, float, float] = 'k',
+        label_poles: bool = True,
         **kwargs,
     ) -> Axes:
         """Plot generic wireframe representation of the observation"""
@@ -1190,25 +1202,26 @@ class Body(SpiceBase):
         ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination()
         ax.plot(ra_day, dec_day, color=color, transform=transform, **kwargs)
 
-        for lon, lat, s in self.get_poles_to_plot():
-            ra, dec = self.lonlat2radec(lon, lat)
-            ax.text(
-                ra,
-                dec,
-                s,
-                ha='center',
-                va='center',
-                size='small',
-                weight='bold',
-                color=color,
-                path_effects=[
-                    path_effects.Stroke(linewidth=3, foreground='w'),
-                    path_effects.Normal(),
-                ],
-                transform=transform,
-                clip_on=True,
-                **kwargs,
-            )
+        if label_poles:
+            for lon, lat, s in self.get_poles_to_plot():
+                ra, dec = self.lonlat2radec(lon, lat)
+                ax.text(
+                    ra,
+                    dec,
+                    s,
+                    ha='center',
+                    va='center',
+                    size='small',
+                    weight='bold',
+                    color=color,
+                    path_effects=[
+                        path_effects.Stroke(linewidth=3, foreground='w'),
+                        path_effects.Normal(),
+                    ],
+                    transform=transform,
+                    clip_on=True,
+                    **kwargs,
+                )
 
         for lon, lat in self.coordinates_of_interest_lonlat:
             if self.test_if_lonlat_visible(lon, lat):
@@ -1267,6 +1280,7 @@ class Body(SpiceBase):
         ax: Axes | None = None,
         show: bool = False,
         color: str | tuple[float, float, float] = 'k',
+        label_poles: bool = True,
         dms_ticks: bool = True,
         **kwargs,
     ) -> Axes:
@@ -1279,13 +1293,18 @@ class Body(SpiceBase):
                 `plt.gca()` to get the currently active axis.
             show: Toggle immediately showing the plotted figure with `plt.show()`.
             color: Matplotlib color used for to plot the wireframe.
+            label_poles: Toggle labelling the poles of the target body.
             dms_ticks: Toggle between showing ticks as degrees, minutes and seconds
                 (e.g. 12°34′56″) or decimal degrees (e.g. 12.582).
+            **kwargs: Additional arguments are passed to Matplotlib plotting functions
+                (useful for e.g. specifying `zorder`).
 
         Returns:
             The axis containing the plotted wireframe.
         """
-        ax = self._plot_wireframe(transform=None, ax=ax, color=color, **kwargs)
+        ax = self._plot_wireframe(
+            transform=None, ax=ax, color=color, label_poles=label_poles, **kwargs
+        )
 
         utils.format_radec_axes(ax, self.target_dec, dms_ticks)
 
@@ -1298,12 +1317,30 @@ class Body(SpiceBase):
         ax: Axes | None = None,
         show: bool = False,
         color: str | tuple[float, float, float] = 'k',
+        label_poles: bool = True,
         **kwargs,
     ) -> Axes:
-        # TODO docstring
+        """
+        Plot basic wireframe representation of the observation on a target centred
+        frame.
+
+        Args:
+            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), uses
+                `plt.gca()` to get the currently active axis.
+            show: Toggle immediately showing the plotted figure with `plt.show()`.
+            color: Matplotlib color used for to plot the wireframe.
+            label_poles: Toggle labelling the poles of the target body.
+            **kwargs: Additional arguments are passed to Matplotlib plotting functions
+                (useful for e.g. specifying `zorder`).
+
+        Returns:
+            The axis containing the plotted wireframe.
+        """
 
         transform = self.matplotlib_radec2km_transform()
-        ax = self._plot_wireframe(transform=transform, ax=ax, color=color, **kwargs)
+        ax = self._plot_wireframe(
+            transform=transform, ax=ax, color=color, label_poles=label_poles, **kwargs
+        )
 
         ax.set_xlabel('Projected distance (km)')
         ax.set_ylabel('Projected distance (km)')

@@ -833,6 +833,8 @@ class BodyXY(Body):
         ax: Axes | None = None,
         show: bool = False,
         color: str | tuple[float, float, float] = 'k',
+        label_poles: bool = True,
+        **kwargs,
     ) -> Axes:
         """
         Plot basic wireframe representation of the observation using image pixel
@@ -843,6 +845,9 @@ class BodyXY(Body):
                 `plt.gca()` to get the currently active axis.
             show: Toggle immediately showing the plotted figure with `plt.show()`.
             color: Matplotlib color used for to plot the wireframe.
+            label_poles: Toggle labelling the poles of the target body.
+            **kwargs: Additional arguments are passed to Matplotlib plotting functions
+                (useful for e.g. specifying `zorder`).
 
 
         Returns:
@@ -850,7 +855,9 @@ class BodyXY(Body):
         """
         # Generate affine transformation from radec in degrees -> xy
         transform = self.matplotlib_radec2xy_transform()
-        ax = self._plot_wireframe(transform=transform, ax=ax, color=color)
+        ax = self._plot_wireframe(
+            transform=transform, ax=ax, color=color, label_poles=label_poles, **kwargs
+        )
 
         if self._test_if_img_size_valid():
             ax.set_xlim(-0.5, self._nx - 0.5)
