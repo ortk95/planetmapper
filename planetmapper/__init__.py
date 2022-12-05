@@ -1,5 +1,8 @@
 """
-A Python module for navigating and mapping Solar System observations.
+A Python module for visualising, navigating and mapping Solar System observations.
+
+..
+    See https://planetmapper.readthedocs.io for full documentation.
 
 The core logic of this code is based on conversion between different coordinate systems
 of interest. The `xy` and `radec` coordinate systems define positions from the point of
@@ -89,6 +92,7 @@ __all__ = [
     'gui',
     'utils',
     'kernel_downloader',
+    'data_loader',
 ]
 
 
