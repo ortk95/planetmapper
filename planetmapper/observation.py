@@ -59,8 +59,8 @@ class Observation(BodyXY):
             and should only be provided if `path` is None.
         target: Name of target body, passed to :class:`Body`. If this is unspecified,
             then the target will be derived from the values in the FITS header.
-        utc: Time of observation, passed to :class:`Body`. If this is unspecified,
-            then the time will be derived from the values in the FITS header.
+        utc: Time of observation, passed to :class:`Body`. If this is unspecified, then
+            the time will be derived from the values in the FITS header.
         **kwargs: Additional parameters are passed to :class:`BodyXY`. These can be used
             to specify additional parameters such as`observer`.
     """
@@ -79,8 +79,6 @@ class Observation(BodyXY):
         *,
         data: np.ndarray | None = None,
         header: fits.Header | None = None,
-        target: str | None = None,
-        utc: str | datetime.datetime | None = None,
         **kwargs,
     ) -> None:
         # Add docstrings
@@ -95,12 +93,6 @@ class Observation(BodyXY):
 
         self.path = path
         self.header = None  # type: ignore
-
-        # Add optional kw to kwargs if specified
-        if target is not None:
-            kwargs['target'] = target
-        if utc is not None:
-            kwargs['utc'] = utc
 
         # TODO add warning about header being modified in place? Or copy header?
         if self.path is None:

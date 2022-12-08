@@ -39,7 +39,8 @@ class Body(SpiceBase):
             `'2000-12-31T23:59:59'` - see
             https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/utc2et_c.html
             for the acceptable string formats), a Python `datetime` object, or a `float`
-            representing the Modified Julian Date (MJD) of the observation.
+            representing the Modified Julian Date (MJD) of the observation. If `utc` is
+            `None` (the default), then the current time is used.
         observer: Name of observing body. Defaults to `'EARTH'`.
         observer_frame: Observer reference frame.
         illumination_source: Illumination source (e.g. the sun).
@@ -53,7 +54,7 @@ class Body(SpiceBase):
     def __init__(
         self,
         target: str | int,
-        utc: str | datetime.datetime | float,
+        utc: str | datetime.datetime | float | None = None,
         observer: str | int = 'EARTH',
         *,
         observer_frame: str = 'J2000',
@@ -151,14 +152,17 @@ class Body(SpiceBase):
         """
 
         # Process inputs
-        self.target = self.standardise_body_name(target)
         if isinstance(utc, float):
             utc = self.mjd2dtm(utc)
+        if utc is None:
+            utc = datetime.datetime.now(datetime.timezone.utc)
         if isinstance(utc, datetime.datetime):
             # convert input datetime to UTC, then to a string compatible with spice
             utc = utc.astimezone(datetime.timezone.utc)
             utc = utc.strftime(self._DEFAULT_DTM_FORMAT_STRING)
         self.utc = utc
+        
+        self.target = self.standardise_body_name(target)
         self.observer = self.standardise_body_name(observer)
         self.observer_frame = observer_frame
         self.illumination_source = illumination_source
