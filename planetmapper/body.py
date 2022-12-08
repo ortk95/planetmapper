@@ -652,7 +652,7 @@ class Body(SpiceBase):
     # Limb
     def _limb_targvec(
         self,
-        npts: int = 100,
+        npts: int = 360,
         close_loop: bool = True,
         method: str = 'TANGENT/ELLIPSOID',
         corloc: str = 'ELLIPSOID LIMB',
@@ -801,7 +801,7 @@ class Body(SpiceBase):
 
     def terminator_radec(
         self,
-        npts: int = 100,
+        npts: int = 360,
         only_visible: bool = True,
         close_loop: bool = True,
         method: str = 'UMBRAL/TANGENT/ELLIPSOID',
@@ -898,7 +898,7 @@ class Body(SpiceBase):
         return lon_radec + lat_radec
 
     def visible_lon_grid_radec(
-        self, lons: list[float] | np.ndarray, npts: int = 50
+        self, lons: list[float] | np.ndarray, npts: int = 60
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
         Calculates the RA/Dec coordinates for visible lines of constant longitude.
@@ -928,7 +928,7 @@ class Body(SpiceBase):
         return out
 
     def visible_lat_grid_radec(
-        self, lats: list[float] | np.ndarray, npts: int = 100
+        self, lats: list[float] | np.ndarray, npts: int = 120
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
         Constant latitude version of :func:`visible_lon_grid_radec`. See also
