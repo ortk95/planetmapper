@@ -39,8 +39,8 @@ class Body(SpiceBase):
             `'2000-12-31T23:59:59'` - see
             https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/utc2et_c.html
             for the acceptable string formats), a Python `datetime` object, or a `float`
-            representing the Modified Julian Date (MJD) of the observation. 
-            Alternatively, if `utc` is `None` (the default), then the current time is 
+            representing the Modified Julian Date (MJD) of the observation.
+            Alternatively, if `utc` is `None` (the default), then the current time is
             used.
         observer: Name of observing body. Defaults to `'EARTH'`.
         observer_frame: Observer reference frame. Defaults to `'J2000'`,
@@ -119,16 +119,26 @@ class Body(SpiceBase):
         the centre of the target body to the ring. For Saturn, the A, B and C rings from
         https://nssdc.gsfc.nasa.gov/planetary/factsheet/satringfact.html are included by
         default. For all other bodies, `ring_radii` is empty by default.
-        
-        See also :func:`ring_radec`.
+
+        Ring radii data from the 
+        `planetary factsheets <https://nssdc.gsfc.nasa.gov/planetary/planetfact.html>`_ 
+        can be loaded using :func:`data_loader.get_ring_radii`.
         
         Example usage: ::
 
             body.ring_radii.add(122340) # Add new ring radius to plot
             body.ring_radii.add(136780) # Add new ring radius to plot
+            body.ring_radii.update([66900, 74510]) # Add multiple radii to plot once
 
             body.ring_radii.remove(122340) # Remove a ring radius
             body.ring_radii.clear() # Remove all ring radii
+
+            # Add ring radii using data from planetary factsheets
+            ring_data = planetmapper.data_loader.get_ring_radii()['JUPITER']
+            body.ring_radii.update(ring_data['Main Ring'])
+            body.ring_radii.update(ring_data['Amalthea Ring'])
+        
+        See also :func:`ring_radec`.
         """
         self.coordinates_of_interest_lonlat: list[tuple[float, float]]
         """
@@ -162,7 +172,7 @@ class Body(SpiceBase):
             utc = utc.astimezone(datetime.timezone.utc)
             utc = utc.strftime(self._DEFAULT_DTM_FORMAT_STRING)
         self.utc = utc
-        
+
         self.target = self.standardise_body_name(target)
         self.observer = self.standardise_body_name(observer)
         self.observer_frame = observer_frame
