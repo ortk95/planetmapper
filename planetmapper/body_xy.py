@@ -191,7 +191,7 @@ class BodyXY(Body):
     def __init__(
         self,
         target: str,
-        utc: str | datetime.datetime | float,
+        utc: str | datetime.datetime | float | None = None,
         nx: int = 0,
         ny: int = 0,
         *,

@@ -22,6 +22,9 @@ def get_ring_radii() -> dict[str, dict[str, list[float]]]:
     """
     Load planetary ring radii from data file.
 
+    These ring radii values are sourced from
+    https://nssdc.gsfc.nasa.gov/planetary/planetfact.html.
+
     Returns:
         Dictionary where the keys are planet names and the values are dictionaries
         contianing ring data. These ring data dictionaries have keys corresponding to

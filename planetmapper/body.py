@@ -40,9 +40,11 @@ class Body(SpiceBase):
             https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/utc2et_c.html
             for the acceptable string formats), a Python `datetime` object, or a `float`
             representing the Modified Julian Date (MJD) of the observation.
+            Alternatively, if `utc` is `None` (the default), then the current time is
+            used.
         observer: Name of observing body. Defaults to `'EARTH'`.
-        observer_frame: Observer reference frame.
-        illumination_source: Illumination source (e.g. the sun).
+        observer_frame: Observer reference frame. Defaults to `'J2000'`,
+        illumination_source: Illumination source. Defaults to `'SUN'`.
         aberration_correction: Aberration correction used to correct light travel time
             in SPICE.
         subpoint_method: Method used to calculate the sub-observer point in SPICE.
@@ -53,7 +55,7 @@ class Body(SpiceBase):
     def __init__(
         self,
         target: str | int,
-        utc: str | datetime.datetime | float,
+        utc: str | datetime.datetime | float | None = None,
         observer: str | int = 'EARTH',
         *,
         observer_frame: str = 'J2000',
@@ -117,16 +119,26 @@ class Body(SpiceBase):
         the centre of the target body to the ring. For Saturn, the A, B and C rings from
         https://nssdc.gsfc.nasa.gov/planetary/factsheet/satringfact.html are included by
         default. For all other bodies, `ring_radii` is empty by default.
-        
-        See also :func:`ring_radec`.
+
+        Ring radii data from the 
+        `planetary factsheets <https://nssdc.gsfc.nasa.gov/planetary/planetfact.html>`_ 
+        can be loaded using :func:`data_loader.get_ring_radii`.
         
         Example usage: ::
 
             body.ring_radii.add(122340) # Add new ring radius to plot
             body.ring_radii.add(136780) # Add new ring radius to plot
+            body.ring_radii.update([66900, 74510]) # Add multiple radii to plot once
 
             body.ring_radii.remove(122340) # Remove a ring radius
             body.ring_radii.clear() # Remove all ring radii
+
+            # Add ring radii using data from planetary factsheets
+            ring_data = planetmapper.data_loader.get_ring_radii()['JUPITER']
+            body.ring_radii.update(ring_data['Main Ring'])
+            body.ring_radii.update(ring_data['Amalthea Ring'])
+        
+        See also :func:`ring_radec`.
         """
         self.coordinates_of_interest_lonlat: list[tuple[float, float]]
         """
@@ -151,14 +163,17 @@ class Body(SpiceBase):
         """
 
         # Process inputs
-        self.target = self.standardise_body_name(target)
         if isinstance(utc, float):
             utc = self.mjd2dtm(utc)
+        if utc is None:
+            utc = datetime.datetime.now(datetime.timezone.utc)
         if isinstance(utc, datetime.datetime):
             # convert input datetime to UTC, then to a string compatible with spice
             utc = utc.astimezone(datetime.timezone.utc)
             utc = utc.strftime(self._DEFAULT_DTM_FORMAT_STRING)
         self.utc = utc
+
+        self.target = self.standardise_body_name(target)
         self.observer = self.standardise_body_name(observer)
         self.observer_frame = observer_frame
         self.illumination_source = illumination_source
@@ -648,7 +663,7 @@ class Body(SpiceBase):
     # Limb
     def _limb_targvec(
         self,
-        npts: int = 100,
+        npts: int = 360,
         close_loop: bool = True,
         method: str = 'TANGENT/ELLIPSOID',
         corloc: str = 'ELLIPSOID LIMB',
@@ -797,7 +812,7 @@ class Body(SpiceBase):
 
     def terminator_radec(
         self,
-        npts: int = 100,
+        npts: int = 360,
         only_visible: bool = True,
         close_loop: bool = True,
         method: str = 'UMBRAL/TANGENT/ELLIPSOID',
@@ -894,7 +909,7 @@ class Body(SpiceBase):
         return lon_radec + lat_radec
 
     def visible_lon_grid_radec(
-        self, lons: list[float] | np.ndarray, npts: int = 50
+        self, lons: list[float] | np.ndarray, npts: int = 60
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
         Calculates the RA/Dec coordinates for visible lines of constant longitude.
@@ -924,7 +939,7 @@ class Body(SpiceBase):
         return out
 
     def visible_lat_grid_radec(
-        self, lats: list[float] | np.ndarray, npts: int = 100
+        self, lats: list[float] | np.ndarray, npts: int = 120
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
         Constant latitude version of :func:`visible_lon_grid_radec`. See also
