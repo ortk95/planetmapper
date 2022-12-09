@@ -39,11 +39,12 @@ class Body(SpiceBase):
             `'2000-12-31T23:59:59'` - see
             https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/utc2et_c.html
             for the acceptable string formats), a Python `datetime` object, or a `float`
-            representing the Modified Julian Date (MJD) of the observation. If `utc` is
-            `None` (the default), then the current time is used.
+            representing the Modified Julian Date (MJD) of the observation. 
+            Alternatively, if `utc` is `None` (the default), then the current time is 
+            used.
         observer: Name of observing body. Defaults to `'EARTH'`.
-        observer_frame: Observer reference frame.
-        illumination_source: Illumination source (e.g. the sun).
+        observer_frame: Observer reference frame. Defaults to `'J2000'`,
+        illumination_source: Illumination source. Defaults to `'SUN'`.
         aberration_correction: Aberration correction used to correct light travel time
             in SPICE.
         subpoint_method: Method used to calculate the sub-observer point in SPICE.
