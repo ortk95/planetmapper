@@ -160,6 +160,10 @@ class SpiceBase:
         """
         Attempt to intelligently SPICE kernels using `spice.furnsh`.
 
+        .. hint::
+            See the :ref:`SPICE kernel documentation <SPICE kernels>` for more detail
+            about downloading SPICE kernels and the automatic kernel loading behaviour.
+
         Args:
             kernel_path: Path to directory where kernels are stored.
             manual_kernels: Optional manual list of paths to kernels to load instead of
