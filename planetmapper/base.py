@@ -10,7 +10,7 @@ import spiceypy as spice
 from . import progress
 
 KERNEL_PATH = '~/spice_kernels/'
-KERNEL_PATTERNS = ('**/spk/**/*.bsp', '**/pck/**/*.tpc', '**/lsk/**/*.tls')
+KERNEL_PATTERNS = ('**/*.bsp', '**/*.tpc', '**/*.tls')
 
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
 
@@ -163,9 +163,9 @@ class SpiceBase:
         If `manual_kernels` is `None` (the default), then all kernels in the directory
         given by `kernel_path` which match the following patterns are loaded:
 
-        - `**/spk/**/*.bsp`
-        - `**/pck/**/*.tpc`
-        - `**/lsk/**/*.tls`
+        - `**/*.bsp`
+        - `**/*.tpc`
+        - `**/*.tls`
 
         Note that these patterns match an arbitary number of nested directories (within
         `kernel_path`). If more control is required, you can instead specify a list of
