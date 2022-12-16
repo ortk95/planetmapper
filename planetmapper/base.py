@@ -109,7 +109,7 @@ class SpiceBase:
             aware and set to the UTC timezone.
         """
         dtm: datetime.datetime = astropy.time.Time(mjd, format='mjd').datetime
-        return dtm.astimezone(datetime.timezone.utc)
+        return dtm.replace(tzinfo=datetime.timezone.utc)
 
     def speed_of_light(self) -> float:
         """

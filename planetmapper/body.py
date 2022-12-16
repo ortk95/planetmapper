@@ -169,7 +169,7 @@ class Body(SpiceBase):
             utc = datetime.datetime.now(datetime.timezone.utc)
         if isinstance(utc, datetime.datetime):
             # convert input datetime to UTC, then to a string compatible with spice
-            utc = utc.astimezone(datetime.timezone.utc)
+            utc = utc.replace(tzinfo=datetime.timezone.utc)
             utc = utc.strftime(self._DEFAULT_DTM_FORMAT_STRING)
         self.utc = utc
 
