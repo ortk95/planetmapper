@@ -280,9 +280,11 @@ class Observation(BodyXY):
         """
         Set disc parameters using WCS information in the observation's FITS header.
 
-        .. warning::
+        .. note::
 
-            This WCS transform is not perfect
+            There may be very slight differences between the coordinates converted
+            directly from the WCS information, and the coordinates converted by
+            PlanetMapper
 
         Args:
             suppress_warnings: Hide warnings produced by astropy when calculating WCS
@@ -799,9 +801,9 @@ class Observation(BodyXY):
 
             # At this point, you can use the manually fitted observation
             observation.plot_wireframe_xy()
-        
+
         The return value can also be used to interactively select a locations:::
-            
+
             observation = planetmapper.Observation('exciting_data.fits')
             clicks = observation.run_gui()
             ax = observation.plot_wireframe_radec()
