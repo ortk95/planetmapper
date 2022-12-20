@@ -4,7 +4,7 @@ import setuptools
 
 root = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(root, 'planetmapper'))
-import common # type: ignore
+import common  #  type: ignore
 
 with open(os.path.join(root, 'README.md'), 'r') as f:
     long_description = f.read()
@@ -27,9 +27,7 @@ setuptools.setup(
         'Documentation': 'https://planetmapper.readthedocs.io/',
         'GitHub': common.__url__,
     },
-    entry_points={
-        'console_scripts': ['planetmapper=planetmapper:main']
-    },
+    entry_points={'console_scripts': ['planetmapper=planetmapper:main']},
     python_requires='>=3.10.0',
     install_requires=[
         'astropy',
@@ -40,5 +38,14 @@ setuptools.setup(
         'scipy',
         'photutils',
         'tqdm',
+    ],
+    keywords=[
+        'planetmapper',
+        'astronomy',
+        'space',
+        'science',
+        'spice',
+        'ephemeris',
+        'planetary-science',
     ],
 )
