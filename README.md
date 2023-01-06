@@ -18,6 +18,8 @@ For full documentation and [API reference](https://planetmapper.readthedocs.io/e
 pip install planetmapper
 ```
 
+_Requires Python 3.10+_
+
 ## Key features
 ### [Fit and map observations using a full featured user interface](https://planetmapper.readthedocs.io/en/latest/user_interface.html)
 ![PlanetMapper graphical user interface](https://github.com/ortk95/planetmapper/blob/main/docs/images/gui_fitting.png?raw=true)
