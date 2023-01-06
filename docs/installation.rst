@@ -8,8 +8,7 @@ PlanetMapper can easily be `installed from PyPi <https://pypi.org/project/planet
     
     pip install planetmapper
 
-This will automatically install PlanetMapper, along with any dependencies (e.g. NumPy and Astropy) which you do not already have  installed.
-
+This will automatically install PlanetMapper, along with any dependencies (e.g. NumPy and Astropy) which you do not already have installed. Note that PlanetMapper requires a minimum Python version of 3.10.
 
 Updating PlanetMapper
 =====================
