@@ -458,7 +458,7 @@ class Observation(BodyXY):
 
     def add_header_metadata(self, header: fits.Header | None = None):
         """
-        Add automatically generated metadata a FIFTS header. This is automatically
+        Add automatically generated metadata a FITS header. This is automatically
         called by :func:`save` so `add_header_metadata` does not normally need to be
         called manually.
 

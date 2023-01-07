@@ -105,7 +105,7 @@ class SpiceBase:
             mjd: Float representing MJD.
 
         Returns:
-            Python datetime object corresponding to `mjd`. This datetieme is timezone
+            Python datetime object corresponding to `mjd`. This datetime is timezone
             aware and set to the UTC timezone.
         """
         dtm: datetime.datetime = astropy.time.Time(mjd, format='mjd').datetime
@@ -167,7 +167,7 @@ class SpiceBase:
         - `**/*.tpc`
         - `**/*.tls`
 
-        Note that these patterns match an arbitary number of nested directories (within
+        Note that these patterns match an arbitrary number of nested directories (within
         `kernel_path`). If more control is required, you can instead specify a list of
         specific kernels to load with `manual_kernels`.
 
