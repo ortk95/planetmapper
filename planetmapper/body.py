@@ -114,8 +114,8 @@ class Body(SpiceBase):
         """Latitude of the sub-observer point on the target."""
         self.ring_radii: set[float]
         """
-        Set of ring raddii in km to plot around the target body's equator. Each radius
-        is plottted as a single line, so for a wide ring you may want to add both the
+        Set of ring radii in km to plot around the target body's equator. Each radius
+        is plotted as a single line, so for a wide ring you may want to add both the
         inner and outer edger of the ring. The radii are defined as the distance from
         the centre of the target body to the ring. For Saturn, the A, B and C rings from
         https://nssdc.gsfc.nasa.gov/planetary/factsheet/satringfact.html are included by
@@ -282,7 +282,7 @@ class Body(SpiceBase):
     def __repr__(self) -> str:
         return f'Body({self.target!r}, {self.utc!r})'
 
-    def create_other_body(self, other_target: str) -> 'Body':
+    def create_other_body(self, other_target: str|int) -> 'Body':
         """
         Create a :class:`Body` instance using identical parameters but just with a
         different target. For example, the `europa` body created here will have
@@ -313,14 +313,23 @@ class Body(SpiceBase):
             surface_method=self.surface_method,
         )
 
-    def add_other_bodies_of_interest(self, *other_targets: str):
+    def add_other_bodies_of_interest(self, *other_targets: str|int):
         """
         Add targets to the list of :attr:`other_bodies_of_interest` of interest to mark
         when plotting. The other targets are created using :func:`create_other_body`.
         For example, to add the Galilean moons as other targets to a Jupiter body,
         use ::
 
+            body = planetmapper.Body('Jupiter')
             body.add_other_bodies_of_interest('Io', 'Europa', 'Ganymede', 'Callisto')
+
+        Integer SPICE ID codes can also be provided, which can be used to simplify
+        adding multiple satellites to plots. ::
+
+            body = planetmapper.Body('Uranus')
+            body.add_other_bodies_of_interest(*range(701, 711))
+            # Uranus' satellites have ID codes 701, 702, 703 etc, so this adds 10 moons
+            # with a single function call 
 
         Args:
             *other_targets: Names of the other targets, passed to :class:`Body`
@@ -567,7 +576,6 @@ class Body(SpiceBase):
     # Coordinate transformations km <-> radec
     def _get_km2radec_matrix_radians(self) -> np.ndarray:
         # Based on code in BodyXY._get_xy2radec_matrix_radians()
-        # TODO make this actually work
         if self._matrix_km2radec is None:
             r_km = self.r_eq
             r_radians = np.arcsin(r_km / self.target_distance)
@@ -603,10 +611,31 @@ class Body(SpiceBase):
         return v[0], v[1]
 
     def km2radec(self, km_x: float, km_y: float) -> tuple[float, float]:
-        # TODO docstring
+        """
+        Convert distance in target plane to RA/Dec sky coordinates for the observer.
+
+        Args:
+            km_x: Distance in target plane in km in the East-West direction.
+            km_y: Distance in target plane in km in the North-South direction.
+
+        Returns:
+            `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
+        """
         return self._radian_pair2degrees(*self._km2radec_radians(km_x, km_y))
 
     def radec2km(self, ra: float, dec: float) -> tuple[float, float]:
+        """
+        Convert RA/Dec sky coordinates for the observer to distances in the target 
+        plane.
+
+        Args:
+            ra: Right ascension of point in the sky of the observer.
+            dec: Declination of point in the sky of the observer.
+
+        Returns:
+            `(km_x, km_y)` tuple containing distances in km in the target plane in the
+            East-West and North-South directions respectively.
+        """
         return self._radec2km_radians(*self._degree_pair2radians(ra, dec))
 
     def _get_matplotlib_radec2km_transform_radians(
@@ -621,7 +650,19 @@ class Body(SpiceBase):
     def matplotlib_radec2km_transform(
         self, ax: Axes | None = None
     ) -> matplotlib.transforms.Transform:
-        # TODO docstring
+        """
+        Get matplotlib transform which converts RA/Dec sky coordinates to target plane
+        distance coordinates.
+
+        Args:
+            ax: Optionally specify a matplotlib axis to return
+                `transform_radec2km + ax.transData`. This value can then be used in the
+                `transform` keyword argument of a Matplotlib function without any
+                further modification.
+
+        Returns:
+            Matplotlib transformation from `radec` to `km` coordinates.
+        """
         if self._mpl_transform_radec2km is None:
             transform_rad2deg = matplotlib.transforms.Affine2D().scale(np.deg2rad(1))
             self._mpl_transform_radec2km = (
@@ -635,7 +676,19 @@ class Body(SpiceBase):
     def matplotlib_km2radec_transform(
         self, ax: Axes | None = None
     ) -> matplotlib.transforms.Transform:
-        # TODO dosctring
+        """
+        Get matplotlib transform which converts target plane distance coordinates to
+        RA/Dec sky coordinates.
+
+        Args:
+            ax: Optionally specify a matplotlib axis to return
+                `transform_km2radec + ax.transData`. This value can then be used in the
+                `transform` keyword argument of a Matplotlib function without any
+                further modification.
+
+        Returns:
+            Matplotlib transformation from `km` to `radec` coordinates.
+        """
         if self._mpl_transform_km2radec is None:
             self._mpl_transform_km2radec = (
                 self.matplotlib_radec2km_transform().inverted()

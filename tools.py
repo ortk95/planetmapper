@@ -12,6 +12,7 @@ import numpy as np
 import warnings
 from datetime import datetime, timedelta
 
+
 def cprint(*msg, fg=None, bg=None, style=None, skip_print=False, sep=' ', **kwargs):
     """
     Prints coloured and formatted text.

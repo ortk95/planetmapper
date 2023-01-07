@@ -18,14 +18,15 @@ corresponding pixel, so `(0, 3)` covers `x` values from -0.5 to 0.5 and `y` valu
 `radec`: observer frame RA/Dec sky coordinates. These are the right ascension and
 declination which define the position in the sky of a point from the point of view of
 the observer. These coordinates are expressed in degrees. See 
-https://en.wikipedia.org/wiki/Equatorial_coordinate_system for more.
+`Wikipedia <https://en.wikipedia.org/wiki/Equatorial_coordinate_system>`__ for more 
+details.
 
 `lonlat`: planetographic coordinates on target body. These are the planetographic 
 longitude and latitude coordinates of a point on the surface of the target body. These 
 coordinates are expressed in degrees. See 
-https://en.wikipedia.org/wiki/Planetary_coordinate_system and 
-https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/recpgr_c.html#Particulars for
-more.
+`Wikipedia <https://en.wikipedia.org/wiki/Planetary_coordinate_system>`__ and 
+`the SPICE documentation <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/recpgr_c.html#Particulars>`__
+for more details.
 
 `km`: defines the distance in the image plane from the centre of the target body in km
 with the target's north pole pointing up. This coordinate system is similar to the
@@ -61,17 +62,17 @@ interface with SPICE:
 
 
 This code makes extensive use of the the `spiceypy` package which provides a Python
-wrapper around NASA's `cspice` toolkit. For more details, see:
-
-- https://spiceypy.readthedocs.io/en/main/documentation.html
-- https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/
+wrapper around NASA's `cspice` toolkit. See the 
+`spiceypy documentation <https://spiceypy.readthedocs.io/en/main/documentation.html>`__
+and the 
+`SPICE documentation <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/>`__
+for more information.
 
 .. warning::
 
-    This code is in active development, so may contain bugs!
-
-    Any issues and bugs can be reported at
-    https://github.com/ortk95/planetmapper/issues/new
+    This code is in active development, so may contain bugs! Any issues, bugs and 
+    suggestions can be 
+    `reported on GitHub <https://github.com/ortk95/planetmapper/issues/new>`__.
 """
 from .common import __version__, __author__, __url__
 from .base import SpiceBase
