@@ -12,4 +12,7 @@ import matplotlib.pyplot as plt
 
 # plt.show()
 p = '/Users/ortk1/Desktop/iew608inq_drz.fits'
-observation = planetmapper.Observation(p)
+observation = planetmapper.Observation(p, target='uranus')
+observation.run_gui()
+# gui = planetmapper.gui.GUI()
+# gui.run()

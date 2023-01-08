@@ -115,7 +115,7 @@ class Observation(BodyXY):
             # use values from header to fill in arguments (e.g. target) which aren't
             # specified by the user
             self._add_kw_from_header(kwargs, self.header)
-        super().__init__(nx=self.data.shape[2], ny=self.data.shape[1], **kwargs)
+        super().__init__(nx=self.data.shape[-1], ny=self.data.shape[-2], **kwargs)
 
         if self.header is None:
             self.header = fits.Header(
@@ -153,6 +153,11 @@ class Observation(BodyXY):
                     break
             else:
                 raise ValueError('No data found in provided FITS file')
+        
+        if len(data.shape) == 2:
+            # If greyscale image, add another dimension so that it is an image cube with
+            # a single frame. This will ensure that data will always be a cube.
+            data = np.array([data])
         self.data = data
         self.header = header
 
