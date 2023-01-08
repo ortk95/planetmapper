@@ -1575,7 +1575,7 @@ class OpenObservation(Popup):
         except Exception as e:
             tkinter.messagebox.showwarning(
                 title=f'Error processing inputs',
-                message='Error: {e}',
+                message=f'Error: {e}',
             )
             return False
         self.gui.set_observation(observation)
@@ -1842,7 +1842,7 @@ class SaveObservation(Popup):
         except Exception as e:
             tkinter.messagebox.showwarning(
                 title=f'Error saving files',
-                message='Error: {e}',
+                message=f'Error: {e}',
             )
             return False
         finally:
