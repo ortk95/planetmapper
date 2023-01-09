@@ -153,7 +153,7 @@ class Observation(BodyXY):
                     break
             else:
                 raise ValueError('No data found in provided FITS file')
-        
+
         if len(data.shape) == 2:
             # If greyscale image, add another dimension so that it is an image cube with
             # a single frame. This will ensure that data will always be a cube.
@@ -681,7 +681,7 @@ class Observation(BodyXY):
             if print_info:
                 print(' Saving file...')
             utils.check_path(path)
-            hdul.writeto(path, overwrite=True)
+            hdul.writeto(path, overwrite=True, output_verify='warn')
         if print_info:
             print('File saved')
 
@@ -760,7 +760,7 @@ class Observation(BodyXY):
             if print_info:
                 print(' Saving file...')
             utils.check_path(path)
-            hdul.writeto(path, overwrite=True)
+            hdul.writeto(path, overwrite=True, output_verify='warn')
         if print_info:
             print('File saved')
 
