@@ -4,15 +4,8 @@
 import planetmapper
 import matplotlib.pyplot as plt
 
-
-# for rotation, color in [(0, 'k'), (90, 'r')]:
-#     body = planetmapper.BodyXY('Uranus', '2023-01-07 06:11:32', observer='HST', sz=50)
-#     body.set_rotation(rotation)
-#     body.plot_wireframe_xy(color=color)
-
-# plt.show()
-p = '/Users/ortk1/Desktop/iew608inq_drz.fits'
-observation = planetmapper.Observation(p, target='uranus')
-observation.run_gui()
-# gui = planetmapper.gui.GUI()
-# gui.run()
+p = '/Users/ortk1/Dropbox/PhD/data/jwst/NIRSPEC_IFU/2023-01-08_Uranus/lon2/data/level2_nav/jw01248004001_03101_00001_nrs1_s3d_nav.fits'
+observation = planetmapper.Observation(p, aberration_correction='CN')
+observation.disc_from_wcs(True, False)
+observation.plot_wireframe_xy()
+plt.show()
