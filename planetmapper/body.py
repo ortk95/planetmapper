@@ -581,11 +581,13 @@ class Body(SpiceBase):
             r_radians = np.arcsin(r_km / self.target_distance)
             s = r_radians / r_km
             theta = -np.deg2rad(self.north_pole_angle())
+            direction_matrix = np.array([[-1, 0], [0, 1]])
             stretch_matrix = np.array(
-                [[-1 / np.abs(np.cos(self._target_dec_radians)), 0], [0, 1]]
+                [[1 / np.abs(np.cos(self._target_dec_radians)), 0], [0, 1]]
             )
             rotation_matrix = self._rotation_matrix_radians(theta)
-            transform_matrix_2x2 = s * np.matmul(rotation_matrix, stretch_matrix)
+            transform_matrix_2x2 = s * np.matmul(stretch_matrix, rotation_matrix)
+            transform_matrix_2x2 = np.matmul(transform_matrix_2x2, direction_matrix)
 
             v0 = np.array([0, 0])
             a0 = np.array([self._target_ra_radians, self._target_dec_radians])
