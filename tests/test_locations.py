@@ -107,7 +107,7 @@ class TestBodyXY_Sized(unittest.TestCase):
 
 def generate_dtm_str() -> str:
     """Create datetime string such that tests are reproducable on same day"""
-    dtm = datetime.datetime.now()
+    dtm = datetime.datetime(2000, 1,1)
     return dtm.strftime('%Y-%m-%d 00:00:00')
 
 
