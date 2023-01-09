@@ -193,7 +193,7 @@ class GUI:
                 'Fit disc radius',
                 'Set r0 by calculating the radius around (x0, y0) where the brightness decrease is the fastest',
             ),
-            lambda: self.get_observation().disc_from_wcs(): (
+            lambda: self.get_observation().disc_from_wcs(True, False): (
                 'Use FITS WCS',
                 'Set disc parameters using WCS information in the observation\'s FITS header',
             ),
