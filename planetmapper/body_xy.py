@@ -873,7 +873,7 @@ class BodyXY(Body):
         return ax
 
     # Mapping
-    def map_img(self, img: np.ndarray, degree_interval: float = 1) -> np.ndarray:
+    def map_img(self, img: np.ndarray, degree_interval: float = 1, warn_nan:bool=True) -> np.ndarray:
         """
         Project an observed image onto a lon/lat grid.
 
@@ -886,6 +886,7 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between the longitude/latitude points
                 in the mapped output. Passed to :func:`get_x_map` and :func:`get_y_map`
                 when generating the coordinates used for the projection.
+            warn_nan: Print warning if any values in `img` are NaN.
 
         Returns:
             Array containing cylindrical map of the values in `img` at each location on
@@ -894,6 +895,10 @@ class BodyXY(Body):
         """
         x_map = self.get_x_map(degree_interval)
         y_map = self.get_y_map(degree_interval)
+        if np.any(np.isnan(img)):
+            if warn_nan:
+                print('Warning, image contains NaN values which will be set to 0')
+            img = np.nan_to_num(img)
         interpolator = scipy.interpolate.RectBivariateSpline(
             np.arange(img.shape[0]), np.arange(img.shape[1]), img, kx=1, ky=1
         )
