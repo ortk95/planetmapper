@@ -420,8 +420,13 @@ class Observation(BodyXY):
             visible have a value of NaN.
         """
         projected = []
-        for idx, img in enumerate(self.data):
-            self._update_progress_hook(idx / len(self.data))
+        if np.any(np.isnan(self.data)):
+            data = np.nan_to_num(self.data)
+            print('Warning, data contains NaN values which will be set to 0')
+        else:
+            data = self.data
+        for idx, img in enumerate(data):
+            self._update_progress_hook(idx / len(data))
             projected.append(self.map_img(img, degree_interval=degree_interval))
         return np.array(projected)
 
