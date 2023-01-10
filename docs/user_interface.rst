@@ -15,7 +15,7 @@ It is also possible to start a user interface directly using :func:`planetmapper
 
 
 Fitting an observation
-===============================
+======================
 To start, type `planetmapper` into a command line and press enter. This will open a window where you can choose a file to open:
  
 .. image:: images/gui_open.png
