@@ -12,7 +12,10 @@ Most useful SPICE kernels can be found at https://naif.jpl.nasa.gov/pub/naif/. E
 
 Downloading SPICE kernels
 =========================
-To aid in downloading appropriate SPICE kernels, PlanetMapper contains a series of useful functions such as :func:`planetmapper.kernel_downloader.download_urls` to download kernels from the `NAIF database <https://naif.jpl.nasa.gov/pub/naif/>`_. These functions will automatically download the SPICE kernels to a `spice_kernels` directory in your user directory. PlanetMapper automatically looks for kernels in `~/spice_kernels`, so once you only need to worry about downloading the kernels once, then PlanetMapper should deal with everything.
+To aid in downloading appropriate SPICE kernels, PlanetMapper contains a series of useful functions such as :func:`planetmapper.kernel_downloader.download_urls` to download kernels from the `NAIF database <https://naif.jpl.nasa.gov/pub/naif/>`_. These functions will automatically download the SPICE kernels to your computer where they can be used by PlanetMapper, so you only need to worry about downloading the kernels once, then PlanetMapper will deal with everything.
+
+.. hint::
+    By default, PlanetMapper will downloaded the kernels to a directory named `spice_kernels` within your user directory. If you would like to customise this location, see the :ref:`section on customising the kernel directory<kernel directory>` below.
 
 Required kernels
 ----------------
@@ -68,14 +71,40 @@ In some cases, you may require other kernels in addition to those listed above. 
     download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/comets/')
 
 
-Using pre-existing kernels
-==========================
-If you already have the required kernels on your computer, you can use them instead of re-downloading them all. If your kernels are not `~/spice_kernels`, they will not be loaded by PlanetMapper's automatic kernel loading, so you will need to load the kernels manually. See the automatic kernel loading section below for more details.
+.. _kernel directory:
+
+Customising the kernel directory
+================================
+By default, PlanetMapper downloads and looks for spice kernels in the `~/spice_kernels` directory. However, if needed (e.g. if you already have kernels saved elsewhere), this directory can be customised using the different methods described below. The environment variable method is usually the simplest and easiest.
+
+
+Method 1: Environment variable
+------------------------------
+The easiest way to customise the directory is to set the environment variable `PLANETMAPPER_KERNEL_PATH` to point to your desired path. For example, on a Unix-like system, you can add a line to to your `.bash_profile` file to automatically set this environment variable: ::
+
+    export PLANETMAPPER_KERNEL_PATH="/path/where/you/save/your/spice/kernels"
+
+
+Method 2: Using `set_kernel_path`
+---------------------------------
+The function :func:`planetmapper.set_kernel_path` can be used to set the kernel path for a single script. This function *must* be called before using any other `planetmapper` functionality, so it is easiest to run :func:`planetmapper.set_kernel_path` immediately after importing `planetmapper`: ::
+
+    import planetmapper
+    planetmapper.set_kernel_path('/path/where/you/save/your/spice/kernels')
+
+This path should also be set before downloading any SPICE kernels, otherwise they will be downloaded to the incorrect directory ::
+
+    import planetmapper
+    from planetmapper.kernel_downloader import download_urls
+    planetmapper.set_kernel_path('/path/where/you/save/your/spice/kernels')
+
+    download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk/')
+    download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/')
 
 
 Automatic kernel loading
 ========================
-PlanetMapper will automatically load SPICE kernels the first time any object inheriting from :class:`planetmapper.SpiceBase` (e.g. :class:`planetmapper.Body`) is created. All kernels in `~/spice_kernels` which match any of the patterns `**/*.bsp`, `**/*.tpc` or `**/*.tls` are loaded by default. 
+PlanetMapper will automatically load SPICE kernels the first time any object inheriting from :class:`planetmapper.SpiceBase` (e.g. :class:`planetmapper.Body`) is created. All kernels in the directory returned by :func:`planetmapper.get_kernel_path` which match any of the patterns `**/*.bsp`, `**/*.tpc` or `**/*.tls` are loaded by default. 
 
 If you would like finer control over kernel loading, you can manually specify a list of kernel paths to load by specifying `manual_kernels=[...]` when e.g. creating a new :class:`planetmapper.Body` object. Alternatively, you can manually load kernels yourself using `spiceypy.furnsh` and then set `load_kernels=False` which will disable automatic kernel loading completely. 
 

@@ -4,8 +4,8 @@
 Utility to help downloading spice kernels.
 
 Will download local copy of kernels with same directory structure as on 
-https://naif.jpl.nasa.gov/. Set `LOCAL_ROOT` to choose the location that the kernels
-are downloaded to.
+https://naif.jpl.nasa.gov/. Use :func:`planetmapper.set_kernel_path` to choose the
+location that the kernels are downloaded to.
 
 These functions can be used to download a set of URLS. For example: ::
 
@@ -31,9 +31,8 @@ import urllib.request
 import tqdm
 
 from . import utils
-from .base import KERNEL_PATH
+from .base import get_kernel_path
 
-LOCAL_ROOT = KERNEL_PATH
 URL_ROOT = 'https://naif.jpl.nasa.gov/pub/'
 
 
@@ -166,7 +165,7 @@ def _get_kernel_path(p: str) -> str:
     'naif/generic_kernels/spk/satellites'
     """
     p = _standardise_path(p)
-    for prefix in (URL_ROOT, LOCAL_ROOT):
+    for prefix in (URL_ROOT, get_kernel_path()):
         prefix = _standardise_path(prefix)
         if p.startswith(prefix):
             return _standardise_path(os.path.relpath(p, prefix))
@@ -180,7 +179,7 @@ def _kernel_path_to_url(kp: str) -> str:
 
 def _kernel_path_to_local_path(kp: str) -> str:
     """Create a local path from a kernel path"""
-    return _standardise_path(LOCAL_ROOT + os.path.sep + kp)
+    return _standardise_path(get_kernel_path() + os.path.sep + kp)
 
 
 def download_file(url: str, local_path: str) -> None:

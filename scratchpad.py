@@ -5,9 +5,7 @@ import planetmapper
 import matplotlib.pyplot as plt
 import numpy as np
 import importlib
-importlib.reload(planetmapper)
-importlib.reload(planetmapper.gui)
-importlib.reload(planetmapper.observation)
+import os
 
 p = '/Users/ortk1/Desktop/iew608inq_drz.fits'
 observation = planetmapper.Observation(p, aberration_correction='CN', target='uranus')

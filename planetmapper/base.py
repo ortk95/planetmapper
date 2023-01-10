@@ -9,8 +9,12 @@ import spiceypy as spice
 
 from . import progress
 
-KERNEL_PATH = '~/spice_kernels/'
-KERNEL_PATTERNS = ('**/*.bsp', '**/*.tpc', '**/*.tls')
+DEFAULT_KERNEL_PATH = '~/spice_kernels/'
+
+_KERNEL_DATA = {
+    'kernel_path': None,
+    'kernel_patterns': ('**/*.bsp', '**/*.tpc', '**/*.tls'),
+}
 
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
 
@@ -42,7 +46,7 @@ class SpiceBase:
         show_progress: bool = False,
         optimize_speed: bool = True,
         load_kernels: bool = True,
-        kernel_path: str = KERNEL_PATH,
+        kernel_path: str | None = None,
         manual_kernels: None | list[str] = None,
     ) -> None:
         super().__init__()
@@ -153,7 +157,7 @@ class SpiceBase:
     @classmethod
     def load_spice_kernels(
         cls,
-        kernel_path: str = KERNEL_PATH,
+        kernel_path: str | None = None,
         manual_kernels: None | list[str] = None,
         only_if_needed: bool = True,
     ) -> None:
@@ -176,7 +180,11 @@ class SpiceBase:
             about downloading SPICE kernels and the automatic kernel loading behaviour.
 
         Args:
-            kernel_path: Path to directory where kernels are stored.
+            kernel_path: Path to directory where kernels are stored. If this is `None`
+                (the default) then the result of :func:`get_kernel_path` is used. It is
+                usually recommended to use one of the methods described in
+                :ref:`the kernel directory documentation<kernel directory>` rather than
+                using this `kernel_path` argument.
             manual_kernels: Optional manual list of paths to kernels to load instead of
                 using `kernel_path`.
             only_if_needed: If this is `True`, kernels will only be loaded once per
@@ -187,13 +195,25 @@ class SpiceBase:
         if manual_kernels:
             kernels = manual_kernels
         else:
+            if kernel_path is None:
+                kernel_path = get_kernel_path()
             kernel_path = os.path.expanduser(kernel_path)
             kernels = [
-                os.path.join(kernel_path, pattern) for pattern in KERNEL_PATTERNS
+                os.path.join(kernel_path, pattern)
+                for pattern in _KERNEL_DATA['kernel_patterns']
             ]
 
-        load_kernels(*kernels)
-        cls._KERNELS_LOADED = True
+        kernel_paths = load_kernels(*kernels)
+
+        if len(kernel_paths) == 0:
+            print()
+            print(f'WARNING: no SPICE kernels found in directory {kernel_path!r}')
+            print(
+                'Try running planetmapper.set_kernel_path to change where PlanetMapper looks for kernels'
+            )
+            print()
+        else:
+            cls._KERNELS_LOADED = True
 
     @staticmethod
     def close_loop(arr: np.ndarray) -> np.ndarray:
@@ -311,7 +331,7 @@ class SpiceBase:
             self._progress_hook(progress, self._progress_call_stack)
 
 
-def load_kernels(*paths, clear_before: bool = False):
+def load_kernels(*paths, clear_before: bool = False) -> list[str]:
     """
     Load spice kernels defined by patterns
 
@@ -327,3 +347,41 @@ def load_kernels(*paths, clear_before: bool = False):
         kernels.update(glob.glob(os.path.expanduser(pattern), recursive=True))
     for kernel in sorted(kernels):
         spice.furnsh(kernel)
+    return kernels
+
+
+def set_kernel_path(path: str) -> None:
+    """
+    Set the path of the directory containing SPICE kernels. See
+    :ref:`the kernel directory documentation<kernel directory>` for more detail.
+
+    Args:
+        path: Directory which PlanetMapper will search for SPICE kernels.
+    """
+    _KERNEL_DATA['kernel_path'] = path
+
+
+def get_kernel_path() -> str:
+    """
+    Get the path of the directory of SPICE kernels used in PlanetMapper.
+
+    #. If a kernel path has been manually set using :func:`set_kernel_path`, then this
+       path is used.
+
+    #. Otherwise the value of the environment variable `PLANETMAPPER_KERNEL_PATH` is
+       used.
+
+    #. If `PLANETMAPPER_KERNEL_PATH` is not set, then the default value,
+       `'~/spice_kernels/'` is used.
+    """
+    if _KERNEL_DATA['kernel_path'] is not None:
+        return _KERNEL_DATA['kernel_path']
+
+    try:
+        path = os.environ['PLANETMAPPER_KERNEL_PATH']
+        if path:
+            return path
+    except KeyError:
+        pass
+
+    return DEFAULT_KERNEL_PATH
