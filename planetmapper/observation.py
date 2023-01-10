@@ -210,6 +210,11 @@ class Observation(BodyXY):
                 kw['utc'] = mjd
             except:
                 pass
+            if 'utc' not in kw:
+                try:
+                    kw['utc'] = header['DATE-OBS'] + ' ' + header['TIME-OBS']
+                except KeyError:
+                    pass
             _try_get_header_value(
                 kw,
                 header,

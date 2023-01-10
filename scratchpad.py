@@ -5,10 +5,13 @@ import planetmapper
 import matplotlib.pyplot as plt
 import numpy as np
 import importlib
+importlib.reload(planetmapper)
 importlib.reload(planetmapper.gui)
+importlib.reload(planetmapper.observation)
 
 p = '/Users/ortk1/Desktop/iew608inq_drz.fits'
 observation = planetmapper.Observation(p, aberration_correction='CN', target='uranus')
+observation.plot_wireframe_radec()
 observation.run_gui()
 # observation.disc_from_wcs(True, False)
 # observation.plot_wireframe_xy()
