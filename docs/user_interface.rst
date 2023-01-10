@@ -80,7 +80,7 @@ This simple example shows how you could use :func:`planetmapper.Observation.run_
 
     for path in sorted(glob.glob('data/*.fits')):
         # Running from Python allows you to customise SPICE settings like the aberration correction
-        observation = planetmapper.Observation(path, aberration_correction='CN')
+        observation = planetmapper.Observation(path, aberration_correction='CN+S')
 
         # Run some custom setup
         observation.add_other_bodies_of_interest('Io', 'Europa', 'Ganymede', 'Callisto')
