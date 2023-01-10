@@ -229,7 +229,7 @@ class GUI:
         }
 
         self.kernels: list[str] = [
-            os.path.join(base.KERNEL_PATH, pattern) for pattern in base.KERNEL_PATTERNS
+            os.path.join(base.get_kernel_path(), pattern) for pattern in base._KERNEL_DATA['kernel_patterns']
         ]
 
         self.event_time_to_ignore = None

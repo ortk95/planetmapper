@@ -870,6 +870,14 @@ class Observation(BodyXY):
 
             # At this point, you can use the manually fitted observation
             observation.plot_wireframe_xy()
+        
+        .. hint :: 
+            
+            Once you have manually fitted the disc, you can simply close the user
+            interface window and the disc parameters will be updated to the new values.
+            This means that you don't need to click the `Save...` button unless you 
+            specifically want to save a navigated file to disk. 
+            
 
         The return value can also be used to interactively select a locations:::
 

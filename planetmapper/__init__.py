@@ -75,7 +75,7 @@ for more information.
     `reported on GitHub <https://github.com/ortk95/planetmapper/issues/new>`__.
 """
 from .common import __version__, __author__, __url__
-from .base import SpiceBase
+from .base import SpiceBase, set_kernel_path, get_kernel_path
 from .body import Body
 from .body_xy import Backplane, BodyXY
 from .observation import Observation
@@ -94,6 +94,8 @@ __all__ = [
     'utils',
     'kernel_downloader',
     'data_loader',
+    'set_kernel_path',
+    'get_kernel_path',
 ]
 
 

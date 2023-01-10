@@ -8,7 +8,7 @@ Common issues
 
 SPICE Errors
 ============
-If you have any errors caused reported by the SPICE system, it is likely that it doesn't have the correct SPICE kernels loaded. Therefore, make sure you have the :ref:`appropriate SPICE kernels downloaded <SPICE kernels>` to your computer and that they are in the `~/spice_kernels` directory.
+If you have any errors caused reported by the SPICE system, it is likely that it doesn't have the correct SPICE kernels loaded. Therefore, make sure you have the :ref:`appropriate SPICE kernels downloaded <SPICE kernels>` to your computer and that you have set :ref:`the kernel directory<kernel directory>` correctly.
 
 Planets appear are in the wrong position
 ========================================
