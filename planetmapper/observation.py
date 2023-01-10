@@ -297,13 +297,14 @@ class Observation(BodyXY):
             assert all(u == 'deg' for u in wcs.world_axis_units)
             assert wcs.world_axis_physical_types == ['pos.eq.ra', 'pos.eq.dec']
 
-        # a1, a2 = wcs.pixel_to_world_values(1, 0)
-        b1, b2 = wcs.pixel_to_world_values(0, self.r_eq)
-        c1, c2 = wcs.pixel_to_world_values(0, 0)
+        x0, y0 = wcs.world_to_pixel_values(self.target_ra, self.target_dec)
 
-        s = np.sqrt((b1 - c1) ** 2 + (b2 - c2) ** 2)/self.r_eq
+        b1, b2 = wcs.pixel_to_world_values(x0, y0 + 1)
+        c1, c2 = wcs.pixel_to_world_values(x0, y0)
 
         rotation = np.rad2deg(np.arctan2(b1 - c1, b2 - c2))
+
+        s = self.angular_dist(b1, b2, c1, c2)
         arcsec_per_px = s * 60 * 60  # s = degrees/px
         r0 = self.target_diameter_arcsec / (2 * arcsec_per_px)
         x0, y0 = wcs.world_to_pixel_values(self.target_ra, self.target_dec)
@@ -317,7 +318,6 @@ class Observation(BodyXY):
                 (self._nx, self._ny),
                 (0, self._ny),
                 (x0, y0),
-                (10, -5),
             ]
             for x, y in coords:
                 ra_wcs, dec_wcs = wcs.pixel_to_world_values(x, y)
@@ -358,6 +358,30 @@ class Observation(BodyXY):
         self.set_r0(r0)
         self.set_rotation(rotation)
         self.set_disc_method('wcs')
+
+    def position_from_wcs(
+        self, suppress_warnings: bool = False, validate: bool = False
+    ) -> None:
+        """
+        Set disc position `(x0, y0)` using WCS information in the observation's FITS
+        header.
+
+        See also :func:`disc_from_wcs`.
+
+        Args:
+            suppress_warnings: Hide warnings produced by astropy when calculating WCS
+                conversions.
+            validate: Run checks to ensure the derived coordinate conversion is
+                consistent with the WCS conversion. This checks that the conversions are
+                consistent (to within 0.1") and that the input WCS data has appropriate
+                units.
+        """
+        x0, y0, r0, rotation = self._get_disc_params_from_wcs(
+            suppress_warnings, validate
+        )
+        self.set_x0(x0)
+        self.set_y0(y0)
+        self.set_disc_method('wcs_position')
 
     def rotation_from_wcs(
         self, suppress_warnings: bool = False, validate: bool = False
@@ -870,14 +894,14 @@ class Observation(BodyXY):
 
             # At this point, you can use the manually fitted observation
             observation.plot_wireframe_xy()
-        
-        .. hint :: 
-            
+
+        .. hint ::
+
             Once you have manually fitted the disc, you can simply close the user
             interface window and the disc parameters will be updated to the new values.
-            This means that you don't need to click the `Save...` button unless you 
-            specifically want to save a navigated file to disk. 
-            
+            This means that you don't need to click the `Save...` button unless you
+            specifically want to save a navigated file to disk.
+
 
         The return value can also be used to interactively select a locations:::
 

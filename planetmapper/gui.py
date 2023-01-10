@@ -193,8 +193,13 @@ class GUI:
             'Use WCS data from FITS header': [
                 (
                     lambda: self.get_observation().disc_from_wcs(True, False),
-                    'WCS position, rotation and scale',
+                    'Use WCS position, rotation & scale',
                     'Set all disc parameters using approximate WCS information in the observation\'s FITS header',
+                ),
+                (
+                    lambda: self.get_observation().position_from_wcs(True, False),
+                    'Use WCS position',
+                    'Set disc position using approximate WCS information in the observation\'s FITS header',
                 ),
                 (
                     lambda: self.get_observation().rotation_from_wcs(True, False),
@@ -229,7 +234,8 @@ class GUI:
         }
 
         self.kernels: list[str] = [
-            os.path.join(base.get_kernel_path(), pattern) for pattern in base._KERNEL_DATA['kernel_patterns']
+            os.path.join(base.get_kernel_path(), pattern)
+            for pattern in base._KERNEL_DATA['kernel_patterns']
         ]
 
         self.event_time_to_ignore = None
