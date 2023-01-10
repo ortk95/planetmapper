@@ -23,7 +23,7 @@ class Body(SpiceBase):
     that are passed to SPICE functions which can almost always be left as their default
     values. See the
     `SPICE documentation <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/subpnt_c.html#Detailed_Input>`_
-    for more details about possible parameter values. 
+    for more details about possible parameter values.
 
     The `target` and `observer` names are passed to
     :func:`SpiceBase.standardise_body_name`, so a variety of formats are acceptable. For
@@ -40,16 +40,18 @@ class Body(SpiceBase):
             `string` datetime representation compatible with SPICE (e.g.
             `'2000-12-31T23:59:59'` - see the
             `documentation of acceptable string formats <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/utc2et_c.html>`_),
-            a Python `datetime` object, or a `float` representing the Modified Julian 
+            a Python `datetime` object, or a `float` representing the Modified Julian
             Date (MJD) of the observation. Alternatively, if `utc` is `None` (the
             default), then the current time is used.
         observer: Name of observing body. Defaults to `'EARTH'`.
         aberration_correction: Aberration correction used to correct light travel time
-            in SPICE.
+            in SPICE. Defaults to `'CN'`.
         observer_frame: Observer reference frame. Defaults to `'J2000'`,
         illumination_source: Illumination source. Defaults to `'SUN'`.
-        subpoint_method: Method used to calculate the sub-observer point in SPICE.
-        surface_method: Method used to calculate surface intercepts in SPICE.
+        subpoint_method: Method used to calculate the sub-observer point in SPICE. 
+            Defaults to `'INTERCEPT/ELLIPSOID'`.
+        surface_method: Method used to calculate surface intercepts in SPICE. Defaults
+            to `'ELLIPSOID'`.
         **kwargs: Additional arguments are passed to :class:`SpiceBase`.
     """
 
@@ -282,7 +284,7 @@ class Body(SpiceBase):
     def __repr__(self) -> str:
         return f'Body({self.target!r}, {self.utc!r})'
 
-    def create_other_body(self, other_target: str|int) -> 'Body':
+    def create_other_body(self, other_target: str | int) -> 'Body':
         """
         Create a :class:`Body` instance using identical parameters but just with a
         different target. For example, the `europa` body created here will have
@@ -313,7 +315,7 @@ class Body(SpiceBase):
             surface_method=self.surface_method,
         )
 
-    def add_other_bodies_of_interest(self, *other_targets: str|int):
+    def add_other_bodies_of_interest(self, *other_targets: str | int):
         """
         Add targets to the list of :attr:`other_bodies_of_interest` of interest to mark
         when plotting. The other targets are created using :func:`create_other_body`.
@@ -329,7 +331,7 @@ class Body(SpiceBase):
             body = planetmapper.Body('Uranus')
             body.add_other_bodies_of_interest(*range(701, 711))
             # Uranus' satellites have ID codes 701, 702, 703 etc, so this adds 10 moons
-            # with a single function call 
+            # with a single function call
 
         Args:
             *other_targets: Names of the other targets, passed to :class:`Body`
@@ -627,7 +629,7 @@ class Body(SpiceBase):
 
     def radec2km(self, ra: float, dec: float) -> tuple[float, float]:
         """
-        Convert RA/Dec sky coordinates for the observer to distances in the target 
+        Convert RA/Dec sky coordinates for the observer to distances in the target
         plane.
 
         Args:
