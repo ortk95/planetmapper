@@ -279,34 +279,15 @@ class Observation(BodyXY):
                 warnings.simplefilter('ignore', category=AstropyWarning)
             return astropy.wcs.WCS(self.header).celestial
 
-    def disc_from_wcs(
-        self, suppress_warnings: bool = False, validate: bool = True
-    ) -> None:
-        """
-        Set disc parameters using WCS information in the observation's FITS header.
-
-        .. note::
-
-            There may be very slight differences between the coordinates converted
-            directly from the WCS information, and the coordinates converted by
-            PlanetMapper
-
-        Args:
-            suppress_warnings: Hide warnings produced by astropy when calculating WCS
-                conversions.
-            validate: Run checks to ensure the derived coordinate conversion is
-                consistent with the WCS conversion. This checks that the conversions are
-                consistent (to within 0.1") and that the input WCS data has appropriate
-                units.
-        """
+    def _get_disc_params_from_wcs(
+        self, suppress_warnings: bool = False, validate: bool = False
+    ) -> tuple[float, float, float, float]:
         wcs = self._get_wcs_from_header(suppress_warnings=suppress_warnings)
 
         if wcs.naxis == 0:
             raise ValueError('No WCS information found in FITS header')
 
         if validate:
-            # print('WARNING: this WCS transformation is only approximate')
-            # TODO do these checks better
             assert not wcs.has_distortion
             assert all(u == 'deg' for u in wcs.world_axis_units)
             assert wcs.world_axis_physical_types == ['pos.eq.ra', 'pos.eq.dec']
@@ -317,15 +298,10 @@ class Observation(BodyXY):
 
         s = np.sqrt((b1 - c1) ** 2 + (b2 - c2) ** 2)
 
-        theta_degrees = np.rad2deg(np.arctan2(b1 - c1, b2 - c2))
+        rotation = np.rad2deg(np.arctan2(b1 - c1, b2 - c2))
         arcsec_per_px = s * 60 * 60  # s = degrees/px
+        r0 = self.target_diameter_arcsec / (2 * arcsec_per_px)
         x0, y0 = wcs.world_to_pixel_values(self.target_ra, self.target_dec)
-
-        self.set_x0(x0)
-        self.set_y0(y0)
-        self.set_plate_scale_arcsec(arcsec_per_px)
-        self.set_rotation(theta_degrees)
-        self.set_disc_method('wcs')
 
         if validate:
             # Run checks on a few coordinates to ensure our transformation is consistent
@@ -344,6 +320,84 @@ class Observation(BodyXY):
                 # Do checks with -180 and %360 so that e.g. 359.99999 becomes -0.00001
                 assert (ra_wcs - ra - 180) % 360 - 180 < 0.1 / 3600
                 assert (dec_wcs - dec - 180) % 360 - 180 < 0.1 / 3600
+
+        return x0, y0, r0, rotation
+
+    def disc_from_wcs(
+        self, suppress_warnings: bool = False, validate: bool = False
+    ) -> None:
+        """
+        Set disc parameters using WCS information in the observation's FITS header.
+
+        See also :func:`rotation_from_wcs` and :func:`plate_scale_from_wcs`.
+
+        .. note::
+
+            There may be very slight differences between the coordinates converted
+            directly from the WCS information, and the coordinates converted by
+            PlanetMapper
+
+        Args:
+            suppress_warnings: Hide warnings produced by astropy when calculating WCS
+                conversions.
+            validate: Run checks to ensure the derived coordinate conversion is
+                consistent with the WCS conversion. This checks that the conversions are
+                consistent (to within 0.1") and that the input WCS data has appropriate
+                units.
+        """
+        x0, y0, r0, rotation = self._get_disc_params_from_wcs(
+            suppress_warnings, validate
+        )
+        self.set_x0(x0)
+        self.set_y0(y0)
+        self.set_r0(r0)
+        self.set_rotation(rotation)
+        self.set_disc_method('wcs')
+
+    def rotation_from_wcs(
+        self, suppress_warnings: bool = False, validate: bool = False
+    ) -> None:
+        """
+        Set disc rotation using WCS information in the observation's FITS header.
+
+        See also :func:`disc_from_wcs`.
+
+        Args:
+            suppress_warnings: Hide warnings produced by astropy when calculating WCS
+                conversions.
+            validate: Run checks to ensure the derived coordinate conversion is
+                consistent with the WCS conversion. This checks that the conversions are
+                consistent (to within 0.1") and that the input WCS data has appropriate
+                units.
+        """
+        x0, y0, r0, rotation = self._get_disc_params_from_wcs(
+            suppress_warnings, validate
+        )
+        self.set_rotation(rotation)
+        self.set_disc_method('wcs_rotation')
+
+    def plate_scale_from_wcs(
+        self, suppress_warnings: bool = False, validate: bool = False
+    ) -> None:
+        """
+        Set plate scale (i.e. `r0`) using WCS information in the observation's FITS
+        header.
+
+        See also :func:`disc_from_wcs`.
+
+        Args:
+            suppress_warnings: Hide warnings produced by astropy when calculating WCS
+                conversions.
+            validate: Run checks to ensure the derived coordinate conversion is
+                consistent with the WCS conversion. This checks that the conversions are
+                consistent (to within 0.1") and that the input WCS data has appropriate
+                units.
+        """
+        x0, y0, r0, rotation = self._get_disc_params_from_wcs(
+            suppress_warnings, validate
+        )
+        self.set_r0(r0)
+        self.set_disc_method('wcs_plate_scale')
 
     def _get_img_for_fitting(self) -> np.ndarray:
         img = np.nansum(self.data, axis=0)
