@@ -44,10 +44,10 @@ class Body(SpiceBase):
             Date (MJD) of the observation. Alternatively, if `utc` is `None` (the
             default), then the current time is used.
         observer: Name of observing body. Defaults to `'EARTH'`.
-        observer_frame: Observer reference frame. Defaults to `'J2000'`,
-        illumination_source: Illumination source. Defaults to `'SUN'`.
         aberration_correction: Aberration correction used to correct light travel time
             in SPICE.
+        observer_frame: Observer reference frame. Defaults to `'J2000'`,
+        illumination_source: Illumination source. Defaults to `'SUN'`.
         subpoint_method: Method used to calculate the sub-observer point in SPICE.
         surface_method: Method used to calculate surface intercepts in SPICE.
         **kwargs: Additional arguments are passed to :class:`SpiceBase`.
@@ -59,9 +59,9 @@ class Body(SpiceBase):
         utc: str | datetime.datetime | float | None = None,
         observer: str | int = 'EARTH',
         *,
+        aberration_correction: str = 'CN',
         observer_frame: str = 'J2000',
         illumination_source: str = 'SUN',
-        aberration_correction: str = 'CN+S',
         subpoint_method: str = 'INTERCEPT/ELLIPSOID',
         surface_method: str = 'ELLIPSOID',
         **kwargs,
