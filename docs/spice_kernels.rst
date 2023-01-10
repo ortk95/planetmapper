@@ -15,7 +15,7 @@ Downloading SPICE kernels
 To aid in downloading appropriate SPICE kernels, PlanetMapper contains a series of useful functions such as :func:`planetmapper.kernel_downloader.download_urls` to download kernels from the `NAIF database <https://naif.jpl.nasa.gov/pub/naif/>`_. These functions will automatically download the SPICE kernels to your computer where they can be used by PlanetMapper, so you only need to worry about downloading the kernels once, then PlanetMapper will deal with everything.
 
 .. hint::
-    By default, PlanetMapper will downloaded the kernels to a directory named `spice_kernels` within your user directory. If you would like to customise this location, see the :ref:`section on customising the kernel directory<kernel directory>` below.
+    By default, PlanetMapper will downloaded and search for kernels in a directory named `spice_kernels` within your user directory. If you would like to customise this location (e.g. if you already have kernels saved elsewhere), see the :ref:`section on customising the kernel directory<kernel directory>` below.
 
 Required kernels
 ----------------
@@ -92,7 +92,7 @@ The function :func:`planetmapper.set_kernel_path` can be used to set the kernel 
     import planetmapper
     planetmapper.set_kernel_path('/path/where/you/save/your/spice/kernels')
 
-This path should also be set before downloading any SPICE kernels, otherwise they will be downloaded to the incorrect directory ::
+This path should also be set before downloading any SPICE kernels, otherwise they will be downloaded to the incorrect directory: ::
 
     import planetmapper
     from planetmapper.kernel_downloader import download_urls
