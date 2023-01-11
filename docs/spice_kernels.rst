@@ -9,6 +9,8 @@ The core logic of PlanetMapper uses the SPICE system, which was developed by NAS
 
 Most useful SPICE kernels can be found at https://naif.jpl.nasa.gov/pub/naif/. Each individual SPICE kernel typically contains information about a specific object or set of objects (e.g. one kernel file may contain information about Jupiter and its moons, while another may contain information about a specific spacecraft). Therefore, you only need to download a small subset of the SPICE kernels.
 
+If you already have the appropriate SPICE kernels saved to your computer, you can skip to the :ref:`section on customising the kernel directory<kernel directory>` below.
+
 
 Downloading SPICE kernels
 =========================

@@ -83,6 +83,10 @@ MARKERS = ['x', '+', 'o', '.', '*', 'v', '^', '<', '>', ',', 'D', 'd', '|', '_']
 GRID_INTERVALS = ['10', '30', '45', '90']
 CMAPS = ['gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis']
 
+DEFAULT_HINT = (
+    'Use the various options in "Find disc" to automatically adjust the disc position'
+)
+
 
 def _main(*args):
     """Called with `planetmapper` from the command line"""
@@ -660,7 +664,7 @@ class GUI:
     def build_help_hint(self) -> None:
         frame = ttk.Frame(self.hint_frame)
         frame.pack(fill='x', padx=5, pady=1)
-        self.help_hint = ttk.Label(frame, text='')
+        self.help_hint = ttk.Label(frame, text=DEFAULT_HINT)
         self.help_hint.pack(side='left')
 
     def add_tooltip(
