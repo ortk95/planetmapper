@@ -112,3 +112,24 @@ This page lists the backplanes which are automatically registered to every insta
 
 - Image function: :func:`planetmapper.BodyXY.get_doppler_img`
 - Map function: :func:`planetmapper.BodyXY.get_doppler_map`
+
+------------
+
+`RING-RADIUS` Equatorial (ring) plane radius [km]
+
+- Image function: :func:`planetmapper.BodyXY.get_ring_plane_radius_img`
+- Map function: :func:`planetmapper.BodyXY.get_ring_plane_radius_map`
+
+------------
+
+`RING-LON-GRAPHIC` Equatorial (ring) plane planetographic longitude [deg]
+
+- Image function: :func:`planetmapper.BodyXY.get_ring_plane_longitude_img`
+- Map function: :func:`planetmapper.BodyXY.get_ring_plane_longitude_map`
+
+------------
+
+`RING-DISTANCE` Equatorial (ring) plane distance to observer [km]
+
+- Image function: :func:`planetmapper.BodyXY.get_ring_plane_distance_img`
+- Map function: :func:`planetmapper.BodyXY.get_ring_plane_distance_map`

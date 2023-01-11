@@ -873,7 +873,9 @@ class BodyXY(Body):
         return ax
 
     # Mapping
-    def map_img(self, img: np.ndarray, degree_interval: float = 1, warn_nan:bool=True) -> np.ndarray:
+    def map_img(
+        self, img: np.ndarray, degree_interval: float = 1, warn_nan: bool = True
+    ) -> np.ndarray:
         """
         Project an observed image onto a lon/lat grid.
 
@@ -1796,6 +1798,138 @@ class BodyXY(Body):
             self.get_radial_velocity_map(degree_interval)
         )
 
+    @_cache_clearable_result
+    @progress_decorator
+    def _get_ring_plane_coordinate_imgs(
+        self,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        radius_img = self._make_empty_img()
+        long_img = self._make_empty_img()
+        dist_img = self._make_empty_img()
+
+        ra_img = self.get_ra_img()
+        dec_img = self.get_dec_img()
+        for y, x in self._iterate_image(radius_img.shape, progress=True):
+            radius, long, dist = self.ring_plane_coordinates(
+                ra_img[y, x], dec_img[y, x], only_visible=False
+            )
+            radius_img[y, x] = radius
+            long_img[y, x] = long
+            dist_img[y, x] = dist
+
+        hidden_img = dist_img > self.get_distance_img()
+        radius_img[hidden_img] = np.nan
+        long_img[hidden_img] = np.nan
+        dist_img[hidden_img] = np.nan
+        return radius_img, long_img, dist_img
+
+    @_cache_stable_result
+    @progress_decorator
+    def _get_ring_plane_coordinate_maps(
+        self, degree_interval: float
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        radius_map = self._make_empty_map(degree_interval)
+        long_map = self._make_empty_map(degree_interval)
+        dist_map = self._make_empty_map(degree_interval)
+
+        visible = self._get_illumf_map(degree_interval)[:, :, 4]
+        ra_map = self.get_ra_map(degree_interval)
+        dec_map = self.get_dec_map(degree_interval)
+        for a, b, targvec in self._enumerate_targvec_map(
+            degree_interval, progress=True
+        ):
+            if visible[a, b]:
+                radius, long, dist = self.ring_plane_coordinates(
+                    ra_map[a, b], dec_map[a, b], only_visible=False
+                )
+                radius_map[a, b] = radius
+                long_map[a, b] = long
+                dist_map[a, b] = dist
+
+        hidden_map = dist_map > self.get_distance_map(degree_interval)
+        radius_map[hidden_map] = np.nan
+        long_map[hidden_map] = np.nan
+        dist_map[hidden_map] = np.nan
+        return radius_map, long_map, dist_map
+
+    def get_ring_plane_radius_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the ring plane radius in km for each pixel in the image,
+            calculated using :func:`Body.ring_plane_coordinates`. Points of the ring
+            plane obscured by the target body have a value of NaN.
+        """
+        return self._get_ring_plane_coordinate_imgs()[0]
+
+    def get_ring_plane_radius_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of the ring plane radius in km obscuring
+            each point on the target's surface, calculated using
+            :func:`Body.ring_plane_coordinates`. Points where the target body is
+            unobscured by the ring plane have a value of NaN.
+        """
+        return self._get_ring_plane_coordinate_maps(degree_interval)[0]
+
+    def get_ring_plane_longitude_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the ring plane planetographic longitude in degrees for each
+            pixel in the image, calculated using :func:`Body.ring_plane_coordinates`.
+            Points of the ring plane obscured by the target body have a value of NaN.
+        """
+        return self._get_ring_plane_coordinate_imgs()[1]
+
+    def get_ring_plane_longitude_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of the ring plane planetographic longitude
+            in degrees obscuring each point on the target's surface, calculated using
+            :func:`Body.ring_plane_coordinates`. Points where the target body is
+            unobscured by the ring plane have a value of NaN.
+        """
+        return self._get_ring_plane_coordinate_maps(degree_interval)[1]
+
+    def get_ring_plane_distance_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the ring plane distance from the observer in km for each
+            pixel in the image, calculated using :func:`Body.ring_plane_coordinates`.
+            Points of the ring plane obscured by the target body have a value of NaN.
+        """
+        return self._get_ring_plane_coordinate_imgs()[2]
+
+    def get_ring_plane_distance_map(self, degree_interval: float = 1) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Args:
+            degree_interval: Interval in degrees between points in the returned map.
+
+        Returns:
+            Array containing cylindrical map of the ring plane distance from the
+            observer in km obscuring each point on the target's surface, calculated
+            using  :func:`Body.ring_plane_coordinates`. Points where the target body is
+            unobscured by the ring plane have a value of NaN.
+        """
+        return self._get_ring_plane_coordinate_maps(degree_interval)[2]
+
     # Default backplane registration
     def _register_default_backplanes(self) -> None:
         self.register_backplane(
@@ -1889,6 +2023,24 @@ class BodyXY(Body):
             'Doppler factor, sqrt((1 + v/c)/(1 - v/c)) where v is radial velocity',
             self.get_doppler_img,
             self.get_doppler_map,
+        )
+        self.register_backplane(
+            'RING-RADIUS',
+            'Equatorial (ring) plane radius [km]',
+            self.get_ring_plane_radius_img,
+            self.get_ring_plane_radius_map,
+        )
+        self.register_backplane(
+            'RING-LON-GRAPHIC',
+            'Equatorial (ring) plane planetographic longitude [deg]',
+            self.get_ring_plane_longitude_img,
+            self.get_ring_plane_longitude_map,
+        )
+        self.register_backplane(
+            'RING-DISTANCE',
+            'Equatorial (ring) plane distance to observer [km]',
+            self.get_ring_plane_distance_img,
+            self.get_ring_plane_distance_map,
         )
 
 

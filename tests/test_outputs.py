@@ -173,13 +173,48 @@ class TestObservation(unittest.TestCase):
                     [1.00007722, 1.00008422, 1.00009122, 1.00009823],
                 ]
             ),
+            'ring-radius': array(
+                [
+                    [228957.78029376, 198474.2597485, 170312.78096379, 145823.68508115],
+                    [
+                        192175.51144006,
+                        160987.64747718,
+                        132462.60463105,
+                        108715.36894146,
+                    ],
+                    [155908.54014235, nan, nan, nan],
+                    [nan, nan, nan, nan],
+                    [nan, nan, nan, nan],
+                    [nan, nan, nan, nan],
+                ]
+            ),
+            'ring-Lon-GrApHiC': array(
+                [
+                    [264.99535888, 270.32191921, 277.49094778, 287.27022681],
+                    [262.55257487, 268.6402571, 277.49072238, 290.660046],
+                    [258.96434659, nan, nan, nan],
+                    [nan, nan, nan, nan],
+                    [nan, nan, nan, nan],
+                    [nan, nan, nan, nan],
+                ]
+            ),
+            '   ring-distance   ': array(
+                [
+                    [1.32962718e09, 1.32959630e09, 1.32956543e09, 1.32953455e09],
+                    [1.32959455e09, 1.32956368e09, 1.32953280e09, 1.32950193e09],
+                    [1.32956193e09, nan, nan, nan],
+                    [nan, nan, nan, nan],
+                    [nan, nan, nan, nan],
+                    [nan, nan, nan, nan],
+                ]
+            ),
         }
         for k, img_expected in backplanes_expected.items():
             with self.subTest(k):
                 img_output = self.obj.get_backplane_img(k)
                 self.assertTrue(
                     np.allclose(img_output, img_expected, equal_nan=True),
-                    msg=f'output for {k}:\n' + repr(img_output) + '\n',
+                    msg=f'output for {k}:\n' + repr(img_output) + ',\n',
                 )
 
 
