@@ -48,7 +48,7 @@ class Body(SpiceBase):
             in SPICE. Defaults to `'CN'`.
         observer_frame: Observer reference frame. Defaults to `'J2000'`,
         illumination_source: Illumination source. Defaults to `'SUN'`.
-        subpoint_method: Method used to calculate the sub-observer point in SPICE. 
+        subpoint_method: Method used to calculate the sub-observer point in SPICE.
             Defaults to `'INTERCEPT/ELLIPSOID'`.
         surface_method: Method used to calculate surface intercepts in SPICE. Defaults
             to `'ELLIPSOID'`.
@@ -261,6 +261,14 @@ class Body(SpiceBase):
             *self._obsvec2radec_radians(self._subpoint_obsvec)
         )
 
+        # Set up equatorial plane (for ring calculations)
+        targvec_north_pole = self.lonlat2targvec(0, 90)
+        obsvec_north_pole = self._targvec2obsvec(targvec_north_pole)
+        self._ring_plane = spice.nvp2pl(
+            obsvec_north_pole - self._target_obsvec,
+            self._target_obsvec,
+        )
+
         # Create empty lists/blank values
         self.ring_radii = set()
         self.other_bodies_of_interest = []
@@ -413,6 +421,44 @@ class Body(SpiceBase):
     # Coordinate transformations observer -> target direction
     def _radec2obsvec_norm_radians(self, ra: float, dec: float) -> np.ndarray:
         return spice.radrec(1, ra, dec)
+
+    def _obsvec2targvec(self, obsvec: np.ndarray) -> np.ndarray:
+        """
+        Transform rectangular vector in observer frame to rectangular vector in target
+        frame.
+
+        Based on inverse of _targvec2obsvec
+        """
+
+        # Get the target vector from the subpoint to the point of interest
+        obsvec_offset = obsvec - self._subpoint_obsvec  # type: ignore
+        # ^ ignoring type warning due to numpy bug (TODO remove type: ingore in future)
+        # https://github.com/numpy/numpy/issues/22437
+
+        # Calculate the difference in LOS distance between observer<->subpoint and
+        # observer<->point of interest
+        dist_offset = (
+            np.linalg.norm(-self._subpoint_rayvec + obsvec_offset)
+            - self.subpoint_distance
+        )
+
+        # Use the calculated difference in distance relative to the subpoint to
+        # calculate the time corresponding to when the ray left the surface at the point
+        # of interest
+        obsvec_et = self._subpoint_et - dist_offset / self.speed_of_light()
+
+        # Create the transform matrix converting between the target vector at the time
+        # the ray left the point of interest -> the observer vector at the time the ray
+        # hit the detector
+        transform_matrix = spice.pxfrm2(
+            self._observer_frame_encoded,  # type: ignore
+            self._target_frame_encoded,  # type: ignore
+            self.et,
+            obsvec_et,
+        )
+
+        # Use the transform matrix to perform the actual transformation
+        return self._subpoint_targvec + np.matmul(transform_matrix, obsvec_offset)
 
     def _obsvec_norm2targvec(self, obsvec_norm: np.ndarray) -> np.ndarray:
         """TODO add note about raising NotFoundError"""
@@ -934,6 +980,146 @@ class Body(SpiceBase):
         """
         return self._test_if_targvec_illuminated(self.lonlat2targvec(lon, lat))
 
+    # Rings
+    def _ring_coordinates_from_obsvec(
+        self, obsvec: np.ndarray, only_visible: bool = True
+    ) -> tuple[float, float, float]:
+        nxpts, intercept_obsvec = spice.inrypl(
+            np.array([0, 0, 0]), obsvec, self._ring_plane
+        )
+        if nxpts != 1:
+            return np.nan, np.nan, np.nan
+        targvec = self._obsvec2targvec(intercept_obsvec)
+        lon, lat, alt = spice.recpgr(
+            self._target_encoded,  # type: ignore
+            targvec,
+            self.r_eq,
+            self.flattening,
+        )
+        if only_visible and alt < 0:
+            return np.nan, np.nan, np.nan
+
+        distance = self.vector_magnitude(intercept_obsvec)
+        if only_visible:
+            try:
+                position, velocity, lt = self._state_from_targvec(
+                    self._obsvec_norm2targvec(obsvec)
+                )
+                surface_distance = lt * self.speed_of_light()
+                if surface_distance < distance:
+                    return np.nan, np.nan, np.nan
+            except NotFoundError:
+                pass
+
+        lon = np.rad2deg(lon)
+        radius = alt + self.r_eq
+        return radius, lon, distance
+
+    def ring_plane_coordinates(
+        self, ra: float, dec: float, only_visible: bool = True
+    ) -> tuple[float, float, float]:
+        """
+        Calculate coordinates in the target body's equatorial (ring) plane. This is
+        mainly useful for calculating the coordinates in a body's ring system at a given
+        point in the sky.
+
+        To calculate the coordinates corresponding to a location on the target body, you
+        can use ::
+
+            body.ring_plane_coordinates(*body.radec2lonlat(lon, lat))
+
+        This form can be useful to identify parts of a planet's surface which are
+        obscured by its rings ::
+
+            radius, _, _ = body.ring_plane_coordinates(*body.lonlat2radec(lon, lat))
+            ring_data = planetmapper.data_loader.get_ring_radii()['SATURN']
+            for name, radii in ring_data.items():
+                if min(radii) < radius < max(radii):
+                    print(f'Point obscured by {name} ring')
+                    break
+            else:
+                print('Point not obscured by rings')
+
+        Args:
+            ra: Right ascension of point in the sky of the observer.
+            dec: Declination of point in the sky of the observer.
+            only_visible: If `True` (the default), coordinates for parts of the
+                equatorial plane hidden behind the target body are set to NaN.
+
+        Returns:
+            `(ring_radius, ring_longitude, ring_distance)` tuple for the point on the
+            target body's equatorial (ring) plane. `ring_radius` gives the distance of
+            the point in km from the centre of the target body. `ring_longitude` gives
+            the planetographic longitude of the point in degrees. `ring_distance` gives
+            the distance from the observer to the point in km.
+        """
+        return self._ring_coordinates_from_obsvec(
+            self._radec2obsvec_norm_radians(*self._degree_pair2radians(ra, dec)),
+            only_visible=only_visible,
+        )
+
+    def ring_radec(
+        self, radius: float, npts: int = 360, only_visible: bool = True
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Calculate RA/Dec coordinates of a ring around the target body.
+
+        The ring is assumed to be directly above the planet's equator and has a constant
+        `radius` for all longitudes. Use :attr:`ring_radii` to set the rings
+        automatically plotted.
+
+        Args:
+            radius: Radius in km of the ring from the centre of the target body.
+            npts: Number of points in the generated ring.
+            only_visible: If `True` (default), the coordinates for the part of the ring
+                hidden behind the target body are set to NaN. This routine will execute
+                slightly faster with `only_visible` set to `False`.
+
+        Returns:
+            `(ra, dec)` tuple of coordinate arrays.
+        """
+        lons = np.deg2rad(np.linspace(0, 360, npts))
+        alt = radius - self.r_eq
+        targvecs = [self._lonlat2targvec_radians(lon, 0, alt) for lon in lons]
+        obsvecs = [self._targvec2obsvec(targvec) for targvec in targvecs]
+
+        ra_arr = np.full(npts, np.nan)
+        dec_arr = np.full(npts, np.nan)
+        for idx, obsvec in enumerate(obsvecs):
+            if only_visible:
+                # Test the obsvec ray from the observer to this point on the ring to see
+                # if it has a surface intercept with the target body. If there is no
+                # intercept (NotFoundError), then this ring point is definitely visible.
+                # If there is surface intercept, then we see if the ring point is closer
+                # to the observer than the target body's centre (=> this ring point is
+                # visible) or if the ring is behind the target body (=> this ring point
+                # is hidden).
+                try:
+                    spice.sincpt(
+                        self._surface_method_encoded,
+                        self._target_encoded,
+                        self.et,
+                        self._target_frame_encoded,
+                        self._aberration_correction_encoded,
+                        self._observer_encoded,
+                        self._observer_frame_encoded,
+                        obsvec,
+                    )
+                    # If we reach this point then the ring is either infront/behind the
+                    # target body.
+                    if self.vector_magnitude(obsvec) > self.target_distance:
+                        # This part of the ring is hidden behind the target, so leave
+                        # the output array values as NaN.
+                        continue
+                except NotFoundError:
+                    # Ring is to the side of the target body, so is definitely visible,
+                    # so continue with the coordinate conversion for this point.
+                    pass
+            ra_arr[idx], dec_arr[idx] = self._radian_pair2degrees(
+                *self._obsvec2radec_radians(obsvec)
+            )
+        return ra_arr, dec_arr
+
     # Lonlat grid
     def visible_lonlat_grid_radec(
         self, interval: float = 30, **kwargs
@@ -1065,67 +1251,19 @@ class Body(SpiceBase):
         """
         return self._radial_velocity_from_targvec(self.lonlat2targvec(lon, lat))
 
-    def ring_radec(
-        self, radius: float, npts: int = 360, only_visible: bool = True
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def distance_from_lonlat(self, lon: float, lat: float) -> float:
         """
-        Calculate RA/Dec coordinates of a ring around the target body.
-
-        The ring is assumed to be directly above the planet's equator and has a constant
-        `radius` for all longitudes. Use :attr:`ring_radii` to set the rings
-        automatically plotted.
+        Calculate distance from observer to a point on the target's surface.
 
         Args:
-            radius: Radius in km of the ring from the centre of the target body.
-            npts: Number of points in the generated ring.
-            only_visible: If `True` (default), the coordinates for the part of the ring
-                hidden behind the target body are set to NaN. This routine will execute
-                slightly faster with `only_visible` set to `False`.
+            lon: Longitude of point on target body.
+            lat: Latitude of point on target body.
 
         Returns:
-            `(ra, dec)` tuple of coordinate arrays.
+            Distance of the point in km.
         """
-        lons = np.deg2rad(np.linspace(0, 360, npts))
-        alt = radius - self.r_eq
-        targvecs = [self._lonlat2targvec_radians(lon, 0, alt) for lon in lons]
-        obsvecs = [self._targvec2obsvec(targvec) for targvec in targvecs]
-
-        ra_arr = np.full(npts, np.nan)
-        dec_arr = np.full(npts, np.nan)
-        for idx, obsvec in enumerate(obsvecs):
-            if only_visible:
-                # Test the obsvec ray from the observer to this point on the ring to see
-                # if it has a surface intercept with the target body. If there is no
-                # intercept (NotFoundError), then this ring point is definitely visible.
-                # If there is surface intercept, then we see if the ring point is closer
-                # to the observer than the target body's centre (=> this ring point is
-                # visible) or if the ring is behind the target body (=> this ring point
-                # is hidden).
-                try:
-                    spice.sincpt(
-                        self._surface_method_encoded,
-                        self._target_encoded,
-                        self.et,
-                        self._target_frame_encoded,
-                        self._aberration_correction_encoded,
-                        self._observer_encoded,
-                        self._observer_frame_encoded,
-                        obsvec,
-                    )
-                    # If we reach this point then the ring is either infront/behind the
-                    # target body.
-                    if self.vector_magnitude(obsvec) > self.target_distance:
-                        # This part of the ring is hidden behind the target, so leave
-                        # the output array values as NaN.
-                        continue
-                except NotFoundError:
-                    # Ring is to the side of the target body, so is definitely visible,
-                    # so continue with the coordinate conversion for this point.
-                    pass
-            ra_arr[idx], dec_arr[idx] = self._radian_pair2degrees(
-                *self._obsvec2radec_radians(obsvec)
-            )
-        return ra_arr, dec_arr
+        position, velocity, lt = self._state_from_targvec(self.lonlat2targvec(lon, lat))
+        return lt * self.speed_of_light()
 
     # Planetographic <-> planetocentric
     def _targvec2lonlat_centric(self, targvec: np.ndarray) -> tuple[float, float]:

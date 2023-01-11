@@ -130,6 +130,7 @@ class SaveNavProgressHook(SaveProgressHook):
             'BodyXY._get_illumination_gie_img': 50,
             'BodyXY._get_state_imgs': 30,
             'BodyXY.get_radial_velocity_img': 5,
+            'BodyXY._get_ring_coordinate_imgs': 50,
             'Observation.save_observation': 100,
         }
         self.default_key = 'Observation.save_observation'
@@ -151,6 +152,7 @@ class SaveMapProgressHook(SaveProgressHook):
             'BodyXY._get_lonlat_map': 10,
             'BodyXY._get_lonlat_centric_map': 5,
             'BodyXY._get_state_maps': 5,
+            'BodyXY._get_ring_coordinate_maps': 10,
             'Observation.save_mapped_observation': 20,
         }
         self.default_key = 'Observation.save_mapped_observation'
