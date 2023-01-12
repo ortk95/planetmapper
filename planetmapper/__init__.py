@@ -79,23 +79,25 @@ from .base import SpiceBase, set_kernel_path, get_kernel_path
 from .body import Body
 from .body_xy import Backplane, BodyXY
 from .observation import Observation
+from .basic_body import BasicBody
 from . import gui
 from . import utils
 from . import kernel_downloader
 from . import data_loader
 
 __all__ = [
+    'set_kernel_path',
+    'get_kernel_path',
     'SpiceBase',
     'Body',
     'Backplane',
     'BodyXY',
     'Observation',
+    'BasicBody',
     'gui',
     'utils',
     'kernel_downloader',
     'data_loader',
-    'set_kernel_path',
-    'get_kernel_path',
 ]
 
 

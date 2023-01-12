@@ -7,10 +7,11 @@ import matplotlib.transforms
 import numpy as np
 import spiceypy as spice
 from matplotlib.axes import Axes
-from spiceypy.utils.exceptions import NotFoundError
+from spiceypy.utils.exceptions import NotFoundError, SpiceKERNELVARNOTFOUND
 
 from . import data_loader, utils
 from .base import SpiceBase, Numeric
+from .basic_body import BasicBody
 
 
 class Body(SpiceBase):
@@ -159,7 +160,7 @@ class Body(SpiceBase):
 
             body.coordinates_of_interest_radec.append((200, -45))
         """
-        self.other_bodies_of_interest: list[Body]
+        self.other_bodies_of_interest: list[Body | BasicBody]
         """
         List of other bodies of interest to mark when plotting. Add to this list using 
         :func:`add_other_bodies_of_interest`.
@@ -292,7 +293,9 @@ class Body(SpiceBase):
     def __repr__(self) -> str:
         return f'Body({self.target!r}, {self.utc!r})'
 
-    def create_other_body(self, other_target: str | int) -> 'Body':
+    def create_other_body(
+        self, other_target: str | int, fallback_to_basic_body: bool = True
+    ) -> 'Body|BasicBody':
         """
         Create a :class:`Body` instance using identical parameters but just with a
         different target. For example, the `europa` body created here will have
@@ -306,24 +309,43 @@ class Body(SpiceBase):
         `illumination_source`, `aberration_correction`, `subpoint_method`, and
         `surface_method`.
 
+        If a full :class:`Body` instance cannot be created due to insufficient data in
+        the SPICE kernel, a :class:`BasicBody` instance will be created instead. This is
+        useful for objects such as minor satellites which do not have known radius data.
+
         Args:
             other_target: Name of the other target, passed to :class:`Body`
+            fallback_to_basic_body: If a full :class:`Body` instance cannot be created
+                due to insufficient data in the SPICE kernel, attempt to create a
+                :class:`BasicBody` instance instead.
 
         Returns:
-            :class:`Body` instance which corresponds to `other_target`.
+            :class:`Body` or :class:`BasicBody` instance which corresponds to
+            `other_target`.
         """
-        return Body(
-            target=other_target,
-            utc=self.utc,
-            observer=self.observer,
-            observer_frame=self.observer_frame,
-            illumination_source=self.illumination_source,
-            aberration_correction=self.aberration_correction,
-            subpoint_method=self.subpoint_method,
-            surface_method=self.surface_method,
-        )
+        try:
+            return Body(
+                target=other_target,
+                utc=self.utc,
+                observer=self.observer,
+                observer_frame=self.observer_frame,
+                illumination_source=self.illumination_source,
+                aberration_correction=self.aberration_correction,
+                subpoint_method=self.subpoint_method,
+                surface_method=self.surface_method,
+            )
+        except SpiceKERNELVARNOTFOUND:
+            if not fallback_to_basic_body:
+                raise
+            return BasicBody(
+                target=other_target,
+                utc=self.utc,
+                observer=self.observer,
+                observer_frame=self.observer_frame,
+                aberration_correction=self.aberration_correction,
+            )
 
-    def add_other_bodies_of_interest(self, *other_targets: str | int):
+    def add_other_bodies_of_interest(self, *other_targets: str | int) -> None:
         """
         Add targets to the list of :attr:`other_bodies_of_interest` of interest to mark
         when plotting. The other targets are created using :func:`create_other_body`.
@@ -341,11 +363,33 @@ class Body(SpiceBase):
             # Uranus' satellites have ID codes 701, 702, 703 etc, so this adds 10 moons
             # with a single function call
 
+        See also :func:`add_satellites_to_bodies_of_interest`.
+
         Args:
             *other_targets: Names of the other targets, passed to :class:`Body`
         """
         for other_target in other_targets:
             self.other_bodies_of_interest.append(self.create_other_body(other_target))
+
+    def add_satellites_to_bodies_of_interest(self) -> None:
+        """
+        Automatically add all satellites in the target planetary system to
+        :attr:`other_bodies_of_interest`.
+
+        This uses the NAIF ID codes to identify the satellites. For example, Uranus has
+        an ID of 799, and its satellites have codes 701, 702, 703..., so any object with
+        a code in the range 701 to 798 is added for Uranus.
+
+        See also :func:`add_other_bodies_of_interest`.
+        """
+        id_base = (self.target_body_id // 100) * 100
+        for other_target in range(id_base + 1, id_base + 99):
+            try:
+                self.other_bodies_of_interest.append(
+                    self.create_other_body(other_target)
+                )
+            except NotFoundError:
+                continue
 
     # Coordinate transformations target -> observer direction
     def _lonlat2targvec_radians(
