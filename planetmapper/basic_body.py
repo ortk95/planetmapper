@@ -17,8 +17,8 @@ class BasicBody(SpiceBase):
     """
     Class representing astronomical body which is treated as a point source.
 
-    This is typically used for objects which have limited data in the SPICE kernels 
-    (e.g. minor satellites which do not have well known radii). Usually, you are 
+    This is typically used for objects which have limited data in the SPICE kernels
+    (e.g. minor satellites which do not have well known radii). Usually, you are
     unlikely to need to create :class:`BasicBody` instances directly, but they may be
     returned when using :func:`Body.create_other_body`.
 
@@ -30,6 +30,7 @@ class BasicBody(SpiceBase):
         observer: Name of observing body (see :class:`Body` for more details).
         **kwargs: See :class:`Body` for more details about additional arguments.
     """
+
     def __init__(
         self,
         target: str | int,
@@ -43,6 +44,8 @@ class BasicBody(SpiceBase):
         surface_method=None,
         **kwargs,
     ) -> None:
+        # some arguments are unused, but keep them so that the function has the same
+        # signature as Body()
         super().__init__(**kwargs)
 
         # Document instance variables
