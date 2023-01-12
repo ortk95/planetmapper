@@ -41,7 +41,7 @@ intersphinx_mapping = {
     'matplotlib': ('https://matplotlib.org/stable', None),
     'numpy': ('https://numpy.org/doc/stable', None),
     'spiceypy': ('https://spiceypy.readthedocs.io/en/latest', None),
-    }
+}
 
 # Autodoc
 autodoc_member_order = 'bysource'
@@ -60,6 +60,7 @@ html_static_path = ['_static']
 
 # Dynamically generate backplane documentation
 from planetmapper.body_xy import _make_backplane_documentation_str
+
 p = os.path.join(os.path.split(__file__)[0], 'default_backplanes.rst')
 with open(p, 'w') as f:
     print('Updating default backplanes')
