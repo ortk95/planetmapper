@@ -347,7 +347,7 @@ def load_kernels(*paths, clear_before: bool = False) -> list[str]:
         kernels.update(glob.glob(os.path.expanduser(pattern), recursive=True))
     for kernel in sorted(kernels):
         spice.furnsh(kernel)
-    return kernels
+    return list(kernels)
 
 
 def set_kernel_path(path: str) -> None:

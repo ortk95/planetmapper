@@ -3,6 +3,9 @@
 SPICE kernels
 *************
 
+.. hint::
+    If you are having issues with loading spice kernels after following the guide on this page, check the :ref:`list of common issues and solutions<common issues>`
+
 Introduction
 ============
 The core logic of PlanetMapper uses the SPICE system, which was developed by NASA's `Navigation and Ancillary Information Facility <https://naif.jpl.nasa.gov/naif/>`_ to provide detailed and accurate information about the positions and properties of Solar System bodies and spacecraft. This SPICE database is stored in a series of files called 'SPICE kernels' which must be downloaded for PlanetMapper to function.
@@ -16,7 +19,7 @@ Downloading SPICE kernels
 =========================
 To aid in downloading appropriate SPICE kernels, PlanetMapper contains a series of useful functions such as :func:`planetmapper.kernel_downloader.download_urls` to download kernels from the `NAIF database <https://naif.jpl.nasa.gov/pub/naif/>`_. These functions will automatically download the SPICE kernels to your computer where they can be used by PlanetMapper, so you only need to worry about downloading the kernels once, then PlanetMapper will deal with everything.
 
-.. hint::
+.. note::
     By default, PlanetMapper will downloaded and search for kernels in a directory named `spice_kernels` within your user directory. If you would like to customise this location (e.g. if you already have kernels saved elsewhere), see the :ref:`section on customising the kernel directory<kernel directory>` below.
 
 Required kernels
@@ -47,13 +50,39 @@ If you have enough disk space, you can easily download all the planet and moon k
     download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/')
     download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/')
 
-These `spk` kernels add up to ~30GB, so if you have limited disk space, you may want to instead download the specific kernels for the bodies you are interested in. Look at the `summaries` and `readme` text files at the top of the `planets <https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/>`_ and `satellites <https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/>`_ archive pages to see which specific files you want to download. For example, if you are only interested in Jupiter and its moons, you could instead use: ::
+These `spk` kernels add up to ~30GB, so if you have limited disk space, you may want to instead download the specific kernels for the bodies you are interested in. Look at the `summaries` and `readme` text files at the top of the `planets <https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/>`_ and `satellites <https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/>`_ archive pages to see which specific files you want to download. 
 
+.. hint::
+    The kernels for the locations of planets are actually located in the `generic_kernels/spk/satellites <https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/>`_ directory, so even if you are only interested in the central planet, you will still need to download at least one kernel from the satellites directory. Search the 
+    `aa_summaries.txt <https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/aa_summaries.txt>`_ file for the planet(s) you are interested in to find the required kernel(s).
+
+For example, if you are only interested in Jupiter and its moons, you could instead use: ::
+
+    # Note, the exact URLs in this example may not work if new kernel versions are published
     from planetmapper.kernel_downloader import download_urls
+
+    # Locations of planetary system barycentres:
     download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de430.bsp')
-    download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/jup344.bsp')
+    # Locations of Jupiter and its major satellites:
     download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/jup365.bsp')
-    # The exact URLs given here may not work if new kernel versions are published
+
+    # Optionally download locations of smaller satellites of Jupiter:
+    download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/jup344.bsp')
+
+
+Similarly, if you are interested in Uranus, you could use: ::
+
+    # Note, the exact URLs in this example may not work if new kernel versions are published
+    from planetmapper.kernel_downloader import download_urls
+
+    # Locations of planetary system barycentres: 
+    download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de430.bsp')
+    # Locations of Uranus and its major satellites:
+    download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/ura111.bsp')
+
+    # Optionally download locations of smaller satellites of Uranus:
+    download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/ura115.bsp')
+    download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/ura116.bsp')
 
 
 Spacecraft kernels
