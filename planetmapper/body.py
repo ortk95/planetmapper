@@ -123,9 +123,11 @@ class Body(SpiceBase):
         radii in km. If the length of this list is 2, then the values give the inner and 
         outer radii of the ring respectively. Otherwise, the length should be 1, meaning
         the ring has a single radius. These ring radii values are sourced from
-        https://nssdc.gsfc.nasa.gov/planetary/planetfact.html.
-
+        `planetary factsheets <https://nssdc.gsfc.nasa.gov/planetary/planetfact.html>`_.
         If no ring data is available for the target, this dictionary is empty.
+
+        Values from this dictionary can be easily accessed using the convenience
+        function :func:`ring_radii_from_name`.
         """
         self.ring_radii: set[float]
         """
@@ -133,14 +135,11 @@ class Body(SpiceBase):
         is plotted as a single line, so for a wide ring you may want to add both the
         inner and outer edger of the ring. The radii are defined as the distance from
         the centre of the target body to the ring. For Saturn, the A, B and C rings from
-        https://nssdc.gsfc.nasa.gov/planetary/factsheet/satringfact.html are included by
-        default. For all other bodies, `ring_radii` is empty by default.
+        :attr:`named_ring_data` are included by default. For all other bodies,
+        `ring_radii` is empty by default.
 
-        Ring radii data from the 
-        `planetary factsheets <https://nssdc.gsfc.nasa.gov/planetary/planetfact.html>`_ 
-        can be loaded using :func:`data_loader.get_ring_radii`.
-        
-        Example usage: ::
+        Ring radii data from the :attr:`named_ring_data` can easily be added to 
+        `ring_radii` using :func:`add_named_rings`. Example usage: ::
 
             body.ring_radii.add(122340) # Add new ring radius to plot
             body.ring_radii.add(136780) # Add new ring radius to plot
@@ -149,11 +148,12 @@ class Body(SpiceBase):
             body.ring_radii.remove(122340) # Remove a ring radius
             body.ring_radii.clear() # Remove all ring radii
 
-            # Add ring radii using data from planetary factsheets
-            ring_data = planetmapper.data_loader.get_ring_radii()['JUPITER']
-            body.ring_radii.update(ring_data['Main Ring'])
-            body.ring_radii.update(ring_data['Amalthea Ring'])
-        
+            # Add specific ring radii using data from planetary factsheets
+            body.add_named_rings('main', 'halo')
+
+            # Add all rings defined in the planetary factsheets
+            body.add_named_rings()
+
         See also :func:`ring_radec`.
         """
         self.coordinates_of_interest_lonlat: list[tuple[float, float]]
@@ -408,8 +408,8 @@ class Body(SpiceBase):
 
     def ring_radii_from_name(self, name: str) -> list[float]:
         """
-        Get list of ring radii in km for a named ring. 
-        
+        Get list of ring radii in km for a named ring.
+
         This is a convenience function to load data from :attr:`named_ring_data`.
 
         Args:
@@ -419,8 +419,8 @@ class Body(SpiceBase):
             ValueError: if no ring with the provided name is found.
 
         Returns:
-            List of ring radii in km. If the length of this list is 2, then the values 
-            give the inner and outer radii of the ring respectively. Otherwise, the 
+            List of ring radii in km. If the length of this list is 2, then the values
+            give the inner and outer radii of the ring respectively. Otherwise, the
             length should be 1, meaning the ring has a single radius.
         """
         standardise = lambda name: name.casefold().strip().removesuffix('ring').strip()
@@ -433,11 +433,11 @@ class Body(SpiceBase):
     def add_named_rings(self, *names: str) -> None:
         """
         Add named rings to :attr:`ring_radii` so that they appear when creating
-        wireframe plots. If no arguments are provided (i.e. calling 
-        `body.add_named_rings()`), then all rings in :attr:`named_ring_data` are added 
+        wireframe plots. If no arguments are provided (i.e. calling
+        `body.add_named_rings()`), then all rings in :attr:`named_ring_data` are added
         to :attr:`ring_radii`.
 
-        This is a convenience function to add data from :attr:`named_ring_data` to 
+        This is a convenience function to add data from :attr:`named_ring_data` to
         :attr:`ring_radii`.
 
         Args:

@@ -62,10 +62,8 @@ More complex plots can also be created using the functionality in :class:`planet
     # Mark this specific coordinate (if visible) on any wireframe plots
     body.coordinates_of_interest_lonlat.append((360, -45)) 
 
-    # Add some rings to the plot
-    rings = planetmapper.data_loader.get_ring_radii()['NEPTUNE']
-    for radii in rings.values():
-        body.ring_radii.update(radii)
+    # Add Neptune's rings to the plot
+    body.add_named_rings()
 
     fig, ax = plt.subplots(figsize=(6, 6), dpi=200)
     body.plot_wireframe_radec(ax)
