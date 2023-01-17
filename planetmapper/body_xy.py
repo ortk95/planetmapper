@@ -917,8 +917,8 @@ class BodyXY(Body):
             interpolation: Interpolation used when mapping. This can either any of
                 `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. The default is
                 `'linear'`.
-            warn_nan: Print warning if any values in `img` are NaN when `interpolation`
-                is `'linear'`.
+            warn_nan: Print warning if any values in `img` are NaN when any of the
+                spline interpolations are used.
 
         Returns:
             Array containing cylindrical map of the values in `img` at each location on

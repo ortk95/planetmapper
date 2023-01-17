@@ -503,7 +503,7 @@ class Observation(BodyXY):
             degree_interval: Interval in degrees between the longitude/latitude points.
                 Passed to :func:`BodyXY.map_img`.
             interpolation: Interpolation used when mapping. This can either any of
-                `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. Passed to 
+                `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. Passed to
                 :func:`BodyXY.map_img`.
 
         Returns:
@@ -558,6 +558,7 @@ class Observation(BodyXY):
         if hierarch_keyword:
             keyword = self._make_fits_kw(keyword)
         with utils.filter_fits_comment_warning():
+            print(keyword, value, comment)
             header.append(fits.Card(keyword=keyword, value=value, comment=comment))
 
     @classmethod
@@ -812,7 +813,7 @@ class Observation(BodyXY):
                 file.
             degree_interval: Interval in degrees between the longitude/latitude points.
             interpolation: Interpolation used when mapping. This can either any of
-                `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. Passed to 
+                `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. Passed to
                 :func:`BodyXY.map_img`.
             show_progress: Display a progress bar rather than printing progress info.
                 This does not have an effect if `show_progress=True` was set when
@@ -832,7 +833,9 @@ class Observation(BodyXY):
         with utils.filter_fits_comment_warning():
             if print_info:
                 print(' Projecting mapped data...')
-            data = self.get_mapped_data(degree_interval=degree_interval, interpolation=interpolation)
+            data = self.get_mapped_data(
+                degree_interval=degree_interval, interpolation=interpolation
+            )
             header = self.header.copy()
 
             self._update_progress_hook(1 / progress_max)
