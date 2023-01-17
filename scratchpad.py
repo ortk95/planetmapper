@@ -9,9 +9,9 @@ import spiceypy as spice
 
 p = '/Users/ortk1/Dropbox/PhD/data/jwst/Uranus_2023jan08/lon2/stage3/d1/Level3_ch4-short_s3d.fits'
 # p = '/Users/ortk1/Dropbox/PhD/data/jwst/NIRSPEC_IFU/2023-01-08_Uranus/lon2/data/level2_nav/jw01248004001_03103_00004_nrs1_s3d_nav.fits'
-body = planetmapper.Observation(p, show_progress=True)
+# body = planetmapper.Observation(p, show_progress=True)
 # body.run_gui()
-body.save_mapped_observation('~/Desktop/map_nearest.fits', interpolation='nearest')
+# body.save_mapped_observation('~/Desktop/map_nearest.fits', interpolation='nearest')
 
 # ax = body.plot_wireframe_xy()
 # img = np.nanmedian(body.data, axis=0)
@@ -25,3 +25,7 @@ body.save_mapped_observation('~/Desktop/map_nearest.fits', interpolation='neares
 #     body.imshow_map(map_img, ax=ax)
 #     ax.set_title(interpolation)
 #     plt.show()
+
+
+gui = planetmapper.gui.GUI()
+gui.run()

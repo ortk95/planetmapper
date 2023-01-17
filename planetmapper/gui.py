@@ -1492,7 +1492,7 @@ class OpenObservation(Popup):
                 ttk.Entry(
                     self.grid_frame,
                     textvariable=self.stringvars['path'],
-                    state='disabled',
+                    # state='disabled',
                 ),
                 ttk.Button(self.grid_frame, text='Open', command=self.get_path),
             ),

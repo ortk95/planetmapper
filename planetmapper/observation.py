@@ -558,7 +558,6 @@ class Observation(BodyXY):
         if hierarch_keyword:
             keyword = self._make_fits_kw(keyword)
         with utils.filter_fits_comment_warning():
-            print(keyword, value, comment)
             header.append(fits.Card(keyword=keyword, value=value, comment=comment))
 
     @classmethod
