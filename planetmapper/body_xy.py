@@ -899,8 +899,14 @@ class BodyXY(Body):
         """
         Project an observed image onto a lon/lat grid.
 
-        The map projection is performed using `scipy.interpolate.RectBivariateSpline`
-        using linear interpolation (i.e. spline degrees `kx` and `ky` are set to 1).
+        If `interpolation` is `'linear'`, the map projection is performed using
+        `scipy.interpolate.RectBivariateSpline` using linear interpolation (i.e. spline
+        degrees `kx` and `ky` are set to 1).
+
+        If `interpolation` is `'nearest'`, no interpolation is performed, and the mapped
+        image takes the value of the nearest pixel in the image to that location. This
+        can be useful to easily visualise the pixel scale for low spatial resolution
+        observations.
 
         Args:
             img: Observed image where pixel coordinates correspond to the `xy` pixel
@@ -908,8 +914,10 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between the longitude/latitude points
                 in the mapped output. Passed to :func:`get_x_map` and :func:`get_y_map`
                 when generating the coordinates used for the projection.
-            interpolation:
-            warn_nan: Print warning if any values in `img` are NaN.
+            interpolation: Interpolation used when mapping. This can either be
+                `'linear'` or `'nearest'`.
+            warn_nan: Print warning if any values in `img` are NaN when `interpolation`
+                is `'linear'`.
 
         Returns:
             Array containing cylindrical map of the values in `img` at each location on

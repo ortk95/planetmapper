@@ -1,7 +1,7 @@
 import datetime
 import os
 import warnings
-from typing import ParamSpec, TypeVar, Callable, Any
+from typing import ParamSpec, TypeVar, Callable, Any, Literal
 
 import astropy.wcs
 import numpy as np
@@ -490,7 +490,11 @@ class Observation(BodyXY):
     # Mapping
     @_cache_clearable_result_with_args
     @progress_decorator
-    def get_mapped_data(self, degree_interval: float = 1) -> np.ndarray:
+    def get_mapped_data(
+        self,
+        degree_interval: float = 1,
+        interpolation: Literal['linear', 'nearest'] = 'linear',
+    ) -> np.ndarray:
         """
         Projects the observed :attr:`data` onto a lon/lat grid using
         :func:`BodyXY.map_img`.
@@ -498,6 +502,8 @@ class Observation(BodyXY):
         Args:
             degree_interval: Interval in degrees between the longitude/latitude points.
                 Passed to :func:`BodyXY.map_img`.
+            interpolation: Interpolation used when mapping. This can either be
+                `'linear'` or `'nearest'`. Passed to :func:`BodyXY.map_img`.
 
         Returns:
             Array containing a cube of cylindrical map of the values in :attr:`data` at
@@ -505,14 +511,20 @@ class Observation(BodyXY):
             visible have a value of NaN.
         """
         projected = []
-        if np.any(np.isnan(self.data)):
+        if interpolation == 'linear' and np.any(np.isnan(self.data)):
             data = np.nan_to_num(self.data)
-            print('Warning, data contains NaN values which will be set to 0')
+            print(
+                'Warning, data contains NaN values which will be set to 0 before interpolating'
+            )
         else:
             data = self.data
         for idx, img in enumerate(data):
             self._update_progress_hook(idx / len(data))
-            projected.append(self.map_img(img, degree_interval=degree_interval))
+            projected.append(
+                self.map_img(
+                    img, degree_interval=degree_interval, interpolation=interpolation
+                )
+            )
         return np.array(projected)
 
     # Output

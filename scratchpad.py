@@ -19,3 +19,6 @@ plt.show()
 
 map_img = body.map_img(img, interpolation='nearest', degree_interval=1)
 body.imshow_map(map_img)
+
+
+mapped_data=  body.get_mapped_data(interpolation='nearest')
