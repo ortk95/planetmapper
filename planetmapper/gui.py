@@ -1480,6 +1480,9 @@ class OpenObservation(Popup):
             value=str(kwargs.get('observer', 'EARTH'))
         )
 
+        self.stringvars['path'].trace_add('write', self.path_changed)
+
+
         heading = '\n'.join(
             ['Select a FITS or image (e.g. PNG, JPEG) file to navigate and map']
         )
@@ -1524,22 +1527,30 @@ class OpenObservation(Popup):
         self.kernel_txt.pack(fill='both')
         self.kernel_txt.insert('1.0', value)
 
-    def get_path(self):
-        path = tkinter.filedialog.askopenfilename(
-            title='Choose observation',
-            parent=self.window,
-        )
-        kwargs = {'path': path}
+    def path_changed(self, *_) -> None:
+        path = self.stringvars['path'].get()
+        kwargs = {}
         if any(path.endswith(ext) for ext in Observation.FITS_FILE_EXTENSIONS):
-            with fits.open(path) as hdul:
-                header = hdul[0].header  # type: ignore
-            Observation._add_kw_from_header(kwargs, header)
+            try:
+                with fits.open(path) as hdul:
+                    header = hdul[0].header  # type: ignore
+                Observation._add_kw_from_header(kwargs, header)
+            except FileNotFoundError:
+                pass
         for k, v in kwargs.items():
             try:
                 if v:
                     self.stringvars[k].set(str(v))
             except KeyError:
                 pass
+
+    def get_path(self):
+        path = tkinter.filedialog.askopenfilename(
+            title='Choose observation',
+            parent=self.window,
+        )
+        if path:
+            self.stringvars['path'].set(str(path))
 
     def click_ok(self) -> None:
         if self.apply_changes():
