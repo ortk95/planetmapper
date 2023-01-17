@@ -943,13 +943,13 @@ class BodyXY(Body):
                 y = y_map[a, b]  # y should never be nan when x is not nan
                 projected[a, b] = interpolator(y, x)
         elif interpolation == 'nearest':
+            x_map = np.asarray(np.nan_to_num(np.round(x_map), nan=-1), dtype=int)
+            x_map = np.asarray(np.nan_to_num(np.round(y_map), nan=-1), dtype=int)
             for a, b in self._iterate_image(projected.shape):
                 x = x_map[a, b]
-                if math.isnan(x):
+                if x == -1:
                     continue
                 y = y_map[a, b]  # y should never be nan when x is not nan
-                x = int(np.round(x))
-                y = int(np.round(y))
                 projected[a, b] = img[y, x]
         else:
             raise ValueError(f'Unknown interpolation method {interpolation!r}')
