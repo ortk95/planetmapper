@@ -10,6 +10,7 @@ from typing import (
     ParamSpec,
     Protocol,
     TypeVar,
+    Literal,
 )
 import warnings
 
@@ -479,7 +480,7 @@ class BodyXY(Body):
         """
         if not math.isfinite(x0):
             raise ValueError('x0 must be finite')
-        self._x0 = x0
+        self._x0 = float(x0)
         self._clear_cache()
 
     def get_x0(self) -> float:
@@ -499,7 +500,7 @@ class BodyXY(Body):
         """
         if not math.isfinite(y0):
             raise ValueError('y0 must be finite')
-        self._y0 = y0
+        self._y0 = float(y0)
         self._clear_cache()
 
     def get_y0(self) -> float:
@@ -521,7 +522,7 @@ class BodyXY(Body):
             raise ValueError('r0 must be finite')
         if not r0 > 0:
             raise ValueError('r0 must be greater than zero')
-        self._r0 = r0
+        self._r0 = float(r0)
         self._clear_cache()
 
     def get_r0(self) -> float:
@@ -532,7 +533,7 @@ class BodyXY(Body):
         return self._r0
 
     def _set_rotation_radians(self, rotation: float) -> None:
-        self._rotation_radians = rotation % (2 * np.pi)
+        self._rotation_radians = float(rotation % (2 * np.pi))
         self._clear_cache()
 
     def _get_rotation_radians(self) -> float:
@@ -647,6 +648,21 @@ class BodyXY(Body):
             Short string describing the method.
         """
         return self._cache.get('disc method', self._default_disc_method)
+
+    def add_arcsec_offset(self, dra_arcsec: float = 0, ddec_arcsec: float = 0) -> None:
+        """
+        Adjust the disc location `(x0, y0)` by applying offsets in arcseconds to the
+        RA/Dec celestial coordinates.
+
+        Args:
+            dra_arcsec: Offset in arcseconds in the positive right ascension direction.
+            ddec_arcsec: Offset in arcseconds in the positive declination direction.
+        """
+        dra = dra_arcsec / 3600
+        ddec = ddec_arcsec / 3600
+        ra0, dec0 = self.xy2radec(0, 0)
+        dx, dy = self.radec2xy(ra0 + dra, dec0 + ddec)
+        self.adjust_disc_params(dx=dx, dy=dy)
 
     # Illumination functions etc.
     def limb_xy(self, **kwargs) -> tuple[np.ndarray, np.ndarray]:
@@ -874,13 +890,23 @@ class BodyXY(Body):
 
     # Mapping
     def map_img(
-        self, img: np.ndarray, degree_interval: float = 1, warn_nan: bool = True
+        self,
+        img: np.ndarray,
+        degree_interval: float = 1,
+        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
+        warn_nan: bool = True,
     ) -> np.ndarray:
         """
         Project an observed image onto a lon/lat grid.
 
-        The map projection is performed using `scipy.interpolate.RectBivariateSpline`
-        using linear interpolation (i.e. spline degrees `kx` and `ky` are set to 1).
+        If `interpolation` is `'linear'`, `'quadratic'` or `'cubic'`, the map projection
+        is performed using `scipy.interpolate.RectBivariateSpline` using the specified
+        degree of interpolation.
+
+        If `interpolation` is `'nearest'`, no interpolation is performed, and the mapped
+        image takes the value of the nearest pixel in the image to that location. This
+        can be useful to easily visualise the pixel scale for low spatial resolution
+        observations.
 
         Args:
             img: Observed image where pixel coordinates correspond to the `xy` pixel
@@ -888,7 +914,11 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between the longitude/latitude points
                 in the mapped output. Passed to :func:`get_x_map` and :func:`get_y_map`
                 when generating the coordinates used for the projection.
-            warn_nan: Print warning if any values in `img` are NaN.
+            interpolation: Interpolation used when mapping. This can either any of
+                `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. The default is
+                `'linear'`.
+            warn_nan: Print warning if any values in `img` are NaN when any of the
+                spline interpolations are used.
 
         Returns:
             Array containing cylindrical map of the values in `img` at each location on
@@ -897,20 +927,40 @@ class BodyXY(Body):
         """
         x_map = self.get_x_map(degree_interval)
         y_map = self.get_y_map(degree_interval)
-        if np.any(np.isnan(img)):
-            if warn_nan:
-                print('Warning, image contains NaN values which will be set to 0')
-            img = np.nan_to_num(img)
-        interpolator = scipy.interpolate.RectBivariateSpline(
-            np.arange(img.shape[0]), np.arange(img.shape[1]), img, kx=1, ky=1
-        )
         projected = self._make_empty_map(degree_interval)
-        for a, b in self._iterate_image(projected.shape):
-            x = x_map[a, b]
-            if math.isnan(x):
-                continue
-            y = y_map[a, b]  # y should never be nan when x is not nan
-            projected[a, b] = interpolator(y, x)
+
+        spline_k = {
+            'linear': 1,
+            'quadratic': 2,
+            'cubic': 3,
+        }
+
+        if interpolation == 'nearest':
+            x_map = np.asarray(np.nan_to_num(np.round(x_map), nan=-1), dtype=int)
+            y_map = np.asarray(np.nan_to_num(np.round(y_map), nan=-1), dtype=int)
+            for a, b in self._iterate_image(projected.shape):
+                x = x_map[a, b]
+                if x == -1:
+                    continue
+                y = y_map[a, b]  # y should never be nan when x is not nan
+                projected[a, b] = img[y, x]
+        elif interpolation in spline_k:
+            k = spline_k[interpolation]
+            if np.any(np.isnan(img)):
+                if warn_nan:
+                    print('Warning, image contains NaN values which will be set to 0')
+                img = np.nan_to_num(img)
+            interpolator = scipy.interpolate.RectBivariateSpline(
+                np.arange(img.shape[0]), np.arange(img.shape[1]), img, kx=k, ky=k
+            )
+            for a, b in self._iterate_image(projected.shape):
+                x = x_map[a, b]
+                if math.isnan(x):
+                    continue
+                y = y_map[a, b]  # y should never be nan when x is not nan
+                projected[a, b] = interpolator(y, x)
+        else:
+            raise ValueError(f'Unknown interpolation method {interpolation!r}')
         return projected
 
     # Backplane management

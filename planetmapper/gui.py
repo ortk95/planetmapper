@@ -83,6 +83,8 @@ MARKERS = ['x', '+', 'o', '.', '*', 'v', '^', '<', '>', ',', 'D', 'd', '|', '_']
 GRID_INTERVALS = ['10', '30', '45', '90']
 CMAPS = ['gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis']
 
+MAP_INTERPOLATIONS = ('nearest', 'linear', 'quadratic', 'cubic')
+
 DEFAULT_HINT = (
     'Use the various options in "Find disc" to automatically adjust the disc position'
 )
@@ -1490,7 +1492,7 @@ class OpenObservation(Popup):
                 ttk.Entry(
                     self.grid_frame,
                     textvariable=self.stringvars['path'],
-                    state='disabled',
+                    # state='disabled',
                 ),
                 ttk.Button(self.grid_frame, text='Open', command=self.get_path),
             ),
@@ -1733,6 +1735,7 @@ class SaveObservation(Popup):
         self.path_nav = tk.StringVar(value=path_nav)
         self.path_map = tk.StringVar(value=path_map)
         self.degree_interval = tk.StringVar(value=str(1))
+        self.map_interpolation = tk.StringVar(value='linear')
 
         self.keep_open = tk.IntVar(value=1)
 
@@ -1778,6 +1781,17 @@ class SaveObservation(Popup):
         w.grid(row=5, column=1, sticky='w')
         self.map_widgets.append(w)
 
+        ttk.Label(self.grid_frame, text='Interpolation: ').grid(row=6, **label_kw)
+        w = ttk.Combobox(
+            self.grid_frame,
+            textvariable=self.map_interpolation,
+            width=10,
+            values=MAP_INTERPOLATIONS,
+            state='readonly',
+        )
+        w.grid(row=6, column=1, sticky='w')
+        self.map_widgets.append(w)
+
         message = '\n'.join(
             [
                 '',
@@ -1820,7 +1834,10 @@ class SaveObservation(Popup):
         enabled = bool(intvar.get())
         for widget in widgets:
             if enabled:
-                widget['state'] = 'normal'
+                if isinstance(widget, ttk.Combobox):
+                    widget['state'] = ['readonly']
+                else:
+                    widget['state'] = 'normal'
             else:
                 widget['state'] = 'disable'
         if any(iv.get() for iv in [self.save_nav, self.save_map]):
@@ -1848,6 +1865,7 @@ class SaveObservation(Popup):
         keep_open = bool(self.keep_open.get())
 
         degree_interval = 1
+        interpolation = 'linear'
 
         if (save_nav and len(path_nav) == 0) or (save_map and len(path_map) == 0):
             tkinter.messagebox.showwarning(
@@ -1859,6 +1877,7 @@ class SaveObservation(Popup):
             degree_interval = self.get_float(
                 self.degree_interval, name='degree interval', positive=True, finite=True
             )
+            interpolation = self.map_interpolation.get()
 
         # If we get to this point, everything should (hopefully) be working
 
@@ -1869,6 +1888,7 @@ class SaveObservation(Popup):
             save_map=save_map,
             path_map=path_map,
             degree_interval=degree_interval,
+            interpolation=interpolation,
             keep_open=keep_open,
         )
         try:
@@ -1901,6 +1921,7 @@ class SavingProgress(Popup):
         save_map: bool,
         path_map: str,
         degree_interval: float,
+        interpolation: str,
         keep_open: bool,
     ):
         self.parent = parent
@@ -1911,6 +1932,7 @@ class SavingProgress(Popup):
         self.save_map = save_map
         self.path_map = path_map
         self.degree_interval = degree_interval
+        self.interpolation = interpolation
 
         self.keep_open = keep_open
 
@@ -1978,7 +2000,10 @@ class SavingProgress(Popup):
                 SaveMapProgressHookGUI(n_wavelengths, **self.map_widgets)
             )
             observation.save_mapped_observation(
-                self.path_map, degree_interval=self.degree_interval, **save_kwargs
+                self.path_map,
+                degree_interval=self.degree_interval,
+                interpolation=self.interpolation, # type: ignore
+                **save_kwargs,
             )
             observation._remove_progress_hook()
         if self.keep_open:

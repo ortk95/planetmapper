@@ -115,33 +115,45 @@ class Body(SpiceBase):
         """Longitude of the sub-observer point on the target."""
         self.subpoint_lat: float
         """Latitude of the sub-observer point on the target."""
+        self.named_ring_data: dict[str, list[float]]
+        """
+        Dictionary of ring radii for the target from :func:`data_loader.get_ring_radii`.
+
+        The dictionary keys are the names of the rings, and values are list of ring 
+        radii in km. If the length of this list is 2, then the values give the inner and 
+        outer radii of the ring respectively. Otherwise, the length should be 1, meaning
+        the ring has a single radius. These ring radii values are sourced from
+        `planetary factsheets <https://nssdc.gsfc.nasa.gov/planetary/planetfact.html>`_.
+        If no ring data is available for the target, this dictionary is empty.
+
+        Values from this dictionary can be easily accessed using the convenience
+        function :func:`ring_radii_from_name`.
+        """
         self.ring_radii: set[float]
         """
         Set of ring radii in km to plot around the target body's equator. Each radius
         is plotted as a single line, so for a wide ring you may want to add both the
         inner and outer edger of the ring. The radii are defined as the distance from
         the centre of the target body to the ring. For Saturn, the A, B and C rings from
-        https://nssdc.gsfc.nasa.gov/planetary/factsheet/satringfact.html are included by
-        default. For all other bodies, `ring_radii` is empty by default.
+        :attr:`named_ring_data` are included by default. For all other bodies,
+        `ring_radii` is empty by default.
 
-        Ring radii data from the 
-        `planetary factsheets <https://nssdc.gsfc.nasa.gov/planetary/planetfact.html>`_ 
-        can be loaded using :func:`data_loader.get_ring_radii`.
-        
-        Example usage: ::
+        Ring radii data from the :attr:`named_ring_data` can easily be added to 
+        `ring_radii` using :func:`add_named_rings`. Example usage: ::
 
             body.ring_radii.add(122340) # Add new ring radius to plot
             body.ring_radii.add(136780) # Add new ring radius to plot
-            body.ring_radii.update([66900, 74510]) # Add multiple radii to plot once
+            body.ring_radii.update([66900, 74510]) # Add multiple radii to plot at once
 
             body.ring_radii.remove(122340) # Remove a ring radius
             body.ring_radii.clear() # Remove all ring radii
 
-            # Add ring radii using data from planetary factsheets
-            ring_data = planetmapper.data_loader.get_ring_radii()['JUPITER']
-            body.ring_radii.update(ring_data['Main Ring'])
-            body.ring_radii.update(ring_data['Amalthea Ring'])
-        
+            # Add specific ring radii using data from planetary factsheets
+            body.add_named_rings('main', 'halo')
+
+            # Add all rings defined in the planetary factsheets
+            body.add_named_rings()
+
         See also :func:`ring_radec`.
         """
         self.coordinates_of_interest_lonlat: list[tuple[float, float]]
@@ -270,6 +282,9 @@ class Body(SpiceBase):
             self._target_obsvec,
         )
 
+        # Load additional data
+        self.named_ring_data = data_loader.get_ring_radii().get(self.target, {})
+
         # Create empty lists/blank values
         self.ring_radii = set()
         self.other_bodies_of_interest = []
@@ -285,9 +300,8 @@ class Body(SpiceBase):
 
         # Run custom setup
         if self.target == 'SATURN':
-            ring_data = data_loader.get_ring_radii()['SATURN']
             for k in ['A', 'B', 'C']:
-                for r in ring_data.get(k, []):
+                for r in self.named_ring_data.get(k, []):
                     self.ring_radii.add(r)
 
     def __repr__(self) -> str:
@@ -345,6 +359,7 @@ class Body(SpiceBase):
                 aberration_correction=self.aberration_correction,
             )
 
+    # Stuff to customise wireframe plots
     def add_other_bodies_of_interest(self, *other_targets: str | int) -> None:
         """
         Add targets to the list of :attr:`other_bodies_of_interest` of interest to mark
@@ -390,6 +405,50 @@ class Body(SpiceBase):
                 )
             except NotFoundError:
                 continue
+
+    def ring_radii_from_name(self, name: str) -> list[float]:
+        """
+        Get list of ring radii in km for a named ring.
+
+        This is a convenience function to load data from :attr:`named_ring_data`.
+
+        Args:
+            name: Name of ring. This is case insensitive.
+
+        Raises:
+            ValueError: if no ring with the provided name is found.
+
+        Returns:
+            List of ring radii in km. If the length of this list is 2, then the values
+            give the inner and outer radii of the ring respectively. Otherwise, the
+            length should be 1, meaning the ring has a single radius.
+        """
+        standardise = lambda name: name.casefold().strip().removesuffix('ring').strip()
+        name = standardise(name.casefold().strip())
+        for n, radii in self.named_ring_data.items():
+            if name == standardise(n):
+                return radii
+        raise ValueError(f'No rings found named {name!r} in named_ring_data')
+
+    def add_named_rings(self, *names: str) -> None:
+        """
+        Add named rings to :attr:`ring_radii` so that they appear when creating
+        wireframe plots. If no arguments are provided (i.e. calling
+        `body.add_named_rings()`), then all rings in :attr:`named_ring_data` are added
+        to :attr:`ring_radii`.
+
+        This is a convenience function to add data from :attr:`named_ring_data` to
+        :attr:`ring_radii`.
+
+        Args:
+            *names: Ring names which are passed to :func:`ring_radii_from_name`. If
+                no names are provided then all rings in :attr:`named_ring_data` are
+                added.
+        """
+        if len(names) == 0:
+            names = tuple(self.named_ring_data.keys())
+        for name in names:
+            self.ring_radii.update(self.ring_radii_from_name(name))
 
     # Coordinate transformations target -> observer direction
     def _lonlat2targvec_radians(
