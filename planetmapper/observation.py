@@ -493,7 +493,7 @@ class Observation(BodyXY):
     def get_mapped_data(
         self,
         degree_interval: float = 1,
-        interpolation: Literal['linear', 'nearest'] = 'linear',
+        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
     ) -> np.ndarray:
         """
         Projects the observed :attr:`data` onto a lon/lat grid using
@@ -502,8 +502,9 @@ class Observation(BodyXY):
         Args:
             degree_interval: Interval in degrees between the longitude/latitude points.
                 Passed to :func:`BodyXY.map_img`.
-            interpolation: Interpolation used when mapping. This can either be
-                `'linear'` or `'nearest'`. Passed to :func:`BodyXY.map_img`.
+            interpolation: Interpolation used when mapping. This can either any of
+                `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. Passed to 
+                :func:`BodyXY.map_img`.
 
         Returns:
             Array containing a cube of cylindrical map of the values in :attr:`data` at
@@ -792,6 +793,7 @@ class Observation(BodyXY):
         path: str,
         include_backplanes: bool = True,
         degree_interval: float = 1,
+        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
         show_progress: bool = False,
         print_info: bool = True,
     ) -> None:
@@ -809,6 +811,9 @@ class Observation(BodyXY):
             include_backplanes: Toggle generating and saving backplanes to output FITS
                 file.
             degree_interval: Interval in degrees between the longitude/latitude points.
+            interpolation: Interpolation used when mapping. This can either any of
+                `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. Passed to 
+                :func:`BodyXY.map_img`.
             show_progress: Display a progress bar rather than printing progress info.
                 This does not have an effect if `show_progress=True` was set when
                 creating this `Observation`.
@@ -827,7 +832,7 @@ class Observation(BodyXY):
         with utils.filter_fits_comment_warning():
             if print_info:
                 print(' Projecting mapped data...')
-            data = self.get_mapped_data(degree_interval)
+            data = self.get_mapped_data(degree_interval=degree_interval, interpolation=interpolation)
             header = self.header.copy()
 
             self._update_progress_hook(1 / progress_max)
@@ -839,6 +844,13 @@ class Observation(BodyXY):
                 '[deg] Degree interval in output map.',
                 header=header,
             )
+            self.append_to_header(
+                'MAP-INTERPOLATION',
+                interpolation,
+                'Interpolation method used in mapping.',
+                header=header,
+            )
+
             self._add_map_wcs_to_header(header, degree_interval)
 
             hdul = fits.HDUList([fits.PrimaryHDU(data=data, header=header)])

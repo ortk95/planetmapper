@@ -143,7 +143,7 @@ class Body(SpiceBase):
 
             body.ring_radii.add(122340) # Add new ring radius to plot
             body.ring_radii.add(136780) # Add new ring radius to plot
-            body.ring_radii.update([66900, 74510]) # Add multiple radii to plot once
+            body.ring_radii.update([66900, 74510]) # Add multiple radii to plot at once
 
             body.ring_radii.remove(122340) # Remove a ring radius
             body.ring_radii.clear() # Remove all ring radii

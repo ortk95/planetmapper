@@ -893,15 +893,15 @@ class BodyXY(Body):
         self,
         img: np.ndarray,
         degree_interval: float = 1,
-        interpolation: Literal['linear', 'nearest'] = 'linear',
+        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
         warn_nan: bool = True,
     ) -> np.ndarray:
         """
         Project an observed image onto a lon/lat grid.
 
-        If `interpolation` is `'linear'`, the map projection is performed using
-        `scipy.interpolate.RectBivariateSpline` using linear interpolation (i.e. spline
-        degrees `kx` and `ky` are set to 1).
+        If `interpolation` is `'linear'`, `'quadratic'` or `'cubic'`, the map projection
+        is performed using `scipy.interpolate.RectBivariateSpline` using the specified
+        degree of interpolation.
 
         If `interpolation` is `'nearest'`, no interpolation is performed, and the mapped
         image takes the value of the nearest pixel in the image to that location. This
@@ -914,8 +914,9 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between the longitude/latitude points
                 in the mapped output. Passed to :func:`get_x_map` and :func:`get_y_map`
                 when generating the coordinates used for the projection.
-            interpolation: Interpolation used when mapping. This can either be
-                `'linear'` or `'nearest'`.
+            interpolation: Interpolation used when mapping. This can either any of
+                `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. The default is
+                `'linear'`.
             warn_nan: Print warning if any values in `img` are NaN when `interpolation`
                 is `'linear'`.
 
@@ -928,13 +929,29 @@ class BodyXY(Body):
         y_map = self.get_y_map(degree_interval)
         projected = self._make_empty_map(degree_interval)
 
-        if interpolation == 'linear':
+        spline_k = {
+            'linear': 1,
+            'quadratic': 2,
+            'cubic': 3,
+        }
+
+        if interpolation == 'nearest':
+            x_map = np.asarray(np.nan_to_num(np.round(x_map), nan=-1), dtype=int)
+            y_map = np.asarray(np.nan_to_num(np.round(y_map), nan=-1), dtype=int)
+            for a, b in self._iterate_image(projected.shape):
+                x = x_map[a, b]
+                if x == -1:
+                    continue
+                y = y_map[a, b]  # y should never be nan when x is not nan
+                projected[a, b] = img[y, x]
+        elif interpolation in spline_k:
+            k = spline_k[interpolation]
             if np.any(np.isnan(img)):
                 if warn_nan:
                     print('Warning, image contains NaN values which will be set to 0')
                 img = np.nan_to_num(img)
             interpolator = scipy.interpolate.RectBivariateSpline(
-                np.arange(img.shape[0]), np.arange(img.shape[1]), img, kx=1, ky=1
+                np.arange(img.shape[0]), np.arange(img.shape[1]), img, kx=k, ky=k
             )
             for a, b in self._iterate_image(projected.shape):
                 x = x_map[a, b]
@@ -942,15 +959,6 @@ class BodyXY(Body):
                     continue
                 y = y_map[a, b]  # y should never be nan when x is not nan
                 projected[a, b] = interpolator(y, x)
-        elif interpolation == 'nearest':
-            x_map = np.asarray(np.nan_to_num(np.round(x_map), nan=-1), dtype=int)
-            x_map = np.asarray(np.nan_to_num(np.round(y_map), nan=-1), dtype=int)
-            for a, b in self._iterate_image(projected.shape):
-                x = x_map[a, b]
-                if x == -1:
-                    continue
-                y = y_map[a, b]  # y should never be nan when x is not nan
-                projected[a, b] = img[y, x]
         else:
             raise ValueError(f'Unknown interpolation method {interpolation!r}')
         return projected
