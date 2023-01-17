@@ -1671,7 +1671,7 @@ class SaveObservation(Popup):
         x, y = (int(s) for s in self.gui.root.geometry().split('+')[1:])
         self.window.geometry(
             '{sz}+{x:.0f}+{y:.0f}'.format(
-                sz='600x350',
+                sz='600x375',
                 x=x + 50,
                 y=y + 50,
             )
