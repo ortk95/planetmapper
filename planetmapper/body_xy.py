@@ -10,6 +10,7 @@ from typing import (
     ParamSpec,
     Protocol,
     TypeVar,
+    Literal,
 )
 import warnings
 
@@ -889,7 +890,11 @@ class BodyXY(Body):
 
     # Mapping
     def map_img(
-        self, img: np.ndarray, degree_interval: float = 1, warn_nan: bool = True
+        self,
+        img: np.ndarray,
+        degree_interval: float = 1,
+        interpolation: Literal['linear', 'nearest'] = 'linear',
+        warn_nan: bool = True,
     ) -> np.ndarray:
         """
         Project an observed image onto a lon/lat grid.
@@ -903,6 +908,7 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between the longitude/latitude points
                 in the mapped output. Passed to :func:`get_x_map` and :func:`get_y_map`
                 when generating the coordinates used for the projection.
+            interpolation:
             warn_nan: Print warning if any values in `img` are NaN.
 
         Returns:
@@ -912,20 +918,33 @@ class BodyXY(Body):
         """
         x_map = self.get_x_map(degree_interval)
         y_map = self.get_y_map(degree_interval)
-        if np.any(np.isnan(img)):
-            if warn_nan:
-                print('Warning, image contains NaN values which will be set to 0')
-            img = np.nan_to_num(img)
-        interpolator = scipy.interpolate.RectBivariateSpline(
-            np.arange(img.shape[0]), np.arange(img.shape[1]), img, kx=1, ky=1
-        )
         projected = self._make_empty_map(degree_interval)
-        for a, b in self._iterate_image(projected.shape):
-            x = x_map[a, b]
-            if math.isnan(x):
-                continue
-            y = y_map[a, b]  # y should never be nan when x is not nan
-            projected[a, b] = interpolator(y, x)
+
+        if interpolation == 'linear':
+            if np.any(np.isnan(img)):
+                if warn_nan:
+                    print('Warning, image contains NaN values which will be set to 0')
+                img = np.nan_to_num(img)
+            interpolator = scipy.interpolate.RectBivariateSpline(
+                np.arange(img.shape[0]), np.arange(img.shape[1]), img, kx=1, ky=1
+            )
+            for a, b in self._iterate_image(projected.shape):
+                x = x_map[a, b]
+                if math.isnan(x):
+                    continue
+                y = y_map[a, b]  # y should never be nan when x is not nan
+                projected[a, b] = interpolator(y, x)
+        elif interpolation == 'nearest':
+            for a, b in self._iterate_image(projected.shape):
+                x = x_map[a, b]
+                if math.isnan(x):
+                    continue
+                y = y_map[a, b]  # y should never be nan when x is not nan
+                x = int(np.round(x))
+                y = int(np.round(y))
+                projected[a, b] = img[y, x]
+        else:
+            raise ValueError(f'Unknown interpolation method {interpolation!r}')
         return projected
 
     # Backplane management
