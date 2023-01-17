@@ -480,7 +480,7 @@ class BodyXY(Body):
         """
         if not math.isfinite(x0):
             raise ValueError('x0 must be finite')
-        self._x0 = x0
+        self._x0 = float(x0)
         self._clear_cache()
 
     def get_x0(self) -> float:
@@ -500,7 +500,7 @@ class BodyXY(Body):
         """
         if not math.isfinite(y0):
             raise ValueError('y0 must be finite')
-        self._y0 = y0
+        self._y0 = float(y0)
         self._clear_cache()
 
     def get_y0(self) -> float:
@@ -522,7 +522,7 @@ class BodyXY(Body):
             raise ValueError('r0 must be finite')
         if not r0 > 0:
             raise ValueError('r0 must be greater than zero')
-        self._r0 = r0
+        self._r0 = float(r0)
         self._clear_cache()
 
     def get_r0(self) -> float:
@@ -533,7 +533,7 @@ class BodyXY(Body):
         return self._r0
 
     def _set_rotation_radians(self, rotation: float) -> None:
-        self._rotation_radians = rotation % (2 * np.pi)
+        self._rotation_radians = float(rotation % (2 * np.pi))
         self._clear_cache()
 
     def _get_rotation_radians(self) -> float:
