@@ -650,7 +650,7 @@ class BodyXY(Body):
 
     def add_arcsec_offset(self, dra_arcsec: float = 0, ddec_arcsec: float = 0) -> None:
         """
-        Adjust the disc location `(x0, y0)` by applying offsets in arcseconds to the 
+        Adjust the disc location `(x0, y0)` by applying offsets in arcseconds to the
         RA/Dec celestial coordinates.
 
         Args:
