@@ -1,7 +1,7 @@
 import datetime
 import os
 import warnings
-from typing import ParamSpec, TypeVar, Callable, Any
+from typing import ParamSpec, TypeVar, Callable, Any, Literal
 
 import astropy.wcs
 import numpy as np
@@ -490,7 +490,11 @@ class Observation(BodyXY):
     # Mapping
     @_cache_clearable_result_with_args
     @progress_decorator
-    def get_mapped_data(self, degree_interval: float = 1) -> np.ndarray:
+    def get_mapped_data(
+        self,
+        degree_interval: float = 1,
+        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
+    ) -> np.ndarray:
         """
         Projects the observed :attr:`data` onto a lon/lat grid using
         :func:`BodyXY.map_img`.
@@ -498,6 +502,9 @@ class Observation(BodyXY):
         Args:
             degree_interval: Interval in degrees between the longitude/latitude points.
                 Passed to :func:`BodyXY.map_img`.
+            interpolation: Interpolation used when mapping. This can either any of
+                `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. Passed to
+                :func:`BodyXY.map_img`.
 
         Returns:
             Array containing a cube of cylindrical map of the values in :attr:`data` at
@@ -505,14 +512,20 @@ class Observation(BodyXY):
             visible have a value of NaN.
         """
         projected = []
-        if np.any(np.isnan(self.data)):
+        if interpolation == 'linear' and np.any(np.isnan(self.data)):
             data = np.nan_to_num(self.data)
-            print('Warning, data contains NaN values which will be set to 0')
+            print(
+                'Warning, data contains NaN values which will be set to 0 before interpolating'
+            )
         else:
             data = self.data
         for idx, img in enumerate(data):
             self._update_progress_hook(idx / len(data))
-            projected.append(self.map_img(img, degree_interval=degree_interval))
+            projected.append(
+                self.map_img(
+                    img, degree_interval=degree_interval, interpolation=interpolation
+                )
+            )
         return np.array(projected)
 
     # Output
@@ -780,6 +793,7 @@ class Observation(BodyXY):
         path: str,
         include_backplanes: bool = True,
         degree_interval: float = 1,
+        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
         show_progress: bool = False,
         print_info: bool = True,
     ) -> None:
@@ -797,6 +811,9 @@ class Observation(BodyXY):
             include_backplanes: Toggle generating and saving backplanes to output FITS
                 file.
             degree_interval: Interval in degrees between the longitude/latitude points.
+            interpolation: Interpolation used when mapping. This can either any of
+                `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. Passed to
+                :func:`BodyXY.map_img`.
             show_progress: Display a progress bar rather than printing progress info.
                 This does not have an effect if `show_progress=True` was set when
                 creating this `Observation`.
@@ -815,7 +832,9 @@ class Observation(BodyXY):
         with utils.filter_fits_comment_warning():
             if print_info:
                 print(' Projecting mapped data...')
-            data = self.get_mapped_data(degree_interval)
+            data = self.get_mapped_data(
+                degree_interval=degree_interval, interpolation=interpolation
+            )
             header = self.header.copy()
 
             self._update_progress_hook(1 / progress_max)
@@ -827,6 +846,13 @@ class Observation(BodyXY):
                 '[deg] Degree interval in output map.',
                 header=header,
             )
+            self.append_to_header(
+                'MAP-INTERPOLATION',
+                interpolation,
+                'Interpolation method used in mapping.',
+                header=header,
+            )
+
             self._add_map_wcs_to_header(header, degree_interval)
 
             hdul = fits.HDUList([fits.PrimaryHDU(data=data, header=header)])
