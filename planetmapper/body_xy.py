@@ -648,6 +648,21 @@ class BodyXY(Body):
         """
         return self._cache.get('disc method', self._default_disc_method)
 
+    def add_arcsec_offset(self, dra_arcsec: float = 0, ddec_arcsec: float = 0) -> None:
+        """
+        Adjust the disc location `(x0, y0)` by applying offsets in arcseconds to the
+        RA/Dec celestial coordinates.
+
+        Args:
+            dra_arcsec: Offset in arcseconds in the positive right ascension direction.
+            ddec_arcsec: Offset in arcseconds in the positive declination direction.
+        """
+        dra = dra_arcsec / 3600
+        ddec = ddec_arcsec / 3600
+        ra0, dec0 = self.xy2radec(0, 0)
+        dx, dy = self.radec2xy(ra0 + dra, dec0 + ddec)
+        self.adjust_disc_params(dx=dx, dy=dy)
+
     # Illumination functions etc.
     def limb_xy(self, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         """

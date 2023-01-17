@@ -345,6 +345,9 @@ class Observation(BodyXY):
                 conversions.
             validate: Run checks to ensure the WCS conversion has appropriate RA/Dec
                 coordinate dimensions.
+        Raises:
+            ValueError: if no WCS information is found in the FITS header, or validation
+                fails.
         """
         x0, y0, r0, rotation = self._get_disc_params_from_wcs(
             suppress_warnings, validate
@@ -369,6 +372,9 @@ class Observation(BodyXY):
                 conversions.
             validate: Run checks to ensure the WCS conversion has appropriate RA/Dec
                 coordinate dimensions.
+        Raises:
+            ValueError: if no WCS information is found in the FITS header, or validation
+                fails.
         """
         x0, y0, r0, rotation = self._get_disc_params_from_wcs(
             suppress_warnings, validate
@@ -390,6 +396,9 @@ class Observation(BodyXY):
                 conversions.
             validate: Run checks to ensure the WCS conversion has appropriate RA/Dec
                 coordinate dimensions.
+        Raises:
+            ValueError: if no WCS information is found in the FITS header, or validation
+                fails.
         """
         x0, y0, r0, rotation = self._get_disc_params_from_wcs(
             suppress_warnings, validate
@@ -411,6 +420,9 @@ class Observation(BodyXY):
                 conversions.
             validate: Run checks to ensure the WCS conversion has appropriate RA/Dec
                 coordinate dimensions.
+        Raises:
+            ValueError: if no WCS information is found in the FITS header, or validation
+                fails.
         """
         x0, y0, r0, rotation = self._get_disc_params_from_wcs(
             suppress_warnings, validate
