@@ -236,5 +236,39 @@ Backplanes can also be generated for observations which do not exist using :clas
     :alt: Plot of Jupiter's rotation
 
 
+Cache behaviour
+===============
+The generation of backplanes and projected mapped data can be slow for larger datasets. Therefore, :class:`planetmapper.BodyXY` and :class:`planetmapper.Observation` objects automatically cache the results of various expensive function calls so that they do not have to be recalculated. This cache management happens automatically behind the scenes, so you should never have to worry about dealing with it directly. For example, when any disc parameters are changed, the cache is automatically cleared as the cached results will no longer be valid.
+
+::
+
+    # Create a new object
+    body = planetmapper.BodyXY('Jupiter', '2000-01-01', sz=500)
+    body.set_disc_params(x0=250, y0=250, r0=200)
+    # At this point, the cache is completely empty
+
+    # The intermediate results used in generating the incidence angle backplane
+    # are cached, speeding up any future calculations which use these
+    # intermediate results:
+    body.get_backplane_img('INCIDENCE') # Takes ~10s to execute
+    body.get_backplane_img('INCIDENCE') # Executes instantly
+    body.get_backplane_img('EMISSION') # Executes instantly
+
+    # When any of the disc parameters are changed, the xy <-> radec conversion
+    # changes so the cache is automatically cleared (as the cached intermediate
+    # results are no longer valid):
+    body.set_r0(190) # This automatically clears the cache
+    body.get_backplane_img('EMISSION') # Takes ~10s to execute
+    body.get_backplane_img('INCIDENCE') # Executes instantly
+
+The methods which cache their results include...
+
+- :func:`planetmapper.BodyXY.get_backplane_img`
+- :func:`planetmapper.BodyXY.get_backplane_map`
+- :func:`planetmapper.Observation.get_mapped_data`
+- :func:`planetmapper.Observation.save_observation` and equivalent option in the GUI
+- :func:`planetmapper.Observation.save_mapped_observation` and equivalent option in the GUI
+
+
 .. note::
     The Python script used to generate all the figures shown on this page can be found `here <https://github.com/ortk95/planetmapper/blob/main/examples/general_python_api.py>`_
