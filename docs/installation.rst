@@ -17,6 +17,7 @@ To upgrade an existing PlanetMapper installation to the latest version, run: ::
 
     pip install planetmapper --upgrade
 
+You can view the release notes for each version `on GitHub <https://github.com/ortk95/planetmapper/releases>`__.
 
 First steps
 ===========

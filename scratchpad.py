@@ -13,19 +13,19 @@ body = planetmapper.Observation(p, show_progress=False)
 # body.run_gui()
 # body.save_mapped_observation('~/Desktop/map_nearest.fits', interpolation='nearest')
 
-# ax = body.plot_wireframe_xy()
-# img = np.nanmedian(body.data, axis=0)
-# ax.imshow(img, origin='lower')
-# plt.show()
-# img = np.nan_to_num(img)
+ax = body.plot_wireframe_xy()
+img = np.nanmedian(body.data, axis=0)
+ax.imshow(img, origin='lower')
+plt.show()
+img = np.nan_to_num(img)
 
-# for interpolation in ('nearest', 'linear', 'quadratic', 'cubic'):
-#     map_img = body.map_img(img, interpolation=interpolation)
-#     fig, ax = plt.subplots(figsize=(5,5))
-#     body.imshow_map(map_img, ax=ax)
-#     ax.set_title(interpolation)
-#     plt.show()
+for interpolation in ('nearest', 'linear', 'quadratic', 'cubic'):
+    map_img = body.map_img(img, interpolation=interpolation)
+    fig, ax = plt.subplots(figsize=(5,5))
+    body.imshow_map(map_img, ax=ax)
+    ax.set_title(interpolation)
+    plt.show()
 
 
-gui = planetmapper.gui.GUI()
-gui.run()
+# gui = planetmapper.gui.GUI()
+# gui.run()

@@ -144,7 +144,7 @@ class SaveMapProgressHook(SaveProgressHook):
         super().__init__(*args, **kwargs)
         self.n_wavelengths = n_wavelengths
         self.weights: dict[str, float] = {
-            'Observation.get_mapped_data': n_wavelengths * 5,
+            'Observation._get_mapped_data': n_wavelengths * 5,
             'BodyXY._get_targvec_map': 1,
             'BodyXY._get_illumf_map': 5,
             'BodyXY._get_radec_map': 10,

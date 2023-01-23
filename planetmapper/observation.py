@@ -488,8 +488,6 @@ class Observation(BodyXY):
         self.set_disc_method('fit_r0')
 
     # Mapping
-    @_cache_clearable_result_with_args
-    @progress_decorator
     def get_mapped_data(
         self,
         degree_interval: float = 1,
@@ -498,6 +496,13 @@ class Observation(BodyXY):
         """
         Projects the observed :attr:`data` onto a lon/lat grid using
         :func:`BodyXY.map_img`.
+
+        For larger datasets, it can take some time to map every wavelength. Therefore,
+        the mapped data is automatically cached (in a similar way to backplanes - see
+        :class:`BodyXY`) so that subsequent calls to this function do not have to
+        recompute the mapped data. As with cached backplanes, the cached mapped data is
+        automatically cleared if any disc parameters are changed (i.e. you shouldn't 
+        need to worry about the cache, it all happens 'magically' behind the scenes).
 
         Args:
             degree_interval: Interval in degrees between the longitude/latitude points.
@@ -511,6 +516,18 @@ class Observation(BodyXY):
             each location on the surface of the target body. Locations which are not
             visible have a value of NaN.
         """
+        # Return a copy so that the cached value isn't tainted by any modifications
+        return self._get_mapped_data(
+            degree_interval=degree_interval, interpolation=interpolation
+        ).copy()
+
+    @_cache_clearable_result_with_args
+    @progress_decorator
+    def _get_mapped_data(
+        self,
+        degree_interval: float = 1,
+        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
+    ):
         projected = []
         if interpolation == 'linear' and np.any(np.isnan(self.data)):
             data = np.nan_to_num(self.data)
