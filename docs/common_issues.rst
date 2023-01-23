@@ -1,10 +1,16 @@
 .. _common issues:
 
-Common issues
-*************
+Common issues & solutions
+*************************
 
 .. note::
-    If you find any bugs/errors that you cannot solve, please open an issue at https://github.com/ortk95/planetmapper/issues/new
+    If you find any bugs/errors that you cannot solve, please `open an issue at on GitHub <https://github.com/ortk95/planetmapper/issues/new>`__
+
+
+General solutions
+=================
+Run `pip install planetmapper --upgrade` in a terminal to make sure you are running the latest version of PlanetMapper. It is possible that your bug may have been fixed in a recent update (you can also check the release notes for each version `on GitHub <https://github.com/ortk95/planetmapper/releases>`__).
+
 
 SPICE Errors
 ============
@@ -24,6 +30,9 @@ The error message should tell you which body is missing, and you can then identi
 
 Planets appear are in the wrong position
 ========================================
+This is likely to be due to an issue with your SPICE kernels or settings, possible fixes include...
+
 - Make sure you are using the correct observer - e.g. a planet will appear in a different position from Earth and from JWST.
 - Make sure you are using the correct observation time - times in PlanetMapper default to UTC, so make sure there are no time zone conversions needed.
+- Make sure you have the latest version of any SPICE kernels, especially for any observers like JWST which have have locations which are difficult to predict accurately.
 - Make sure you are using the correct aberration correction.
