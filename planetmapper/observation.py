@@ -149,7 +149,7 @@ class Observation(BodyXY):
         assert self.path is not None
         # TODO generally do this better
         # TODO add check data is a cube
-        with fits.open(self.path) as hdul:
+        with fits.open(self.path, memmap=False) as hdul:
             for idx, hdu in enumerate(hdul):
                 if hdu.data is not None:
                     data = hdu.data
