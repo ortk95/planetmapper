@@ -946,13 +946,18 @@ class BodyXY(Body):
             'quadratic': 2,
             'cubic': 3,
         }
+        nan_sentinel = -999
 
         if interpolation == 'nearest':
-            x_map = np.asarray(np.nan_to_num(np.round(x_map), nan=-1), dtype=int)
-            y_map = np.asarray(np.nan_to_num(np.round(y_map), nan=-1), dtype=int)
+            x_map = np.asarray(
+                np.nan_to_num(np.round(x_map), nan=nan_sentinel), dtype=int
+            )
+            y_map = np.asarray(
+                np.nan_to_num(np.round(y_map), nan=nan_sentinel), dtype=int
+            )
             for a, b in self._iterate_image(projected.shape):
                 x = x_map[a, b]
-                if x == -1:
+                if x == nan_sentinel:
                     continue
                 y = y_map[a, b]  # y should never be nan when x is not nan
                 projected[a, b] = img[y, x]
@@ -1546,7 +1551,9 @@ class BodyXY(Body):
         for a, b in self._iterate_image(out.shape, progress=True):
             ra, dec = radec_map[a, b]
             if not math.isnan(ra):
-                out[a, b] = self.radec2xy(ra, dec)
+                x, y = self.radec2xy(ra, dec)
+                if (-0.5 < x < self._nx - 0.5) and (-0.5 < y < self._ny - 0.5):
+                    out[a, b] = x, y
         return out
 
     def get_x_img(self) -> np.ndarray:
@@ -1570,8 +1577,8 @@ class BodyXY(Body):
 
         Returns:
             Array containing cylindrical map of the x pixel coordinates each location
-            corresponds to in the observation. Locations which are not visible have a
-            value of NaN.
+            corresponds to in the observation. Locations which are not visible or are
+            not in the image frame have a value of NaN.
         """
         return self._get_xy_map(degree_interval)[:, :, 0]
 
@@ -1596,8 +1603,8 @@ class BodyXY(Body):
 
         Returns:
             Array containing cylindrical map of the y pixel coordinates each location
-            corresponds to in the observation. Locations which are not visible have a
-            value of NaN.
+            corresponds to in the observation. Locations which are not visible or are
+            not in the image frame have a value of NaN.
         """
         return self._get_xy_map(degree_interval)[:, :, 1]
 
