@@ -492,6 +492,7 @@ class Observation(BodyXY):
         self,
         degree_interval: float = 1,
         interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
+        **kw,
     ) -> np.ndarray:
         """
         Projects the observed :attr:`data` onto a lon/lat grid using
@@ -510,6 +511,7 @@ class Observation(BodyXY):
             interpolation: Interpolation used when mapping. This can either any of
                 `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. Passed to
                 :func:`BodyXY.map_img`.
+            **kw: Additional arguments passed to :func:`BodyXY.map_img`.
 
         Returns:
             Array containing a cube of cylindrical map of the values in :attr:`data` at
@@ -518,7 +520,7 @@ class Observation(BodyXY):
         """
         # Return a copy so that the cached value isn't tainted by any modifications
         return self._get_mapped_data(
-            degree_interval=degree_interval, interpolation=interpolation
+            degree_interval=degree_interval, interpolation=interpolation, **kw
         ).copy()
 
     @_cache_clearable_result_with_args
@@ -527,6 +529,7 @@ class Observation(BodyXY):
         self,
         degree_interval: float = 1,
         interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
+        **kw,
     ):
         projected = []
         if interpolation == 'linear' and np.any(np.isnan(self.data)):
@@ -540,7 +543,7 @@ class Observation(BodyXY):
             self._update_progress_hook(idx / len(data))
             projected.append(
                 self.map_img(
-                    img, degree_interval=degree_interval, interpolation=interpolation
+                    img, degree_interval=degree_interval, interpolation=interpolation, **kw
                 )
             )
         return np.array(projected)

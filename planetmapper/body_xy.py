@@ -906,7 +906,8 @@ class BodyXY(Body):
         img: np.ndarray,
         degree_interval: float = 1,
         interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
-        warn_nan: bool = True,
+        propagate_nan: bool = True,
+        warn_nan: bool = False,
     ) -> np.ndarray:
         """
         Project an observed image onto a lon/lat grid.
@@ -929,6 +930,13 @@ class BodyXY(Body):
             interpolation: Interpolation used when mapping. This can either any of
                 `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. The default is
                 `'linear'`.
+            propagate_nan: If using spline interpolation, propagate NaN values from the
+                image to the mapped data. If `propagate_nan` is `True` (the default),
+                the interpolation is performed as normal (i.e. with NaN values in the
+                image set to 0), then any mapped locations where the nearest
+                corresponding image pixel is NaN are set to NaN. Note that there may
+                still be very small errors on the boundaries of NaN regions caused by
+                the interpolation.
             warn_nan: Print warning if any values in `img` are NaN when any of the
                 spline interpolations are used.
 
@@ -946,9 +954,9 @@ class BodyXY(Body):
             'quadratic': 2,
             'cubic': 3,
         }
-        nan_sentinel = -999
 
         if interpolation == 'nearest':
+            nan_sentinel = -999
             x_map = np.asarray(
                 np.nan_to_num(np.round(x_map), nan=nan_sentinel), dtype=int
             )
@@ -963,6 +971,7 @@ class BodyXY(Body):
                 projected[a, b] = img[y, x]
         elif interpolation in spline_k:
             k = spline_k[interpolation]
+            nans = np.isnan(img)
             if np.any(np.isnan(img)):
                 if warn_nan:
                     print('Warning, image contains NaN values which will be set to 0')
@@ -975,10 +984,15 @@ class BodyXY(Body):
                 if math.isnan(x):
                     continue
                 y = y_map[a, b]  # y should never be nan when x is not nan
+                if propagate_nan and nans[int(np.round(y)), int(np.round(x))]:
+                    continue
                 projected[a, b] = interpolator(y, x)
         else:
             raise ValueError(f'Unknown interpolation method {interpolation!r}')
         return projected
+
+    def _xy_in_image_frame(self, x: float, y: float) -> bool:
+        return (-0.5 < x < self._nx - 0.5) and (-0.5 < y < self._ny - 0.5)
 
     # Backplane management
     @staticmethod
@@ -1552,7 +1566,7 @@ class BodyXY(Body):
             ra, dec = radec_map[a, b]
             if not math.isnan(ra):
                 x, y = self.radec2xy(ra, dec)
-                if (-0.5 < x < self._nx - 0.5) and (-0.5 < y < self._ny - 0.5):
+                if self._xy_in_image_frame(x, y):
                     out[a, b] = x, y
         return out
 
