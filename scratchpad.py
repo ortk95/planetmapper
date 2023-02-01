@@ -8,7 +8,11 @@ import numpy as np
 import spiceypy as spice
 
 p = '/Users/ortk1/Dropbox/PhD/data/jwst/Uranus_2023jan08/lon2/stage3/d1/Level3_ch4-short_s3d.fits'
+p = '/Users/ortk1/Dropbox/PhD/data/jwst/saturn/SATURN-75N/stage6_flat/d1_fringe_nav/Level3_ch1-short_s3d_nav.fits'
 body = planetmapper.Observation(p)
-body.plot_wireframe_radec(show=True, add_axis_labels=False, dms_ticks=False)
-body.plot_wireframe_km(show=True, aspect_adjustable='box', add_title=False)
-body.plot_wireframe_xy(show=True)
+body.plot_backplane_map('pixel-x')
+plt.show()
+
+img = body.data[0]
+mapped = body.map_img(img, interpolation='cubic')
+body.imshow_map(mapped)
