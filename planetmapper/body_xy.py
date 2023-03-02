@@ -984,12 +984,23 @@ class BodyXY(Body):
                 if math.isnan(x):
                     continue
                 y = y_map[a, b]  # y should never be nan when x is not nan
-                if propagate_nan and nans[int(np.round(y)), int(np.round(x))]:
+                if propagate_nan and self._should_propagate_nan_to_map(x, y, nans):
                     continue
                 projected[a, b] = interpolator(y, x)
         else:
             raise ValueError(f'Unknown interpolation method {interpolation!r}')
         return projected
+
+    def _should_propagate_nan_to_map(
+        self, x: float, y: float, nans: np.ndarray
+    ) -> bool:
+        # Test if any of the four surrounding integer pixels in the image are NaN
+        return (
+            nans[math.floor(y), math.floor(x)]
+            or nans[math.floor(y), math.ceil(x)]
+            or nans[math.ceil(y), math.floor(x)]
+            or nans[math.ceil(y), math.ceil(x)]
+        )
 
     def _xy_in_image_frame(self, x: float, y: float) -> bool:
         return (-0.5 < x < self._nx - 0.5) and (-0.5 < y < self._ny - 0.5)
