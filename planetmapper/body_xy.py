@@ -273,9 +273,7 @@ class BodyXY(Body):
 
         if self._nx > 0 and self._ny > 0:
             # centre disc if dimensions provided
-            self._x0 = self._nx / 2 - 0.5
-            self._y0 = self._ny / 2 - 0.5
-            self._r0 = 0.9 * (min(self._x0, self._y0))
+            self.centre_disc()
 
         self._mpl_transform_radec2xy: matplotlib.transforms.Affine2D | None = None
         self._mpl_transform_xy2radec: matplotlib.transforms.Transform | None = None
@@ -469,6 +467,20 @@ class BodyXY(Body):
             `(x0, y0, r0, rotation)` tuple.
         """
         return self.get_x0(), self.get_y0(), self.get_r0(), self.get_rotation()
+
+    def centre_disc(self) -> None:
+        """
+        Centre the target's planetary disc and make it fill ~90% of the observation.
+
+        This adjusts `x0` and `y0` so that they lie in the centre of the image, and `r0`
+        is adjusted so that the disc fills 90% of the shortest side of the image. For
+        example, if `nx = 20` and `ny = 30`, then `x0` will be set to 10, `y0` will be
+        set to 15 and `r0` will be set to 9. The rotation of the disc is unchanged.
+        """
+        self.set_x0(self._nx / 2)
+        self.set_y0(self._ny / 2)
+        self.set_r0(0.9 * (min(self.get_x0(), self.get_y0())))
+        self.set_disc_method('centre_disc')
 
     def set_x0(self, x0: float) -> None:
         """
