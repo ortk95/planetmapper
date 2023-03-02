@@ -273,9 +273,7 @@ class BodyXY(Body):
 
         if self._nx > 0 and self._ny > 0:
             # centre disc if dimensions provided
-            self._x0 = self._nx / 2 - 0.5
-            self._y0 = self._ny / 2 - 0.5
-            self._r0 = 0.9 * (min(self._x0, self._y0))
+            self.centre_disc()
 
         self._mpl_transform_radec2xy: matplotlib.transforms.Affine2D | None = None
         self._mpl_transform_xy2radec: matplotlib.transforms.Transform | None = None
