@@ -1429,9 +1429,6 @@ class BodyXY(Body):
         """
         See also :func:`get_backplane_map`.
 
-        Args:
-            degree_interval: Interval in degrees between points in the returned map.
-
         Returns:
             Array containing cylindrical map of planetographic longitude values.
         """
@@ -1450,9 +1447,6 @@ class BodyXY(Body):
     def get_lat_map(self, degree_interval: float = 1) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
-
-        Args:
-            degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
             Array containing cylindrical map of planetographic latitude values.
@@ -1491,9 +1485,6 @@ class BodyXY(Body):
         """
         See also :func:`get_backplane_map`.
 
-        Args:
-            degree_interval: Interval in degrees between points in the returned map.
-
         Returns:
             Array containing cylindrical map of planetocentric longitude values.
         """
@@ -1512,9 +1503,6 @@ class BodyXY(Body):
     def get_lat_centric_map(self, degree_interval: float = 1) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
-
-        Args:
-            degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
             Array containing cylindrical map of planetocentric latitude values.
@@ -1554,9 +1542,6 @@ class BodyXY(Body):
         """
         See also :func:`get_backplane_map`.
 
-        Args:
-            degree_interval: Interval in degrees between points in the returned map.
-
         Returns:
             Array containing cylindrical map of right ascension values as viewed by the
             observer. Locations which are not visible have a value of NaN.
@@ -1575,9 +1560,6 @@ class BodyXY(Body):
     def get_dec_map(self, degree_interval: float = 1) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
-
-        Args:
-            degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
             Array containing cylindrical map of declination values as viewed by the
@@ -1614,9 +1596,6 @@ class BodyXY(Body):
         """
         See also :func:`get_backplane_map`.
 
-        Args:
-            degree_interval: Interval in degrees between points in the returned map.
-
         Returns:
             Array containing cylindrical map of the x pixel coordinates each location
             corresponds to in the observation. Locations which are not visible or are
@@ -1639,9 +1618,6 @@ class BodyXY(Body):
     def get_y_map(self, degree_interval: float = 1) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
-
-        Args:
-            degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
             Array containing cylindrical map of the y pixel coordinates each location
@@ -1682,9 +1658,6 @@ class BodyXY(Body):
         """
         See also :func:`get_backplane_map`.
 
-        Args:
-            degree_interval: Interval in degrees between points in the returned map.
-
         Returns:
             Array containing cylindrical map of the phase angle value at each point on
             the target's surface.
@@ -1704,9 +1677,6 @@ class BodyXY(Body):
     def get_incidence_angle_map(self, degree_interval: float = 1) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
-
-        Args:
-            degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
             Array containing cylindrical map of the incidence angle value at each point
@@ -1728,9 +1698,6 @@ class BodyXY(Body):
         """
         See also :func:`get_backplane_map`.
 
-        Args:
-            degree_interval: Interval in degrees between points in the returned map.
-
         Returns:
             Array containing cylindrical map of the emission angle value at each point
             on the target's surface.
@@ -1750,7 +1717,6 @@ class BodyXY(Body):
         incidence_radians = np.deg2rad(self._get_illumination_gie_img()[:, :, 1])
         emission_radians = np.deg2rad(self._get_illumination_gie_img()[:, :, 2])
         with warnings.catch_warnings():
-            # TODO should we do this better?
             warnings.filterwarnings('ignore', 'divide by zero encountered in')
             warnings.filterwarnings('ignore', 'invalid value encountered in')
             azimuth_radians = self._azimuth_angle_from_gie_radians(
@@ -1763,9 +1729,6 @@ class BodyXY(Body):
         """
         See also :func:`get_backplane_map`.
 
-        Args:
-            degree_interval: Interval in degrees between points in the returned map.
-
         Returns:
             Array containing cylindrical map of the azimuth angle value at each point
             on the target's surface.
@@ -1774,7 +1737,6 @@ class BodyXY(Body):
         incidence_radians = np.deg2rad(self._get_illumf_map(degree_interval)[:, :, 1])
         emission_radians = np.deg2rad(self._get_illumf_map(degree_interval)[:, :, 2])
         with warnings.catch_warnings():
-            # TODO should we do this better?
             warnings.filterwarnings('ignore', 'divide by zero encountered in')
             warnings.filterwarnings('ignore', 'invalid value encountered in')
             azimuth_radians = self._azimuth_angle_from_gie_radians(
@@ -1829,9 +1791,6 @@ class BodyXY(Body):
         """
         See also :func:`get_backplane_map`.
 
-        Args:
-            degree_interval: Interval in degrees between points in the returned map.
-
         Returns:
             Array containing cylindrical map of the observer-target distance in km of
             each point on the target's surface.
@@ -1864,9 +1823,6 @@ class BodyXY(Body):
         """
         See also :func:`get_backplane_map`.
 
-        Args:
-            degree_interval: Interval in degrees between points in the returned map.
-
         Returns:
             Array containing cylindrical map of the observer-target radial velocity in
             km/s of each point on the target's surface.
@@ -1895,9 +1851,6 @@ class BodyXY(Body):
     def get_doppler_map(self, degree_interval: float = 1) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
-
-        Args:
-            degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
             Array containing cylindrical map of the doppler factor of each point on the
@@ -1978,9 +1931,6 @@ class BodyXY(Body):
         """
         See also :func:`get_backplane_map`.
 
-        Args:
-            degree_interval: Interval in degrees between points in the returned map.
-
         Returns:
             Array containing cylindrical map of the ring plane radius in km obscuring
             each point on the target's surface, calculated using
@@ -2004,9 +1954,6 @@ class BodyXY(Body):
         """
         See also :func:`get_backplane_map`.
 
-        Args:
-            degree_interval: Interval in degrees between points in the returned map.
-
         Returns:
             Array containing cylindrical map of the ring plane planetographic longitude
             in degrees obscuring each point on the target's surface, calculated using
@@ -2029,9 +1976,6 @@ class BodyXY(Body):
     def get_ring_plane_distance_map(self, degree_interval: float = 1) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
-
-        Args:
-            degree_interval: Interval in degrees between points in the returned map.
 
         Returns:
             Array containing cylindrical map of the ring plane distance from the

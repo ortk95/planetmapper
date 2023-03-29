@@ -15,7 +15,7 @@ For full documentation and [API reference](https://planetmapper.readthedocs.io/e
 
 ## [Installation](https://planetmapper.readthedocs.io/en/latest/installation.html)
 ```
-pip install planetmapper
+pip install planetmapper --upgrade
 ```
 
 _Requires Python 3.10+_
