@@ -12,4 +12,5 @@ p = '/Users/ortk1/Downloads/URA_NIRSPEC_F290LP_G395H_NRS2_Lon3_2_nav.fits'
 
 observation = planetmapper.Observation(p)
 # observation.run_gui()
-observation.save_mapped_observation('~/test.fits')
+# observation.save_mapped_observation('~/test.fits')
+observation.save_observation('~/test.fits')
