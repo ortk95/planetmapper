@@ -488,7 +488,7 @@ class Observation(BodyXY):
         the mapped data is automatically cached (in a similar way to backplanes - see
         :class:`BodyXY`) so that subsequent calls to this function do not have to
         recompute the mapped data. As with cached backplanes, the cached mapped data is
-        automatically cleared if any disc parameters are changed (i.e. you shouldn't 
+        automatically cleared if any disc parameters are changed (i.e. you shouldn't
         need to worry about the cache, it all happens 'magically' behind the scenes).
 
         Args:
@@ -529,7 +529,10 @@ class Observation(BodyXY):
             self._update_progress_hook(idx / len(data))
             projected.append(
                 self.map_img(
-                    img, degree_interval=degree_interval, interpolation=interpolation, **kw
+                    img,
+                    degree_interval=degree_interval,
+                    interpolation=interpolation,
+                    **kw,
                 )
             )
         return np.array(projected)
@@ -615,7 +618,7 @@ class Observation(BodyXY):
         self.append_to_header(
             'DISC ROT',
             self.get_rotation(),
-            '[degrees] rotation of disc.',
+            '[degrees] rotation of image.',
             header=header,
         )
         self.append_to_header(
@@ -640,6 +643,48 @@ class Observation(BodyXY):
             header=header,
         )
         self.append_to_header(
+            'SUBPOINT LAT',
+            self.subpoint_lat,
+            '[degrees] Sub-observer pgr latitude.',
+            header=header,
+        )
+        self.append_to_header(
+            'SUBPOINT LON',
+            self.subpoint_lon,
+            '[degrees] Sub-observer pgr longitude.',
+            header=header,
+        )
+        self.append_to_header(
+            'LON-DIRECTION',
+            self.positive_longitude_direction,
+            'Positive pgr longitude direction.',
+            header=header,
+        )
+        self.append_to_header(
+            'NP-ANGLE',
+            self.north_pole_angle(),
+            '[degrees] North pole angle.',
+            header=header,
+        )
+        self.append_to_header(
+            'TARGET RA',
+            self.target_ra,
+            '[degrees] RA of target centre.',
+            header=header,
+        )
+        self.append_to_header(
+            'TARGET DEC',
+            self.target_dec,
+            '[degrees] Dec of target centre.',
+            header=header,
+        )
+        self.append_to_header(
+            'TARGET DIAMETER',
+            self.target_diameter_arcsec,
+            '[arcsec] Equatorial angular diameter of target.',
+            header=header,
+        )
+        self.append_to_header(
             'R EQ',
             self.r_eq,
             '[km] Target equatorial radius from SPICE.',
@@ -649,6 +694,12 @@ class Observation(BodyXY):
             'R POLAR',
             self.r_polar,
             '[km] Target polar radius from SPICE.',
+            header=header,
+        )
+        self.append_to_header(
+            'FLATTENING',
+            self.flattening,
+            'Flattening of target body.',
             header=header,
         )
         self.append_to_header(
