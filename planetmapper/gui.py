@@ -1482,7 +1482,6 @@ class OpenObservation(Popup):
 
         self.stringvars['path'].trace_add('write', self.path_changed)
 
-
         heading = '\n'.join(
             ['Select a FITS or image (e.g. PNG, JPEG) file to navigate and map']
         )
@@ -1909,6 +1908,7 @@ class SaveObservation(Popup):
                 title=f'Error saving files',
                 message=f'Error: {e}',
             )
+            # print(e)
             return False
         finally:
             self.gui.get_observation()._remove_progress_hook()
@@ -2013,7 +2013,7 @@ class SavingProgress(Popup):
             observation.save_mapped_observation(
                 self.path_map,
                 degree_interval=self.degree_interval,
-                interpolation=self.interpolation, # type: ignore
+                interpolation=self.interpolation,  # type: ignore
                 **save_kwargs,
             )
             observation._remove_progress_hook()

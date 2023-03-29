@@ -1,6 +1,7 @@
 from functools import wraps
 from typing import TypeVar, ParamSpec, Concatenate, Callable, TYPE_CHECKING
 import tqdm
+import time
 
 if TYPE_CHECKING:
     from .base import SpiceBase
@@ -67,6 +68,31 @@ class CLIProgressHook(ProgressHook):
         self.bars[key].update(progress * 100 - self.bars[key].n)
         if progress == 1:
             self.bars[key].close()
+
+
+class TotalTimingProgressHook(ProgressHook):
+    """
+    Progress hook to log time spent in each function.
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.start_times: dict[tuple[str, ...], float] = {}
+        self.self_durations: dict[tuple[str, ...], float] = {}
+
+    def __call__(self, progress: float, stack: list[str]) -> None:
+        key = tuple(stack)
+        if key not in self.start_times:
+            self.start_times[key] = time.time()
+        if progress == 1:
+            full_diration = time.time() - self.start_times[key]
+            self_duration = full_diration
+            for k, v in self.self_durations.items():
+                if len(k) > len(key) and k[: len(key)] == key:
+                    self_duration -= self.self_durations[k]
+            self.self_durations[key] = self_duration
+            desc = '> ' * (len(key) - 1) + key[-1]
+            print(f'{full_diration:5.2f} {self_duration:5.2f}  {desc}')
 
 
 # Specific progress hooks for use in saving
