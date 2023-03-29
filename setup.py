@@ -38,6 +38,7 @@ setuptools.setup(
         'scipy',
         'photutils',
         'tqdm',
+        'pyproj',
     ],
     keywords=[
         'planetmapper',

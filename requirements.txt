@@ -6,3 +6,4 @@ spiceypy
 scipy
 photutils
 tqdm
+pyproj
