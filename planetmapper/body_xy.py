@@ -1058,7 +1058,8 @@ class BodyXY(Body):
         :func:`project_img_orthographic` and :func:`project_img_azimuthal` provide a
         simpler interface to create orthographic and azimuthal projections.
 
-        See also :func:`map_img`.
+        See also :func:`map_img` which is recommended when projecting to cylindrical
+        maps.
 
         Args:
             img: Observed image where pixel coordinates correspond to the `xy` pixel
@@ -1068,11 +1069,12 @@ class BodyXY(Body):
                 projection (e.g. `proj_out=ccrs.Orthographic()`). For full list of
                 projections and relevant parameters, see
                 https://proj.org/operations/projections/index.html.
-            x_out, y_out: Output coordinates in the the x and y directions of
-                `projection`. Both `x_out` and `y_out` should have the same number of
-                dimensions (i.e. should both either be 1D or 2D arrays). If `x_out` or
-                `y_out` are `None`, then the output coordinates will be generated
-                automatically to cover the finite range of output coordinates.
+            x_out: Output coordinates in the the x direction of `projection`. Both
+                `x_out` and `y_out` should have the same number of dimensions (i.e.
+                should both either be 1D or 2D arrays). If `x_out` or `y_out` are
+                `None`, then the output coordinates will be generated automatically to
+                cover the finite range of output coordinates.
+            y_out: Output coordinates in the the y direction of `projection`.
             out_size: If `x_out` and `y_out` are `None`, then this parameter is used to
                 determine the grid size of the output data. If `out_size` is an integer,
                 then the output grid will be square with `out_size` points in each
@@ -1196,6 +1198,7 @@ class BodyXY(Body):
                 generated).
             border_fraction: Approximate padding around the image in the output
                 projection.
+            **kwargs: Additional keyword arguments are passed to :func:`project_img`.
 
         Returns:
             `(x_out, y_out, img_out, transformer)` tuple. `x_out` and `y_out` are the x
@@ -1239,6 +1242,7 @@ class BodyXY(Body):
                 generated).
             border_fraction: Approximate padding around the image in the output
                 projection.
+            **kwargs: Additional keyword arguments are passed to :func:`project_img`.
 
         Returns:
             `(x_out, y_out, img_out, transformer)` tuple. `x_out` and `y_out` are the x
