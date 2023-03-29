@@ -1007,11 +1007,16 @@ class BodyXY(Body):
         self, x: float, y: float, nans: np.ndarray
     ) -> bool:
         # Test if any of the four surrounding integer pixels in the image are NaN
+        x0 = max(math.floor(x), 0)
+        x1 = min(math.ceil(x), self._nx - 1)
+        y0 = max(math.floor(y), 0)
+        y1 = min(math.ceil(y), self._ny - 1)
+
         return (
-            nans[math.floor(y), math.floor(x)]
-            or nans[math.floor(y), math.ceil(x)]
-            or nans[math.ceil(y), math.floor(x)]
-            or nans[math.ceil(y), math.ceil(x)]
+            nans[y0, x0]
+            or nans[y0, x1]
+            or nans[y1, x0]
+            or nans[y1, x1]
         )
 
     def _xy_in_image_frame(self, x: float, y: float) -> bool:
