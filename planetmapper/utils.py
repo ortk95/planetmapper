@@ -394,6 +394,7 @@ def check_path(path: str):
     Assumes path is to a file if `os.path.split(path)[1]` contains '.',
     otherwise assumes path is to a directory.
     """
+    path = os.path.expandvars(os.path.expanduser(path))
     if os.path.isdir(path):
         return
     if '.' in os.path.split(path)[1]:
