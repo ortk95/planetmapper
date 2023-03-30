@@ -1896,7 +1896,7 @@ class BodyXY(Body):
         out = self._make_empty_img(2)
         radec_img = self._get_radec_img()
         for y, x in self._iterate_image(out.shape):
-            out[y, x] = self.radec2km(*radec_img)
+            out[y, x] = self.radec2km(*radec_img[y, x])
         return out
 
     @_cache_stable_result
