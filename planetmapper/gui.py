@@ -5,6 +5,7 @@ import tkinter.colorchooser
 import tkinter.filedialog
 import tkinter.messagebox
 import tkinter.scrolledtext
+import traceback
 from collections import defaultdict
 from tkinter import ttk
 from typing import Any, Callable, Literal, TypeVar
@@ -24,10 +25,10 @@ from matplotlib.backend_bases import MouseEvent, MouseButton
 from matplotlib.text import Text
 import matplotlib as mpl
 
-from matplotlib.backends._backend_tk import NavigationToolbar2Tk  # TODO delete this
+from matplotlib.backends._backend_tk import NavigationToolbar2Tk  # TODO delete this?
 
 from . import base, data_loader, utils
-from .body import Body, NotFoundError
+from .body import Body, BasicBody, NotFoundError
 from .observation import Observation
 from . import progress
 
@@ -353,7 +354,6 @@ class GUI:
             root = self.root
         self.style = ttk.Style(root)
         self.style.theme_use('default')
-        # TODO add padding etc. here
         for element in ['TEntry', 'TCombobox', 'TSpinbox', 'TButton', 'TLabel']:
             self.style.configure(
                 element,
@@ -512,7 +512,6 @@ class GUI:
         menu = ttk.Frame(self.notebook)
         menu.pack()
         self.notebook.add(menu, text='Settings')
-        # self.notebook.select(menu)  # TODO delete this
 
         # Image
         frame = ttk.LabelFrame(menu, text='Observation')
@@ -696,7 +695,6 @@ class GUI:
         top_level_frame = ttk.Frame(self.notebook)
         top_level_frame.pack()
         self.notebook.add(top_level_frame, text='Coords')
-        # self.notebook.select(top_level_frame)  # TODO delete this
 
         frame = ttk.Frame(top_level_frame)
         frame.pack(padx=5, fill='x')
@@ -893,7 +891,7 @@ class GUI:
 
         try:
             # Disable when panning/zooming
-            if self.toolbar.mode._navigate_mode is not None:
+            if self.toolbar.mode._navigate_mode is not None:  #  type: ignore
                 return
         except:
             pass
@@ -937,7 +935,9 @@ class GUI:
     def copy_machine_coord_values(self) -> None:
         self.copy_to_clipboard(self.coords_machine_str)
 
-    def copy_to_clipboard(self, s: str) -> None:
+    def copy_to_clipboard(self, s: str | None) -> None:
+        if s is None:
+            s = ''
         self.root.clipboard_clear()
         self.root.clipboard_append(s)
 
@@ -1621,8 +1621,9 @@ class OpenObservation(Popup):
         except Exception as e:
             tkinter.messagebox.showwarning(
                 title=f'Error processing inputs',
-                message=f'Error: {e}',
+                message=f'Error: {e}' + '\n\nSee terminal for more details',
             )
+            traceback.print_exc()
             return False
         self.gui.set_observation(observation)
         self.gui.kernels = kernels
@@ -1879,7 +1880,8 @@ class SaveObservation(Popup):
 
         if (save_nav and len(path_nav) == 0) or (save_map and len(path_map) == 0):
             tkinter.messagebox.showwarning(
-                title=f'Error saving file', message=f'File paths must not be empty'
+                title=f'Error saving file',
+                message=f'File paths must not be empty',
             )
             return False
 
@@ -1906,9 +1908,9 @@ class SaveObservation(Popup):
         except Exception as e:
             tkinter.messagebox.showwarning(
                 title=f'Error saving files',
-                message=f'Error: {e}',
+                message=f'Error: {e}' + '\n\nSee terminal for more details',
             )
-            # print(e)
+            traceback.print_exc()
             return False
         finally:
             self.gui.get_observation()._remove_progress_hook()
@@ -2334,7 +2336,6 @@ class PlotImageSetting(ArtistSetting):
                 ),
                 {'single', 'sum'},
             ),
-            # TODO vmin/vmax/gamma
         ]
         self.add_to_menu_grid([(a, b) for a, b, c in self.grid], frame=frame)
 
@@ -2759,7 +2760,7 @@ class GenericOtherBodySetting(ArtistSetting):
         self.txt.insert('1.0', value)
 
     def apply_other_body_setting(self) -> bool:
-        bodies: list[Body] = []
+        bodies: list[Body | BasicBody] = []
         string = self.txt.get('1.0', 'end')
         for line in string.splitlines():
             line = line.strip()
@@ -2826,7 +2827,6 @@ class ColourButton(ttk.Button):
 
 
 class NumericEntry:
-    # TODO add validation
     def __init__(
         self,
         gui: GUI,
