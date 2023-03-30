@@ -147,8 +147,6 @@ class Observation(BodyXY):
 
     def _load_fits_data(self):
         assert self.path is not None
-        # TODO generally do this better
-        # TODO add check data is a cube
         with fits.open(self.path, memmap=False) as hdul:
             for idx, hdu in enumerate(hdul):
                 if hdu.data is not None:
@@ -247,7 +245,7 @@ class Observation(BodyXY):
         )
 
     def __repr__(self) -> str:
-        return f'Observation({self.path!r})'  # TODO make more explicit?
+        return f'Observation({self.path!r})'
 
     # Auto disc id
     def disc_from_header(self) -> None:
