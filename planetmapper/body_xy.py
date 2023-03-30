@@ -251,7 +251,7 @@ class BodyXY(Body):
 
         Note that a generated backplane image will depend on the disc parameters 
         `(x0, y0, r0, rotation)` at the time the backplane is generated (e.g. calling 
-        `body.backplanes['LON'].get_img()` or using :func:`get_backplane_img`).
+        `body.backplanes['LAT-GRAPHIC'].get_img()` or using :func:`get_backplane_img`).
         Generating the same backplane when there are different disc parameter values will
         produce a different image.
 
@@ -1269,8 +1269,8 @@ class BodyXY(Body):
         backplanes.
 
         This standardisation is used in functions like :func:`get_backplane_img` and
-        :func:`plot_backplane` so that, for example `body.plot_backplane('LAT')`,
-        `body.plot_backplane('Lat')` and `body.plot_backplane('lat')` all produce the
+        :func:`plot_backplane` so that, for example `body.plot_backplane('DEC')`,
+        `body.plot_backplane('Dec')` and `body.plot_backplane('dec')` all produce the
         same plot.
 
         Args:
