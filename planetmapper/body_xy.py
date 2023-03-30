@@ -1304,7 +1304,6 @@ class BodyXY(Body):
         Raises:
             ValueError: if provided backplane name is already registered.
         """
-        # TODO add checks for name/description lengths?
         name = self.standardise_backplane_name(name)
         if name in self.backplanes:
             raise ValueError(f'Backplane named {name!r} is already registered')

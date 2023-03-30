@@ -891,7 +891,7 @@ class GUI:
 
         try:
             # Disable when panning/zooming
-            if self.toolbar.mode._navigate_mode is not None: # type: ignore
+            if self.toolbar.mode._navigate_mode is not None:  #  type: ignore
                 return
         except:
             pass
@@ -935,9 +935,9 @@ class GUI:
     def copy_machine_coord_values(self) -> None:
         self.copy_to_clipboard(self.coords_machine_str)
 
-    def copy_to_clipboard(self, s: str|None) -> None:
+    def copy_to_clipboard(self, s: str | None) -> None:
         if s is None:
-            s=''
+            s = ''
         self.root.clipboard_clear()
         self.root.clipboard_append(s)
 
@@ -1621,8 +1621,9 @@ class OpenObservation(Popup):
         except Exception as e:
             tkinter.messagebox.showwarning(
                 title=f'Error processing inputs',
-                message=f'Error: {e}',
+                message=f'Error: {e}' + '\n\nSee terminal for more details',
             )
+            traceback.print_exc()
             return False
         self.gui.set_observation(observation)
         self.gui.kernels = kernels
@@ -1879,7 +1880,8 @@ class SaveObservation(Popup):
 
         if (save_nav and len(path_nav) == 0) or (save_map and len(path_map) == 0):
             tkinter.messagebox.showwarning(
-                title=f'Error saving file', message=f'File paths must not be empty'
+                title=f'Error saving file',
+                message=f'File paths must not be empty',
             )
             return False
 
@@ -1906,9 +1908,9 @@ class SaveObservation(Popup):
         except Exception as e:
             tkinter.messagebox.showwarning(
                 title=f'Error saving files',
-                message=f'Error: {e}',
+                message=f'Error: {e}' + '\n\nSee terminal for more details',
             )
-            # print(e)
+            traceback.print_exc()
             return False
         finally:
             self.gui.get_observation()._remove_progress_hook()
@@ -2758,7 +2760,7 @@ class GenericOtherBodySetting(ArtistSetting):
         self.txt.insert('1.0', value)
 
     def apply_other_body_setting(self) -> bool:
-        bodies: list[Body|BasicBody] = []
+        bodies: list[Body | BasicBody] = []
         string = self.txt.get('1.0', 'end')
         for line in string.splitlines():
             line = line.strip()
