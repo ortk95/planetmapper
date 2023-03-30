@@ -408,8 +408,8 @@ class BodyXY(Body):
         Convert distances in the target plane to image pixel coordinates.
 
         Args:
-            km_x: Distance in km in the East-West direction.
-            km_y: Distance in km in the North-South direction.
+            km_x: Distance in target plane in km in the East-West direction.
+            km_y: Distance in target plane in km in the North-South direction.
 
         Returns:
             `(x, y)` tuple containing the image pixel coordinates of the point.

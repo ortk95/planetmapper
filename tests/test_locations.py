@@ -18,6 +18,10 @@ class TestBody(unittest.TestCase):
             lon1, lat1 = self.obj.targvec2lonlat(self.obj.lonlat2targvec(lon0, lat0))
             self.assertAlmostEqual(lon0, lon1, delta=0.1)
             self.assertAlmostEqual(lat0, lat1, delta=0.1)
+        with self.subTest('km'):
+            lon1, lat1 = self.obj.km2lonlat(*self.obj.lonlat2km(lon0, lat0))
+            self.assertAlmostEqual(lon0, lon1, delta=0.1)
+            self.assertAlmostEqual(lat0, lat1, delta=0.1)
 
     def test_subpoint_visible(self):
         self.assertTrue(
@@ -67,9 +71,15 @@ class TestBodyXY_ZeroSize(unittest.TestCase):
 
     def test_round_trip_conversion(self):
         lon, lat = generate_lonlat(self.obj)
-        lon_rt, lat_rt = self.obj.xy2lonlat(*self.obj.lonlat2xy(lon, lat))
-        self.assertAlmostEqual(lon, lon_rt, delta=0.1)
-        self.assertAlmostEqual(lat, lat_rt, delta=0.1)
+        with self.subTest('xy'):
+            lon_rt, lat_rt = self.obj.xy2lonlat(*self.obj.lonlat2xy(lon, lat))
+            self.assertAlmostEqual(lon, lon_rt, delta=0.1)
+            self.assertAlmostEqual(lat, lat_rt, delta=0.1)
+        with self.subTest('km'):
+            x, y = self.obj.lonlat2xy(lon, lat)
+            x_rt, y_rt = self.obj.xy2lonlat(*self.obj.lonlat2xy(x,y))
+            self.assertAlmostEqual(x, x_rt, delta=0.1)
+            self.assertAlmostEqual(y, y_rt, delta=0.1)
 
     def test_missing(self):
         x = self.obj.get_x0()
@@ -90,9 +100,15 @@ class TestBodyXY_Sized(unittest.TestCase):
 
     def test_round_trip_conversion(self):
         lon, lat = generate_lonlat(self.obj)
-        lon_rt, lat_rt = self.obj.xy2lonlat(*self.obj.lonlat2xy(lon, lat))
-        self.assertAlmostEqual(lon, lon_rt, delta=0.1)
-        self.assertAlmostEqual(lat, lat_rt, delta=0.1)
+        with self.subTest('xy'):
+            lon_rt, lat_rt = self.obj.xy2lonlat(*self.obj.lonlat2xy(lon, lat))
+            self.assertAlmostEqual(lon, lon_rt, delta=0.1)
+            self.assertAlmostEqual(lat, lat_rt, delta=0.1)
+        with self.subTest('km'):
+            x, y = self.obj.lonlat2xy(lon, lat)
+            x_rt, y_rt = self.obj.xy2lonlat(*self.obj.lonlat2xy(x,y))
+            self.assertAlmostEqual(x, x_rt, delta=0.1)
+            self.assertAlmostEqual(y, y_rt, delta=0.1)        
 
     def test_missing(self):
         x = self.obj.get_x0()
