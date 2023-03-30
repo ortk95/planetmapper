@@ -77,7 +77,7 @@ class TestBodyXY_ZeroSize(unittest.TestCase):
             self.assertAlmostEqual(lat, lat_rt, delta=0.1)
         with self.subTest('km'):
             x, y = self.obj.lonlat2xy(lon, lat)
-            x_rt, y_rt = self.obj.xy2lonlat(*self.obj.lonlat2xy(x,y))
+            x_rt, y_rt = self.obj.km2xy(*self.obj.xy2km(x, y))
             self.assertAlmostEqual(x, x_rt, delta=0.1)
             self.assertAlmostEqual(y, y_rt, delta=0.1)
 
@@ -96,7 +96,9 @@ class TestBodyXY_Sized(unittest.TestCase):
     def setUp(self):
         self.nx = 5
         self.ny = 10
-        self.obj = planetmapper.BodyXY('neptune', generate_dtm_str(), nx=self.nx, ny=self.ny)
+        self.obj = planetmapper.BodyXY(
+            'neptune', generate_dtm_str(), nx=self.nx, ny=self.ny
+        )
 
     def test_round_trip_conversion(self):
         lon, lat = generate_lonlat(self.obj)
@@ -106,9 +108,9 @@ class TestBodyXY_Sized(unittest.TestCase):
             self.assertAlmostEqual(lat, lat_rt, delta=0.1)
         with self.subTest('km'):
             x, y = self.obj.lonlat2xy(lon, lat)
-            x_rt, y_rt = self.obj.xy2lonlat(*self.obj.lonlat2xy(x,y))
+            x_rt, y_rt = self.obj.km2xy(*self.obj.xy2km(x, y))
             self.assertAlmostEqual(x, x_rt, delta=0.1)
-            self.assertAlmostEqual(y, y_rt, delta=0.1)        
+            self.assertAlmostEqual(y, y_rt, delta=0.1)
 
     def test_missing(self):
         x = self.obj.get_x0()
@@ -123,7 +125,7 @@ class TestBodyXY_Sized(unittest.TestCase):
 
 def generate_dtm_str() -> str:
     """Create datetime string such that tests are reproducable on same day"""
-    dtm = datetime.datetime(2000, 1,1)
+    dtm = datetime.datetime(2000, 1, 1)
     return dtm.strftime('%Y-%m-%d 00:00:00')
 
 
