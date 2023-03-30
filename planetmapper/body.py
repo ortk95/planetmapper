@@ -790,6 +790,38 @@ class Body(SpiceBase):
             East-West and North-South directions respectively.
         """
         return self._radec2km_radians(*self._degree_pair2radians(ra, dec))
+    
+    def km2lonlat(self, km_x: float, km_y: float, **kwargs) -> tuple[float, float]:
+        """
+        Convert distance in target plane to longitude/latitude coordinates on the target
+        body.
+
+        Args:
+            km_x: Distance in target plane in km in the East-West direction.
+            km_y: Distance in target plane in km in the North-South direction.
+            **kwargs: Additional arguments are passed to :func:`Body.radec2lonlat`.
+
+        Returns:
+            `(lon, lat)` tuple containing the longitude and latitude of the point. If
+            the provided km coordinates are missing the target body, then the `lon`
+            and `lat` values will both be NaN (see :func:`Body.radec2lonlat`).
+        """
+        return self.radec2lonlat(*self.km2radec(km_x, km_y), **kwargs)
+
+    def lonlat2km(self, lon: float, lat: float) -> tuple[float, float]:
+        """
+        Convert longitude/latitude coordinates on the target body to distances in the
+        target plane.
+
+        Args:
+            lon: Longitude of point on the target body.
+            lat: Latitude of point on the target body.
+
+        Returns:
+            `(km_x, km_y)` tuple containing distances in km in the target plane in the
+            East-West and North-South directions respectively.
+        """
+        return self.radec2km(*self.lonlat2radec(lon, lat))
 
     def _get_matplotlib_radec2km_transform_radians(
         self,
