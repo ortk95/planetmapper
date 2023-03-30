@@ -1104,6 +1104,7 @@ class BodyXY(Body):
             pyproj.CRS(projection),
         )
 
+        # pylint: disable-next=unpacking-non-sequence
         x_img, y_img = transformer.transform(self.get_lon_img(), self.get_lat_img())
         xy_points = np.array([(x, y) for x, y in zip(x_img.ravel(), y_img.ravel())])
         img_points = img.ravel()
