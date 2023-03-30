@@ -1898,7 +1898,7 @@ class BodyXY(Body):
         for y, x in self._iterate_image(out.shape):
             out[y, x] = self.radec2km(*radec_img)
         return out
-    
+
     @_cache_stable_result
     def _get_km_xy_map(self, degree_interval: float) -> np.ndarray:
         out = self._make_empty_map(degree_interval, 2)
@@ -1914,7 +1914,7 @@ class BodyXY(Body):
         See also :func:`get_backplane_img`.
 
         Returns:
-            Array containing the distance in target plane in km in the East-West 
+            Array containing the distance in target plane in km in the East-West
             direction.
         """
         return self._get_km_xy_img()[:, :, 0]
@@ -1924,8 +1924,8 @@ class BodyXY(Body):
         See also :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the distance in target plane in km in 
-            the East-West direction. Locations which are not visible have a value of 
+            Array containing cylindrical map of the distance in target plane in km in
+            the East-West direction. Locations which are not visible have a value of
             NaN.
         """
         return self._get_km_xy_map(degree_interval)[:, :, 0]
@@ -1935,7 +1935,7 @@ class BodyXY(Body):
         See also :func:`get_backplane_img`.
 
         Returns:
-            Array containing the distance in target plane in km in the North-South 
+            Array containing the distance in target plane in km in the North-South
             direction.
         """
         return self._get_km_xy_img()[:, :, 1]
@@ -1945,12 +1945,11 @@ class BodyXY(Body):
         See also :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the distance in target plane in km in 
-            the North-South direction. Locations which are not visible have a value of 
+            Array containing cylindrical map of the distance in target plane in km in
+            the North-South direction. Locations which are not visible have a value of
             NaN.
         """
         return self._get_km_xy_map(degree_interval)[:, :, 1]
-
 
     @_cache_clearable_result
     @progress_decorator
@@ -2362,6 +2361,18 @@ class BodyXY(Body):
             'Observation y pixel coordinate [pixels]',
             self.get_y_img,
             self.get_y_map,
+        )
+        self.register_backplane(
+            'KM-X',
+            'East-West distance in target plane [km]',
+            self.get_km_x_img,
+            self.get_km_x_map,
+        )
+        self.register_backplane(
+            'KM-Y',
+            'North-South distance in target plane [km]',
+            self.get_km_y_img,
+            self.get_km_y_map,
         )
         self.register_backplane(
             'PHASE',
