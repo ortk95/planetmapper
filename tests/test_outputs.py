@@ -72,6 +72,7 @@ class TestObservation(unittest.TestCase):
         self.obj.set_rotation(42)
 
     def test_backplanes(self):
+        # use messed up keyshere to implicitly test name normalisation
         backplanes_expected = {
             'lon-GRAPHIC': array(
                 [

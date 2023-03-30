@@ -389,6 +389,33 @@ class BodyXY(Body):
         """
         return self.radec2xy(*self.lonlat2radec(lon, lat))
 
+    def xy2km(self, x: float, y: float) -> tuple[float, float]:
+        """
+        Convert image pixel coordinates to distances in the target plane.
+
+        Args:
+            x: Image pixel coordinate in the x direction.
+            y: Image pixel coordinate in the y direction.
+
+        Returns:
+            `(km_x, km_y)` tuple containing distances in km in the target plane in the
+            East-West and North-South directions respectively.
+        """
+        return self.radec2km(*self.xy2radec(x, y))
+
+    def km2xy(self, km_x: float, km_y: float) -> tuple[float, float]:
+        """
+        Convert distances in the target plane to image pixel coordinates.
+
+        Args:
+            km_x: Distance in target plane in km in the East-West direction.
+            km_y: Distance in target plane in km in the North-South direction.
+
+        Returns:
+            `(x, y)` tuple containing the image pixel coordinates of the point.
+        """
+        return self.radec2xy(*self.km2radec(km_x, km_y))
+
     def _radec_arrs2xy_arrs(
         self, ra_arr: np.ndarray, dec_arr: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
