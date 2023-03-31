@@ -171,11 +171,11 @@ class SaveMapProgressHook(SaveProgressHook):
         self.n_wavelengths = n_wavelengths
         self.weights: dict[str, float] = {
             'Observation._get_mapped_data': n_wavelengths * 5,
-            'BodyXY._get_targvec_map': 1,
+            'BodyXY._get_targvec_map': 10,
             'BodyXY._get_illumf_map': 5,
             'BodyXY._get_radec_map': 10,
             'BodyXY._get_xy_map': 10,
-            'BodyXY._get_lonlat_map': 10,
+            # 'BodyXY._get_lonlat_map': 10,
             'BodyXY._get_lonlat_centric_map': 5,
             'BodyXY._get_state_maps': 5,
             'BodyXY._get_ring_coordinate_maps': 10,

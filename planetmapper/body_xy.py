@@ -1374,24 +1374,27 @@ class BodyXY(Body):
             ax.set_ylabel('Planetographic latitude')
 
             ax.set_xticks(lon_ticks)
-            ax.set_xticklabels([f'{x:.0f}°' for x in lon_ticks])
+            ax.set_xticklabels([f'{x:.0f}°' for x in lon_ticks if x % 90 == 0])
 
             ax.set_yticks(lat_ticks)
-            ax.set_yticklabels([f'{y:.0f}°' for y in lat_ticks])
+            ax.set_yticklabels([f'{y:.0f}°' for y in lat_ticks if y % 90 == 0])
 
         if grid:
+            grid_kw = dict(color='k', alpha=0.5, linewidth=1)
             npts = 360
             for lon in lon_ticks:
+                if lon == 360:
+                    continue
                 x, y = transformer.transform(
                     lon * np.ones(npts), np.linspace(-90, 90, npts)
                 )
-                ax.plot(x, y, color='k', linestyle='-' if lon == 0 else ':')
+                ax.plot(x, y, **grid_kw, linestyle='-' if lon == 0 else ':')
 
             for lat in lat_ticks:
                 x, y = transformer.transform(
                     np.linspace(0, 360, npts), lat * np.ones(npts)
                 )
-                ax.plot(x, y, color='k', linestyle='-' if lat == 0 else ':')
+                ax.plot(x, y, **grid_kw, linestyle='-' if lat == 0 else ':')
 
         return im
 
@@ -1427,7 +1430,7 @@ class BodyXY(Body):
             )
         elif projection == 'manual':
             if lon_coords is None or lat_coords is None:
-                raise ValueError('lons and lats must be provided for fixed projection')
+                raise ValueError('lons and lats must be provided for manual projection')
             lon_coords = np.asarray(lon_coords)
             lat_coords = np.asarray(lat_coords)
             if lon_coords.ndim != lat_coords.ndim:
@@ -1610,6 +1613,10 @@ class BodyXY(Body):
     ) -> Iterable[tuple[int, int, np.ndarray]]:
         targvec_map = self._get_targvec_map(**map_kwargs)
         for a, b in self._iterate_image(targvec_map.shape, progress=progress):
+            targvec = targvec_map[a, b]
+            if math.isnan(targvec[0]):
+                # only check if first element nan for efficiency
+                continue
             yield a, b, targvec_map[a, b]
 
     @_cache_clearable_result
