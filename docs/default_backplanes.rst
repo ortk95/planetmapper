@@ -66,6 +66,20 @@ This page lists the backplanes which are automatically registered to every insta
 
 ------------
 
+`KM-X` East-West distance in target plane [km]
+
+- Image function: :func:`planetmapper.BodyXY.get_km_x_img`
+- Map function: :func:`planetmapper.BodyXY.get_km_x_map`
+
+------------
+
+`KM-Y` North-South distance in target plane [km]
+
+- Image function: :func:`planetmapper.BodyXY.get_km_y_img`
+- Map function: :func:`planetmapper.BodyXY.get_km_y_map`
+
+------------
+
 `PHASE` Phase angle [deg]
 
 - Image function: :func:`planetmapper.BodyXY.get_phase_angle_img`

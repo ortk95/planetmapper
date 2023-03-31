@@ -1312,7 +1312,7 @@ class BodyXY(Body):
         im = self.plot_map(
             backplane.get_map(**map_kwargs),
             ax=ax,
-            map_kwargs=map_kwargs,
+            **map_kwargs,
             **imshow_kwargs or {},
         )
         plt.colorbar(im, label=backplane.description)
@@ -1325,7 +1325,6 @@ class BodyXY(Body):
         self,
         map_img: np.ndarray,
         ax: Axes | None = None,
-        map_kwargs: _MapKwargs | None = None,
         grid: bool = True,
         **kwargs,
     ) -> QuadMesh:
@@ -1351,11 +1350,15 @@ class BodyXY(Body):
         if ax is None:
             fig, ax = plt.subplots()
 
-        map_kwargs = map_kwargs or {}
+        map_kwargs = {}
+        for k in set(_MapKwargs.__optional_keys__) | set(_MapKwargs.__required_keys__):
+            if k in kwargs:
+                map_kwargs[k] = kwargs.pop(k)
+
         projection = map_kwargs.get('projection', 'rectangular')
         lons, lats, xx, yy, transformer = self.generate_map_coordinates(**map_kwargs)
 
-        im = ax.pcolormesh(xx, yy, map_img, **kwargs)
+        h = ax.pcolormesh(xx, yy, map_img, **kwargs)
         ax.set_aspect(1, adjustable='box')
 
         step = 30
@@ -1396,7 +1399,7 @@ class BodyXY(Body):
                 )
                 ax.plot(x, y, **grid_kw, linestyle='-' if lat == 0 else ':')
 
-        return im
+        return h
 
     def imshow_map(self, *args, **kwargs):
         """
@@ -1404,7 +1407,7 @@ class BodyXY(Body):
 
         :meta private:
         """
-        # backwards compatibility
+        # backwards compatibility
         return self.plot_map(*args, **kwargs)
 
     # Mapping projection internals
@@ -1421,7 +1424,77 @@ class BodyXY(Body):
         projection_x_coords: np.ndarray | None = None,
         projection_y_coords: np.ndarray | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, pyproj.Transformer]:
-        # TODO docstring
+        """
+        Generate underlying coordinates and transformation for a given map projection.
+
+        The built-in map projections are:
+
+        - `'rectangular'`: cylindrical equirectangular projection onto a regular
+          longitude and latitude grid. The resolution of the map can be controlled with
+          the `degree_interval` argument which sets the spacing in degrees between grid
+          points. This is the default map projection.
+        - `'orthographic'`: orthographic projection where the central longitude and
+          latitude can be customized with the `lon` and `lat` arguments. The size of the
+          map can be controlled with the `size` argument.
+        - `'azimuthal'`: azimuthal equidistant projection where the central longitude
+          and latitude can be customized with the `lon` and `lat` arguments. The size of
+          the map can be controlled with the `size` argument.
+        - `'manual'`: manually specify the longitude and latitude coordinates to use
+          for each point on the map with the `lon_coords` and `lat_coords` arguments.
+
+        Projections can also be specified by passing a pyproj projection string to the
+        `projection` argument. If you are manually specifying a projection, you must
+        also specify `projection_x_coords` and `projection_y_coords` to provide the x
+        and y coordinates to project the data to. See 
+        https://proj.org/operations/projections for a list of projections that can be
+        used. The provided projection string will be passed to `pyproj.CRS`.
+
+        .. hint ::
+
+            You generally don't need to call this method directly. Instead, pass your
+            desired arguments directly to functions like :func:`get_backplane_map` or
+            :func:`map_img`.
+
+        Usage examples: ::
+
+            # Generate default rectangular map for emission backplane
+            body.get_backplane_map('EMISSION')
+
+            # Generate default rectangular map at lower resolution
+            body.get_backplane_map('EMISSION', degree_interval=10)
+
+            # Generate orthographic map of northern hemisphere
+            body.get_backplane_map('EMISSION', projection='orthographic', lat=90)
+
+            # Plot orthographic map of southern hemisphere with higher resolution
+            body.plot_backplane_map(
+                'EMISSION', projection='orthographic', lat=-90, size=500
+                )
+
+            # Get azimuthal map projection of image, centred on specific coordinate
+            body.map_img(img, projection='azimuthal', lon=45, lat=30)
+
+        Args:
+            projection: String describing map projection to use (see list of supported
+                projections above).
+            degree_interval: Degree interval for `'rectangular` projection.
+            lon: Central longitude of `'orthographic'` and `'azimuthal'` projections.
+            lat: Central latitude of `'orthographic'` and `'azimuthal'` projections.
+            size: Pixel size (width and height) of generated `'orthographic'` and
+                `azimuthal` projections.
+            lon_coords: Array of longitude coordinates to use for `'manual'` projection.
+            lat_coords: Array of latitude coordinates to use for `'manual'` projection.
+            projection_x_coords: Array of projected x coordinates to use with a pyproj
+                projection string.
+            projection_y_coords: Array of projected x coordinates to use with a pyproj
+                projection string.
+
+        Returns:
+            `(lons, lats, xx, yy, transformer)` tuple where `lons` and `lats` are the
+            longitude and latitude coordinates of the map, `xx` and `yy` are the
+            projected coordinates of the map and `transformer` is a `pyproj.Transformer`
+            object that can be used to transform between the two coordinate systems.
+        """
         if projection == 'rectangular':
             lon_coords = np.arange(degree_interval / 2, 360, degree_interval)
             if self.positive_longitude_direction == 'W':
@@ -1433,7 +1506,7 @@ class BodyXY(Body):
                 lat_coords,
                 lon_coords,
                 lat_coords,
-                self.get_pyproj_transformer(),
+                self._get_pyproj_transformer(),
             )
         elif projection == 'manual':
             if lon_coords is None or lat_coords is None:
@@ -1455,7 +1528,7 @@ class BodyXY(Body):
                 lat_coords,
                 lon_coords,
                 lat_coords,
-                self.get_pyproj_transformer(),
+                self._get_pyproj_transformer(),
             )
         elif projection == 'orthographic':
             proj = '+proj=ortho +a={a} +b={b} +lon_0={lon_0} +lat_0={lat_0} +y_0={y_0} +type=crs'.format(
@@ -1498,12 +1571,12 @@ class BodyXY(Body):
         if xx.shape != yy.shape:
             raise ValueError('x and y coords must have the same shape')
 
-        transformer = self.get_pyproj_transformer(projection)
+        transformer = self._get_pyproj_transformer(projection)
         # pylint: disable-next=unpacking-non-sequence
         lons, lats = transformer.transform(xx, yy, direction='INVERSE')
         return lons, lats, xx, yy, transformer
 
-    def get_pyproj_transformer(
+    def _get_pyproj_transformer(
         self, projection: str | None = None
     ) -> pyproj.Transformer:
         proj_in = '+proj=eqc +a={a} +b={b} +lon_0={l0} +to_meter={tm} +type=crs'.format(
@@ -1651,7 +1724,7 @@ class BodyXY(Body):
 
     def get_lon_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
@@ -1671,7 +1744,7 @@ class BodyXY(Body):
 
     def get_lat_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
@@ -1707,7 +1780,7 @@ class BodyXY(Body):
 
     def get_lon_centric_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
@@ -1727,7 +1800,7 @@ class BodyXY(Body):
 
     def get_lat_centric_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
@@ -1764,7 +1837,7 @@ class BodyXY(Body):
 
     def get_ra_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
@@ -1784,7 +1857,7 @@ class BodyXY(Body):
 
     def get_dec_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
@@ -1820,7 +1893,7 @@ class BodyXY(Body):
 
     def get_x_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
@@ -1844,7 +1917,7 @@ class BodyXY(Body):
 
     def get_y_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
@@ -1884,7 +1957,7 @@ class BodyXY(Body):
 
     def get_km_x_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
@@ -1906,7 +1979,7 @@ class BodyXY(Body):
 
     def get_km_y_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
@@ -1944,7 +2017,7 @@ class BodyXY(Body):
 
     def get_phase_angle_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
@@ -1965,7 +2038,7 @@ class BodyXY(Body):
 
     def get_incidence_angle_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
@@ -1986,7 +2059,7 @@ class BodyXY(Body):
 
     def get_emission_angle_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
@@ -2018,7 +2091,7 @@ class BodyXY(Body):
     @_cache_stable_result
     def get_azimuth_angle_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
@@ -2079,7 +2152,7 @@ class BodyXY(Body):
 
     def get_distance_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
@@ -2112,7 +2185,7 @@ class BodyXY(Body):
     @progress_decorator
     def get_radial_velocity_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
@@ -2140,7 +2213,7 @@ class BodyXY(Body):
 
     def get_doppler_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
@@ -2216,7 +2289,7 @@ class BodyXY(Body):
 
     def get_ring_plane_radius_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
@@ -2242,7 +2315,7 @@ class BodyXY(Body):
         self, **map_kwargs: Unpack[_MapKwargs]
     ) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
@@ -2268,7 +2341,7 @@ class BodyXY(Body):
         self, **map_kwargs: Unpack[_MapKwargs]
     ) -> np.ndarray:
         """
-        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
 
         Returns:
