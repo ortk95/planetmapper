@@ -13,7 +13,7 @@ observation = planetmapper.Observation(p)
 # observation.plot_backplane_map('KM-Y', show=True)
 # observation.plot_backplane_map('PIXEL-X', projection='azimuthal', size=500,lat=90)
 
-map_kw = dict(projection='perspective', size=100, lat=90, altitude=500)
+map_kw = dict()
 
 img = observation.map_img(np.nanmean(observation.data, axis=0), **map_kw)
 observation.plot_map(img, **map_kw)

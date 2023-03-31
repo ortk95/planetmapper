@@ -996,7 +996,8 @@ class BodyXY(Body):
         **map_kwargs: Unpack[_MapKwargs],
     ) -> np.ndarray:
         """
-        Project an observed image onto a rectangular lon/lat grid.
+        Project an observed image to a map. See :func:`generate_map_coordinates` for
+        details about customising the projection used.
 
         If `interpolation` is `'linear'`, `'quadratic'` or `'cubic'`, the map projection
         is performed using `scipy.interpolate.RectBivariateSpline` using the specified
@@ -1032,12 +1033,14 @@ class BodyXY(Body):
                 the interpolation.
             warn_nan: Print warning if any values in `img` are NaN when any of the
                 spline interpolations are used.
-            TODO
+            **map_kwargs: Additional arguments are passed to
+                :func:`generate_map_coordinates` to specify and customise the map
+                projection.
 
         Returns:
-            Array containing cylindrical map (planetographic coordinates) of the values
-            in `img` at each location on the surface of the target body. Locations which
-            are not visible have a value of NaN.
+            Array containing map of the values in `img` at each location on the surface
+            of the target body. Locations which are not visible or outside the
+            projection domain have a value of NaN.
         """
         x_map = self.get_x_map(**map_kwargs)
         y_map = self.get_y_map(**map_kwargs)
@@ -1284,7 +1287,7 @@ class BodyXY(Body):
         name: str,
         ax: Axes | None = None,
         show: bool = False,
-        imshow_kwargs: dict | None = None,
+        plot_kwargs: dict | None = None,
         **map_kwargs: Unpack[_MapKwargs],
     ) -> Axes:
         """
@@ -1297,11 +1300,12 @@ class BodyXY(Body):
             show: Toggle showing the plotted figure with `plt.show()`
             degree_interval: Interval in degrees between the longitude/latitude points
                 in the mapped output.
-            **kwargs: Passed to Matplotlib's `imshow` when plotting the backplane map.
-                For example, can be used to set the colormap of the plot using
-                `body.plot_backplane_map(..., cmap='Greys')`.
-                TODO
-
+            plot_kwargs: Passed to Matplotlib's `pcolormesh` when plotting the backplane
+                map. For example, can be used to set the colormap of the plot using
+                `body.plot_backplane_map(..., plot_kwargs=dict(cmap='Greys'))`.
+            **map_kwargs: Additional arguments are passed to
+                :func:`generate_map_coordinates` to specify and customise the map
+                projection.
         Returns:
             The axis containing the plotted data.
         """
@@ -1313,7 +1317,7 @@ class BodyXY(Body):
             backplane.get_map(**map_kwargs),
             ax=ax,
             **map_kwargs,
-            **imshow_kwargs or {},
+            **plot_kwargs or {},
         )
         plt.colorbar(im, label=backplane.description)
         ax.set_title(self.get_description(multiline=True))
@@ -1332,21 +1336,20 @@ class BodyXY(Body):
         Utility function to easily plot a mapped image using `plt.imshow` with
         appropriate extents, axis labels etc.
 
-        This is equivalent to calling `ax.imshow(map_img, origin='lower', ...)` with
-        additional code to format the axis nicely.
-
         Args:
             map_img: Image to plot.
             ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
                 a new figure and axis is created.
-            **kwargs: Passed to Matplotlib's `imshow` when plotting the backplane map.
-                For example, can be used to set the colormap of the plot using
-                `body.plot_backplane_map(..., cmap='Greys')`.
-            TODO
+            grid: Toggle plotting a lon/lat grid.
+            **kwargs: Additional arguments are passed to
+                :func:`generate_map_coordinates` to specify the map projection used, and
+                to Matplotlib's `pcolormesh` to customise the plot. For example, can be
+                used to set the colormap of the plot using e.g.
+                `body.plot_map(..., projection='orthographic', cmap='Greys')`.
+
         Returns:
-            Handle of plotted Matplotlib `AxesImage`.
+            Handle returned by Matplotlib's `pcolormesh`.
         """
-        # TODO
         if ax is None:
             fig, ax = plt.subplots()
 
@@ -1398,7 +1401,6 @@ class BodyXY(Body):
                     np.linspace(0, 360, npts), lat * np.ones(npts)
                 )
                 ax.plot(x, y, **grid_kw, linestyle='-' if lat == 0 else ':')
-
         return h
 
     def imshow_map(self, *args, **kwargs):
@@ -1445,7 +1447,7 @@ class BodyXY(Body):
         Projections can also be specified by passing a pyproj projection string to the
         `projection` argument. If you are manually specifying a projection, you must
         also specify `projection_x_coords` and `projection_y_coords` to provide the x
-        and y coordinates to project the data to. See 
+        and y coordinates to project the data to. See
         https://proj.org/operations/projections for a list of projections that can be
         used. The provided projection string will be passed to `pyproj.CRS`.
 

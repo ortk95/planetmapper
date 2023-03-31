@@ -427,7 +427,7 @@ class Observation(BodyXY):
         """
         threshold_img = self._get_img_for_fitting()
         threshold = 0.5 * sum(
-            [ # type: ignore
+            [  # type: ignore
                 np.percentile(threshold_img, 5),
                 np.percentile(threshold_img, 95),
             ]
@@ -481,8 +481,9 @@ class Observation(BodyXY):
         **map_kwargs: Unpack[_MapKwargs],
     ) -> np.ndarray:
         """
-        Projects the observed :attr:`data` onto a lon/lat grid using
-        :func:`BodyXY.map_img`.
+        Projects the observed :attr:`data` onto a map. See
+        :func:`BodyXY.generate_map_coordinates` for details about customising the
+        projection used.
 
         For larger datasets, it can take some time to map every wavelength. Therefore,
         the mapped data is automatically cached (in a similar way to backplanes - see
@@ -497,12 +498,13 @@ class Observation(BodyXY):
             interpolation: Interpolation used when mapping. This can either any of
                 `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. Passed to
                 :func:`BodyXY.map_img`.
-            **kw: Additional arguments passed to :func:`BodyXY.map_img`.
-            TODO
+            **map_kwargs: Additional arguments are passed to
+                :func:`generate_map_coordinates` to specify and customise the map
+                projection.
         Returns:
-            Array containing a cube of cylindrical map of the values in :attr:`data` at
-            each location on the surface of the target body. Locations which are not
-            visible have a value of NaN.
+            Array containing cube of maped of the values in `img` at each location on
+            the surface of the target body. Locations which are not visible or outside
+            the projection domain have a value of NaN.
         """
         # Return a copy so that the cached value isn't tainted by any modifications
         return self._get_mapped_data(interpolation=interpolation, **map_kwargs).copy()
@@ -872,6 +874,7 @@ class Observation(BodyXY):
                 creating this `Observation`.
             print_info: Toggle printing of progress information (defaults to `True`).
         """
+        # TODO
         if show_progress and self._get_progress_hook() is None:
             print_info = False
             self._set_progress_hook(SaveMapProgressHookCLI(len(self.data)))
@@ -935,6 +938,7 @@ class Observation(BodyXY):
     def _add_map_wcs_to_header(
         self, header: fits.Header, degree_interval: float
     ) -> None:
+        # TODO
         lons, lats = self._make_rectangular_map_lonlat_arrays(degree_interval)
 
         # Add new values
