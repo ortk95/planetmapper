@@ -12,7 +12,13 @@ from typing import (
     ParamSpec,
     Protocol,
     TypeVar,
+    TypedDict,
 )
+
+try:
+    from typing import Unpack
+except ImportError:
+    from typing_extensions import Unpack
 
 import matplotlib.patches
 import matplotlib.pyplot as plt
@@ -84,8 +90,20 @@ def _cache_clearable_result_with_args(
     return decorated
 
 
+class _MapKwargs(TypedDict, total=False):
+    projection: str
+    degree_interval: float
+    lon: float
+    lat: float
+    size: int
+    lon_coords: np.ndarray
+    lat_coords: np.ndarray
+    projection_x_coords: np.ndarray
+    projection_y_coords: np.ndarray | None
+
+
 class _BackplaneMapGetter(Protocol):
-    def __call__(self, degree_interval: float = 1) -> np.ndarray:
+    def __call__(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         ...
 
 
@@ -955,7 +973,9 @@ class BodyXY(Body):
     def map_img(
         self,
         img: np.ndarray,
-        degree_interval: float = 1,
+        projection: str = 'rectangular',
+        *,
+        degree_interval_: float = 1,
         interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
         propagate_nan: bool = True,
         warn_nan: bool = False,
@@ -1003,9 +1023,19 @@ class BodyXY(Body):
             in `img` at each location on the surface of the target body. Locations which
             are not visible have a value of NaN.
         """
-        x_map = self.get_x_map(degree_interval)
-        y_map = self.get_y_map(degree_interval)
-        projected = self._make_empty_map(degree_interval)
+
+        x_map = self.get_x_map(
+            projection=projection,
+            degree_interval=degree_interval_,
+        )
+        y_map = self.get_y_map(
+            projection=projection,
+            degree_interval=degree_interval_,
+        )
+        projected = self._make_empty_map(
+            projection=projection,
+            degree_interval=degree_interval_,
+        )
 
         spline_k = {
             'linear': 1,
@@ -1057,7 +1087,6 @@ class BodyXY(Body):
         x1 = min(math.ceil(x), self._nx - 1)
         y0 = max(math.floor(y), 0)
         y1 = min(math.ceil(y), self._ny - 1)
-
         return nans[y0, x0] or nans[y0, x1] or nans[y1, x0] or nans[y1, x1]
 
     def _xy_in_image_frame(self, x: float, y: float) -> bool:
@@ -1408,7 +1437,7 @@ class BodyXY(Body):
         """
         return self.backplanes[self.standardise_backplane_name(name)].get_img().copy()
 
-    def get_backplane_map(self, name: str, degree_interval: float = 1) -> np.ndarray:
+    def get_backplane_map(self, name: str, degree_interval_: float = 1) -> np.ndarray:
         """
         Generate map of backplane values.
 
@@ -1433,7 +1462,7 @@ class BodyXY(Body):
         """
         return (
             self.backplanes[self.standardise_backplane_name(name)]
-            .get_map(degree_interval)
+            .get_map(degree_interval_)
             .copy()
         )
 
@@ -1472,7 +1501,7 @@ class BodyXY(Body):
         name: str,
         ax: Axes | None = None,
         show: bool = False,
-        degree_interval: float = 1,
+        degree_interval_: float = 1,
         **kwargs,
     ) -> Axes:
         """
@@ -1496,7 +1525,7 @@ class BodyXY(Body):
             fig, ax = plt.subplots()
         backplane = self.get_backplane(name)
 
-        im = self.imshow_map(backplane.get_map(degree_interval), ax=ax)
+        im = self.imshow_map(backplane.get_map(degree_interval_), ax=ax)
         plt.colorbar(im, label=backplane.description)
         ax.set_title(self.get_description(multiline=True))
         if show:
@@ -1548,6 +1577,102 @@ class BodyXY(Body):
         ax.set_yticklabels([f'{y:.0f}°' for y in yt])
         return im
 
+    # Mapping projection internals
+    @_cache_stable_result
+    def generate_map_lonlat_coordinates(
+        self,
+        projection: str = 'rectangular',
+        degree_interval: float = 1,
+        lon: float = 0,
+        lat: float = 0,
+        size: int = 100,
+        lon_coords: np.ndarray | None = None,
+        lat_coords: np.ndarray | None = None,
+        projection_x_coords: np.ndarray | None = None,
+        projection_y_coords: np.ndarray | None = None,
+    ) -> np.ndarray:
+        # TODO docstring
+        if projection == 'rectangular':
+            lon_coords = np.arange(degree_interval / 2, 360, degree_interval)
+            if self.positive_longitude_direction == 'W':
+                lon_coords = lon_coords[::-1]
+            lat_coords = np.arange(-90 + degree_interval / 2, 90, degree_interval)
+            out = np.full((len(lat_coords), len(lon_coords), 2), np.nan)
+            for a, lat in enumerate(lat_coords):
+                for b, lon in enumerate(lon_coords):
+                    out[a, b] = (lon, lat)
+            return out
+        elif projection == 'manual':
+            if lon_coords is None or lat_coords is None:
+                raise ValueError('lons and lats must be provided for fixed projection')
+            lon_coords = np.asarray(lon_coords)
+            lat_coords = np.asarray(lat_coords)
+            if lon_coords.ndim != lat_coords.ndim:
+                raise ValueError(
+                    'lon_coords and lat_coords must have the same number of dimensions'
+                )
+            if lon_coords.ndim == 1:
+                lon_coords, lat_coords = np.meshgrid(lon_coords, lat_coords)
+            if lon_coords.ndim != 2:
+                raise ValueError('lon_coords and lat_coords must be 1D or 2D arrays')
+            if lon_coords.shape != lat_coords.shape:
+                raise ValueError('lon_coords and lat_coords must have the same shape')
+            return np.stack([lon_coords, lat_coords], axis=-1)
+        elif projection == 'orthographic':
+            proj = '+proj=ortho +a={a} +b={b} +lon_0={lon_0} +lat_0={lat_0} +y_0={y_0} +type=crs'.format(
+                a=self.r_eq,
+                b=self.r_polar,
+                lon_0=lon,
+                lat_0=lat,
+                y_0=(self.r_polar - self.r_eq) * np.sin(np.radians(lat * 2)),
+            )
+            lim = max(self.r_eq, self.r_polar) * 1.01
+            return self._get_pyproj_lonlat_coords(proj, np.linspace(-lim, lim, size))
+        elif projection == 'azimuthal':
+            proj = '+proj=aeqd +R={a} +lon_0={lon_0} +lat_0={lat_0} +type=crs'.format(
+                a=self.r_eq,
+                lon_0=lon,
+                lat_0=lat,
+            )
+            lim = max(self.r_eq, self.r_polar) * np.pi * 1.01
+            return self._get_pyproj_lonlat_coords(proj, np.linspace(-lim, lim, size))
+        else:
+            if projection_x_coords is None:
+                raise ValueError('x coords must be provided')
+            return self._get_pyproj_lonlat_coords(
+                projection, projection_x_coords, projection_y_coords
+            )
+
+    def _get_pyproj_lonlat_coords(
+        self, projection: str, xx: np.ndarray, yy: np.ndarray | None = None
+    ) -> np.ndarray:
+        if yy is None:
+            yy = xx
+        xx = np.asarray(xx)
+        yy = np.asarray(yy)
+        if xx.ndim != yy.ndim:
+            raise ValueError('x and y coords must have the same number of dimensions')
+        if xx.ndim == 1:
+            xx, yy = np.meshgrid(xx, yy)
+        if xx.ndim != 2:
+            raise ValueError('x and y coords must be 1D or 2D arrays')
+        if xx.shape != yy.shape:
+            raise ValueError('x and y coords must have the same shape')
+
+        transformer = self.get_pyproj_transformer(projection)
+        # pylint: disable-next=unpacking-non-sequence
+        lons, lats = transformer.transform(xx, yy, direction='INVERSE')
+        return np.stack([lons, lats], axis=-1)
+
+    def get_pyproj_transformer(self, projection: str) -> pyproj.Transformer:
+        proj_in = '+proj=eqc +a={a} +b={b} +lon_0={l0} +to_meter={tm} +type=crs'.format(
+            a=self.r_eq,
+            b=self.r_polar,
+            l0=0,
+            tm=np.radians(1) * self.r_eq,
+        )
+        return pyproj.Transformer.from_crs(pyproj.CRS(proj_in), pyproj.CRS(projection))
+
     # Backplane generatotrs
     def _test_if_img_size_valid(self) -> bool:
         return (self._nx > 0) and (self._ny > 0)
@@ -1572,27 +1697,18 @@ class BodyXY(Body):
             shape = (self._ny, self._nx, nz)
         return np.full(shape, np.nan)
 
-    def _make_map_lonlat_arrays(
-        self, degree_interval: float
-    ) -> tuple[np.ndarray, np.ndarray]:
-        lons = np.arange(degree_interval / 2, 360, degree_interval)
-        if self.positive_longitude_direction == 'W':
-            lons = lons[::-1]
-        lats = np.arange(-90 + degree_interval / 2, 90, degree_interval)
-        return lons, lats
-
     def _make_empty_map(
-        self, degree_interval: float, nz: int | None = None
+        self,
+        nz: int | None = None,
+        **map_kwargs: Unpack[_MapKwargs],
     ) -> np.ndarray:
-        # making arrays is slightly more costly, but ensures that we don't get any
-        # numerical stability errors from trying to do e.g. 360//degree_interval
-        lons, lats = self._make_map_lonlat_arrays(degree_interval)
-        nlon = len(lons)
-        nlat = len(lats)
+        lonlat_shape = self.generate_map_lonlat_coordinates(**map_kwargs).shape
+        n1 = lonlat_shape[1]
+        n0 = lonlat_shape[0]
         if nz is None:
-            shape = (nlat, nlon)
+            shape = (n0, n1)
         else:
-            shape = (nlat, nlon, nz)
+            shape = (n0, n1, nz)
         return np.full(shape, np.nan)
 
     def _get_max_pixel_radius(self) -> float:
@@ -1635,13 +1751,14 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
-    def _get_targvec_map(self, degree_interval: float) -> np.ndarray:
-        out = self._make_empty_map(degree_interval, 3)
-        lons, lats = self._make_map_lonlat_arrays(degree_interval)
-        for a, lat in enumerate(lats):
-            self._update_progress_hook(a / len(lats))
-            for b, lon in enumerate(lons):
-                out[a, b] = self.lonlat2targvec(lon, lat)
+    def _get_targvec_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+        out = self._make_empty_map(3, **map_kwargs)
+        lonlats = self.generate_map_lonlat_coordinates(**map_kwargs)
+        for a, b in self._iterate_image(out.shape, progress=True):
+            lon, lat = lonlats[a, b]
+            if math.isnan(lon):
+                continue
+            out[a, b] = self.lonlat2targvec(lon, lat)
         return out
 
     def _enumerate_targvec_img(
@@ -1656,9 +1773,9 @@ class BodyXY(Body):
             yield y, x, targvec
 
     def _enumerate_targvec_map(
-        self, degree_interval: float, progress: bool = False
+        self, progress: bool = False, **map_kwargs: Unpack[_MapKwargs]
     ) -> Iterable[tuple[int, int, np.ndarray]]:
-        targvec_map = self._get_targvec_map(degree_interval)
+        targvec_map = self._get_targvec_map(**map_kwargs)
         for a, b in self._iterate_image(targvec_map.shape, progress=progress):
             yield a, b, targvec_map[a, b]
 
@@ -1668,16 +1785,6 @@ class BodyXY(Body):
         out = self._make_empty_img(2)
         for y, x, targvec in self._enumerate_targvec_img(progress=True):
             out[y, x] = self._targvec2lonlat_radians(targvec)
-        return np.rad2deg(out)
-
-    @_cache_stable_result
-    @progress_decorator
-    def _get_lonlat_map(self, degree_interval: float) -> np.ndarray:
-        out = self._make_empty_map(degree_interval, 2)
-        for a, b, targvec in self._enumerate_targvec_map(
-            degree_interval, progress=True
-        ):
-            out[a, b] = self._targvec2lonlat_radians(targvec)
         return np.rad2deg(out)
 
     def get_lon_img(self) -> np.ndarray:
@@ -1690,14 +1797,14 @@ class BodyXY(Body):
         """
         return self._get_lonlat_img()[:, :, 0]
 
-    def get_lon_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_lon_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of planetographic longitude values.
         """
-        return self._get_lonlat_map(degree_interval)[:, :, 0]
+        return self.generate_map_lonlat_coordinates(**map_kwargs)[:, :, 0]
 
     def get_lat_img(self) -> np.ndarray:
         """
@@ -1709,14 +1816,14 @@ class BodyXY(Body):
         """
         return self._get_lonlat_img()[:, :, 1]
 
-    def get_lat_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_lat_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of planetographic latitude values.
         """
-        return self._get_lonlat_map(degree_interval)[:, :, 1]
+        return self.generate_map_lonlat_coordinates(**map_kwargs)[:, :, 1]
 
     @_cache_clearable_result
     @progress_decorator
@@ -1728,11 +1835,9 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
-    def _get_lonlat_centric_map(self, degree_interval: float) -> np.ndarray:
-        out = self._make_empty_map(degree_interval, 2)
-        for a, b, targvec in self._enumerate_targvec_map(
-            degree_interval, progress=True
-        ):
+    def _get_lonlat_centric_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+        out = self._make_empty_map(2, **map_kwargs)
+        for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
             out[a, b] = self._targvec2lonlat_centric(targvec)
         return out
 
@@ -1746,14 +1851,14 @@ class BodyXY(Body):
         """
         return self._get_lonlat_centric_img()[:, :, 0]
 
-    def get_lon_centric_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_lon_centric_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of planetocentric longitude values.
         """
-        return self._get_lonlat_centric_map(degree_interval)[:, :, 0]
+        return self._get_lonlat_centric_map(**map_kwargs)[:, :, 0]
 
     def get_lat_centric_img(self) -> np.ndarray:
         """
@@ -1765,14 +1870,14 @@ class BodyXY(Body):
         """
         return self._get_lonlat_centric_img()[:, :, 1]
 
-    def get_lat_centric_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_lat_centric_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of planetocentric latitude values.
         """
-        return self._get_lonlat_centric_map(degree_interval)[:, :, 1]
+        return self._get_lonlat_centric_map(**map_kwargs)[:, :, 1]
 
     @_cache_clearable_result
     @progress_decorator
@@ -1784,12 +1889,10 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
-    def _get_radec_map(self, degree_interval: float) -> np.ndarray:
-        out = self._make_empty_map(degree_interval, 2)
-        visible = self._get_illumf_map(degree_interval)[:, :, 4]
-        for a, b, targvec in self._enumerate_targvec_map(
-            degree_interval, progress=True
-        ):
+    def _get_radec_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+        out = self._make_empty_map(2, **map_kwargs)
+        visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
+        for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
             if visible[a, b]:
                 out[a, b] = self._obsvec2radec_radians(self._targvec2obsvec(targvec))
         return np.rad2deg(out)
@@ -1803,7 +1906,7 @@ class BodyXY(Body):
         """
         return self._get_radec_img()[:, :, 0]
 
-    def get_ra_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_ra_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
@@ -1811,7 +1914,7 @@ class BodyXY(Body):
             Array containing cylindrical map of right ascension values as viewed by the
             observer. Locations which are not visible have a value of NaN.
         """
-        return self._get_radec_map(degree_interval)[:, :, 0]
+        return self._get_radec_map(**map_kwargs)[:, :, 0]
 
     def get_dec_img(self) -> np.ndarray:
         """
@@ -1822,7 +1925,7 @@ class BodyXY(Body):
         """
         return self._get_radec_img()[:, :, 1]
 
-    def get_dec_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_dec_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
@@ -1830,13 +1933,13 @@ class BodyXY(Body):
             Array containing cylindrical map of declination values as viewed by the
             observer. Locations which are not visible have a value of NaN.
         """
-        return self._get_radec_map(degree_interval)[:, :, 1]
+        return self._get_radec_map(**map_kwargs)[:, :, 1]
 
     @_cache_clearable_result_with_args
     @progress_decorator
-    def _get_xy_map(self, degree_interval: float) -> np.ndarray:
-        out = self._make_empty_map(degree_interval, 2)
-        radec_map = self._get_radec_map(degree_interval)
+    def _get_xy_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+        out = self._make_empty_map(2, **map_kwargs)
+        radec_map = self._get_radec_map(**map_kwargs)
         for a, b in self._iterate_image(out.shape, progress=True):
             ra, dec = radec_map[a, b]
             if not math.isnan(ra):
@@ -1857,7 +1960,7 @@ class BodyXY(Body):
             out[y, x] = x
         return out
 
-    def get_x_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_x_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
@@ -1866,7 +1969,7 @@ class BodyXY(Body):
             corresponds to in the observation. Locations which are not visible or are
             not in the image frame have a value of NaN.
         """
-        return self._get_xy_map(degree_interval)[:, :, 0]
+        return self._get_xy_map(**map_kwargs)[:, :, 0]
 
     def get_y_img(self) -> np.ndarray:
         """
@@ -1880,7 +1983,7 @@ class BodyXY(Body):
             out[y, x] = y
         return out
 
-    def get_y_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_y_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
@@ -1889,7 +1992,7 @@ class BodyXY(Body):
             corresponds to in the observation. Locations which are not visible or are
             not in the image frame have a value of NaN.
         """
-        return self._get_xy_map(degree_interval)[:, :, 1]
+        return self._get_xy_map(**map_kwargs)[:, :, 1]
 
     @_cache_clearable_result
     def _get_km_xy_img(self) -> np.ndarray:
@@ -1900,9 +2003,9 @@ class BodyXY(Body):
         return out
 
     @_cache_stable_result
-    def _get_km_xy_map(self, degree_interval: float) -> np.ndarray:
-        out = self._make_empty_map(degree_interval, 2)
-        radec_map = self._get_radec_map(degree_interval)
+    def _get_km_xy_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+        out = self._make_empty_map(2, **map_kwargs)
+        radec_map = self._get_radec_map(**map_kwargs)
         for a, b in self._iterate_image(out.shape, progress=True):
             ra, dec = radec_map[a, b]
             if not math.isnan(ra):
@@ -1919,7 +2022,7 @@ class BodyXY(Body):
         """
         return self._get_km_xy_img()[:, :, 0]
 
-    def get_km_x_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_km_x_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
@@ -1928,7 +2031,7 @@ class BodyXY(Body):
             the East-West direction. Locations which are not visible have a value of
             NaN.
         """
-        return self._get_km_xy_map(degree_interval)[:, :, 0]
+        return self._get_km_xy_map(**map_kwargs)[:, :, 0]
 
     def get_km_y_img(self) -> np.ndarray:
         """
@@ -1940,7 +2043,7 @@ class BodyXY(Body):
         """
         return self._get_km_xy_img()[:, :, 1]
 
-    def get_km_y_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_km_y_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
@@ -1949,7 +2052,7 @@ class BodyXY(Body):
             the North-South direction. Locations which are not visible have a value of
             NaN.
         """
-        return self._get_km_xy_map(degree_interval)[:, :, 1]
+        return self._get_km_xy_map(**map_kwargs)[:, :, 1]
 
     @_cache_clearable_result
     @progress_decorator
@@ -1961,11 +2064,9 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
-    def _get_illumf_map(self, degree_interval: float) -> np.ndarray:
-        out = self._make_empty_map(degree_interval, 5)
-        for a, b, targvec in self._enumerate_targvec_map(
-            degree_interval, progress=True
-        ):
+    def _get_illumf_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+        out = self._make_empty_map(5, **map_kwargs)
+        for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
             out[a, b] = self._illumf_from_targvec_radians(targvec)
         return np.rad2deg(out)
 
@@ -1979,7 +2080,7 @@ class BodyXY(Body):
         """
         return self._get_illumination_gie_img()[:, :, 0]
 
-    def get_phase_angle_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_phase_angle_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
@@ -1987,7 +2088,7 @@ class BodyXY(Body):
             Array containing cylindrical map of the phase angle value at each point on
             the target's surface.
         """
-        return self._get_illumf_map(degree_interval)[:, :, 0]
+        return self._get_illumf_map(**map_kwargs)[:, :, 0]
 
     def get_incidence_angle_img(self) -> np.ndarray:
         """
@@ -1999,7 +2100,7 @@ class BodyXY(Body):
         """
         return self._get_illumination_gie_img()[:, :, 1]
 
-    def get_incidence_angle_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_incidence_angle_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
@@ -2007,7 +2108,7 @@ class BodyXY(Body):
             Array containing cylindrical map of the incidence angle value at each point
             on the target's surface.
         """
-        return self._get_illumf_map(degree_interval)[:, :, 1]
+        return self._get_illumf_map(**map_kwargs)[:, :, 1]
 
     def get_emission_angle_img(self) -> np.ndarray:
         """
@@ -2019,7 +2120,7 @@ class BodyXY(Body):
         """
         return self._get_illumination_gie_img()[:, :, 2]
 
-    def get_emission_angle_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_emission_angle_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
@@ -2027,7 +2128,7 @@ class BodyXY(Body):
             Array containing cylindrical map of the emission angle value at each point
             on the target's surface.
         """
-        return self._get_illumf_map(degree_interval)[:, :, 2]
+        return self._get_illumf_map(**map_kwargs)[:, :, 2]
 
     @_cache_clearable_result
     def get_azimuth_angle_img(self) -> np.ndarray:
@@ -2050,7 +2151,7 @@ class BodyXY(Body):
         return np.rad2deg(azimuth_radians)
 
     @_cache_stable_result
-    def get_azimuth_angle_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_azimuth_angle_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
@@ -2058,9 +2159,9 @@ class BodyXY(Body):
             Array containing cylindrical map of the azimuth angle value at each point
             on the target's surface.
         """
-        phase_radians = np.deg2rad(self._get_illumf_map(degree_interval)[:, :, 0])
-        incidence_radians = np.deg2rad(self._get_illumf_map(degree_interval)[:, :, 1])
-        emission_radians = np.deg2rad(self._get_illumf_map(degree_interval)[:, :, 2])
+        phase_radians = np.deg2rad(self._get_illumf_map(**map_kwargs)[:, :, 0])
+        incidence_radians = np.deg2rad(self._get_illumf_map(**map_kwargs)[:, :, 1])
+        emission_radians = np.deg2rad(self._get_illumf_map(**map_kwargs)[:, :, 2])
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', 'divide by zero encountered in')
             warnings.filterwarnings('ignore', 'invalid value encountered in')
@@ -2086,14 +2187,12 @@ class BodyXY(Body):
     @_cache_stable_result
     @progress_decorator
     def _get_state_maps(
-        self, degree_interval: float
+        self, **map_kwargs: Unpack[_MapKwargs]
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        position_map = self._make_empty_map(degree_interval, 3)
-        velocity_map = self._make_empty_map(degree_interval, 3)
-        lt_map = self._make_empty_map(degree_interval)
-        for a, b, targvec in self._enumerate_targvec_map(
-            degree_interval, progress=True
-        ):
+        position_map = self._make_empty_map(3, **map_kwargs)
+        velocity_map = self._make_empty_map(3, **map_kwargs)
+        lt_map = self._make_empty_map(**map_kwargs)
+        for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
             (
                 position_map[a, b],
                 velocity_map[a, b],
@@ -2112,7 +2211,7 @@ class BodyXY(Body):
         position_img, velocity_img, lt_img = self._get_state_imgs()
         return lt_img * self.speed_of_light()
 
-    def get_distance_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_distance_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
@@ -2120,7 +2219,7 @@ class BodyXY(Body):
             Array containing cylindrical map of the observer-target distance in km of
             each point on the target's surface.
         """
-        position_map, velocity_map, lt_map = self._get_state_maps(degree_interval)
+        position_map, velocity_map, lt_map = self._get_state_maps(**map_kwargs)
         return lt_map * self.speed_of_light()
 
     @_cache_clearable_result
@@ -2144,7 +2243,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
-    def get_radial_velocity_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_radial_velocity_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
@@ -2152,11 +2251,9 @@ class BodyXY(Body):
             Array containing cylindrical map of the observer-target radial velocity in
             km/s of each point on the target's surface.
         """
-        out = self._make_empty_map(degree_interval)
-        position_map, velocity_map, lt_map = self._get_state_maps(degree_interval)
-        for a, b, targvec in self._enumerate_targvec_map(
-            degree_interval, progress=True
-        ):
+        out = self._make_empty_map(**map_kwargs)
+        position_map, velocity_map, lt_map = self._get_state_maps(**map_kwargs)
+        for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
             out[a, b] = self._radial_velocity_from_state(
                 position_map[a, b], velocity_map[a, b]
             )
@@ -2173,7 +2270,7 @@ class BodyXY(Body):
         """
         return self.calculate_doppler_factor(self.get_radial_velocity_img())
 
-    def get_doppler_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_doppler_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
@@ -2183,9 +2280,7 @@ class BodyXY(Body):
             :func:`SpiceBase.calculate_doppler_factor` on velocities from
             :func:`get_radial_velocity_map`.
         """
-        return self.calculate_doppler_factor(
-            self.get_radial_velocity_map(degree_interval)
-        )
+        return self.calculate_doppler_factor(self.get_radial_velocity_map(**map_kwargs))
 
     @_cache_clearable_result
     @progress_decorator
@@ -2215,18 +2310,16 @@ class BodyXY(Body):
     @_cache_stable_result
     @progress_decorator
     def _get_ring_plane_coordinate_maps(
-        self, degree_interval: float
+        self, **map_kwargs: Unpack[_MapKwargs]
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        radius_map = self._make_empty_map(degree_interval)
-        long_map = self._make_empty_map(degree_interval)
-        dist_map = self._make_empty_map(degree_interval)
+        radius_map = self._make_empty_map(**map_kwargs)
+        long_map = self._make_empty_map(**map_kwargs)
+        dist_map = self._make_empty_map(**map_kwargs)
 
-        visible = self._get_illumf_map(degree_interval)[:, :, 4]
-        ra_map = self.get_ra_map(degree_interval)
-        dec_map = self.get_dec_map(degree_interval)
-        for a, b, targvec in self._enumerate_targvec_map(
-            degree_interval, progress=True
-        ):
+        visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
+        ra_map = self.get_ra_map(**map_kwargs)
+        dec_map = self.get_dec_map(**map_kwargs)
+        for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
             if visible[a, b]:
                 radius, long, dist = self.ring_plane_coordinates(
                     ra_map[a, b], dec_map[a, b], only_visible=False
@@ -2235,7 +2328,7 @@ class BodyXY(Body):
                 long_map[a, b] = long
                 dist_map[a, b] = dist
 
-        hidden_map = dist_map > self.get_distance_map(degree_interval)
+        hidden_map = dist_map > self.get_distance_map(**map_kwargs)
         radius_map[hidden_map] = np.nan
         long_map[hidden_map] = np.nan
         dist_map[hidden_map] = np.nan
@@ -2252,7 +2345,7 @@ class BodyXY(Body):
         """
         return self._get_ring_plane_coordinate_imgs()[0]
 
-    def get_ring_plane_radius_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_ring_plane_radius_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
@@ -2262,7 +2355,7 @@ class BodyXY(Body):
             :func:`Body.ring_plane_coordinates`. Points where the target body is
             unobscured by the ring plane have a value of NaN.
         """
-        return self._get_ring_plane_coordinate_maps(degree_interval)[0]
+        return self._get_ring_plane_coordinate_maps(**map_kwargs)[0]
 
     def get_ring_plane_longitude_img(self) -> np.ndarray:
         """
@@ -2275,7 +2368,9 @@ class BodyXY(Body):
         """
         return self._get_ring_plane_coordinate_imgs()[1]
 
-    def get_ring_plane_longitude_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_ring_plane_longitude_map(
+        self, **map_kwargs: Unpack[_MapKwargs]
+    ) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
@@ -2285,7 +2380,7 @@ class BodyXY(Body):
             :func:`Body.ring_plane_coordinates`. Points where the target body is
             unobscured by the ring plane have a value of NaN.
         """
-        return self._get_ring_plane_coordinate_maps(degree_interval)[1]
+        return self._get_ring_plane_coordinate_maps(**map_kwargs)[1]
 
     def get_ring_plane_distance_img(self) -> np.ndarray:
         """
@@ -2298,7 +2393,9 @@ class BodyXY(Body):
         """
         return self._get_ring_plane_coordinate_imgs()[2]
 
-    def get_ring_plane_distance_map(self, degree_interval: float = 1) -> np.ndarray:
+    def get_ring_plane_distance_map(
+        self, **map_kwargs: Unpack[_MapKwargs]
+    ) -> np.ndarray:
         """
         See also :func:`get_backplane_map`.
 
@@ -2308,7 +2405,7 @@ class BodyXY(Body):
             using  :func:`Body.ring_plane_coordinates`. Points where the target body is
             unobscured by the ring plane have a value of NaN.
         """
-        return self._get_ring_plane_coordinate_maps(degree_interval)[2]
+        return self._get_ring_plane_coordinate_maps(**map_kwargs)[2]
 
     # Default backplane registration
     def _register_default_backplanes(self) -> None:

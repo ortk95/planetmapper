@@ -1798,7 +1798,7 @@ class TestObservation(unittest.TestCase):
         for k, map_expected in backplanes_expected.items():
             with self.subTest(k):
                 img_output = self.obj.get_backplane_map(
-                    k, degree_interval=degree_interval
+                    k, _degree_interval=degree_interval
                 )
                 self.assertTrue(
                     np.allclose(img_output, map_expected, equal_nan=True),

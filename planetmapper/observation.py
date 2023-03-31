@@ -528,7 +528,7 @@ class Observation(BodyXY):
             projected.append(
                 self.map_img(
                     img,
-                    degree_interval=degree_interval,
+                    _degree_interval=degree_interval,
                     interpolation=interpolation,
                     **kw,
                 )
@@ -937,7 +937,7 @@ class Observation(BodyXY):
     def _add_map_wcs_to_header(
         self, header: fits.Header, degree_interval: float
     ) -> None:
-        lons, lats = self._make_map_lonlat_arrays(degree_interval)
+        lons, lats = self._make_rectangular_map_lonlat_arrays(degree_interval)
 
         # Add new values
         header['CTYPE1'] = 'Planetographic longitude, positive {}'.format(

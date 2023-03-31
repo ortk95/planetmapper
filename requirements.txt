@@ -7,3 +7,4 @@ scipy
 photutils
 tqdm
 pyproj
+typing-extensions
