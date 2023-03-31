@@ -28,6 +28,7 @@ import pyproj
 import scipy.interpolate
 from matplotlib.axes import Axes
 from matplotlib.image import AxesImage
+from matplotlib.collections import QuadMesh
 from spiceypy.utils.exceptions import NotFoundError
 
 from .body import Body
@@ -37,7 +38,22 @@ T = TypeVar('T')
 S = TypeVar('S')
 P = ParamSpec('P')
 
-_cache_stable_result = lru_cache(maxsize=128)
+
+def _cache_stable_result(
+    fn: Callable[Concatenate[S, P], T]
+) -> Callable[Concatenate[S, P], T]:
+    """
+    Decorator to cache stable result
+
+    Effectively a better type-hinted version of `functools.lru_cache`.
+    """
+
+    @wraps(fn)
+    @lru_cache(maxsize=128)
+    def decorated(self, *args: P.args, **kwargs: P.kwargs):
+        return fn(self, *args, **kwargs)
+
+    return decorated  # type: ignore
 
 
 def _cache_clearable_result(fn: Callable[[S], T]) -> Callable[[S], T]:
@@ -973,12 +989,11 @@ class BodyXY(Body):
     def map_img(
         self,
         img: np.ndarray,
-        projection: str = 'rectangular',
         *,
-        degree_interval_: float = 1,
         interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
         propagate_nan: bool = True,
         warn_nan: bool = False,
+        **map_kwargs: Unpack[_MapKwargs],
     ) -> np.ndarray:
         """
         Project an observed image onto a rectangular lon/lat grid.
@@ -1017,25 +1032,16 @@ class BodyXY(Body):
                 the interpolation.
             warn_nan: Print warning if any values in `img` are NaN when any of the
                 spline interpolations are used.
+            TODO
 
         Returns:
             Array containing cylindrical map (planetographic coordinates) of the values
             in `img` at each location on the surface of the target body. Locations which
             are not visible have a value of NaN.
         """
-
-        x_map = self.get_x_map(
-            projection=projection,
-            degree_interval=degree_interval_,
-        )
-        y_map = self.get_y_map(
-            projection=projection,
-            degree_interval=degree_interval_,
-        )
-        projected = self._make_empty_map(
-            projection=projection,
-            degree_interval=degree_interval_,
-        )
+        x_map = self.get_x_map(**map_kwargs)
+        y_map = self.get_y_map(**map_kwargs)
+        projected = self._make_empty_map(**map_kwargs)
 
         spline_k = {
             'linear': 1,
@@ -1091,231 +1097,6 @@ class BodyXY(Body):
 
     def _xy_in_image_frame(self, x: float, y: float) -> bool:
         return (-0.5 < x < self._nx - 0.5) and (-0.5 < y < self._ny - 0.5)
-
-    def project_img(
-        self,
-        img: np.ndarray,
-        projection: str,
-        x_out: np.ndarray | None = None,
-        y_out: np.ndarray | None = None,
-        out_size: int | tuple[int, int] = 100,
-        interpolation: str = 'linear',
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, pyproj.Transformer]:
-        """
-        Project an image into given map projection.
-
-        This uses the `pyproj` package to perform the coordinate transformations, and
-        `scipy.interpolate.griddata` to perform the interpolation to the new grid. The
-        `transformer` object returned by this function converts from latitude/longitude
-        coordinates to the output projection coordinates, so can be used to plot points
-        and create gridlines in in the projected coordinates (see the example in
-        :func:`project_img_orthographic`).
-
-        :func:`project_img_orthographic` and :func:`project_img_azimuthal` provide a
-        simpler interface to create orthographic and azimuthal projections.
-
-        See also :func:`map_img` which is recommended when projecting to cylindrical
-        maps.
-
-        Args:
-            img: Observed image where pixel coordinates correspond to the `xy` pixel
-                coordinates (e.g. those used in :func:`get_x0`).
-            projection: String describing map projection. Passed to `pyproj.CRS` to
-                create the transformation. Can be provided as a string or a cartopy
-                projection (e.g. `proj_out=ccrs.Orthographic()`). For full list of
-                projections and relevant parameters, see
-                https://proj.org/operations/projections/index.html.
-            x_out: Output coordinates in the the x direction of `projection`. Both
-                `x_out` and `y_out` should have the same number of dimensions (i.e.
-                should both either be 1D or 2D arrays). If `x_out` or `y_out` are
-                `None`, then the output coordinates will be generated automatically to
-                cover the finite range of output coordinates.
-            y_out: Output coordinates in the the y direction of `projection`.
-            out_size: If `x_out` and `y_out` are `None`, then this parameter is used to
-                determine the grid size of the output data. If `out_size` is an integer,
-                then the output grid will be square with `out_size` points in each
-                direction. If `out_size` is a tuple of integers, then the output grid
-                will have `out_size[0]` points in the x direction and `out_size[1]`
-                points in the y direction.
-            interpolation: Interpolation method to use. This can either any of
-                `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. The default is
-                `'linear'`. Passed to `scipy.interpolate.griddata`. Note that using
-                `'nearest'` can project data to invalid coordinates (e.g. outside the
-                map projection domain).
-
-        Returns:
-            `(x_out, y_out, img_out, transformer)` tuple. `x_out` and `y_out` are the
-            output coordinates in the x and y directions of `projection`. `img_out` is
-            the projected image data. `transformer` is the `pyproj.Transformer` object
-            which converts from latitude/longitude coordinates to the output projection.
-        """
-        proj_in = '+proj=eqc +a={a} +b={b} +lon_0={lon_0} +to_meter={to_meter} +type=crs'.format(
-            a=self.r_eq,
-            b=self.r_polar,
-            lon_0=0,
-            to_meter=np.radians(1) * self.r_eq,
-        )
-        transformer = pyproj.Transformer.from_crs(
-            pyproj.CRS(proj_in),
-            pyproj.CRS(projection),
-        )
-
-        # pylint: disable-next=unpacking-non-sequence
-        x_img, y_img = transformer.transform(self.get_lon_img(), self.get_lat_img())
-        xy_points = np.array([(x, y) for x, y in zip(x_img.ravel(), y_img.ravel())])
-        img_points = img.ravel()
-        good_points = (
-            np.isfinite(xy_points[:, 0])
-            & np.isfinite(xy_points[:, 1])
-            & np.isfinite(img_points)
-        )
-        xy_points = xy_points[good_points]
-        img_points = img_points[good_points]
-
-        # Check output coords
-        if np.isscalar(out_size):
-            out_size = (out_size, out_size)  # type: ignore
-        if x_out is None:
-            valid_values = x_img[np.isfinite(x_img)]
-            x_out = np.linspace(
-                min(valid_values), max(valid_values), out_size[0]  # type: ignore
-            )
-        if y_out is None:
-            valid_values = y_img[np.isfinite(y_img)]
-            y_out = np.linspace(
-                min(valid_values), max(valid_values), out_size[1]  # type: ignore
-            )
-        x_out = np.asarray(x_out)
-        y_out = np.asarray(y_out)
-        if len(x_out.shape) == 1:
-            x_out, y_out = np.meshgrid(x_out, y_out)
-        if x_out.shape != y_out.shape:
-            raise ValueError(
-                f'x_out and y_out must have the same shape ({x_out.shape} != {y_out.shape})'
-            )
-
-        img_out = scipy.interpolate.griddata(
-            xy_points,
-            img_points,
-            (x_out, y_out),
-            method=interpolation,
-        )
-        return x_out, y_out, img_out, transformer
-
-    def project_img_orthographic(
-        self,
-        img: np.ndarray,
-        lat: float = 0,
-        lon: float = 0,
-        size: int = 100,
-        *,
-        border_fraction: float = 0.1,
-        **kwargs,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, pyproj.Transformer]:
-        """
-        Project an image into an orthographic projection centred on a given point.
-
-        This is a convenience wrapper around :func:`project_img`.
-
-        This function can be used to create polar projections, for example ::
-
-            x_out, y_out, img_out, transformer = body.project_img_orthographic(
-                img,
-                lat=90,
-                interpolation='cubic',
-            )
-
-            fig, ax = plt.subplots()
-            ax.pcolormesh(x_out, y_out, img_out)
-
-            # Add gridlines
-            npts = 360
-            for lat in np.arange(-90, 90, 30):
-                x, y = transformer.transform(np.linspace(0, 360, npts), lat * np.ones(npts))
-                ax.plot(x, y, color='k', alpha=0.5, linestyle='-' if lat == 0 else ':')
-
-            npts = 180
-            for lon in np.arange(0, 360, 30):
-                x, y = transformer.transform(lon * np.ones(npts), np.linspace(-90, 90, npts))
-                ax.plot(x, y, color='k', alpha=0.5, linestyle='-' if lon == 0 else ':')
-
-            ax.set_xlabel('Distance (km)')
-            ax.set_ylabel('Distance (km)')
-            ax.ticklabel_format(style='sci', scilimits=(-3, 3))
-            ax.set_aspect('equal', adjustable='box')
-            ax.set_title('Northern hemisphere')
-
-
-        Args:
-            img: Observed image where pixel coordinates correspond to the `xy` pixel
-                coordinates (e.g. those used in :func:`get_x0`).
-            lat: Latitude of centre of the projection.
-            lon: Longitude of centre of the projection.
-            size: Size in pixels of output image (i.e. a `size` x `size` image will be
-                generated).
-            border_fraction: Approximate padding around the image in the output
-                projection.
-            **kwargs: Additional keyword arguments are passed to :func:`project_img`.
-
-        Returns:
-            `(x_out, y_out, img_out, transformer)` tuple. `x_out` and `y_out` are the x
-            and y coordinates of the projected data, and give the distances in km from
-            the centre of the projected image. `img_out` is the projected image data.
-            `transformer` is the `pyproj.Transformer` object which converts from
-            latitude/longitude coordinates to the orthographic projection.
-        """
-        projection = '+proj=ortho +a={a} +b={b} +lon_0={lon_0} +lat_0={lat_0} +y_0={y_0} +type=crs'.format(
-            a=self.r_eq,
-            b=self.r_polar,
-            lon_0=lon,
-            lat_0=lat,
-            y_0=(self.r_polar - self.r_eq) * np.sin(np.radians(lat * 2)),
-        )
-        lim = max(self.r_eq, self.r_polar) * (1 + border_fraction)
-        coords = np.linspace(-lim, lim, size)
-        return self.project_img(img, projection, x_out=coords, y_out=coords, **kwargs)
-
-    def project_img_azimuthal(
-        self,
-        img: np.ndarray,
-        lat: float = 0,
-        lon: float = 0,
-        size: int = 100,
-        *,
-        border_fraction: float = 0.1,
-        **kwargs,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, pyproj.Transformer]:
-        """
-        Project an image into an azimuthal projection centred on a given point.
-
-        This is a convenience wrapper around :func:`project_img`.
-
-        Args:
-            img: Observed image where pixel coordinates correspond to the `xy` pixel
-                coordinates (e.g. those used in :func:`get_x0`).
-            lat: Latitude of centre of the projection.
-            lon: Longitude of centre of the projection.
-            size: Size in pixels of output image (i.e. a `size` x `size` image will be
-                generated).
-            border_fraction: Approximate padding around the image in the output
-                projection.
-            **kwargs: Additional keyword arguments are passed to :func:`project_img`.
-
-        Returns:
-            `(x_out, y_out, img_out, transformer)` tuple. `x_out` and `y_out` are the x
-            and y coordinates of the projected data, and give the distances in km from
-            the centre of the projected image. `img_out` is the projected image data.
-            `transformer` is the `pyproj.Transformer` object which converts from
-            latitude/longitude coordinates to the azimuthal projection.
-        """
-        projection = '+proj=aeqd +R={a} +lon_0={lon_0} +lat_0={lat_0} +type=crs'.format(
-            a=self.r_eq,
-            lon_0=lon,
-            lat_0=lat,
-        )
-        lim = max(self.r_eq, self.r_polar) * np.pi * (1 + border_fraction)
-        coords = np.linspace(-lim, lim, size)
-        return self.project_img(img, projection, x_out=coords, y_out=coords, **kwargs)
 
     # Backplane management
     @staticmethod
@@ -1437,7 +1218,9 @@ class BodyXY(Body):
         """
         return self.backplanes[self.standardise_backplane_name(name)].get_img().copy()
 
-    def get_backplane_map(self, name: str, degree_interval_: float = 1) -> np.ndarray:
+    def get_backplane_map(
+        self, name: str, **map_kwargs: Unpack[_MapKwargs]
+    ) -> np.ndarray:
         """
         Generate map of backplane values.
 
@@ -1462,7 +1245,7 @@ class BodyXY(Body):
         """
         return (
             self.backplanes[self.standardise_backplane_name(name)]
-            .get_map(degree_interval_)
+            .get_map(**map_kwargs)
             .copy()
         )
 
@@ -1501,8 +1284,8 @@ class BodyXY(Body):
         name: str,
         ax: Axes | None = None,
         show: bool = False,
-        degree_interval_: float = 1,
-        **kwargs,
+        imshow_kwargs: dict | None = None,
+        **map_kwargs: Unpack[_MapKwargs],
     ) -> Axes:
         """
         Plot a map of backplane values on the target body.
@@ -1517,6 +1300,7 @@ class BodyXY(Body):
             **kwargs: Passed to Matplotlib's `imshow` when plotting the backplane map.
                 For example, can be used to set the colormap of the plot using
                 `body.plot_backplane_map(..., cmap='Greys')`.
+                TODO
 
         Returns:
             The axis containing the plotted data.
@@ -1525,16 +1309,26 @@ class BodyXY(Body):
             fig, ax = plt.subplots()
         backplane = self.get_backplane(name)
 
-        im = self.imshow_map(backplane.get_map(degree_interval_), ax=ax)
+        im = self.plot_map(
+            backplane.get_map(**map_kwargs),
+            ax=ax,
+            map_kwargs=map_kwargs,
+            **imshow_kwargs or {},
+        )
         plt.colorbar(im, label=backplane.description)
         ax.set_title(self.get_description(multiline=True))
         if show:
             plt.show()
         return ax
 
-    def imshow_map(
-        self, map_img: np.ndarray, ax: Axes | None = None, **kwargs
-    ) -> AxesImage:
+    def plot_map(
+        self,
+        map_img: np.ndarray,
+        ax: Axes | None = None,
+        map_kwargs: _MapKwargs | None = None,
+        grid: bool = True,
+        **kwargs,
+    ) -> QuadMesh:
         """
         Utility function to easily plot a mapped image using `plt.imshow` with
         appropriate extents, axis labels etc.
@@ -1549,37 +1343,63 @@ class BodyXY(Body):
             **kwargs: Passed to Matplotlib's `imshow` when plotting the backplane map.
                 For example, can be used to set the colormap of the plot using
                 `body.plot_backplane_map(..., cmap='Greys')`.
-
+            TODO
         Returns:
             Handle of plotted Matplotlib `AxesImage`.
         """
+        # TODO
         if ax is None:
             fig, ax = plt.subplots()
 
-        if self.positive_longitude_direction == 'W':
-            extent = [360, 0, -90, 90]
-        else:
-            extent = [0, 360, -90, 90]
+        map_kwargs = map_kwargs or {}
+        projection = map_kwargs.get('projection', 'rectangular')
+        lons, lats, xx, yy, transformer = self.generate_map_coordinates(**map_kwargs)
 
-        im = ax.imshow(map_img, origin='lower', extent=extent, **kwargs)
-
+        im = ax.pcolormesh(xx, yy, map_img, **kwargs)
         ax.set_aspect(1, adjustable='box')
-        ax.set_xlabel(f'Planetographic longitude ({self.positive_longitude_direction})')
-        ax.set_ylabel('Planetographic latitude')
 
-        step = 45
-        xt = np.arange(0, 360.1, step)
-        ax.set_xticks(xt)
-        ax.set_xticklabels([f'{x:.0f}°' for x in xt])
+        step = 30
+        lon_ticks = np.arange(0, 360.1, step)
+        lat_ticks = np.arange(-90, 90.1, step)
 
-        yt = np.arange(-90, 90.1, step)
-        ax.set_yticks(yt)
-        ax.set_yticklabels([f'{y:.0f}°' for y in yt])
+        if projection == 'rectangular':
+            if self.positive_longitude_direction == 'W':
+                ax.set_xlim(360, 0)
+            else:
+                ax.set_xlim(0, 360)
+            ax.set_ylim(-90, 90)
+            ax.set_xlabel(
+                f'Planetographic longitude ({self.positive_longitude_direction})'
+            )
+            ax.set_ylabel('Planetographic latitude')
+
+            ax.set_xticks(lon_ticks)
+            ax.set_xticklabels([f'{x:.0f}°' for x in lon_ticks])
+
+            ax.set_yticks(lat_ticks)
+            ax.set_yticklabels([f'{y:.0f}°' for y in lat_ticks])
+
+        if grid:
+            npts = 360
+            for lon in lon_ticks:
+                x, y = transformer.transform(
+                    lon * np.ones(npts), np.linspace(-90, 90, npts)
+                )
+                ax.plot(x, y, color='k', linestyle='-' if lon == 0 else ':')
+
+            for lat in lat_ticks:
+                x, y = transformer.transform(
+                    np.linspace(0, 360, npts), lat * np.ones(npts)
+                )
+                ax.plot(x, y, color='k', linestyle='-' if lat == 0 else ':')
+
         return im
+
+    imshow_map = plot_map  # backwards compatibility
 
     # Mapping projection internals
     @_cache_stable_result
-    def generate_map_lonlat_coordinates(
+    def generate_map_coordinates(
         self,
         projection: str = 'rectangular',
         degree_interval: float = 1,
@@ -1590,18 +1410,21 @@ class BodyXY(Body):
         lat_coords: np.ndarray | None = None,
         projection_x_coords: np.ndarray | None = None,
         projection_y_coords: np.ndarray | None = None,
-    ) -> np.ndarray:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, pyproj.Transformer]:
         # TODO docstring
         if projection == 'rectangular':
             lon_coords = np.arange(degree_interval / 2, 360, degree_interval)
             if self.positive_longitude_direction == 'W':
                 lon_coords = lon_coords[::-1]
             lat_coords = np.arange(-90 + degree_interval / 2, 90, degree_interval)
-            out = np.full((len(lat_coords), len(lon_coords), 2), np.nan)
-            for a, lat in enumerate(lat_coords):
-                for b, lon in enumerate(lon_coords):
-                    out[a, b] = (lon, lat)
-            return out
+            lon_coords, lat_coords = np.meshgrid(lon_coords, lat_coords)
+            return (
+                lon_coords,
+                lat_coords,
+                lon_coords,
+                lat_coords,
+                self.get_pyproj_transformer(),
+            )
         elif projection == 'manual':
             if lon_coords is None or lat_coords is None:
                 raise ValueError('lons and lats must be provided for fixed projection')
@@ -1617,7 +1440,13 @@ class BodyXY(Body):
                 raise ValueError('lon_coords and lat_coords must be 1D or 2D arrays')
             if lon_coords.shape != lat_coords.shape:
                 raise ValueError('lon_coords and lat_coords must have the same shape')
-            return np.stack([lon_coords, lat_coords], axis=-1)
+            return (
+                lon_coords,
+                lat_coords,
+                lon_coords,
+                lat_coords,
+                self.get_pyproj_transformer(),
+            )
         elif projection == 'orthographic':
             proj = '+proj=ortho +a={a} +b={b} +lon_0={lon_0} +lat_0={lat_0} +y_0={y_0} +type=crs'.format(
                 a=self.r_eq,
@@ -1627,7 +1456,7 @@ class BodyXY(Body):
                 y_0=(self.r_polar - self.r_eq) * np.sin(np.radians(lat * 2)),
             )
             lim = max(self.r_eq, self.r_polar) * 1.01
-            return self._get_pyproj_lonlat_coords(proj, np.linspace(-lim, lim, size))
+            return self._get_pyproj_map_coords(proj, np.linspace(-lim, lim, size))
         elif projection == 'azimuthal':
             proj = '+proj=aeqd +R={a} +lon_0={lon_0} +lat_0={lat_0} +type=crs'.format(
                 a=self.r_eq,
@@ -1635,17 +1464,17 @@ class BodyXY(Body):
                 lat_0=lat,
             )
             lim = max(self.r_eq, self.r_polar) * np.pi * 1.01
-            return self._get_pyproj_lonlat_coords(proj, np.linspace(-lim, lim, size))
+            return self._get_pyproj_map_coords(proj, np.linspace(-lim, lim, size))
         else:
             if projection_x_coords is None:
                 raise ValueError('x coords must be provided')
-            return self._get_pyproj_lonlat_coords(
+            return self._get_pyproj_map_coords(
                 projection, projection_x_coords, projection_y_coords
             )
 
-    def _get_pyproj_lonlat_coords(
+    def _get_pyproj_map_coords(
         self, projection: str, xx: np.ndarray, yy: np.ndarray | None = None
-    ) -> np.ndarray:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, pyproj.Transformer]:
         if yy is None:
             yy = xx
         xx = np.asarray(xx)
@@ -1662,15 +1491,19 @@ class BodyXY(Body):
         transformer = self.get_pyproj_transformer(projection)
         # pylint: disable-next=unpacking-non-sequence
         lons, lats = transformer.transform(xx, yy, direction='INVERSE')
-        return np.stack([lons, lats], axis=-1)
+        return lons, lats, xx, yy, transformer
 
-    def get_pyproj_transformer(self, projection: str) -> pyproj.Transformer:
+    def get_pyproj_transformer(
+        self, projection: str | None = None
+    ) -> pyproj.Transformer:
         proj_in = '+proj=eqc +a={a} +b={b} +lon_0={l0} +to_meter={tm} +type=crs'.format(
             a=self.r_eq,
             b=self.r_polar,
             l0=0,
             tm=np.radians(1) * self.r_eq,
         )
+        if projection is None:
+            projection = proj_in  # return identity transform
         return pyproj.Transformer.from_crs(pyproj.CRS(proj_in), pyproj.CRS(projection))
 
     # Backplane generatotrs
@@ -1702,7 +1535,7 @@ class BodyXY(Body):
         nz: int | None = None,
         **map_kwargs: Unpack[_MapKwargs],
     ) -> np.ndarray:
-        lonlat_shape = self.generate_map_lonlat_coordinates(**map_kwargs).shape
+        lonlat_shape = self._get_lonlat_map(**map_kwargs).shape
         n1 = lonlat_shape[1]
         n0 = lonlat_shape[0]
         if nz is None:
@@ -1753,7 +1586,7 @@ class BodyXY(Body):
     @progress_decorator
     def _get_targvec_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(3, **map_kwargs)
-        lonlats = self.generate_map_lonlat_coordinates(**map_kwargs)
+        lonlats = self._get_lonlat_map(**map_kwargs)
         for a, b in self._iterate_image(out.shape, progress=True):
             lon, lat = lonlats[a, b]
             if math.isnan(lon):
@@ -1787,6 +1620,11 @@ class BodyXY(Body):
             out[y, x] = self._targvec2lonlat_radians(targvec)
         return np.rad2deg(out)
 
+    @_cache_stable_result
+    def _get_lonlat_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+        coords = self.generate_map_coordinates(**map_kwargs)
+        return np.stack([coords[0], coords[1]], axis=-1)
+
     def get_lon_img(self) -> np.ndarray:
         """
         See also :func:`get_backplane_img`.
@@ -1804,7 +1642,7 @@ class BodyXY(Body):
         Returns:
             Array containing cylindrical map of planetographic longitude values.
         """
-        return self.generate_map_lonlat_coordinates(**map_kwargs)[:, :, 0]
+        return self._get_lonlat_map(**map_kwargs)[:, :, 0]
 
     def get_lat_img(self) -> np.ndarray:
         """
@@ -1823,7 +1661,7 @@ class BodyXY(Body):
         Returns:
             Array containing cylindrical map of planetographic latitude values.
         """
-        return self.generate_map_lonlat_coordinates(**map_kwargs)[:, :, 1]
+        return self._get_lonlat_map(**map_kwargs)[:, :, 1]
 
     @_cache_clearable_result
     @progress_decorator

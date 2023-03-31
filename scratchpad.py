@@ -13,4 +13,4 @@ observation = planetmapper.Observation(p)
 # observation.plot_backplane_map('KM-X', show=True)
 # observation.plot_backplane_map('KM-Y', show=True)
 
-observation.get_lon_map()
+observation.plot_backplane_map('LON-GRAPHIC')

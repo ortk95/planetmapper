@@ -150,7 +150,7 @@ if True:
         rgb_map[:, :, idx][np.where(emission_map > emission_cutoff)] = 1
 
     # Display mapped image and add a useful annotation
-    observation.imshow_map(rgb_map, ax=axs[0, 1])
+    observation.plot_map(rgb_map, ax=axs[0, 1])
     axs[0, 1].annotate(
         f'Showing emission angles < {emission_cutoff}°',
         (0.005, 0.99),

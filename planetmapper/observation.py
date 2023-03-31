@@ -12,7 +12,7 @@ from astropy.io import fits
 from astropy.utils.exceptions import AstropyWarning
 
 from . import common, utils
-from .body_xy import BodyXY, _cache_clearable_result_with_args
+from .body_xy import BodyXY, _MapKwargs, Unpack, _cache_clearable_result_with_args
 from .progress import progress_decorator, SaveMapProgressHookCLI, SaveNavProgressHookCLI
 
 T = TypeVar('T')
@@ -427,7 +427,10 @@ class Observation(BodyXY):
         """
         threshold_img = self._get_img_for_fitting()
         threshold = 0.5 * sum(
-            [np.percentile(threshold_img, 5), np.percentile(threshold_img, 95)]
+            [ # type: ignore
+                np.percentile(threshold_img, 5),
+                np.percentile(threshold_img, 95),
+            ]
         )
         threshold_img[np.where(threshold_img <= threshold)] = 0
         threshold_img[np.where(threshold_img > threshold)] = 1
@@ -474,9 +477,8 @@ class Observation(BodyXY):
     # Mapping
     def get_mapped_data(
         self,
-        degree_interval: float = 1,
         interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
-        **kw,
+        **map_kwargs: Unpack[_MapKwargs],
     ) -> np.ndarray:
         """
         Projects the observed :attr:`data` onto a lon/lat grid using
@@ -496,24 +498,21 @@ class Observation(BodyXY):
                 `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. Passed to
                 :func:`BodyXY.map_img`.
             **kw: Additional arguments passed to :func:`BodyXY.map_img`.
-
+            TODO
         Returns:
             Array containing a cube of cylindrical map of the values in :attr:`data` at
             each location on the surface of the target body. Locations which are not
             visible have a value of NaN.
         """
         # Return a copy so that the cached value isn't tainted by any modifications
-        return self._get_mapped_data(
-            degree_interval=degree_interval, interpolation=interpolation, **kw
-        ).copy()
+        return self._get_mapped_data(interpolation=interpolation, **map_kwargs).copy()
 
     @_cache_clearable_result_with_args
     @progress_decorator
     def _get_mapped_data(
         self,
-        degree_interval: float = 1,
         interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
-        **kw,
+        **map_kwargs: Unpack[_MapKwargs],
     ):
         projected = []
         if interpolation == 'linear' and np.any(np.isnan(self.data)):
@@ -528,9 +527,8 @@ class Observation(BodyXY):
             projected.append(
                 self.map_img(
                     img,
-                    _degree_interval=degree_interval,
                     interpolation=interpolation,
-                    **kw,
+                    **map_kwargs,
                 )
             )
         return np.array(projected)
