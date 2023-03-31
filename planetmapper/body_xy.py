@@ -1398,7 +1398,14 @@ class BodyXY(Body):
 
         return im
 
-    imshow_map = plot_map  # backwards compatibility
+    def imshow_map(self, *args, **kwargs):
+        """
+        Alias for `plot_map` for backwards compatibility.
+
+        :meta private:
+        """
+        # backwards compatibility
+        return self.plot_map(*args, **kwargs)
 
     # Mapping projection internals
     @_cache_stable_result
@@ -1644,7 +1651,8 @@ class BodyXY(Body):
 
     def get_lon_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of planetographic longitude values.
@@ -1663,7 +1671,8 @@ class BodyXY(Body):
 
     def get_lat_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of planetographic latitude values.
@@ -1698,7 +1707,8 @@ class BodyXY(Body):
 
     def get_lon_centric_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of planetocentric longitude values.
@@ -1717,7 +1727,8 @@ class BodyXY(Body):
 
     def get_lat_centric_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of planetocentric latitude values.
@@ -1753,7 +1764,8 @@ class BodyXY(Body):
 
     def get_ra_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of right ascension values as viewed by the
@@ -1772,7 +1784,8 @@ class BodyXY(Body):
 
     def get_dec_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of declination values as viewed by the
@@ -1807,7 +1820,8 @@ class BodyXY(Body):
 
     def get_x_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of the x pixel coordinates each location
@@ -1830,7 +1844,8 @@ class BodyXY(Body):
 
     def get_y_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of the y pixel coordinates each location
@@ -1869,7 +1884,8 @@ class BodyXY(Body):
 
     def get_km_x_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of the distance in target plane in km in
@@ -1890,7 +1906,8 @@ class BodyXY(Body):
 
     def get_km_y_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of the distance in target plane in km in
@@ -1927,7 +1944,8 @@ class BodyXY(Body):
 
     def get_phase_angle_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of the phase angle value at each point on
@@ -1947,7 +1965,8 @@ class BodyXY(Body):
 
     def get_incidence_angle_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of the incidence angle value at each point
@@ -1967,7 +1986,8 @@ class BodyXY(Body):
 
     def get_emission_angle_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of the emission angle value at each point
@@ -1998,7 +2018,8 @@ class BodyXY(Body):
     @_cache_stable_result
     def get_azimuth_angle_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of the azimuth angle value at each point
@@ -2058,7 +2079,8 @@ class BodyXY(Body):
 
     def get_distance_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of the observer-target distance in km of
@@ -2090,7 +2112,8 @@ class BodyXY(Body):
     @progress_decorator
     def get_radial_velocity_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of the observer-target radial velocity in
@@ -2117,7 +2140,8 @@ class BodyXY(Body):
 
     def get_doppler_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of the doppler factor of each point on the
@@ -2192,7 +2216,8 @@ class BodyXY(Body):
 
     def get_ring_plane_radius_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of the ring plane radius in km obscuring
@@ -2217,7 +2242,8 @@ class BodyXY(Body):
         self, **map_kwargs: Unpack[_MapKwargs]
     ) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of the ring plane planetographic longitude
@@ -2242,7 +2268,8 @@ class BodyXY(Body):
         self, **map_kwargs: Unpack[_MapKwargs]
     ) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also 
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing cylindrical map of the ring plane distance from the
