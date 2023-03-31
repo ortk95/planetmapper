@@ -499,7 +499,7 @@ class Observation(BodyXY):
                 `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. Passed to
                 :func:`BodyXY.map_img`.
             **map_kwargs: Additional arguments are passed to
-                :func:`generate_map_coordinates` to specify and customise the map
+                :func:`BodyXY.generate_map_coordinates` to specify and customise the map
                 projection.
         Returns:
             Array containing cube of maped of the values in `img` at each location on
@@ -847,15 +847,16 @@ class Observation(BodyXY):
         self,
         path: str,
         include_backplanes: bool = True,
-        degree_interval: float = 1,
+        degree_interval: float = 1, #TODO
         interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
         show_progress: bool = False,
         print_info: bool = True,
+        # TODO: add kwargs for map_img
     ) -> None:
         """
         Save a FITS file containing the mapped observation in a cylindrical projection.
 
-        The mapped data is generated using :func:`mapped_data`, and mapped backplane
+        The mapped data is generated using :func:`get_mapped_data`, and mapped backplane
         data is saved by default.
 
         For larger image sizes, the map projection and backplane generation can be slow,
@@ -865,7 +866,6 @@ class Observation(BodyXY):
             path: Filepath of output file.
             include_backplanes: Toggle generating and saving backplanes to output FITS
                 file.
-            degree_interval: Interval in degrees between the longitude/latitude points.
             interpolation: Interpolation used when mapping. This can either any of
                 `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. Passed to
                 :func:`BodyXY.map_img`.
@@ -873,8 +873,9 @@ class Observation(BodyXY):
                 This does not have an effect if `show_progress=True` was set when
                 creating this `Observation`.
             print_info: Toggle printing of progress information (defaults to `True`).
+            TODO
         """
-        # TODO
+        # TODO: update to work with generic projection
         if show_progress and self._get_progress_hook() is None:
             print_info = False
             self._set_progress_hook(SaveMapProgressHookCLI(len(self.data)))
@@ -938,7 +939,7 @@ class Observation(BodyXY):
     def _add_map_wcs_to_header(
         self, header: fits.Header, degree_interval: float
     ) -> None:
-        # TODO
+        # TODO: update to work gor generic projection
         lons, lats = self._make_rectangular_map_lonlat_arrays(degree_interval)
 
         # Add new values

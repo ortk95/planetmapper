@@ -1775,6 +1775,7 @@ class SaveObservation(Popup):
         ttk.Label(self.grid_frame, text=' ').grid(row=2, **label_kw)
 
         # Mapped
+        # TODO update to work with generic map projections
         ttk.Checkbutton(
             self.grid_frame, text='Save mapped observation', variable=self.save_map
         ).grid(row=3, column=1, columnspan=2, sticky='ew')

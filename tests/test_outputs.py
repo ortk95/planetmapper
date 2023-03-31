@@ -1798,7 +1798,7 @@ class TestObservation(unittest.TestCase):
         for k, map_expected in backplanes_expected.items():
             with self.subTest(k):
                 img_output = self.obj.get_backplane_map(
-                    k, _degree_interval=degree_interval
+                    k, degree_interval=degree_interval
                 )
                 self.assertTrue(
                     np.allclose(img_output, map_expected, equal_nan=True),
@@ -1815,7 +1815,7 @@ class TestObservation(unittest.TestCase):
                     self.assertIn(
                         k,
                         keys_to_test,
-                        msg=f'No test for {k}:\n{k!r}: {self.obj.get_backplane_map(k, degree_interval)!r},\n',
+                        msg=f'No test for {k}:\n{k!r}: {self.obj.get_backplane_map(k, degree_interval=degree_interval)!r},\n',
                     )
 
 

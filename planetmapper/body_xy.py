@@ -1239,8 +1239,9 @@ class BodyXY(Body):
             name: Name of the desired backplane. This is standardised with
                 :func:`standardise_backplane_name` and used to choose a registered
                 backplane from :attr:`backplanes`.
-            degree_interval: Interval in degrees between the longitude/latitude points
-                in the mapped output.
+            **map_kwargs: Additional arguments are passed to
+                :func:`generate_map_coordinates` to specify and customise the map
+                projection.
 
         Returns:
             Array containing map of the backplane's values over the surface of the
@@ -1298,8 +1299,6 @@ class BodyXY(Body):
             ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
                 a new figure and axis is created.
             show: Toggle showing the plotted figure with `plt.show()`
-            degree_interval: Interval in degrees between the longitude/latitude points
-                in the mapped output.
             plot_kwargs: Passed to Matplotlib's `pcolormesh` when plotting the backplane
                 map. For example, can be used to set the colormap of the plot using
                 `body.plot_backplane_map(..., plot_kwargs=dict(cmap='Greys'))`.
@@ -1429,7 +1428,8 @@ class BodyXY(Body):
         """
         Generate underlying coordinates and transformation for a given map projection.
 
-        The built-in map projections are:
+        The built-in map projections (i.e. possible values for the `projection`
+        argument) are:
 
         - `'rectangular'`: cylindrical equirectangular projection onto a regular
           longitude and latitude grid. The resolution of the map can be controlled with
