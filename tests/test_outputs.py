@@ -1811,7 +1811,7 @@ class TestObservation(unittest.TestCase):
                 for k in backplanes_expected.keys()
             ]
             for k in self.obj.backplanes.keys():
-                with self.subTest(k):
+                with self.subTest(k + ' test exists'):
                     self.assertIn(
                         k,
                         keys_to_test,

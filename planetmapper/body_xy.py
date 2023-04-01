@@ -912,7 +912,7 @@ class BodyXY(Body):
 
     def update_transform(self) -> None:
         """
-        Update the transformation returned by :func:`get_matplotlib_radec2xy_transform`
+        Update the transformation returned by :func:`matplotlib_radec2xy_transform`
         to use the latest disc parameter values `(x0, y0, r0, rotation)`.
         """
         self._get_matplotlib_radec2xy_transform_radians().set_matrix(
