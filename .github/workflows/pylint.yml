@@ -4,10 +4,13 @@ on:
   push:
     branches:
     - main
+    - dev
   pull_request:
     branches:
     - main
-  
+  schedule:
+    - cron: '30 2 * * 3'
+
 jobs:
   build:
     runs-on: ubuntu-latest
