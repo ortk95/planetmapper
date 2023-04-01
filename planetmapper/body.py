@@ -790,7 +790,7 @@ class Body(SpiceBase):
             East-West and North-South directions respectively.
         """
         return self._radec2km_radians(*self._degree_pair2radians(ra, dec))
-    
+
     def km2lonlat(self, km_x: float, km_y: float, **kwargs) -> tuple[float, float]:
         """
         Convert distance in target plane to longitude/latitude coordinates on the target

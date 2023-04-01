@@ -8,6 +8,16 @@
 !*.json
 !docs/images/*.png
 
+!tests/data/**/*.bsp
+!tests/data/**/*.tpc
+!tests/data/**/*.tls
+!tests/data/**/*.fits
+
+!tests_new/data/**/*.bsp
+!tests_new/data/**/*.tpc
+!tests_new/data/**/*.tls
+!tests_new/data/**/*.fits
+
 # Allowed paths
 !requirements.txt
 !.gitignore
