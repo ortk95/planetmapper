@@ -30,4 +30,4 @@ jobs:
         pip install -r requirements.txt
     - name: Analysing the code with pylint
       run: |
-        pylint $(git ls-files 'planetmapper/*.py') --disable=C,R,W,E1101
+        pylint $(git ls-files 'planetmapper/*.py')

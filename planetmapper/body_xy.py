@@ -1390,12 +1390,14 @@ class BodyXY(Body):
             for lon in lon_ticks:
                 if lon == 360:
                     continue
+                # pylint: disable-next=unpacking-non-sequence
                 x, y = transformer.transform(
                     lon * np.ones(npts), np.linspace(-90, 90, npts)
                 )
                 ax.plot(x, y, **grid_kw, linestyle='-' if lon == 0 else ':')
 
             for lat in lat_ticks:
+                # pylint: disable-next=unpacking-non-sequence
                 x, y = transformer.transform(
                     np.linspace(0, 360, npts), lat * np.ones(npts)
                 )
