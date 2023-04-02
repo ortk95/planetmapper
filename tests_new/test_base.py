@@ -5,6 +5,7 @@ import numpy as np
 import spiceypy as spice
 from typing import Callable, ParamSpec, Any
 import common_testing
+
 P = ParamSpec('P')
 
 
@@ -14,16 +15,20 @@ class TestSpiceBase(unittest.TestCase):
         self.obj = planetmapper.SpiceBase()
 
     def test_init(self):
-        pass
-        # TODO
+        self.assertTrue(self.obj._optimize_speed)
 
     def test_repr(self):
-        pass # TODO
+        self.assertEqual(str(self.obj), 'SpiceBase()')
 
     def test_standardise_body_name(self):
+        self.assertEqual(self.obj.standardise_body_name('JUPITER'), 'JUPITER')
         self.assertEqual(self.obj.standardise_body_name(' JuPiTeR   '), 'JUPITER')
         self.assertEqual(self.obj.standardise_body_name('599'), 'JUPITER')
         self.assertEqual(self.obj.standardise_body_name(599), 'JUPITER')
+        self.assertEqual(self.obj.standardise_body_name('HST'), 'HST')
+        self.assertEqual(
+            self.obj.standardise_body_name('Hubble Space Telescope'), 'HST'
+        )
 
     def test_et2dtm(self):
         pairs = (
@@ -63,16 +68,43 @@ class TestSpiceBase(unittest.TestCase):
                 self.assertEqual(self.obj.et2dtm(et), dtm)
 
     def test_mjd2dtm(self):
-        pass  # TODO
+        pairs = [
+            (
+                50000,
+                datetime.datetime(1995, 10, 10, 0, 0, tzinfo=datetime.timezone.utc),
+            ),
+            (
+                51234.56789,
+                datetime.datetime(
+                    1999, 2, 25, 13, 37, 45, 696000, tzinfo=datetime.timezone.utc
+                ),
+            ),
+            (
+                60000.1,
+                datetime.datetime(2023, 2, 25, 2, 24, tzinfo=datetime.timezone.utc),
+            ),
+        ]
+        for mjd, dtm in pairs:
+            with self.subTest(f'mjd = {mjd}'):
+                self.assertEqual(self.obj.mjd2dtm(mjd), dtm)
 
     def test_speed_of_light(self):
         self.assertEqual(self.obj.speed_of_light(), 299792.458)
 
     def test_calculate_doppler_factor(self):
-        pass  # TODO
+        pairs = [
+            (0, 1),
+            (12345.6789, 1.0420647220422994),
+            (2e5, 2.2379273771294423),
+            (self.obj.speed_of_light() * 0.9, 4.358898943540674),
+        ]
+
+        for rv, df in pairs:
+            with self.subTest(f'rv = {rv}'):
+                self.assertEqual(self.obj.calculate_doppler_factor(rv), df)
 
     def test_load_spice_kernels(self):
-        pass  # TODO
+        self.assertTrue(planetmapper.SpiceBase._KERNELS_LOADED)
 
     def test_close_loop(self):
         self.assertTrue(
@@ -91,13 +123,27 @@ class TestSpiceBase(unittest.TestCase):
     def test_unit_vector(self):
         a = np.random.rand(3) * 999
         ahat = self.obj.unit_vector(a)
-        self.assertAlmostEqual(np.linalg.norm(ahat), 1)
+        self.assertAlmostEqual(np.linalg.norm(ahat), 1)  #  type: ignore
 
     def test_vector_magnitude(self):
-        pass  # TODO
+        pairs = [
+            (np.array([1, 2, 3]), 3.7416573867739413),
+            (np.array([-999]), 999),
+            (np.array([-1.23, 4.56, 789]), 789.0141358049297),
+            (np.array([0, 0, 0, 0]), 0),
+            (np.array([0, 0, 0, 42]), 42),
+        ]
+        for v, magnitude in pairs:
+            with self.subTest(v):
+                self.assertAlmostEqual(self.obj.vector_magnitude(v), magnitude)
+                self.assertAlmostEqual(
+                    self.obj.vector_magnitude(v), np.linalg.norm(v)
+                )  #  type: ignore
+
+        self.assertTrue(np.isnan(self.obj.vector_magnitude(np.array([1, np.nan]))))
 
     def test_encode_str(self):
-        pass  # TODO
+        self.assertEqual(self.obj._encode_str('abc'), b'abc')
 
     def test_angle_conversion(self):
         pair = np.random.rand(2)
@@ -123,10 +169,6 @@ class TestSpiceBase(unittest.TestCase):
     def test_progrress_hook(self):
         pass
 
-
-class TestKernelPath(unittest.TestCase):
-    def test_kernel_path(self):
-        pass  # TODO
 
 class TestSpiceStringEncoding(unittest.TestCase):
     def setUp(self):
@@ -170,9 +212,9 @@ class TestSpiceStringEncoding(unittest.TestCase):
         self.compare_function_outputs(
             spice.subpnt,
             'INTERCEPT/ELLIPSOID',
-            'saturn',
+            'jupiter',
             1000,
-            'IAU_SATURN',
+            'IAU_jupiter',
             'CN+S',
             'earth',
         )
@@ -180,7 +222,7 @@ class TestSpiceStringEncoding(unittest.TestCase):
     def test_pgrrec(self):
         self.compare_function_outputs(
             spice.pgrrec,
-            'uranus',
+            'jupiter',
             0,
             0,
             0,
@@ -191,7 +233,7 @@ class TestSpiceStringEncoding(unittest.TestCase):
     def test_pxfrm2(self):
         self.compare_function_outputs(
             spice.pxfrm2,
-            'IAU_neptune',
+            'IAU_jupiter',
             'J2000',
             10000,
             11000,
@@ -201,19 +243,19 @@ class TestSpiceStringEncoding(unittest.TestCase):
         self.compare_function_outputs(
             spice.sincpt,
             'ELLIPSOID',
-            'pluto',
+            'jupiter',
             0,
-            'IAU_pluto',
+            'IAU_jupiter',
             'CN+S',
             'earth',
             'J2000',
-            np.array([-1.45130504e09, -4.31817467e09, -9.18250174e08]),
+            np.array([6.25064696e08, 2.76557345e08, 1.03301984e08]),
         )
 
     def test_recpgr(self):
         self.compare_function_outputs(
             spice.recpgr,
-            'mercury',
+            'jupiter',
             [0, 0, 1000],
             2000,
             0.9,
@@ -223,10 +265,10 @@ class TestSpiceStringEncoding(unittest.TestCase):
         self.compare_function_outputs(
             spice.illumf,
             'ELLIPSOID',
-            'venus',
+            'jupiter',
             'sun',
             90000,
-            'IAU_venus',
+            'IAU_jupiter',
             'CN+S',
             'earth',
             np.array([10000, 20000, 3000]),
@@ -236,11 +278,16 @@ class TestSpiceStringEncoding(unittest.TestCase):
         self.compare_function_outputs(
             spice.spkcpt,
             [0, 10000, 200000],
-            'mars',
-            'IAU_mars',
+            'jupiter',
+            'IAU_jupiter',
             99999,
             'J2000',
             'OBSERVER',
             'CN+S',
             'earth',
         )
+
+
+class TestKernelPath(unittest.TestCase):
+    def test_kernel_path(self):
+        pass  # TODO

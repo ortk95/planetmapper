@@ -62,6 +62,9 @@ class SpiceBase:
             self.load_spice_kernels(
                 kernel_path=kernel_path, manual_kernels=manual_kernels
             )
+    
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}()'
 
     def standardise_body_name(self, name: str | int) -> str:
         """
