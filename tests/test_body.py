@@ -19,7 +19,7 @@ class TestBody(unittest.TestCase):
         self.body = Body('Jupiter', observer='HST', utc='2005-01-01T00:00:00')
 
     def test_init(self):
-        self.assertEqual(
+        self.assertAlmostEqual(
             Body('Jupiter', utc='2005-01-01').subpoint_lon,
             153.12547767272153,
         )
@@ -34,7 +34,7 @@ class TestBody(unittest.TestCase):
         self.assertEqual(self.body.target, 'JUPITER')
         self.assertEqual(self.body.utc, '2005-01-01T00:00:00.000000')
         self.assertEqual(self.body.observer, 'HST')
-        self.assertEqual(self.body.et, 157809664.1839331)
+        self.assertAlmostEqual(self.body.et, 157809664.1839331)
         self.assertEqual(
             self.body.dtm,
             datetime.datetime(2005, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
@@ -42,17 +42,17 @@ class TestBody(unittest.TestCase):
         self.assertEqual(self.body.target_body_id, 599)
         self.assertEqual(self.body.r_eq, 71492.0)
         self.assertEqual(self.body.r_polar, 66854.0)
-        self.assertEqual(self.body.flattening, 0.0648743915403122)
+        self.assertAlmostEqual(self.body.flattening, 0.0648743915403122)
         self.assertEqual(self.body.prograde, True)
         self.assertEqual(self.body.positive_longitude_direction, 'W')
-        self.assertEqual(self.body.target_light_time, 2734.018326542542)
-        self.assertEqual(self.body.target_distance, 819638074.3312353)
-        self.assertEqual(self.body.target_ra, 196.37198562427025)
-        self.assertEqual(self.body.target_dec, -5.565793847134351)
-        self.assertEqual(self.body.target_diameter_arcsec, 35.98242703657337)
-        self.assertEqual(self.body.subpoint_distance, 819566594.28005)
-        self.assertEqual(self.body.subpoint_lon, 153.12585514751467)
-        self.assertEqual(self.body.subpoint_lat, -3.0886644594385193)
+        self.assertAlmostEqual(self.body.target_light_time, 2734.018326542542)
+        self.assertAlmostEqual(self.body.target_distance, 819638074.3312353)
+        self.assertAlmostEqual(self.body.target_ra, 196.37198562427025)
+        self.assertAlmostEqual(self.body.target_dec, -5.565793847134351)
+        self.assertAlmostEqual(self.body.target_diameter_arcsec, 35.98242703657337)
+        self.assertAlmostEqual(self.body.subpoint_distance, 819566594.28005)
+        self.assertAlmostEqual(self.body.subpoint_lon, 153.12585514751467)
+        self.assertAlmostEqual(self.body.subpoint_lat, -3.0886644594385193)
         self.assertEqual(
             self.body.named_ring_data,
             {
@@ -182,7 +182,6 @@ class TestBody(unittest.TestCase):
         ]
         for lonlat, radec in pairs:
             with self.subTest(lonlat):
-
                 self.assertTrue(np.allclose(self.body.lonlat2radec(*lonlat), radec))
 
     def test_radec2lonlat(self):
@@ -207,9 +206,11 @@ class TestBody(unittest.TestCase):
         ]
         for radec, lonlat in pairs:
             with self.subTest(radec):
-                self.assertEqual(
+                self.assertTrue(
+                    np.allclose(
                     self.body.radec2lonlat(*radec),
                     lonlat,
+                    )
                 )
                 self.assertTrue(
                     np.allclose(

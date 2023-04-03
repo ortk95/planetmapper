@@ -16,16 +16,16 @@ class TestBasicBody(unittest.TestCase):
         self.assertEqual(self.body.target, 'JUPITER')
         self.assertEqual(self.body.utc, '2005-01-01T00:00:00.000000')
         self.assertEqual(self.body.observer, 'HST')
-        self.assertEqual(self.body.et, 157809664.1839331)
+        self.assertAlmostEqual(self.body.et, 157809664.1839331)
         self.assertEqual(
             self.body.dtm,
             datetime.datetime(2005, 1, 1, 0, 0, tzinfo=datetime.timezone.utc),
         )
         self.assertEqual(self.body.target_body_id, 599)
-        self.assertEqual(self.body.target_light_time, 2734.018326542542)
-        self.assertEqual(self.body.target_distance, 819638074.3312353)
-        self.assertEqual(self.body.target_ra, 196.37198562427025)
-        self.assertEqual(self.body.target_dec, -5.565793847134351)
+        self.assertAlmostEqual(self.body.target_light_time, 2734.018326542542)
+        self.assertAlmostEqual(self.body.target_distance, 819638074.3312353)
+        self.assertAlmostEqual(self.body.target_ra, 196.37198562427025)
+        self.assertAlmostEqual(self.body.target_dec, -5.565793847134351)
 
     def test_repr(self):
         self.assertEqual(

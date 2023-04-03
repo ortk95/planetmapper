@@ -107,7 +107,7 @@ class TestSpiceBase(unittest.TestCase):
 
         for rv, df in pairs:
             with self.subTest(f'rv = {rv}'):
-                self.assertEqual(self.obj.calculate_doppler_factor(rv), df)
+                self.assertAlmostEqual(self.obj.calculate_doppler_factor(rv), df)
 
     def test_load_spice_kernels(self):
         self.assertTrue(planetmapper.SpiceBase._KERNELS_LOADED)

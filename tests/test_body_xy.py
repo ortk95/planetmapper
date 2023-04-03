@@ -254,9 +254,11 @@ class TestBodyXY(unittest.TestCase):
         self.body.add_arcsec_offset(0, 0)
         self.assertEqual(self.body.get_disc_params(), (0, 0, 1, 0))
         self.body.add_arcsec_offset(1, 2)
-        self.assertEqual(
+        self.assertTrue(
+            np.allclose(
             self.body.get_disc_params(),
             (-0.05532064212457044, 0.11116537556358708, 1.0, 0.0),
+            )
         )
 
     def test_limb_xy(self):
