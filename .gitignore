@@ -5,7 +5,9 @@
 !*.md
 !*.rst
 !*.yaml
+!*.yml
 !*.json
+!*.toml
 !docs/images/*.png
 
 !tests/data/**/*.bsp
