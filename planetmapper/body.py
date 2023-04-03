@@ -7,7 +7,11 @@ import matplotlib.transforms
 import numpy as np
 import spiceypy as spice
 from matplotlib.axes import Axes
-from spiceypy.utils.exceptions import NotFoundError, SpiceKERNELVARNOTFOUND
+from spiceypy.utils.exceptions import (
+    NotFoundError,
+    SpiceKERNELVARNOTFOUND,
+    SpiceSPKINSUFFDATA,
+)
 
 from . import data_loader, utils
 from .base import SpiceBase, Numeric
@@ -305,7 +309,7 @@ class Body(SpiceBase):
                     self.ring_radii.add(r)
 
     def __repr__(self) -> str:
-        return f'Body({self.target!r}, {self.utc!r})'
+        return f'Body({self.target!r}, {self.utc!r}, observer={self.observer!r})'
 
     def _get_equality_tuple(self) -> tuple:
         return (
@@ -399,7 +403,9 @@ class Body(SpiceBase):
         for other_target in other_targets:
             self.other_bodies_of_interest.append(self.create_other_body(other_target))
 
-    def add_satellites_to_bodies_of_interest(self) -> None:
+    def add_satellites_to_bodies_of_interest(
+        self, skip_insufficient_data: bool = False
+    ) -> None:
         """
         Automatically add all satellites in the target planetary system to
         :attr:`other_bodies_of_interest`.
@@ -409,6 +415,10 @@ class Body(SpiceBase):
         a code in the range 701 to 798 is added for Uranus.
 
         See also :func:`add_other_bodies_of_interest`.
+
+        Args:
+            skip_insufficient_data: If True, satellites with insufficient data in the
+                SPICE kernel will be skipped. If False, an exception will be raised.
         """
         id_base = (self.target_body_id // 100) * 100
         for other_target in range(id_base + 1, id_base + 99):
@@ -416,6 +426,11 @@ class Body(SpiceBase):
                 self.other_bodies_of_interest.append(
                     self.create_other_body(other_target)
                 )
+            except SpiceSPKINSUFFDATA:
+                if skip_insufficient_data:
+                    continue
+                else:
+                    raise
             except NotFoundError:
                 continue
 

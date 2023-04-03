@@ -320,7 +320,7 @@ class BodyXY(Body):
         self._register_default_backplanes()
 
     def __repr__(self) -> str:
-        return f'BodyXY({self.target!r}, {self.utc!r}, {self._nx!r}, {self._ny!r})'
+        return f'BodyXY({self.target!r}, {self.utc!r}, {self._nx!r}, {self._ny!r}, observer={self.observer!r})'
 
     def _get_equality_tuple(self) -> tuple:
         return (
