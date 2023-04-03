@@ -67,7 +67,6 @@ class BasicBody(SpiceBase):
             # convert input datetime to UTC, then to a string compatible with spice
             utc = utc.replace(tzinfo=datetime.timezone.utc)
             utc = utc.strftime(self._DEFAULT_DTM_FORMAT_STRING)
-        self.utc = utc
 
         self.target = self.standardise_body_name(target)
         self.observer = self.standardise_body_name(observer)
@@ -75,8 +74,9 @@ class BasicBody(SpiceBase):
         self.aberration_correction = aberration_correction
 
         # Get target properties and state
-        self.et = spice.utc2et(self.utc)
+        self.et = spice.utc2et(utc)
         self.dtm: datetime.datetime = self.et2dtm(self.et)
+        self.utc = self.dtm.strftime(self._DEFAULT_DTM_FORMAT_STRING)
         self.target_body_id: int = spice.bodn2c(self.target)
 
         starg, lt = spice.spkezr(

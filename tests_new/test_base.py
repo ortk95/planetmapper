@@ -25,7 +25,7 @@ class TestSpiceBase(unittest.TestCase):
     def test_eq(self):
         self.assertEqual(self.obj, planetmapper.SpiceBase())
         self.assertNotEqual(self.obj, planetmapper.SpiceBase(optimize_speed=False))
-        
+
     def test_standardise_body_name(self):
         self.assertEqual(self.obj.standardise_body_name('JUPITER'), 'JUPITER')
         self.assertEqual(self.obj.standardise_body_name(' JuPiTeR   '), 'JUPITER')

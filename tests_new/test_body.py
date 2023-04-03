@@ -1,22 +1,16 @@
-import unittest
-import planetmapper
 import datetime
-import numpy as np
-import spiceypy as spice
-from typing import Callable, ParamSpec, Any
-import common_testing
-import planetmapper.progress
-import planetmapper.base
-from spiceypy.utils.exceptions import (
-    NotFoundError,
-    SpiceKERNELVARNOTFOUND,
-    SpiceSPKINSUFFDATA,
-)
-from planetmapper import Body
-from numpy import array, nan
-import matplotlib.pyplot as plt
+import unittest
 
-P = ParamSpec('P')
+import common_testing
+import matplotlib.pyplot as plt
+import numpy as np
+from numpy import array, nan
+from spiceypy.utils.exceptions import NotFoundError, SpiceSPKINSUFFDATA
+
+import planetmapper
+import planetmapper.base
+import planetmapper.progress
+from planetmapper import Body
 
 
 class TestBody(unittest.TestCase):
@@ -84,6 +78,16 @@ class TestBody(unittest.TestCase):
         self.assertEqual(self.body, self.body)
         self.assertEqual(
             self.body, Body('Jupiter', observer='HST', utc='2005-01-01T00:00:00')
+        )
+        self.assertNotEqual(
+            self.body,
+            planetmapper.BasicBody(
+                'Jupiter', observer='HST', utc='2005-01-01T00:00:00'
+            ),
+        )
+        self.assertNotEqual(
+            self.body,
+            planetmapper.BodyXY('Jupiter', observer='HST', utc='2005-01-01T00:00:00'),
         )
         self.assertNotEqual(
             self.body, Body('Jupiter', observer='HST', utc='2005-01-01T00:00:01')
@@ -395,41 +399,142 @@ class TestBody(unittest.TestCase):
         )
 
     def test_ring_radec(self):
-        self.assertTrue(np.allclose(
-            self.body.ring_radec(10000, npts=5),
-            (array([         nan, 196.37142013, 196.37228744,          nan,
-                 nan]),
- array([        nan, -5.5655251 , -5.56589635,         nan,         nan])),
- equal_nan=True
-        ))
-    
+        self.assertTrue(
+            np.allclose(
+                self.body.ring_radec(10000, npts=5),
+                (
+                    array([nan, 196.37142013, 196.37228744, nan, nan]),
+                    array([nan, -5.5655251, -5.56589635, nan, nan]),
+                ),
+                equal_nan=True,
+            )
+        )
+
+    def test_visible_lonlat_grid_radec(self):
+        self.assertTrue(
+            np.allclose(
+                self.body.visible_lonlat_grid_radec(interval=45, npts=5),
+                [
+                    (
+                        array([196.3700663, nan, nan, nan, nan]),
+                        array([-5.57005326, nan, nan, nan, nan]),
+                    ),
+                    (
+                        array([196.3700663, nan, nan, nan, nan]),
+                        array([-5.57005326, nan, nan, nan, nan]),
+                    ),
+                    (
+                        array(
+                            [196.3700663, 196.36772166, 196.36794262, 196.37034361, nan]
+                        ),
+                        array(
+                            [-5.57005326, -5.56729981, -5.56387245, -5.56148116, nan]
+                        ),
+                    ),
+                    (
+                        array(
+                            [196.3700663, 196.36970087, 196.37065239, 196.37232288, nan]
+                        ),
+                        array(
+                            [-5.57005326, -5.56808941, -5.56495336, -5.56227057, nan]
+                        ),
+                    ),
+                    (
+                        array(
+                            [196.3700663, 196.37225066, 196.37414339, 196.37487263, nan]
+                        ),
+                        array([-5.57005326, -5.56923855, -5.5665267, -5.56341971, nan]),
+                    ),
+                    (
+                        array(
+                            [196.3700663, 196.37387716, 196.37637019, 196.37649901, nan]
+                        ),
+                        array(
+                            [-5.57005326, -5.57007398, -5.56767064, -5.56425534, nan]
+                        ),
+                    ),
+                    (
+                        array([196.3700663, nan, nan, nan, nan]),
+                        array([-5.57005326, nan, nan, nan, nan]),
+                    ),
+                    (
+                        array([196.3700663, nan, nan, nan, nan]),
+                        array([-5.57005326, nan, nan, nan, nan]),
+                    ),
+                    (
+                        array(
+                            [
+                                196.3700663,
+                                196.3700663,
+                                196.3700663,
+                                196.3700663,
+                                196.3700663,
+                            ]
+                        ),
+                        array(
+                            [
+                                -5.57005326,
+                                -5.57005326,
+                                -5.57005326,
+                                -5.57005326,
+                                -5.57005326,
+                            ]
+                        ),
+                    ),
+                    (
+                        array([nan, 196.36772166, 196.37225066, nan, nan]),
+                        array([nan, -5.56729981, -5.56923855, nan, nan]),
+                    ),
+                    (
+                        array([nan, 196.36794262, 196.37414339, nan, nan]),
+                        array([nan, -5.56387245, -5.5665267, nan, nan]),
+                    ),
+                    (
+                        array([nan, 196.37034361, 196.37487263, nan, nan]),
+                        array([nan, -5.56148116, -5.56341971, nan, nan]),
+                    ),
+                ],
+                equal_nan=True,
+            )
+        )
+
     def test_radial_velocity_from_lonlat(self):
-        self.assertAlmostEqual(self.body.radial_velocity_from_lonlat(0,0),-20.796924908179438)
+        self.assertAlmostEqual(
+            self.body.radial_velocity_from_lonlat(0, 0), -20.796924908179438
+        )
 
     def test_distance_from_lonalt(self):
-        self.assertAlmostEqual(self.body.distance_from_lonlat(0,0), 819701772.0279644)
+        self.assertAlmostEqual(self.body.distance_from_lonlat(0, 0), 819701772.0279644)
 
     def test_graphic_centric_lonlat(self):
         pairs = [
-            [(0,0), (0,0)],
-            [(0,90), (0,90)],
-            [(0,-90), (0,-90)],
-            [(90, 0), (-90,0)],
-            [(123.4, 56.789), (-123.4, 53.17999536010973)]
+            [(0, 0), (0, 0)],
+            [(0, 90), (0, 90)],
+            [(0, -90), (0, -90)],
+            [(90, 0), (-90, 0)],
+            [(123.4, 56.789), (-123.4, 53.17999536010973)],
         ]
         for graphic, centric in pairs:
             with self.subTest(graphic):
-                self.assertTrue(np.allclose(self.body.graphic2centric_lonlat(*graphic), centric))
-                self.assertTrue(np.allclose(self.body.centric2graphic_lonlat(*centric), graphic))
+                self.assertTrue(
+                    np.allclose(self.body.graphic2centric_lonlat(*graphic), centric)
+                )
+                self.assertTrue(
+                    np.allclose(self.body.centric2graphic_lonlat(*centric), graphic)
+                )
 
     def test_north_pole_angle(self):
         self.assertAlmostEqual(self.body.north_pole_angle(), -24.256254044782136)
+
     def test_get_description(self):
-        self.assertEqual(self.body.get_description(), 'JUPITER (599)\nfrom HST\nat 2005-01-01 00:00 UTC')
-    
+        self.assertEqual(
+            self.body.get_description(),
+            'JUPITER (599)\nfrom HST\nat 2005-01-01 00:00 UTC',
+        )
+
     def test_get_poles_to_plot(self):
         self.assertEqual(self.body.get_poles_to_plot(), [(0, -90, 'S')])
-    
+
     def test_plot_wireframe(self):
         fig, ax = plt.subplots()
         self.body.plot_wireframe_radec(ax, color='red')
@@ -437,6 +542,3 @@ class TestBody(unittest.TestCase):
 
         ax = self.body.plot_wireframe_km()
         plt.close(ax.figure)
-    
-
-    

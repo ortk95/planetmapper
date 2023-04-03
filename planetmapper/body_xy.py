@@ -1,9 +1,8 @@
 import datetime
 import math
 import warnings
-from functools import lru_cache, wraps
+import functools
 from typing import (
-    Any,
     Callable,
     Concatenate,
     Iterable,
@@ -27,7 +26,6 @@ import numpy as np
 import pyproj
 import scipy.interpolate
 from matplotlib.axes import Axes
-from matplotlib.image import AxesImage
 from matplotlib.collections import QuadMesh
 from spiceypy.utils.exceptions import NotFoundError
 
@@ -45,15 +43,18 @@ def _cache_stable_result(
     """
     Decorator to cache stable result
 
-    Effectively a better type-hinted version of `functools.lru_cache`.
+    Very roughly, this is a type-hinted version of `functools.lru_cache` that doesn't
+    cache self.
     """
 
-    @wraps(fn)
-    @lru_cache(maxsize=128)
+    @functools.wraps(fn)
     def decorated(self, *args: P.args, **kwargs: P.kwargs):
-        return fn(self, *args, **kwargs)
+        k = (fn.__name__, args, frozenset(kwargs.items()))
+        if k not in self._stable_cache:
+            self._stable_cache[k] = fn(self, *args, **kwargs)
+        return self._stable_cache[k]
 
-    return decorated  # type: ignore
+    return decorated
 
 
 def _cache_clearable_result(fn: Callable[[S], T]) -> Callable[[S], T]:
@@ -70,7 +71,7 @@ def _cache_clearable_result(fn: Callable[[S], T]) -> Callable[[S], T]:
     stable (i.e. backplane maps) then use `_cache_stable_result` instead.
     """
 
-    @wraps(fn)
+    @functools.wraps(fn)
     def decorated(self):
         k = fn.__name__
         if k not in self._cache:
@@ -96,7 +97,7 @@ def _cache_clearable_result_with_args(
     stable (i.e. backplane maps) then use `_cache_stable_result` instead.
     """
 
-    @wraps(fn)
+    @functools.wraps(fn)
     def decorated(self, *args: P.args, **kwargs: P.kwargs):
         k = (fn.__name__, args, frozenset(kwargs.items()))
         if k not in self._cache:
@@ -294,7 +295,8 @@ class BodyXY(Body):
         """
 
         # Run setup
-        self._cache: dict[str, Any] = {}
+        self._cache = {}
+        self._stable_cache = {}
 
         self._nx: int = nx
         self._ny: int = ny
@@ -338,6 +340,7 @@ class BodyXY(Body):
         """
         Clear cached results from `_cache_result`.
         """
+        # TODO documnt cache clearing (incl stable cache)
         self._cache.clear()
 
     # Coordinate transformations
@@ -1390,10 +1393,10 @@ class BodyXY(Body):
             ax.set_ylabel('Planetographic latitude')
 
             ax.set_xticks(lon_ticks)
-            ax.set_xticklabels([f'{x:.0f}°' for x in lon_ticks if x % 90 == 0])
+            ax.set_xticklabels([f'{x:.0f}°' if x % 90 == 0 else '' for x in lon_ticks])
 
             ax.set_yticks(lat_ticks)
-            ax.set_yticklabels([f'{y:.0f}°' for y in lat_ticks if y % 90 == 0])
+            ax.set_yticklabels([f'{y:.0f}°' if y%90 == 0 else '' for y in lat_ticks])
 
         if grid:
             grid_kw = dict(color='k', alpha=0.5, linewidth=1)
