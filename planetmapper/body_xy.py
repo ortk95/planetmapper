@@ -340,7 +340,7 @@ class BodyXY(Body):
         """
         Clear cached results from `_cache_result`.
         """
-        # TODO documnt cache clearing (incl stable cache)
+        # TODO document cache clearing (incl stable cache)
         self._cache.clear()
 
     # Coordinate transformations
