@@ -105,10 +105,10 @@ class Body(SpiceBase):
         """Distance from the target to the observer at the time of the observation."""
         self.target_ra: float
         """Right ascension (RA) of the target centre."""
-        self.target_diameter_arcsec: float
-        """Equatorial angular diameter of the target in arcseconds."""
         self.target_dec: float
         """Declination (Dec) of the target centre."""
+        self.target_diameter_arcsec: float
+        """Equatorial angular diameter of the target in arcseconds."""
         self.subpoint_distance: float
         """Distance from the observer to the sub-observer point on the target."""
         self.subpoint_lon: float
@@ -187,7 +187,6 @@ class Body(SpiceBase):
             # convert input datetime to UTC, then to a string compatible with spice
             utc = utc.replace(tzinfo=datetime.timezone.utc)
             utc = utc.strftime(self._DEFAULT_DTM_FORMAT_STRING)
-        self.utc = utc
 
         self.target = self.standardise_body_name(target)
         self.observer = self.standardise_body_name(observer)
@@ -209,8 +208,9 @@ class Body(SpiceBase):
         self._surface_method_encoded = self._encode_str(self.surface_method)
 
         # Get target properties and state
-        self.et = spice.utc2et(self.utc)
+        self.et = spice.utc2et(utc)
         self.dtm: datetime.datetime = self.et2dtm(self.et)
+        self.utc = self.dtm.strftime(self._DEFAULT_DTM_FORMAT_STRING)
         self.target_body_id: int = spice.bodn2c(self.target)
         self.target_frame = 'IAU_' + self.target
         self._target_frame_encoded = self._encode_str(self.target_frame)
@@ -306,6 +306,23 @@ class Body(SpiceBase):
 
     def __repr__(self) -> str:
         return f'Body({self.target!r}, {self.utc!r})'
+
+    def _get_equality_tuple(self) -> tuple:
+        return (
+            self.target,
+            self.utc,
+            self.observer,
+            self.observer_frame,
+            self.illumination_source,
+            self.aberration_correction,
+            self.subpoint_method,
+            self.surface_method,
+        )
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        return self._get_equality_tuple() == other._get_equality_tuple()
 
     def create_other_body(
         self, other_target: str | int, fallback_to_basic_body: bool = True

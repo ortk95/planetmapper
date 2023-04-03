@@ -334,9 +334,11 @@ class TestKernelPath(unittest.TestCase):
         self.assertEqual(planetmapper.get_kernel_path(), path)
 
         self.assertEqual(planetmapper.base.load_kernels(), [])
-        
+
         planetmapper.set_kernel_path(None)
-        self.assertEqual(planetmapper.get_kernel_path(), planetmapper.base.DEFAULT_KERNEL_PATH)
+        self.assertEqual(
+            planetmapper.get_kernel_path(), planetmapper.base.DEFAULT_KERNEL_PATH
+        )
 
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
         self.assertEqual(planetmapper.get_kernel_path(), common_testing.KERNEL_PATH)
