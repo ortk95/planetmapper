@@ -107,5 +107,5 @@ class BasicBody(SpiceBase):
             self.observer,
             self.observer_frame,
             self.aberration_correction,
-            super()._get_equality_tuple()
+            super()._get_equality_tuple(),
         )

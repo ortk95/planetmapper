@@ -5,6 +5,7 @@ import line_profiler
 from inspect import isclass, isfunction
 import planetmapper
 from planetmapper import utils
+
 print_progress = lambda x='': utils.print_progress(x, c1='c')
 
 # FUNCTION TO TIME ---------------------------------------------------------------------

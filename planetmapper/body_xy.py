@@ -330,7 +330,7 @@ class BodyXY(Body):
             self._y0,
             self._r0,
             self._rotation_radians,
-            super()._get_equality_tuple()
+            super()._get_equality_tuple(),
         )
 
     # Cache management

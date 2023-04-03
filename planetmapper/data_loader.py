@@ -30,7 +30,7 @@ def get_ring_radii() -> dict[str, dict[str, list[float]]]:
         contianing ring data. These ring data dictionaries have keys corresponding to
         the names of the rings, and values with a list of ring radii in km. If the
         length of this list is 2, then the values give the inner and outer radii of the
-        ring respectively. Otherwise, the length should be 1, meaning the ring has a 
+        ring respectively. Otherwise, the length should be 1, meaning the ring has a
         single radius.
     """
     with open(make_data_path('rings.json'), 'r') as f:

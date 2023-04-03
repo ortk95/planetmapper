@@ -137,10 +137,10 @@ class Observation(BodyXY):
                 self.disc_from_wcs(suppress_warnings=True)
             except ValueError:
                 self.centre_disc()
-                
+
     def __repr__(self) -> str:
         return f'Observation({self.path!r})'
-    
+
     def _get_equality_tuple(self) -> tuple:
         return (
             self.path,
@@ -855,7 +855,7 @@ class Observation(BodyXY):
         self,
         path: str,
         include_backplanes: bool = True,
-        degree_interval: float = 1, #TODO
+        degree_interval: float = 1,  # TODO
         interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
         show_progress: bool = False,
         print_info: bool = True,
