@@ -322,6 +322,17 @@ class BodyXY(Body):
     def __repr__(self) -> str:
         return f'BodyXY({self.target!r}, {self.utc!r}, {self._nx!r}, {self._ny!r})'
 
+    def _get_equality_tuple(self) -> tuple:
+        return (
+            self._nx,
+            self._ny,
+            self._x0,
+            self._y0,
+            self._r0,
+            self._rotation_radians,
+            super()._get_equality_tuple()
+        )
+
     # Cache management
     def _clear_cache(self):
         """

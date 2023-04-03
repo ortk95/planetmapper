@@ -317,12 +317,8 @@ class Body(SpiceBase):
             self.aberration_correction,
             self.subpoint_method,
             self.surface_method,
+            super()._get_equality_tuple(),
         )
-
-    def __eq__(self, other) -> bool:
-        if not isinstance(other, self.__class__):
-            return False
-        return self._get_equality_tuple() == other._get_equality_tuple()
 
     def create_other_body(
         self, other_target: str | int, fallback_to_basic_body: bool = True

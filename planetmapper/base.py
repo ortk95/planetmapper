@@ -65,6 +65,15 @@ class SpiceBase:
     
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
+    
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        return self._get_equality_tuple() == other._get_equality_tuple()
+    
+    def _get_equality_tuple(self) -> tuple:
+        return (
+            self._optimize_speed,)
 
     def standardise_body_name(self, name: str | int) -> str:
         """

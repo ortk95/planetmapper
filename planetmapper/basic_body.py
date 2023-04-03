@@ -99,3 +99,13 @@ class BasicBody(SpiceBase):
 
     def __repr__(self) -> str:
         return f'BasicBody({self.target!r}, {self.utc!r})'
+
+    def _get_equality_tuple(self) -> tuple:
+        return (
+            self.target,
+            self.utc,
+            self.observer,
+            self.observer_frame,
+            self.aberration_correction,
+            super()._get_equality_tuple()
+        )

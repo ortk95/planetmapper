@@ -137,6 +137,17 @@ class Observation(BodyXY):
                 self.disc_from_wcs(suppress_warnings=True)
             except ValueError:
                 self.centre_disc()
+                
+    def __repr__(self) -> str:
+        return f'Observation({self.path!r})'
+    
+    def _get_equality_tuple(self) -> tuple:
+        return (
+            self.path,
+            self.data.tolist(),
+            self.header,
+            super()._get_equality_tuple(),
+        )
 
     def _load_data_from_path(self):
         assert self.path is not None
@@ -243,9 +254,6 @@ class Observation(BodyXY):
         _try_get_header_value(
             kw, header, 'surface_method', [cls._make_fits_kw('SURFACE-METHOD')]
         )
-
-    def __repr__(self) -> str:
-        return f'Observation({self.path!r})'
 
     # Auto disc id
     def disc_from_header(self) -> None:

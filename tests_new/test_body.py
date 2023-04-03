@@ -73,6 +73,32 @@ class TestBody(unittest.TestCase):
             repr(self.body), "Body('JUPITER', '2005-01-01T00:00:00.000000')"
         )
 
+    def test_eq(self):
+        self.assertEqual(self.body, self.body)
+        self.assertEqual(
+            self.body,  planetmapper.Body(
+                'Jupiter', observer='HST', utc='2005-01-01T00:00:00'
+            )
+        )
+        self.assertNotEqual(
+            self.body , planetmapper.Body(
+                'Jupiter', observer='HST', utc='2005-01-01T00:00:01'
+            )
+        )
+        self.assertNotEqual(
+            self.body , planetmapper.Body(
+                'Jupiter', utc='2005-01-01T00:00:00')
+        )
+        self.assertNotEqual(
+            self.body , planetmapper.Body(
+                'amalthea', observer='HST', utc='2005-01-01T00:00:00'
+            ))
+        self.assertNotEqual(
+            self.body, planetmapper.Body(
+                'Jupiter', observer='HST', utc='2005-01-01T00:00:00',
+                aberration_correction='CN+S')
+        )
+
     def test_create_other_body(self):
         self.assertEqual(
             self.body.create_other_body('amalthea'),
