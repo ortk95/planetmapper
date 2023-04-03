@@ -353,13 +353,14 @@ def load_kernels(*paths, clear_before: bool = False) -> list[str]:
     return list(kernels)
 
 
-def set_kernel_path(path: str) -> None:
+def set_kernel_path(path: str|None) -> None:
     """
     Set the path of the directory containing SPICE kernels. See
     :ref:`the kernel directory documentation<kernel directory>` for more detail.
 
     Args:
-        path: Directory which PlanetMapper will search for SPICE kernels.
+        path: Directory which PlanetMapper will search for SPICE kernels. If `None`,
+            then the default value of `'~/spice_kernels/'` will be used.
     """
     _KERNEL_DATA['kernel_path'] = path
 

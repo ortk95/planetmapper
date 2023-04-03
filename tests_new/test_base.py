@@ -5,6 +5,8 @@ import numpy as np
 import spiceypy as spice
 from typing import Callable, ParamSpec, Any
 import common_testing
+import planetmapper.progress
+import planetmapper.base
 
 P = ParamSpec('P')
 
@@ -137,8 +139,8 @@ class TestSpiceBase(unittest.TestCase):
             with self.subTest(v):
                 self.assertAlmostEqual(self.obj.vector_magnitude(v), magnitude)
                 self.assertAlmostEqual(
-                    self.obj.vector_magnitude(v), np.linalg.norm(v)
-                )  #  type: ignore
+                    self.obj.vector_magnitude(v), np.linalg.norm(v)  # type: ignore
+                )
 
         self.assertTrue(np.isnan(self.obj.vector_magnitude(np.array([1, np.nan]))))
 
@@ -160,14 +162,42 @@ class TestSpiceBase(unittest.TestCase):
             )
         )
 
-    def test_rotation_matric_radians(self):
-        pass  # TODO
+    def test_rotation_matrix_radians(self):
+        pairs = [
+            (0, np.array([[1.0, 0.0], [-0.0, 1.0]])),
+            (np.pi, np.array([[-1.0, -0.0], [0.0, -1.0]])),
+            (1, np.array([[0.54030231, 0.84147098], [-0.84147098, 0.54030231]])),
+            (
+                -12345.6789,
+                np.array([[0.71075274, 0.70344192], [-0.70344192, 0.71075274]]),
+            ),
+        ]
+
+        for radians, matrix in pairs:
+            with self.subTest(radians):
+                self.assertTrue(
+                    np.allclose(self.obj._rotation_matrix_radians(radians), matrix)
+                )
 
     def test_angular_dist(self):
-        pass  # TODO
+        pairs = [
+            ((0, 0, 0, 0), 0),
+            ((1, 2, 3, 4), 2.8264172166624126),
+            ((-42, 0, 1234.5678, 99), 81.37656372202063),
+        ]
+        for angles, dist in pairs:
+            with self.subTest(angles):
+                self.assertAlmostEqual(self.obj.angular_dist(*angles), dist)
+        self.assertTrue(np.isnan(self.obj.angular_dist(1, 2, 3, np.nan)))
 
     def test_progrress_hook(self):
-        pass
+        hook = planetmapper.progress.ProgressHook()
+        self.obj._set_progress_hook(hook)
+        self.assertEqual(self.obj._get_progress_hook(), hook)
+        with self.assertRaises(NotImplementedError):
+            self.obj._update_progress_hook(0.5)
+        self.obj._remove_progress_hook()
+        self.assertIsNone(self.obj._get_progress_hook())
 
 
 class TestSpiceStringEncoding(unittest.TestCase):
@@ -289,5 +319,24 @@ class TestSpiceStringEncoding(unittest.TestCase):
 
 
 class TestKernelPath(unittest.TestCase):
+    def setUp(self) -> None:
+        spice.kclear()
+        planetmapper.SpiceBase._KERNELS_LOADED = False
+
+    def tearDown(self) -> None:
+        planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
+        planetmapper.SpiceBase._KERNELS_LOADED = False
+        spice.kclear()
+
     def test_kernel_path(self):
-        pass  # TODO
+        path = 'abcdef/ghi/jkl'
+        planetmapper.set_kernel_path(path)
+        self.assertEqual(planetmapper.get_kernel_path(), path)
+
+        self.assertEqual(planetmapper.base.load_kernels(), [])
+        
+        planetmapper.set_kernel_path(None)
+        self.assertEqual(planetmapper.get_kernel_path(), planetmapper.base.DEFAULT_KERNEL_PATH)
+
+        planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
+        self.assertEqual(planetmapper.get_kernel_path(), common_testing.KERNEL_PATH)
