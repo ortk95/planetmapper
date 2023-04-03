@@ -4,6 +4,7 @@
 [![Upload Python Package](https://github.com/ortk95/planetmapper/actions/workflows/python-publish.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/python-publish.yml)
 [![Pylint](https://github.com/ortk95/planetmapper/actions/workflows/pylint.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/pylint.yml)
 [![Black](https://github.com/ortk95/planetmapper/actions/workflows/black.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/black.yml)
+[![Tests](https://github.com/ortk95/planetmapper/actions/workflows/unittest.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/unittest.yml)
 [![Documentation Status](https://readthedocs.org/projects/planetmapper/badge/?version=latest)](https://planetmapper.readthedocs.io/en/latest/?badge=latest)
 
 
