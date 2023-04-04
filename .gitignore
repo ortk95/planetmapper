@@ -10,10 +10,13 @@
 !*.toml
 !docs/images/*.png
 
+# Include testing data, but not temp testing outputs
 !tests/data/**/*.bsp
 !tests/data/**/*.tpc
 !tests/data/**/*.tls
 !tests/data/**/*.fits
+!tests/data/**/*.png
+tests/temp
 
 # Allowed paths
 !requirements.txt

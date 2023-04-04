@@ -251,6 +251,12 @@ class TestBodyXY(unittest.TestCase):
         self.body._clear_cache()
         self.assertEqual(self.body.get_disc_method(), self.body._default_disc_method)
 
+        self.body.set_disc_method(method)
+        self.assertEqual(self.body.get_disc_method(), method)
+
+        self.body.set_x0(123)
+        self.assertEqual(self.body.get_disc_method(), self.body._default_disc_method)
+
     def test_add_arcsec_offset(self):
         self.body.set_disc_params(0, 0, 1, 0)
         self.body.add_arcsec_offset(0, 0)

@@ -268,7 +268,9 @@ class Observation(BodyXY):
             ValueError: if the header does not contain appropriate metadata values. This
                 is likely because the file was not created by `planetmapper`.
         """
-        if self._make_fits_kw('DEGREE-INTERVAL') in self.header:
+        if (
+            self._make_fits_kw('MAP PROJECTION') in self.header or 
+            self._make_fits_kw('DEGREE-INTERVAL') in self.header):
             raise ValueError('FITS header refers to mapped data')
         try:
             self.set_disc_params(
@@ -552,6 +554,7 @@ class Observation(BodyXY):
         hierarch_keyword: bool = True,
         header: fits.Header | None = None,
         truncate_strings: bool = True,
+        remove_existing: bool = True,
     ):
         """
         Add a card to a FITS header. If a `header` is not specified, then :attr:`header`
@@ -570,6 +573,8 @@ class Observation(BodyXY):
                 `None`, then :attr:`header` will be modified.
             truncate_strings: Allow string values to be truncated if they will create
                 a card longer than 80 characters.
+            remove_existing: Remove any existing cards with the same key before adding
+                the new card.
         """
         if header is None:
             header = self.header
@@ -580,6 +585,8 @@ class Observation(BodyXY):
                 # +4 accounts for space, equals and two quotes around the value
                 n = 80 - len(keyword) - 4 - 3
                 value = value[:n] + '...'
+        if remove_existing:
+            header.remove(keyword, ignore_missing=True, remove_all=True)
         with utils.filter_fits_comment_warning():
             header.append(fits.Card(keyword=keyword, value=value, comment=comment))
 

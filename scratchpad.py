@@ -24,18 +24,9 @@ body_zero_size = planetmapper.BodyXY(
 # body.get_emission_angle_map(projection='manual', lon_coords=lons, lat_coords=lats)
 # lons, lats, xx, yy, transformer, info = body.generate_map_coordinates()
 
-header = fits.Header()
-keyword = 'HIERARCH ABC'
-value = 'v' * 64
-comment = 'c' * 100
 
-print(len(keyword) + len(value) + 2 + 2)
-header.append(fits.Card(keyword=keyword, value=value, comment=comment))
-print(header.tostring(sep='\n'))
-
-
-# print(datetime.datetime.now())
-# body.get_emission_angle_map()
-# print(datetime.datetime.now())
-# body.get_emission_angle_map()
-# print(datetime.datetime.now())
+print(datetime.datetime.now())
+body.get_emission_angle_map()
+print(datetime.datetime.now())
+body.get_emission_angle_map()
+print(datetime.datetime.now())
