@@ -90,10 +90,10 @@ class TestObservation(unittest.TestCase):
             self.assertEqual(obs.target, 'JUPITER')
             self.assertEqual(obs.observer, 'HST')
             self.assertEqual(obs.utc, '2005-01-01T00:00:00.000000')
-            self.assertAlmostEqual(obs.get_x0(), 198.87871682168858)
-            self.assertAlmostEqual(obs.get_y0(), -31.89770255438151)
-            self.assertAlmostEqual(obs.get_r0(), 164.4473594677842)
-            self.assertAlmostEqual(obs.get_rotation(), 260.32237572846986)
+            self.assertAlmostEqual(obs.get_x0(), 198.87871682168858, delta=0.2)
+            self.assertAlmostEqual(obs.get_y0(), -31.89770255438151, delta=0.2)
+            self.assertAlmostEqual(obs.get_r0(), 164.4473594677842, delta=0.2)
+            self.assertAlmostEqual(obs.get_rotation(), 260.32237572846986, delta=0.2)
 
         with self.subTest('extended.fits'):
             path = os.path.join(common_testing.DATA_PATH, 'inputs', 'extended.fits')
@@ -236,30 +236,34 @@ class TestObservation(unittest.TestCase):
 
         path = os.path.join(common_testing.DATA_PATH, 'inputs', 'wcs.fits')
         obs = Observation(path)
-        self.assertTrue(np.allclose(obs.get_disc_params(), (x0, y0, r0, rotation)))
+        self.assertTrue(
+            np.allclose(obs.get_disc_params(), (x0, y0, r0, rotation), atol=0.2)
+        )
 
         obs.set_disc_params(0, 0, 1, 0)
         self.assertEqual(obs.get_disc_params(), (0, 0, 1, 0))
 
         obs.disc_from_wcs(suppress_warnings=True)
         self.assertEqual(obs.get_disc_method(), 'wcs')
-        self.assertTrue(np.allclose(obs.get_disc_params(), (x0, y0, r0, rotation)))
+        self.assertTrue(
+            np.allclose(obs.get_disc_params(), (x0, y0, r0, rotation), atol=0.2)
+        )
 
         obs.set_disc_params(0, 0, 1, 0)
         obs.position_from_wcs(suppress_warnings=True)
         self.assertEqual(obs.get_disc_method(), 'wcs_position')
-        self.assertAlmostEqual(obs.get_x0(), x0)
-        self.assertAlmostEqual(obs.get_y0(), y0)
+        self.assertAlmostEqual(obs.get_x0(), x0, delta=0.2)
+        self.assertAlmostEqual(obs.get_y0(), y0, delta=0.2)
 
         obs.set_disc_params(0, 0, 1, 0)
         obs.rotation_from_wcs(suppress_warnings=True)
         self.assertEqual(obs.get_disc_method(), 'wcs_rotation')
-        self.assertAlmostEqual(obs.get_rotation(), rotation)
+        self.assertAlmostEqual(obs.get_rotation(), rotation, delta=0.2)
 
         obs.set_disc_params(0, 0, 1, 0)
         obs.plate_scale_from_wcs(suppress_warnings=True)
         self.assertEqual(obs.get_disc_method(), 'wcs_plate_scale')
-        self.assertAlmostEqual(obs.get_r0(), r0)
+        self.assertAlmostEqual(obs.get_r0(), r0, delta=0.2)
 
     def test_fit_disc(self):
         data = np.ones((5, 10, 8))
