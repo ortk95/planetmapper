@@ -423,6 +423,49 @@ class TestBodyXY(unittest.TestCase):
                     )
                 )
 
+        with self.assertRaises(ValueError):
+            self.body.map_img(image, projection='manual')
+
+        lons = np.linspace(-180, 180, 5)
+        lats = np.linspace(0, 90, 3)
+
+        for attempt in range(2):
+            with self.subTest(attempt=attempt):
+                # Test twice to check cache behaviour
+                self.assertTrue(
+                    np.allclose(
+                        self.body.map_img(
+                            image, projection='manual', lon_coords=lons, lat_coords=lats
+                        ),
+                        array(
+                            [
+                                [nan, nan, nan, 2.56786056, nan],
+                                [0.27832292, nan, nan, nan, 0.27832292],
+                                [nan, nan, nan, nan, nan],
+                            ]
+                        ),
+                        equal_nan=True,
+                    )
+                )
+
+        lons, lats = np.meshgrid(np.linspace(100, 250, 3), np.linspace(10, 80, 4))
+        self.assertTrue(
+            np.allclose(
+                self.body.map_img(
+                    image, projection='manual', lon_coords=lons, lat_coords=lats
+                ),
+                array(
+                    [
+                        [1.62335601, nan, nan],
+                        [nan, nan, 2.74010963],
+                        [nan, nan, nan],
+                        [nan, nan, nan],
+                    ]
+                ),
+                equal_nan=True,
+            )
+        )
+
         self.body.set_img_size(15, 10)
 
     def test_standardise_backplane_name(self):

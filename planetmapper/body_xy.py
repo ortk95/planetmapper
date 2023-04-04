@@ -1538,7 +1538,7 @@ class BodyXY(Body):
             lon: Central longitude of `'orthographic'` and `'azimuthal'` projections.
             lat: Central latitude of `'orthographic'` and `'azimuthal'` projections.
             size: Pixel size (width and height) of generated `'orthographic'` and
-                `azimuthal` projections.
+                `'azimuthal'` projections.
             lon_coords: Longitude coordinates to use for `'manual'` projection. This
                 must be a tuple (e.g. use `lon_coords=tuple(np.linspace(0, 360, 100))`)
                 - this allows mapping arguments and outputs to be cached).

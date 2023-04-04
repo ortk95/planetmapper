@@ -868,7 +868,6 @@ class Observation(BodyXY):
         show_progress: bool = False,
         print_info: bool = True,
         **map_kwargs: Unpack[_MapKwargs],
-        # TODO: add kwargs for map_img
     ) -> None:
         """
         Save a FITS file containing the mapped observation in a cylindrical projection.
