@@ -85,6 +85,7 @@ GRID_INTERVALS = ['10', '30', '45', '90']
 CMAPS = ['gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis']
 
 MAP_INTERPOLATIONS = ('nearest', 'linear', 'quadratic', 'cubic')
+MAP_PROJECTIONS = ('rectangular', 'orthographic', 'azimuthal')
 
 DEFAULT_HINT = (
     'Use the various options in "Find disc" to automatically adjust the disc position'
@@ -1661,6 +1662,8 @@ class SaveObservation(Popup):
 
         self.make_widget()
         self.make_menu()
+        self.save_nav_toggle()
+        self.save_map_toggle()
 
     def make_widget(self) -> None:
         self.window = tk.Toplevel(self.gui.root)
@@ -1671,7 +1674,7 @@ class SaveObservation(Popup):
         x, y = (int(s) for s in self.gui.root.geometry().split('+')[1:])
         self.window.geometry(
             '{sz}+{x:.0f}+{y:.0f}'.format(
-                sz='600x375',
+                sz='600x400',
                 x=x + 50,
                 y=y + 50,
             )
@@ -1745,26 +1748,35 @@ class SaveObservation(Popup):
         self.save_map = tk.IntVar(value=1)
         self.path_nav = tk.StringVar(value=path_nav)
         self.path_map = tk.StringVar(value=path_map)
-        self.degree_interval = tk.StringVar(value=str(1))
+
+        self.map_projection = tk.StringVar(value='rectangular')
+        self.map_degree_interval = tk.StringVar(value=str(1))
+        self.map_lon = tk.StringVar(value=str(0))
+        self.map_lat = tk.StringVar(value=str(0))
+        self.map_output_size = tk.StringVar(value=str(100))
         self.map_interpolation = tk.StringVar(value='linear')
+        # TODO actually save these values
 
         self.keep_open = tk.IntVar(value=1)
 
         self.save_nav.trace_add('write', self.save_nav_toggle)
         self.save_map.trace_add('write', self.save_map_toggle)
+        self.map_projection.trace_add('write', self.save_map_toggle)
 
         self.nav_widgets: list[tk.Widget] = []
         self.map_widgets: list[tk.Widget] = []
+        self.map_rect_widgets: list[tk.Widget] = []
+        self.map_ortho_widgets: list[tk.Widget] = []
 
         self.grid_frame.grid_columnconfigure(1, weight=1)
-        label_kw = dict(column=0, sticky='w', pady=5)
+        label_kw = dict(sticky='w', pady=5)
 
         # Navigated
         ttk.Checkbutton(
             self.grid_frame, text='Save navigated observation', variable=self.save_nav
         ).grid(row=0, column=1, columnspan=2, sticky='ew')
 
-        ttk.Label(self.grid_frame, text='Path: ').grid(row=1, **label_kw)
+        ttk.Label(self.grid_frame, text='Path: ').grid(row=1, column=0, **label_kw)
         w = ttk.Entry(self.grid_frame, textvariable=self.path_nav)
         w.grid(row=1, column=1, sticky='ew')
         self.nav_widgets.append(w)
@@ -1772,15 +1784,14 @@ class SaveObservation(Popup):
         w.grid(row=1, column=2)
         self.nav_widgets.append(w)
 
-        ttk.Label(self.grid_frame, text=' ').grid(row=2, **label_kw)
+        ttk.Label(self.grid_frame, text=' ').grid(row=2, column=0, **label_kw)
 
         # Mapped
-        # TODO update to work with generic map projections
         ttk.Checkbutton(
             self.grid_frame, text='Save mapped observation', variable=self.save_map
         ).grid(row=3, column=1, columnspan=2, sticky='ew')
 
-        ttk.Label(self.grid_frame, text='Path: ').grid(row=4, **label_kw)
+        ttk.Label(self.grid_frame, text='Path: ').grid(row=4, column=0, **label_kw)
         w = ttk.Entry(self.grid_frame, textvariable=self.path_map)
         w.grid(row=4, column=1, sticky='ew')
         self.map_widgets.append(w)
@@ -1788,27 +1799,78 @@ class SaveObservation(Popup):
         w.grid(row=4, column=2, sticky='w')
         self.map_widgets.append(w)
 
-        ttk.Label(self.grid_frame, text='Degree interval: ').grid(row=5, **label_kw)
-        w = ttk.Entry(self.grid_frame, textvariable=self.degree_interval, width=10)
-        w.grid(row=5, column=1, sticky='w')
-        self.map_widgets.append(w)
+        self.map_option_grid = ttk.Frame(self.grid_frame)
+        self.map_option_grid.grid(row=5, column=0, columnspan=3, sticky='nsew')
 
-        ttk.Label(self.grid_frame, text='Interpolation: ').grid(row=6, **label_kw)
+        for col in [1, 3, 5]:
+            self.map_option_grid.grid_columnconfigure(col, weight=1)
+
+        label_kw = dict(sticky='w', pady=2)
+
+        ttk.Label(self.map_option_grid, text='Interpolation: ').grid(
+            row=0, column=0, **label_kw
+        )
         w = ttk.Combobox(
-            self.grid_frame,
+            self.map_option_grid,
             textvariable=self.map_interpolation,
-            width=10,
+            width=15,
             values=MAP_INTERPOLATIONS,
             state='readonly',
         )
-        w.grid(row=6, column=1, sticky='w')
+        w.grid(row=0, column=1, columnspan=5, sticky='w')
         self.map_widgets.append(w)
+
+        ttk.Label(self.map_option_grid, text='Projection: ').grid(
+            row=1, column=0, **label_kw
+        )
+        w = ttk.Combobox(
+            self.map_option_grid,
+            textvariable=self.map_projection,
+            width=15,
+            values=MAP_PROJECTIONS,
+            state='readonly',
+        )
+        w.grid(row=1, column=1, columnspan=5, sticky='w')
+        self.map_widgets.append(w)
+
+        # Projection options
+        width = 10
+        ttk.Label(self.map_option_grid, text='Degree interval: ').grid(
+            row=2, column=0, **label_kw
+        )
+        w = ttk.Entry(
+            self.map_option_grid, textvariable=self.map_degree_interval, width=width
+        )
+        w.grid(row=2, column=1, sticky='w')
+        self.map_rect_widgets.append(w)
+
+        ttk.Label(self.map_option_grid, text='Output size: ').grid(
+            row=3, column=0, **label_kw
+        )
+        w = ttk.Entry(
+            self.map_option_grid, textvariable=self.map_output_size, width=width
+        )
+        w.grid(row=3, column=1, sticky='w')
+        self.map_ortho_widgets.append(w)
+
+        ttk.Label(self.map_option_grid, text='Longitude: ').grid(
+            row=3, column=2, **label_kw
+        )
+        w = ttk.Entry(self.map_option_grid, textvariable=self.map_lon, width=width)
+        w.grid(row=3, column=3, sticky='w')
+        self.map_ortho_widgets.append(w)
+
+        ttk.Label(self.map_option_grid, text='Latitude: ').grid(
+            row=3, column=4, **label_kw
+        )
+        w = ttk.Entry(self.map_option_grid, textvariable=self.map_lat, width=width)
+        w.grid(row=3, column=5, sticky='w')
+        self.map_ortho_widgets.append(w)
 
         message = '\n'.join(
             [
                 '',
                 'Click SAVE below to save the requested files',
-                '',
                 'For larger files, backplane generation, mapping, and saving can take ~1 minute',
                 '',
             ]
@@ -1837,13 +1899,21 @@ class SaveObservation(Popup):
             stringvar.set(path)
 
     def save_nav_toggle(self, *_) -> None:
-        self.toggle(self.save_nav, self.nav_widgets)
+        self.toggle(bool(self.save_nav.get()), self.nav_widgets)
 
     def save_map_toggle(self, *_) -> None:
-        self.toggle(self.save_map, self.map_widgets)
+        map_enabled = bool(self.save_map.get())
+        projection_type = self.map_projection.get()
+        self.toggle(map_enabled, self.map_widgets)
+        self.toggle(
+            map_enabled and projection_type in {'rectangular'}, self.map_rect_widgets
+        )
+        self.toggle(
+            map_enabled and projection_type in {'orthographic', 'azimuthal'},
+            self.map_ortho_widgets,
+        )
 
-    def toggle(self, intvar: tk.IntVar, widgets: list[tk.Widget]) -> None:
-        enabled = bool(intvar.get())
+    def toggle(self, enabled: bool, widgets: list[tk.Widget]) -> None:
         for widget in widgets:
             if enabled:
                 if isinstance(widget, ttk.Combobox):
@@ -1888,7 +1958,10 @@ class SaveObservation(Popup):
 
         if save_map:
             degree_interval = self.get_float(
-                self.degree_interval, name='degree interval', positive=True, finite=True
+                self.map_degree_interval,
+                name='degree interval',
+                positive=True,
+                finite=True,
             )
             interpolation = self.map_interpolation.get()
 

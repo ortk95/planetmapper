@@ -7,16 +7,7 @@ import numpy as np
 import datetime
 from astropy.io import fits
 
-planetmapper.set_kernel_path(
-    '/Users/ortk1/Dropbox/science/planetmapper/tests/data/kernels'
+observation = planetmapper.Observation(
+    '/Users/ortk1/Dropbox/science/jwst_data/MIRI_IFU/Saturn_2022nov13/SATURN-45N/stage6_background/d1_fringe_nav/Level3_ch1-long_s3d_nav.fits'
 )
-
-body = planetmapper.BodyXY(
-    'Jupiter', observer='HST', utc='2005-01-01T00:00:00', nx=15, ny=10
-)
-
-print(datetime.datetime.now())
-body.get_emission_angle_map()
-print(datetime.datetime.now())
-body.get_emission_angle_map()
-print(datetime.datetime.now())
+observation.run_gui()
