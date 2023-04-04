@@ -107,7 +107,7 @@ def _cache_stable_result(
     def decorated(self, *args_in: P.args, **kwargs_in: P.kwargs):
         args, kwargs = _replace_np_arrr_args_with_tuples(args_in, kwargs_in)
         k = (fn.__name__, args, frozenset(kwargs.items()))
-        if k not in self._cache:
+        if k not in self._stable_cache:
             self._stable_cache[k] = fn(self, *args, **kwargs)  # type: ignore
         return self._stable_cache[k]
 
@@ -1660,7 +1660,7 @@ class BodyXY(Body):
             l0=0,
             tm=np.radians(1) * self.r_eq,
         )
-    
+
     def _get_pyproj_transformer(
         self, projection: str | None = None
     ) -> pyproj.Transformer:
