@@ -1401,8 +1401,10 @@ class BodyXY(Body):
             if k in kwargs:
                 map_kwargs[k] = kwargs.pop(k)
 
-        projection = map_kwargs.get('projection', 'rectangular')
-        lons, lats, xx, yy, transformer = self.generate_map_coordinates(**map_kwargs)
+        _, _, xx, yy, transformer, map_kw_used = self.generate_map_coordinates(
+            **map_kwargs
+        )
+        projection = map_kw_used['projection']
 
         h = ax.pcolormesh(xx, yy, map_img, **kwargs)
         ax.set_aspect(1, adjustable='box')
@@ -1466,11 +1468,18 @@ class BodyXY(Body):
         lon: float = 0,
         lat: float = 0,
         size: int = 100,
-        lon_coords: np.ndarray | None = None,
-        lat_coords: np.ndarray | None = None,
-        projection_x_coords: np.ndarray | None = None,
-        projection_y_coords: np.ndarray | None = None,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, pyproj.Transformer]:
+        lon_coords: np.ndarray | tuple | None = None,
+        lat_coords: np.ndarray | tuple | None = None,
+        projection_x_coords: np.ndarray | tuple | None = None,
+        projection_y_coords: np.ndarray | tuple | None = None,
+    ) -> tuple[
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        pyproj.Transformer,
+        dict[str, Any],
+    ]:
         """
         Generate underlying coordinates and transformation for a given map projection.
 
@@ -1541,10 +1550,13 @@ class BodyXY(Body):
                 string. This must be a tuple.
 
         Returns:
-            `(lons, lats, xx, yy, transformer)` tuple where `lons` and `lats` are the
-            longitude and latitude coordinates of the map, `xx` and `yy` are the
-            projected coordinates of the map and `transformer` is a `pyproj.Transformer`
-            object that can be used to transform between the two coordinate systems.
+            `(lons, lats, xx, yy, transformer, info)` tuple where `lons` and `lats` are
+            the longitude and latitude coordinates of the map, `xx` and `yy` are the
+            projected coordinates of the map, `transformer` is a `pyproj.Transformer`
+            object that can be used to transform between the two coordinate systems, and
+            `info` is a dictionary containing the arguments used to build the map (e.g.
+            for the default case this is
+            `{'projection': 'rectangular', 'degree_interval': 1}`).
         """
         if projection == 'rectangular':
             lon_coords = np.arange(degree_interval / 2, 360, degree_interval)
@@ -1558,6 +1570,7 @@ class BodyXY(Body):
                 lon_coords,
                 lat_coords,
                 self._get_pyproj_transformer(),
+                dict(projection=projection, degree_interval=degree_interval),
             )
         elif projection == 'manual':
             if lon_coords is None or lat_coords is None:
@@ -1580,6 +1593,7 @@ class BodyXY(Body):
                 lon_coords,
                 lat_coords,
                 self._get_pyproj_transformer(),
+                dict(projection=projection),
             )
         elif projection == 'orthographic':
             proj = '+proj=ortho +a={a} +b={b} +lon_0={lon_0} +lat_0={lat_0} +y_0={y_0} +type=crs'.format(
@@ -1590,7 +1604,10 @@ class BodyXY(Body):
                 y_0=(self.r_polar - self.r_eq) * np.sin(np.radians(lat * 2)),
             )
             lim = max(self.r_eq, self.r_polar) * 1.01
-            return self._get_pyproj_map_coords(proj, np.linspace(-lim, lim, size))
+            return (
+                *self._get_pyproj_map_coords(proj, np.linspace(-lim, lim, size)),
+                dict(projection=projection, lon=lon, lat=lat, size=size),
+            )
         elif projection == 'azimuthal':
             proj = '+proj=aeqd +R={a} +lon_0={lon_0} +lat_0={lat_0} +type=crs'.format(
                 a=self.r_eq,
@@ -1598,12 +1615,18 @@ class BodyXY(Body):
                 lat_0=lat,
             )
             lim = max(self.r_eq, self.r_polar) * np.pi * 1.01
-            return self._get_pyproj_map_coords(proj, np.linspace(-lim, lim, size))
+            return (
+                *self._get_pyproj_map_coords(proj, np.linspace(-lim, lim, size)),
+                dict(projection=projection, lon=lon, lat=lat, size=size),
+            )
         else:
             if projection_x_coords is None:
                 raise ValueError('x coords must be provided')
-            return self._get_pyproj_map_coords(
-                projection, projection_x_coords, projection_y_coords
+            return (
+                *self._get_pyproj_map_coords(
+                    projection, projection_x_coords, projection_y_coords
+                ),
+                dict(projection=projection),
             )
 
     def _get_pyproj_map_coords(
