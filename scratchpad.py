@@ -7,7 +7,7 @@ import numpy as np
 import datetime
 
 planetmapper.set_kernel_path(
-    '/Users/ortk1/Dropbox/science/planetmapper/tests_new/data/kernels'
+    '/Users/ortk1/Dropbox/science/planetmapper/tests/data/kernels'
 )
 
 body = planetmapper.BodyXY(
@@ -22,6 +22,10 @@ lats=  np.linspace(-90, 90, 10)
 lons, lats = np.meshgrid(lons, lats)
 
 body.get_emission_angle_map(projection='manual', lon_coords=lons, lat_coords=lats)
+
+lons, lats, xx, yy, transformer, info = body.generate_map_coordinates(
+        )
+
 
 # print(datetime.datetime.now())
 # body.get_emission_angle_map()

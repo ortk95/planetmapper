@@ -904,6 +904,7 @@ class Observation(BodyXY):
 
             self._update_progress_hook(1 / progress_max)
 
+            # TODO add metadata properly
             self.add_header_metadata(header)
             self.append_to_header(
                 'DEGREE-INTERVAL',
@@ -945,25 +946,39 @@ class Observation(BodyXY):
             self._remove_progress_hook()
 
     def _add_map_wcs_to_header(
-        self, header: fits.Header, degree_interval: float
+        self,
+        header: fits.Header,
+        **map_kwargs: Unpack[_MapKwargs],
     ) -> None:
-        # TODO: update to work gor generic projection
-        lons, lats = self._make_rectangular_map_lonlat_arrays(degree_interval)
-
-        # Add new values
-        header['CTYPE1'] = 'Planetographic longitude, positive {}'.format(
-            self.positive_longitude_direction
+        lons, lats, xx, yy, transformer, info = self.generate_map_coordinates(
+            **map_kwargs
         )
-        header['CUNIT1'] = 'deg'
-        header['CRPIX1'] = 1
-        header['CRVAL1'] = lons[0]
-        header['CDELT1'] = lons[1] - lons[0]
+        if info['projection'] == 'rectangular':
+            # Add new values
+            header['CTYPE1'] = 'Planetographic longitude, positive {}'.format(
+                self.positive_longitude_direction
+            )
+            header['CUNIT1'] = 'deg'
+            header['CRPIX1'] = 1
+            header['CRVAL1'] = lons[0][0]
+            header['CDELT1'] = lons[0][1] - lons[0][0]
 
-        header['CTYPE2'] = 'Planetographic latitude'
-        header['CUNIT2'] = 'deg'
-        header['CRPIX2'] = 1
-        header['CRVAL2'] = lats[0]
-        header['CDELT2'] = lats[1] - lats[0]
+            header['CTYPE2'] = 'Planetographic latitude'
+            header['CUNIT2'] = 'deg'
+            header['CRPIX2'] = 1
+            header['CRVAL2'] = lats[0][0]
+            header['CDELT2'] = lats[1][0] - lats[0][0]
+        else:
+            # Remove values which correspond to previous projection
+            for n in ['1', '2']:
+                for key in [
+                    f'CTYPE{n}',
+                    f'CUNIT{n}',
+                    f'CRPIX{n}',
+                    f'CRVAL{n}',
+                    f'CDELT{n}',
+                ]:
+                    header.remove(key, ignore_missing=True, remove_all=True)
 
         # Remove values which correspond to previous projection
         for a in ['1', '2']:

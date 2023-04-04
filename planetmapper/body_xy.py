@@ -1653,15 +1653,18 @@ class BodyXY(Body):
         lons, lats = transformer.transform(xx, yy, direction='INVERSE')
         return lons, lats, xx, yy, transformer
 
-    def _get_pyproj_transformer(
-        self, projection: str | None = None
-    ) -> pyproj.Transformer:
-        proj_in = '+proj=eqc +a={a} +b={b} +lon_0={l0} +to_meter={tm} +type=crs'.format(
+    def _get_default_pyproj_projection(self) -> str:
+        return '+proj=eqc +a={a} +b={b} +lon_0={l0} +to_meter={tm} +type=crs'.format(
             a=self.r_eq,
             b=self.r_polar,
             l0=0,
             tm=np.radians(1) * self.r_eq,
         )
+    
+    def _get_pyproj_transformer(
+        self, projection: str | None = None
+    ) -> pyproj.Transformer:
+        proj_in = self._get_default_pyproj_projection()
         if projection is None:
             projection = proj_in  # return identity transform
         return pyproj.Transformer.from_crs(pyproj.CRS(proj_in), pyproj.CRS(projection))
