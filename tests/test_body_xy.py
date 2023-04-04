@@ -82,6 +82,11 @@ class TestBodyXY(unittest.TestCase):
                 fn(np.random.rand())
                 self.assertEqual(len(self.body._cache), 0)
 
+        self.body._stable_cache.clear()
+        self.body.get_emission_angle_map(degree_interval=90)
+        self.assertGreater(len(self.body._stable_cache), 0)
+
+
     def test_xy_conversions(self):
         # xy, radec, lonlat, km
         coordinates = [
