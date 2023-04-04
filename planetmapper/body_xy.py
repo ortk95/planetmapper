@@ -113,10 +113,10 @@ class _MapKwargs(TypedDict, total=False):
     lon: float
     lat: float
     size: int
-    lon_coords: np.ndarray
-    lat_coords: np.ndarray
-    projection_x_coords: np.ndarray
-    projection_y_coords: np.ndarray | None
+    lon_coords: tuple
+    lat_coords: tuple
+    projection_x_coords: tuple
+    projection_y_coords: tuple | None
 
 
 class _BackplaneMapGetter(Protocol):
@@ -1396,7 +1396,7 @@ class BodyXY(Body):
             ax.set_xticklabels([f'{x:.0f}°' if x % 90 == 0 else '' for x in lon_ticks])
 
             ax.set_yticks(lat_ticks)
-            ax.set_yticklabels([f'{y:.0f}°' if y%90 == 0 else '' for y in lat_ticks])
+            ax.set_yticklabels([f'{y:.0f}°' if y % 90 == 0 else '' for y in lat_ticks])
 
         if grid:
             grid_kw = dict(color='k', alpha=0.5, linewidth=1)
@@ -1436,10 +1436,10 @@ class BodyXY(Body):
         lon: float = 0,
         lat: float = 0,
         size: int = 100,
-        lon_coords: np.ndarray | None = None,
-        lat_coords: np.ndarray | None = None,
-        projection_x_coords: np.ndarray | None = None,
-        projection_y_coords: np.ndarray | None = None,
+        lon_coords: tuple | None = None,
+        lat_coords: tuple | None = None,
+        projection_x_coords: tuple | None = None,
+        projection_y_coords: tuple | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, pyproj.Transformer]:
         """
         Generate underlying coordinates and transformation for a given map projection.
@@ -1500,12 +1500,15 @@ class BodyXY(Body):
             lat: Central latitude of `'orthographic'` and `'azimuthal'` projections.
             size: Pixel size (width and height) of generated `'orthographic'` and
                 `azimuthal` projections.
-            lon_coords: Array of longitude coordinates to use for `'manual'` projection.
-            lat_coords: Array of latitude coordinates to use for `'manual'` projection.
-            projection_x_coords: Array of projected x coordinates to use with a pyproj
-                projection string.
-            projection_y_coords: Array of projected x coordinates to use with a pyproj
-                projection string.
+            lon_coords: Longitude coordinates to use for `'manual'` projection. This
+                must be a tuple (e.g. use `lon_coords=tuple(np.linspace(0, 360, 100))`)
+                - this allows mapping arguments and outputs to be cached).
+            lat_coords: Latitude coordinates to use for `'manual'` projection. This 
+                must be a tuple.
+            projection_x_coords: Projected x coordinates to use with a pyproj projection
+                string. This must be a tuple.
+            projection_y_coords: Projected x coordinates to use with a pyproj projection
+                string. This must be a tuple.
 
         Returns:
             `(lons, lats, xx, yy, transformer)` tuple where `lons` and `lats` are the
@@ -1514,38 +1517,40 @@ class BodyXY(Body):
             object that can be used to transform between the two coordinate systems.
         """
         if projection == 'rectangular':
-            lon_coords = np.arange(degree_interval / 2, 360, degree_interval)
+            lon_coords_arr = np.arange(degree_interval / 2, 360, degree_interval)
             if self.positive_longitude_direction == 'W':
-                lon_coords = lon_coords[::-1]
-            lat_coords = np.arange(-90 + degree_interval / 2, 90, degree_interval)
-            lon_coords, lat_coords = np.meshgrid(lon_coords, lat_coords)
+                lon_coords_arr = lon_coords_arr[::-1]
+            lat_coords_arr = np.arange(-90 + degree_interval / 2, 90, degree_interval)
+            lon_coords_arr, lat_coords_arr = np.meshgrid(lon_coords_arr, lat_coords_arr)
             return (
-                lon_coords,
-                lat_coords,
-                lon_coords,
-                lat_coords,
+                lon_coords_arr,
+                lat_coords_arr,
+                lon_coords_arr,
+                lat_coords_arr,
                 self._get_pyproj_transformer(),
             )
         elif projection == 'manual':
             if lon_coords is None or lat_coords is None:
                 raise ValueError('lons and lats must be provided for manual projection')
-            lon_coords = np.asarray(lon_coords)
-            lat_coords = np.asarray(lat_coords)
-            if lon_coords.ndim != lat_coords.ndim:
+            lon_coords_arr = np.asarray(lon_coords)
+            lat_coords_arr = np.asarray(lat_coords)
+            if lon_coords_arr.ndim != lat_coords_arr.ndim:
                 raise ValueError(
                     'lon_coords and lat_coords must have the same number of dimensions'
                 )
-            if lon_coords.ndim == 1:
-                lon_coords, lat_coords = np.meshgrid(lon_coords, lat_coords)
-            if lon_coords.ndim != 2:
+            if lon_coords_arr.ndim == 1:
+                lon_coords_arr, lat_coords_arr = np.meshgrid(
+                    lon_coords_arr, lat_coords_arr
+                )
+            if lon_coords_arr.ndim != 2:
                 raise ValueError('lon_coords and lat_coords must be 1D or 2D arrays')
-            if lon_coords.shape != lat_coords.shape:
+            if lon_coords_arr.shape != lat_coords_arr.shape:
                 raise ValueError('lon_coords and lat_coords must have the same shape')
             return (
-                lon_coords,
-                lat_coords,
-                lon_coords,
-                lat_coords,
+                lon_coords_arr,
+                lat_coords_arr,
+                lon_coords_arr,
+                lat_coords_arr,
                 self._get_pyproj_transformer(),
             )
         elif projection == 'orthographic':
@@ -1574,7 +1579,10 @@ class BodyXY(Body):
             )
 
     def _get_pyproj_map_coords(
-        self, projection: str, xx: np.ndarray, yy: np.ndarray | None = None
+        self,
+        projection: str,
+        xx: np.ndarray | tuple,
+        yy: np.ndarray | tuple | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, pyproj.Transformer]:
         if yy is None:
             yy = xx
