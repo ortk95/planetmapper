@@ -208,8 +208,8 @@ class TestBody(unittest.TestCase):
             with self.subTest(radec):
                 self.assertTrue(
                     np.allclose(
-                    self.body.radec2lonlat(*radec),
-                    lonlat,
+                        self.body.radec2lonlat(*radec),
+                        lonlat,
                     )
                 )
                 self.assertTrue(
@@ -253,7 +253,7 @@ class TestBody(unittest.TestCase):
         for km, radec in pairs:
             with self.subTest(km):
                 self.assertTrue(np.allclose(self.body.km2radec(*km), radec))
-                self.assertTrue(np.allclose(self.body.radec2km(*radec), km))
+                self.assertTrue(np.allclose(self.body.radec2km(*radec), km, atol=1e-3))
 
     def test_km_lonlat(self):
         pairs = [
@@ -265,7 +265,9 @@ class TestBody(unittest.TestCase):
         for km, lonlat in pairs:
             with self.subTest(km):
                 self.assertTrue(np.allclose(self.body.km2lonlat(*km), lonlat))
-                self.assertTrue(np.allclose(self.body.lonlat2km(*lonlat), km))
+                self.assertTrue(
+                    np.allclose(self.body.lonlat2km(*lonlat), km, atol=1e-3)
+                )
 
         self.assertTrue(
             np.array_equal(

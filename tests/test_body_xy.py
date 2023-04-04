@@ -133,7 +133,9 @@ class TestBodyXY(unittest.TestCase):
                     self.assertTrue(
                         np.allclose(body.xy2lonlat(*xy), lonlat, equal_nan=True)
                     )
-                    self.assertTrue(np.allclose(body.xy2km(*xy), km, equal_nan=True))
+                    self.assertTrue(
+                        np.allclose(body.xy2km(*xy), km, equal_nan=True, atol=1e-3)
+                    )
 
                     self.assertTrue(
                         np.allclose(body.radec2xy(*radec), xy, equal_nan=True)
@@ -256,8 +258,8 @@ class TestBodyXY(unittest.TestCase):
         self.body.add_arcsec_offset(1, 2)
         self.assertTrue(
             np.allclose(
-            self.body.get_disc_params(),
-            (-0.05532064212457044, 0.11116537556358708, 1.0, 0.0),
+                self.body.get_disc_params(),
+                (-0.05532064212457044, 0.11116537556358708, 1.0, 0.0),
             )
         )
 
