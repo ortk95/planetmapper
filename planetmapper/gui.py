@@ -1621,11 +1621,11 @@ class OpenObservation(Popup):
         try:
             observation = Observation(**kwargs, load_kernels=False)
         except Exception as e:
+            traceback.print_exc()
             tkinter.messagebox.showwarning(
                 title=f'Error processing inputs',
                 message=f'Error: {e}' + '\n\nSee terminal for more details',
             )
-            traceback.print_exc()
             return False
         self.gui.set_observation(observation)
         self.gui.kernels = kernels
@@ -1757,7 +1757,7 @@ class SaveObservation(Popup):
         self.map_output_size = tk.StringVar(value=str(100))
         self.map_interpolation = tk.StringVar(value='linear')
 
-        self.keep_open = tk.IntVar(value=1)
+        self.keep_open = tk.IntVar(value=0)
 
         self.save_nav.trace_add('write', self.save_nav_toggle)
         self.save_map.trace_add('write', self.save_map_toggle)
@@ -1879,7 +1879,7 @@ class SaveObservation(Popup):
 
         ttk.Checkbutton(
             self.menu_frame,
-            text='Keep popup open after saving files',
+            text='Keep this popup open after saving files',
             variable=self.keep_open,
         ).pack()
 
@@ -1928,8 +1928,7 @@ class SaveObservation(Popup):
             self.save_button['state'] = 'disable'
 
     def click_save(self) -> None:
-        if self.try_run_save():
-            self.close_window()
+        self.try_run_save()
 
     def click_cancel(self) -> None:
         self.close_window()
@@ -2003,11 +2002,11 @@ class SaveObservation(Popup):
         try:
             saving_process.run_save()
         except Exception as e:
+            traceback.print_exc()
             tkinter.messagebox.showwarning(
                 title=f'Error saving files',
                 message=f'Error: {e}' + '\n\nSee terminal for more details',
             )
-            traceback.print_exc()
             return False
         finally:
             self.gui.get_observation()._remove_progress_hook()
@@ -2030,7 +2029,7 @@ class SavingProgress(Popup):
         path_nav: str,
         save_map: bool,
         path_map: str,
-        interpolation:str,
+        interpolation: str,
         map_kw: _MapKwargs,
         keep_open: bool,
     ):
@@ -2041,7 +2040,7 @@ class SavingProgress(Popup):
         self.path_nav = path_nav
         self.save_map = save_map
         self.path_map = path_map
-        self.interpolation=interpolation
+        self.interpolation = interpolation
         self.map_kw = map_kw
 
         self.keep_open = keep_open
@@ -2068,15 +2067,14 @@ class SavingProgress(Popup):
             self.nav_widgets = self.make_widgets('Saving navigated observation...')
         if self.save_map:
             self.map_widgets = self.make_widgets('Saving mapped observation...')
-        if self.keep_open:
-            button_frame = ttk.Frame(self.frame)
-            button_frame.pack(padx=10, pady=10, fill='x')
-            self.close_button = ttk.Button(
-                button_frame,
-                command=self.click_close,
-                text='Close',
-                width=10,
-            )
+        button_frame = ttk.Frame(self.frame)
+        button_frame.pack(padx=10, pady=10, fill='x')
+        self.close_button = ttk.Button(
+            button_frame,
+            command=self.click_close,
+            text='Close',
+            width=10,
+        )
 
     def make_widgets(self, label: str) -> dict[str, tk.Widget]:
         frame = ttk.Frame(self.frame)
@@ -2110,15 +2108,19 @@ class SavingProgress(Popup):
                 SaveMapProgressHookGUI(n_wavelengths, **self.map_widgets)
             )
             observation.save_mapped_observation(
-                self.path_map, interpolation=self.interpolation, **self.map_kw, **save_kwargs
+                self.path_map,
+                interpolation=self.interpolation,  # type: ignore
+                **self.map_kw,
+                **save_kwargs,
             )
             observation._remove_progress_hook()
-        if self.keep_open:
-            self.close_button.pack()
-            self.window.title('Saving files complete')
+        self.close_button.pack()
+        self.window.title('Saving files complete')
 
     def click_close(self) -> None:
         self.destroy()
+        if not self.keep_open:
+            self.parent.close_window()
 
     def destroy(self) -> None:
         self.window.destroy()
