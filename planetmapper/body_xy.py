@@ -1790,7 +1790,9 @@ class BodyXY(Body):
     @_cache_stable_result
     def _get_lonlat_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         coords = self.generate_map_coordinates(**map_kwargs)
-        return np.stack([coords[0], coords[1]], axis=-1)
+        lonlat_map = np.stack([coords[0], coords[1]], axis=-1)
+        lonlat_map[~np.isfinite(lonlat_map)] = np.nan
+        return lonlat_map
 
     def get_lon_img(self) -> np.ndarray:
         """
