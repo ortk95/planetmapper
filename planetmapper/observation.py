@@ -57,7 +57,8 @@ class Observation(BodyXY):
 
     Args:
         path: Path to data file to load. If this is `None` then `data` must be specified
-            instead.
+            instead. Any user (`~`) and shell variables (e.g. `$var`) in the path are
+            automatically expanded if possible.
         data: Array containing observation data to use instead of loading the data from
             `path`. This should only be provided if `path` is None.
         header: FITS header which corresponds to the provided `data`. This is optional
@@ -95,6 +96,8 @@ class Observation(BodyXY):
         a basic header will be produced containing data derived from the `target` and 
         `utc` parameters.
         """
+        if path is not None:
+            path = os.path.expandvars(os.path.expanduser(path))
 
         self.path = path
         self.header = None  # type: ignore

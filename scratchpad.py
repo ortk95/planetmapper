@@ -8,6 +8,6 @@ import datetime
 from astropy.io import fits
 
 observation = planetmapper.Observation(
-    '/Users/ortk1/Dropbox/science/jwst_data/MIRI_IFU/Saturn_2022nov13/SATURN-45N/stage6_background/d1_fringe_nav/Level3_ch1-long_s3d_nav.fits'
+    '~/Downloads/test.fits'
 )
 observation.run_gui()
