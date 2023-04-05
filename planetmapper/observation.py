@@ -12,7 +12,7 @@ from astropy.io import fits
 from astropy.utils.exceptions import AstropyWarning
 
 from . import common, utils
-from .body_xy import BodyXY, _cache_clearable_result_with_args
+from .body_xy import BodyXY, _MapKwargs, Unpack, _cache_clearable_result_with_args
 from .progress import progress_decorator, SaveMapProgressHookCLI, SaveNavProgressHookCLI
 
 T = TypeVar('T')
@@ -57,7 +57,8 @@ class Observation(BodyXY):
 
     Args:
         path: Path to data file to load. If this is `None` then `data` must be specified
-            instead.
+            instead. Any user (`~`) and shell variables (e.g. `$var`) in the path are
+            automatically expanded if possible.
         data: Array containing observation data to use instead of loading the data from
             `path`. This should only be provided if `path` is None.
         header: FITS header which corresponds to the provided `data`. This is optional
@@ -95,6 +96,8 @@ class Observation(BodyXY):
         a basic header will be produced containing data derived from the `target` and 
         `utc` parameters.
         """
+        if path is not None:
+            path = os.path.expandvars(os.path.expanduser(path))
 
         self.path = path
         self.header = None  # type: ignore
@@ -137,6 +140,17 @@ class Observation(BodyXY):
                 self.disc_from_wcs(suppress_warnings=True)
             except ValueError:
                 self.centre_disc()
+
+    def __repr__(self) -> str:
+        return f'Observation({self.path!r})'
+
+    def _get_equality_tuple(self) -> tuple:
+        return (
+            self.path,
+            self.data.tolist(),
+            self.header,
+            super()._get_equality_tuple(),
+        )
 
     def _load_data_from_path(self):
         assert self.path is not None
@@ -244,9 +258,6 @@ class Observation(BodyXY):
             kw, header, 'surface_method', [cls._make_fits_kw('SURFACE-METHOD')]
         )
 
-    def __repr__(self) -> str:
-        return f'Observation({self.path!r})'
-
     # Auto disc id
     def disc_from_header(self) -> None:
         """
@@ -260,7 +271,9 @@ class Observation(BodyXY):
             ValueError: if the header does not contain appropriate metadata values. This
                 is likely because the file was not created by `planetmapper`.
         """
-        if self._make_fits_kw('DEGREE-INTERVAL') in self.header:
+        if (
+            self._make_fits_kw('MAP PROJECTION') in self.header or 
+            self._make_fits_kw('DEGREE-INTERVAL') in self.header):
             raise ValueError('FITS header refers to mapped data')
         try:
             self.set_disc_params(
@@ -427,7 +440,10 @@ class Observation(BodyXY):
         """
         threshold_img = self._get_img_for_fitting()
         threshold = 0.5 * sum(
-            [np.percentile(threshold_img, 5), np.percentile(threshold_img, 95)]
+            [  # type: ignore
+                np.percentile(threshold_img, 5),
+                np.percentile(threshold_img, 95),
+            ]
         )
         threshold_img[np.where(threshold_img <= threshold)] = 0
         threshold_img[np.where(threshold_img > threshold)] = 1
@@ -474,13 +490,13 @@ class Observation(BodyXY):
     # Mapping
     def get_mapped_data(
         self,
-        degree_interval: float = 1,
         interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
-        **kw,
+        **map_kwargs: Unpack[_MapKwargs],
     ) -> np.ndarray:
         """
-        Projects the observed :attr:`data` onto a lon/lat grid using
-        :func:`BodyXY.map_img`.
+        Projects the observed :attr:`data` onto a map. See
+        :func:`BodyXY.generate_map_coordinates` for details about customising the
+        projection used.
 
         For larger datasets, it can take some time to map every wavelength. Therefore,
         the mapped data is automatically cached (in a similar way to backplanes - see
@@ -495,25 +511,23 @@ class Observation(BodyXY):
             interpolation: Interpolation used when mapping. This can either any of
                 `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. Passed to
                 :func:`BodyXY.map_img`.
-            **kw: Additional arguments passed to :func:`BodyXY.map_img`.
-
+            **map_kwargs: Additional arguments are passed to
+                :func:`BodyXY.generate_map_coordinates` to specify and customise the map
+                projection.
         Returns:
-            Array containing a cube of cylindrical map of the values in :attr:`data` at
-            each location on the surface of the target body. Locations which are not
-            visible have a value of NaN.
+            Array containing cube of maped of the values in `img` at each location on
+            the surface of the target body. Locations which are not visible or outside
+            the projection domain have a value of NaN.
         """
         # Return a copy so that the cached value isn't tainted by any modifications
-        return self._get_mapped_data(
-            degree_interval=degree_interval, interpolation=interpolation, **kw
-        ).copy()
+        return self._get_mapped_data(interpolation=interpolation, **map_kwargs).copy()
 
     @_cache_clearable_result_with_args
     @progress_decorator
     def _get_mapped_data(
         self,
-        degree_interval: float = 1,
         interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
-        **kw,
+        **map_kwargs: Unpack[_MapKwargs],
     ):
         projected = []
         if interpolation == 'linear' and np.any(np.isnan(self.data)):
@@ -528,9 +542,8 @@ class Observation(BodyXY):
             projected.append(
                 self.map_img(
                     img,
-                    degree_interval=degree_interval,
                     interpolation=interpolation,
-                    **kw,
+                    **map_kwargs,
                 )
             )
         return np.array(projected)
@@ -543,6 +556,8 @@ class Observation(BodyXY):
         comment: str | None = None,
         hierarch_keyword: bool = True,
         header: fits.Header | None = None,
+        truncate_strings: bool = True,
+        remove_existing: bool = True,
     ):
         """
         Add a card to a FITS header. If a `header` is not specified, then :attr:`header`
@@ -559,11 +574,22 @@ class Observation(BodyXY):
                 to the keyword.
             header: FITS Header which the card will be added to in-place. If `header` is
                 `None`, then :attr:`header` will be modified.
+            truncate_strings: Allow string values to be truncated if they will create
+                a card longer than 80 characters.
+            remove_existing: Remove any existing cards with the same key before adding
+                the new card.
         """
         if header is None:
             header = self.header
         if hierarch_keyword:
             keyword = self._make_fits_kw(keyword)
+        if truncate_strings and isinstance(value, str):
+            if len(keyword) + len(value) + 4 > 80:
+                # +4 accounts for space, equals and two quotes around the value
+                n = 80 - len(keyword) - 4 - 3
+                value = value[:n] + '...'
+        if remove_existing:
+            header.remove(keyword, ignore_missing=True, remove_all=True)
         with utils.filter_fits_comment_warning():
             header.append(fits.Card(keyword=keyword, value=value, comment=comment))
 
@@ -783,7 +809,7 @@ class Observation(BodyXY):
 
     @progress_decorator
     def save_observation(
-        self, path: str, show_progress: bool = False, print_info: bool = True
+        self, path: str, *, show_progress: bool = False, print_info: bool = True
     ) -> None:
         """
         Save a FITS file containing the observed data and generated backplanes.
@@ -846,16 +872,17 @@ class Observation(BodyXY):
     def save_mapped_observation(
         self,
         path: str,
+        *,
         include_backplanes: bool = True,
-        degree_interval: float = 1,
         interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
         show_progress: bool = False,
         print_info: bool = True,
+        **map_kwargs: Unpack[_MapKwargs],
     ) -> None:
         """
         Save a FITS file containing the mapped observation in a cylindrical projection.
 
-        The mapped data is generated using :func:`mapped_data`, and mapped backplane
+        The mapped data is generated using :func:`get_mapped_data`, and mapped backplane
         data is saved by default.
 
         For larger image sizes, the map projection and backplane generation can be slow,
@@ -865,7 +892,6 @@ class Observation(BodyXY):
             path: Filepath of output file.
             include_backplanes: Toggle generating and saving backplanes to output FITS
                 file.
-            degree_interval: Interval in degrees between the longitude/latitude points.
             interpolation: Interpolation used when mapping. This can either any of
                 `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. Passed to
                 :func:`BodyXY.map_img`.
@@ -873,6 +899,9 @@ class Observation(BodyXY):
                 This does not have an effect if `show_progress=True` was set when
                 creating this `Observation`.
             print_info: Toggle printing of progress information (defaults to `True`).
+            **map_kwargs: Additional arguments are passed to
+                :func:`BodyXY.generate_map_coordinates` to specify and customise the map
+                projection.
         """
         if show_progress and self._get_progress_hook() is None:
             print_info = False
@@ -887,28 +916,14 @@ class Observation(BodyXY):
         with utils.filter_fits_comment_warning():
             if print_info:
                 print(' Projecting mapped data...')
-            data = self.get_mapped_data(
-                degree_interval=degree_interval, interpolation=interpolation
-            )
+            data = self.get_mapped_data(interpolation=interpolation, **map_kwargs)
             header = self.header.copy()
 
             self._update_progress_hook(1 / progress_max)
 
             self.add_header_metadata(header)
-            self.append_to_header(
-                'DEGREE-INTERVAL',
-                degree_interval,
-                '[deg] Degree interval in output map.',
-                header=header,
-            )
-            self.append_to_header(
-                'MAP-INTERPOLATION',
-                interpolation,
-                'Interpolation method used in mapping.',
-                header=header,
-            )
-
-            self._add_map_wcs_to_header(header, degree_interval)
+            self._add_map_header_metadata(header, interpolation, **map_kwargs)
+            self._add_map_wcs_to_header(header, **map_kwargs)
 
             hdul = fits.HDUList([fits.PrimaryHDU(data=data, header=header)])
             if include_backplanes:
@@ -916,10 +931,10 @@ class Observation(BodyXY):
                     self._update_progress_hook((bp_idx + 1) / progress_max)
                     if print_info:
                         print(' Creating backplane:', name)
-                    img = backplane.get_map(degree_interval)
+                    img = backplane.get_map(**map_kwargs)
                     header = fits.Header([('ABOUT', backplane.description)])
                     header.add_comment('Backplane generated by Planet Mapper software.')
-                    self._add_map_wcs_to_header(header, degree_interval)
+                    self._add_map_wcs_to_header(header, **map_kwargs)
 
                     hdu = fits.ImageHDU(data=img, header=header, name=name)
                     hdul.append(hdu)
@@ -934,25 +949,102 @@ class Observation(BodyXY):
             self._update_progress_hook(1)
             self._remove_progress_hook()
 
-    def _add_map_wcs_to_header(
-        self, header: fits.Header, degree_interval: float
-    ) -> None:
-        lons, lats = self._make_map_lonlat_arrays(degree_interval)
-
-        # Add new values
-        header['CTYPE1'] = 'Planetographic longitude, positive {}'.format(
-            self.positive_longitude_direction
+    def _add_map_header_metadata(
+        self,
+        header: fits.Header,
+        interpolation: str,
+        **map_kwargs: Unpack[_MapKwargs],
+    ):
+        lons, lats, xx, yy, transformer, info = self.generate_map_coordinates(
+            **map_kwargs
         )
-        header['CUNIT1'] = 'deg'
-        header['CRPIX1'] = 1
-        header['CRVAL1'] = lons[0]
-        header['CDELT1'] = lons[1] - lons[0]
+        self.append_to_header(
+            'MAP INTERPOLATION',
+            interpolation,
+            'Interpolation method used in mapping.',
+            header=header,
+        )
+        self.append_to_header(
+            'MAP PROJECTION',
+            info['projection'],
+            'Projection used for mapping.',
+            header=header,
+        )
 
-        header['CTYPE2'] = 'Planetographic latitude'
-        header['CUNIT2'] = 'deg'
-        header['CRPIX2'] = 1
-        header['CRVAL2'] = lats[0]
-        header['CDELT2'] = lats[1] - lats[0]
+        try:
+            self.append_to_header(
+                'MAP DEGREE-INTERVAL',
+                info['degree_interval'],
+                '[deg] Degree interval in output map.',
+                header=header,
+            )
+        except KeyError:
+            pass
+
+        try:
+            self.append_to_header(
+                'MAP LON',
+                info['lon'],
+                'Central longitude of map projection.',
+                header=header,
+            )
+        except KeyError:
+            pass
+
+        try:
+            self.append_to_header(
+                'MAP LAT',
+                info['lat'],
+                'Central latitude of map projection.',
+                header=header,
+            )
+        except KeyError:
+            pass
+
+        try:
+            self.append_to_header(
+                'MAP SIZE',
+                info['size'],
+                'Size of output map.',
+                header=header,
+            )
+        except KeyError:
+            pass
+
+    def _add_map_wcs_to_header(
+        self,
+        header: fits.Header,
+        **map_kwargs: Unpack[_MapKwargs],
+    ) -> None:
+        lons, lats, xx, yy, transformer, info = self.generate_map_coordinates(
+            **map_kwargs
+        )
+        if info['projection'] == 'rectangular':
+            # Add new values
+            header['CTYPE1'] = 'Planetographic longitude, positive {}'.format(
+                self.positive_longitude_direction
+            )
+            header['CUNIT1'] = 'deg'
+            header['CRPIX1'] = 1
+            header['CRVAL1'] = lons[0][0]
+            header['CDELT1'] = lons[0][1] - lons[0][0]
+
+            header['CTYPE2'] = 'Planetographic latitude'
+            header['CUNIT2'] = 'deg'
+            header['CRPIX2'] = 1
+            header['CRVAL2'] = lats[0][0]
+            header['CDELT2'] = lats[1][0] - lats[0][0]
+        else:
+            # Remove values which correspond to previous projection
+            for n in ['1', '2']:
+                for key in [
+                    f'CTYPE{n}',
+                    f'CUNIT{n}',
+                    f'CRPIX{n}',
+                    f'CRVAL{n}',
+                    f'CDELT{n}',
+                ]:
+                    header.remove(key, ignore_missing=True, remove_all=True)
 
         # Remove values which correspond to previous projection
         for a in ['1', '2']:

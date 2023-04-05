@@ -39,6 +39,7 @@ setuptools.setup(
         'photutils',
         'tqdm',
         'pyproj',
+        'typing-extensions',
     ],
     keywords=[
         'planetmapper',

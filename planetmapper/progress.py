@@ -2,7 +2,8 @@ from functools import wraps
 from typing import TypeVar, ParamSpec, Concatenate, Callable, TYPE_CHECKING
 import tqdm
 import time
-
+import numpy as np
+import warnings
 if TYPE_CHECKING:
     from .base import SpiceBase
 
@@ -171,11 +172,11 @@ class SaveMapProgressHook(SaveProgressHook):
         self.n_wavelengths = n_wavelengths
         self.weights: dict[str, float] = {
             'Observation._get_mapped_data': n_wavelengths * 5,
-            'BodyXY._get_targvec_map': 1,
+            'BodyXY._get_targvec_map': 10,
             'BodyXY._get_illumf_map': 5,
             'BodyXY._get_radec_map': 10,
             'BodyXY._get_xy_map': 10,
-            'BodyXY._get_lonlat_map': 10,
+            # 'BodyXY._get_lonlat_map': 10,
             'BodyXY._get_lonlat_centric_map': 5,
             'BodyXY._get_state_maps': 5,
             'BodyXY._get_ring_coordinate_maps': 10,
@@ -199,7 +200,8 @@ class SaveProgressHookCLI(SaveProgressHook):
         )
 
     def update_bar(self, progress_change: float) -> None:
-        self.bar.update(progress_change * 100)
+        # * 0.99999 to ensure floating point errros don't accumulate to >100%
+        self.bar.update(progress_change * 100 *0.99999)
         if self.progress_parts.get(self.default_key, 0) >= 1:
             self.bar.update(100 - self.overall_progress * 100)
             self.bar.close()

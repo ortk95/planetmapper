@@ -29,6 +29,7 @@ from matplotlib.backends._backend_tk import NavigationToolbar2Tk  # TODO delete 
 
 from . import base, data_loader, utils
 from .body import Body, BasicBody, NotFoundError
+from .body_xy import _MapKwargs
 from .observation import Observation
 from . import progress
 
@@ -85,6 +86,7 @@ GRID_INTERVALS = ['10', '30', '45', '90']
 CMAPS = ['gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis']
 
 MAP_INTERPOLATIONS = ('nearest', 'linear', 'quadratic', 'cubic')
+MAP_PROJECTIONS = ('rectangular', 'orthographic', 'azimuthal')
 
 DEFAULT_HINT = (
     'Use the various options in "Find disc" to automatically adjust the disc position'
@@ -1619,11 +1621,11 @@ class OpenObservation(Popup):
         try:
             observation = Observation(**kwargs, load_kernels=False)
         except Exception as e:
+            traceback.print_exc()
             tkinter.messagebox.showwarning(
                 title=f'Error processing inputs',
                 message=f'Error: {e}' + '\n\nSee terminal for more details',
             )
-            traceback.print_exc()
             return False
         self.gui.set_observation(observation)
         self.gui.kernels = kernels
@@ -1661,6 +1663,8 @@ class SaveObservation(Popup):
 
         self.make_widget()
         self.make_menu()
+        self.save_nav_toggle()
+        self.save_map_toggle()
 
     def make_widget(self) -> None:
         self.window = tk.Toplevel(self.gui.root)
@@ -1671,7 +1675,7 @@ class SaveObservation(Popup):
         x, y = (int(s) for s in self.gui.root.geometry().split('+')[1:])
         self.window.geometry(
             '{sz}+{x:.0f}+{y:.0f}'.format(
-                sz='600x375',
+                sz='600x400',
                 x=x + 50,
                 y=y + 50,
             )
@@ -1745,26 +1749,34 @@ class SaveObservation(Popup):
         self.save_map = tk.IntVar(value=1)
         self.path_nav = tk.StringVar(value=path_nav)
         self.path_map = tk.StringVar(value=path_map)
-        self.degree_interval = tk.StringVar(value=str(1))
+
+        self.map_projection = tk.StringVar(value='rectangular')
+        self.map_degree_interval = tk.StringVar(value=str(1))
+        self.map_lon = tk.StringVar(value=str(0))
+        self.map_lat = tk.StringVar(value=str(0))
+        self.map_output_size = tk.StringVar(value=str(100))
         self.map_interpolation = tk.StringVar(value='linear')
 
-        self.keep_open = tk.IntVar(value=1)
+        self.keep_open = tk.IntVar(value=0)
 
         self.save_nav.trace_add('write', self.save_nav_toggle)
         self.save_map.trace_add('write', self.save_map_toggle)
+        self.map_projection.trace_add('write', self.save_map_toggle)
 
         self.nav_widgets: list[tk.Widget] = []
         self.map_widgets: list[tk.Widget] = []
+        self.map_rect_widgets: list[tk.Widget] = []
+        self.map_ortho_widgets: list[tk.Widget] = []
 
         self.grid_frame.grid_columnconfigure(1, weight=1)
-        label_kw = dict(column=0, sticky='w', pady=5)
+        label_kw = dict(sticky='w', pady=5)
 
         # Navigated
         ttk.Checkbutton(
             self.grid_frame, text='Save navigated observation', variable=self.save_nav
         ).grid(row=0, column=1, columnspan=2, sticky='ew')
 
-        ttk.Label(self.grid_frame, text='Path: ').grid(row=1, **label_kw)
+        ttk.Label(self.grid_frame, text='Path: ').grid(row=1, column=0, **label_kw)
         w = ttk.Entry(self.grid_frame, textvariable=self.path_nav)
         w.grid(row=1, column=1, sticky='ew')
         self.nav_widgets.append(w)
@@ -1772,14 +1784,14 @@ class SaveObservation(Popup):
         w.grid(row=1, column=2)
         self.nav_widgets.append(w)
 
-        ttk.Label(self.grid_frame, text=' ').grid(row=2, **label_kw)
+        ttk.Label(self.grid_frame, text=' ').grid(row=2, column=0, **label_kw)
 
         # Mapped
         ttk.Checkbutton(
             self.grid_frame, text='Save mapped observation', variable=self.save_map
         ).grid(row=3, column=1, columnspan=2, sticky='ew')
 
-        ttk.Label(self.grid_frame, text='Path: ').grid(row=4, **label_kw)
+        ttk.Label(self.grid_frame, text='Path: ').grid(row=4, column=0, **label_kw)
         w = ttk.Entry(self.grid_frame, textvariable=self.path_map)
         w.grid(row=4, column=1, sticky='ew')
         self.map_widgets.append(w)
@@ -1787,27 +1799,78 @@ class SaveObservation(Popup):
         w.grid(row=4, column=2, sticky='w')
         self.map_widgets.append(w)
 
-        ttk.Label(self.grid_frame, text='Degree interval: ').grid(row=5, **label_kw)
-        w = ttk.Entry(self.grid_frame, textvariable=self.degree_interval, width=10)
-        w.grid(row=5, column=1, sticky='w')
-        self.map_widgets.append(w)
+        self.map_option_grid = ttk.Frame(self.grid_frame)
+        self.map_option_grid.grid(row=5, column=0, columnspan=3, sticky='nsew')
 
-        ttk.Label(self.grid_frame, text='Interpolation: ').grid(row=6, **label_kw)
+        for col in [1, 3, 5]:
+            self.map_option_grid.grid_columnconfigure(col, weight=1)
+
+        label_kw = dict(sticky='w', pady=2)
+
+        ttk.Label(self.map_option_grid, text='Interpolation: ').grid(
+            row=0, column=0, **label_kw
+        )
         w = ttk.Combobox(
-            self.grid_frame,
+            self.map_option_grid,
             textvariable=self.map_interpolation,
-            width=10,
+            width=15,
             values=MAP_INTERPOLATIONS,
             state='readonly',
         )
-        w.grid(row=6, column=1, sticky='w')
+        w.grid(row=0, column=1, columnspan=5, sticky='w')
         self.map_widgets.append(w)
+
+        ttk.Label(self.map_option_grid, text='Projection: ').grid(
+            row=1, column=0, **label_kw
+        )
+        w = ttk.Combobox(
+            self.map_option_grid,
+            textvariable=self.map_projection,
+            width=15,
+            values=MAP_PROJECTIONS,
+            state='readonly',
+        )
+        w.grid(row=1, column=1, columnspan=5, sticky='w')
+        self.map_widgets.append(w)
+
+        # Projection options
+        width = 10
+        ttk.Label(self.map_option_grid, text='Degree interval: ').grid(
+            row=2, column=0, **label_kw
+        )
+        w = ttk.Entry(
+            self.map_option_grid, textvariable=self.map_degree_interval, width=width
+        )
+        w.grid(row=2, column=1, sticky='w')
+        self.map_rect_widgets.append(w)
+
+        ttk.Label(self.map_option_grid, text='Output size: ').grid(
+            row=3, column=0, **label_kw
+        )
+        w = ttk.Entry(
+            self.map_option_grid, textvariable=self.map_output_size, width=width
+        )
+        w.grid(row=3, column=1, sticky='w')
+        self.map_ortho_widgets.append(w)
+
+        ttk.Label(self.map_option_grid, text='Longitude: ').grid(
+            row=3, column=2, **label_kw
+        )
+        w = ttk.Entry(self.map_option_grid, textvariable=self.map_lon, width=width)
+        w.grid(row=3, column=3, sticky='w')
+        self.map_ortho_widgets.append(w)
+
+        ttk.Label(self.map_option_grid, text='Latitude: ').grid(
+            row=3, column=4, **label_kw
+        )
+        w = ttk.Entry(self.map_option_grid, textvariable=self.map_lat, width=width)
+        w.grid(row=3, column=5, sticky='w')
+        self.map_ortho_widgets.append(w)
 
         message = '\n'.join(
             [
                 '',
                 'Click SAVE below to save the requested files',
-                '',
                 'For larger files, backplane generation, mapping, and saving can take ~1 minute',
                 '',
             ]
@@ -1816,7 +1879,7 @@ class SaveObservation(Popup):
 
         ttk.Checkbutton(
             self.menu_frame,
-            text='Keep popup open after saving files',
+            text='Keep this popup open after saving files',
             variable=self.keep_open,
         ).pack()
 
@@ -1836,13 +1899,21 @@ class SaveObservation(Popup):
             stringvar.set(path)
 
     def save_nav_toggle(self, *_) -> None:
-        self.toggle(self.save_nav, self.nav_widgets)
+        self.toggle(bool(self.save_nav.get()), self.nav_widgets)
 
     def save_map_toggle(self, *_) -> None:
-        self.toggle(self.save_map, self.map_widgets)
+        map_enabled = bool(self.save_map.get())
+        projection_type = self.map_projection.get()
+        self.toggle(map_enabled, self.map_widgets)
+        self.toggle(
+            map_enabled and projection_type in {'rectangular'}, self.map_rect_widgets
+        )
+        self.toggle(
+            map_enabled and projection_type in {'orthographic', 'azimuthal'},
+            self.map_ortho_widgets,
+        )
 
-    def toggle(self, intvar: tk.IntVar, widgets: list[tk.Widget]) -> None:
-        enabled = bool(intvar.get())
+    def toggle(self, enabled: bool, widgets: list[tk.Widget]) -> None:
         for widget in widgets:
             if enabled:
                 if isinstance(widget, ttk.Combobox):
@@ -1857,8 +1928,7 @@ class SaveObservation(Popup):
             self.save_button['state'] = 'disable'
 
     def click_save(self) -> None:
-        if self.try_run_save():
-            self.close_window()
+        self.try_run_save()
 
     def click_cancel(self) -> None:
         self.close_window()
@@ -1869,13 +1939,13 @@ class SaveObservation(Popup):
     def try_run_save(self) -> bool:
         save_nav = bool(self.save_nav.get())
         save_map = bool(self.save_map.get())
+        map_kw: _MapKwargs = {}
 
         path_map = self.path_map.get().strip()
         path_nav = self.path_nav.get().strip()
 
         keep_open = bool(self.keep_open.get())
 
-        degree_interval = 1
         interpolation = 'linear'
 
         if (save_nav and len(path_nav) == 0) or (save_map and len(path_map) == 0):
@@ -1885,11 +1955,37 @@ class SaveObservation(Popup):
             )
             return False
 
-        if save_map:
-            degree_interval = self.get_float(
-                self.degree_interval, name='degree interval', positive=True, finite=True
-            )
-            interpolation = self.map_interpolation.get()
+        try:
+            if save_map:
+                interpolation = self.map_interpolation.get()
+                map_kw['projection'] = self.map_projection.get()
+                if map_kw['projection'] in {'rectangular'}:
+                    map_kw['degree_interval'] = self.get_float(
+                        self.map_degree_interval,
+                        name='degree interval',
+                        positive=True,
+                        finite=True,
+                    )
+                if map_kw['projection'] in {'orthographic', 'azimuthal'}:
+                    map_kw['size'] = self.get_int(
+                        self.map_output_size,
+                        name='output size',
+                        positive=True,
+                    )
+                    map_kw['lon'] = self.get_float(
+                        self.map_lon,
+                        name='longitude',
+                        positive=False,
+                        finite=True,
+                    )
+                    map_kw['lat'] = self.get_float(
+                        self.map_lat,
+                        name='latitude',
+                        positive=False,
+                        finite=True,
+                    )
+        except ValueError:
+            return False
 
         # If we get to this point, everything should (hopefully) be working
 
@@ -1899,18 +1995,18 @@ class SaveObservation(Popup):
             path_nav=path_nav,
             save_map=save_map,
             path_map=path_map,
-            degree_interval=degree_interval,
             interpolation=interpolation,
+            map_kw=map_kw,
             keep_open=keep_open,
         )
         try:
             saving_process.run_save()
         except Exception as e:
+            traceback.print_exc()
             tkinter.messagebox.showwarning(
                 title=f'Error saving files',
                 message=f'Error: {e}' + '\n\nSee terminal for more details',
             )
-            traceback.print_exc()
             return False
         finally:
             self.gui.get_observation()._remove_progress_hook()
@@ -1933,8 +2029,8 @@ class SavingProgress(Popup):
         path_nav: str,
         save_map: bool,
         path_map: str,
-        degree_interval: float,
         interpolation: str,
+        map_kw: _MapKwargs,
         keep_open: bool,
     ):
         self.parent = parent
@@ -1944,8 +2040,8 @@ class SavingProgress(Popup):
         self.path_nav = path_nav
         self.save_map = save_map
         self.path_map = path_map
-        self.degree_interval = degree_interval
         self.interpolation = interpolation
+        self.map_kw = map_kw
 
         self.keep_open = keep_open
 
@@ -1971,15 +2067,14 @@ class SavingProgress(Popup):
             self.nav_widgets = self.make_widgets('Saving navigated observation...')
         if self.save_map:
             self.map_widgets = self.make_widgets('Saving mapped observation...')
-        if self.keep_open:
-            button_frame = ttk.Frame(self.frame)
-            button_frame.pack(padx=10, pady=10, fill='x')
-            self.close_button = ttk.Button(
-                button_frame,
-                command=self.click_close,
-                text='Close',
-                width=10,
-            )
+        button_frame = ttk.Frame(self.frame)
+        button_frame.pack(padx=10, pady=10, fill='x')
+        self.close_button = ttk.Button(
+            button_frame,
+            command=self.click_close,
+            text='Close',
+            width=10,
+        )
 
     def make_widgets(self, label: str) -> dict[str, tk.Widget]:
         frame = ttk.Frame(self.frame)
@@ -2014,18 +2109,18 @@ class SavingProgress(Popup):
             )
             observation.save_mapped_observation(
                 self.path_map,
-                degree_interval=self.degree_interval,
                 interpolation=self.interpolation,  # type: ignore
+                **self.map_kw,
                 **save_kwargs,
             )
             observation._remove_progress_hook()
-        if self.keep_open:
-            self.close_button.pack()
-            self.window.title('Saving files complete')
+        self.close_button.pack()
+        self.window.title('Saving files complete')
 
     def click_close(self) -> None:
         self.destroy()
-        self.parent.close_window()
+        if not self.keep_open:
+            self.parent.close_window()
 
     def destroy(self) -> None:
         self.window.destroy()

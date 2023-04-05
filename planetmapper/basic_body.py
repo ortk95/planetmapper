@@ -1,16 +1,10 @@
 import datetime
-from typing import Callable, Literal, cast
+from typing import cast
 
-import matplotlib.patheffects as path_effects
-import matplotlib.pyplot as plt
-import matplotlib.transforms
 import numpy as np
 import spiceypy as spice
-from matplotlib.axes import Axes
-from spiceypy.utils.exceptions import NotFoundError
 
-from . import data_loader, utils
-from .base import SpiceBase, Numeric
+from .base import SpiceBase
 
 
 class BasicBody(SpiceBase):
@@ -73,7 +67,6 @@ class BasicBody(SpiceBase):
             # convert input datetime to UTC, then to a string compatible with spice
             utc = utc.replace(tzinfo=datetime.timezone.utc)
             utc = utc.strftime(self._DEFAULT_DTM_FORMAT_STRING)
-        self.utc = utc
 
         self.target = self.standardise_body_name(target)
         self.observer = self.standardise_body_name(observer)
@@ -81,8 +74,9 @@ class BasicBody(SpiceBase):
         self.aberration_correction = aberration_correction
 
         # Get target properties and state
-        self.et = spice.utc2et(self.utc)
+        self.et = spice.utc2et(utc)
         self.dtm: datetime.datetime = self.et2dtm(self.et)
+        self.utc = self.dtm.strftime(self._DEFAULT_DTM_FORMAT_STRING)
         self.target_body_id: int = spice.bodn2c(self.target)
 
         starg, lt = spice.spkezr(
@@ -105,3 +99,13 @@ class BasicBody(SpiceBase):
 
     def __repr__(self) -> str:
         return f'BasicBody({self.target!r}, {self.utc!r})'
+
+    def _get_equality_tuple(self) -> tuple:
+        return (
+            self.target,
+            self.utc,
+            self.observer,
+            self.observer_frame,
+            self.aberration_correction,
+            super()._get_equality_tuple(),
+        )

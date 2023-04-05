@@ -63,6 +63,17 @@ class SpiceBase:
                 kernel_path=kernel_path, manual_kernels=manual_kernels
             )
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}()'
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        return self._get_equality_tuple() == other._get_equality_tuple()
+
+    def _get_equality_tuple(self) -> tuple:
+        return (self._optimize_speed,)
+
     def standardise_body_name(self, name: str | int) -> str:
         """
         Return a standardised version of the name of a SPICE body.
@@ -350,13 +361,14 @@ def load_kernels(*paths, clear_before: bool = False) -> list[str]:
     return list(kernels)
 
 
-def set_kernel_path(path: str) -> None:
+def set_kernel_path(path: str | None) -> None:
     """
     Set the path of the directory containing SPICE kernels. See
     :ref:`the kernel directory documentation<kernel directory>` for more detail.
 
     Args:
-        path: Directory which PlanetMapper will search for SPICE kernels.
+        path: Directory which PlanetMapper will search for SPICE kernels. If `None`,
+            then the default value of `'~/spice_kernels/'` will be used.
     """
     _KERNEL_DATA['kernel_path'] = path
 

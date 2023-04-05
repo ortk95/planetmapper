@@ -137,20 +137,20 @@ if True:
     observation.plot_backplane_map('EMISSION', ax=axs[1, 1])
 
     # Plot a mapped RGB image of the data in the top right
-    degree_interval = 0.25  # Plot maps with 4 pixels/degree
+    _degree_interval = 0.25  # Plot maps with 4 pixels/degree
     emission_cutoff = 80
 
-    mapped_data = observation.get_mapped_data(degree_interval)  # get the mapped data
+    mapped_data = observation.get_mapped_data(_degree_interval)  # get the mapped data
     rgb_map = np.moveaxis(mapped_data, 0, 2)  # imshow needs wavelength index last
     rgb_map = planetmapper.utils.normalise(rgb_map)  # normalise to make plot look nicer
 
     # Only plot areas with emission angles <80deg
-    emission_map = observation.get_backplane_map('EMISSION', degree_interval)
+    emission_map = observation.get_backplane_map('EMISSION', _degree_interval)
     for idx in range(3):
         rgb_map[:, :, idx][np.where(emission_map > emission_cutoff)] = 1
 
     # Display mapped image and add a useful annotation
-    observation.imshow_map(rgb_map, ax=axs[0, 1])
+    observation.plot_map(rgb_map, ax=axs[0, 1])
     axs[0, 1].annotate(
         f'Showing emission angles < {emission_cutoff}°',
         (0.005, 0.99),
