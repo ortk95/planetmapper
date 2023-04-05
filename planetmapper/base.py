@@ -72,7 +72,7 @@ class SpiceBase:
         return self._get_equality_tuple() == other._get_equality_tuple()
 
     def _get_equality_tuple(self) -> tuple:
-        return (self._optimize_speed,)
+        return (self._optimize_speed, repr(self))
 
     def standardise_body_name(self, name: str | int) -> str:
         """

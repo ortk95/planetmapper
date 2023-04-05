@@ -147,7 +147,7 @@ class Observation(BodyXY):
     def _get_equality_tuple(self) -> tuple:
         return (
             self.path,
-            self.data.tolist(),
+            self.data.data,
             self.header,
             super()._get_equality_tuple(),
         )

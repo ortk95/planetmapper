@@ -12,3 +12,4 @@ observation = planetmapper.Observation('~/Downloads/test.fits')
 observation.plot_backplane_map(
     'LON-GRAPHIC', projection='orthographic', lat=90, show=True
 )
+print(observation._get_equality_tuple())
