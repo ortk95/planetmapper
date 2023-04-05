@@ -12,7 +12,7 @@ from astropy.io import fits
 from astropy.utils.exceptions import AstropyWarning
 
 from . import common, utils
-from .body_xy import BodyXY, _MapKwargs, Unpack, _cache_clearable_result_with_args
+from .body_xy import BodyXY, _MapKwargs, Unpack, _cache_clearable_result
 from .progress import progress_decorator, SaveMapProgressHookCLI, SaveNavProgressHookCLI
 
 T = TypeVar('T')
@@ -272,8 +272,9 @@ class Observation(BodyXY):
                 is likely because the file was not created by `planetmapper`.
         """
         if (
-            self._make_fits_kw('MAP PROJECTION') in self.header or 
-            self._make_fits_kw('DEGREE-INTERVAL') in self.header):
+            self._make_fits_kw('MAP PROJECTION') in self.header
+            or self._make_fits_kw('DEGREE-INTERVAL') in self.header
+        ):
             raise ValueError('FITS header refers to mapped data')
         try:
             self.set_disc_params(
@@ -522,7 +523,7 @@ class Observation(BodyXY):
         # Return a copy so that the cached value isn't tainted by any modifications
         return self._get_mapped_data(interpolation=interpolation, **map_kwargs).copy()
 
-    @_cache_clearable_result_with_args
+    @_cache_clearable_result
     @progress_decorator
     def _get_mapped_data(
         self,

@@ -62,7 +62,7 @@ def _cache_clearable_result(fn: Callable[[S], T]) -> Callable[[S], T]:
     return decorated
 
 
-def _cache_clearable_result_with_args(
+def _cache_clearable_result(
     fn: Callable[Concatenate[S, P], T]
 ) -> Callable[Concatenate[S, P], T]:
     """
@@ -1951,7 +1951,7 @@ class BodyXY(Body):
         """
         return self._get_radec_map(**map_kwargs)[:, :, 1]
 
-    @_cache_clearable_result_with_args
+    @_cache_clearable_result
     @progress_decorator
     def _get_xy_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
