@@ -8,4 +8,7 @@ import datetime
 from astropy.io import fits
 
 observation = planetmapper.Observation('~/Downloads/test.fits')
-observation.run_gui()
+# observation.run_gui()
+observation.plot_backplane_map(
+    'LON-GRAPHIC', projection='orthographic', lat=90, show=True
+)
