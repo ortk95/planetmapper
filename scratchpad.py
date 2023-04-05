@@ -7,7 +7,5 @@ import numpy as np
 import datetime
 from astropy.io import fits
 
-observation = planetmapper.Observation(
-    '~/Downloads/test.fits'
-)
+observation = planetmapper.Observation('~/Downloads/test.fits')
 observation.run_gui()

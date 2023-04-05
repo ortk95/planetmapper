@@ -29,6 +29,7 @@ from matplotlib.backends._backend_tk import NavigationToolbar2Tk  # TODO delete 
 
 from . import base, data_loader, utils
 from .body import Body, BasicBody, NotFoundError
+from .body_xy import _MapKwargs
 from .observation import Observation
 from . import progress
 
@@ -1755,7 +1756,6 @@ class SaveObservation(Popup):
         self.map_lat = tk.StringVar(value=str(0))
         self.map_output_size = tk.StringVar(value=str(100))
         self.map_interpolation = tk.StringVar(value='linear')
-        # TODO actually save these values
 
         self.keep_open = tk.IntVar(value=1)
 
@@ -1940,13 +1940,13 @@ class SaveObservation(Popup):
     def try_run_save(self) -> bool:
         save_nav = bool(self.save_nav.get())
         save_map = bool(self.save_map.get())
+        map_kw: _MapKwargs = {}
 
         path_map = self.path_map.get().strip()
         path_nav = self.path_nav.get().strip()
 
         keep_open = bool(self.keep_open.get())
 
-        degree_interval = 1
         interpolation = 'linear'
 
         if (save_nav and len(path_nav) == 0) or (save_map and len(path_map) == 0):
@@ -1956,14 +1956,37 @@ class SaveObservation(Popup):
             )
             return False
 
-        if save_map:
-            degree_interval = self.get_float(
-                self.map_degree_interval,
-                name='degree interval',
-                positive=True,
-                finite=True,
-            )
-            interpolation = self.map_interpolation.get()
+        try:
+            if save_map:
+                interpolation = self.map_interpolation.get()
+                map_kw['projection'] = self.map_projection.get()
+                if map_kw['projection'] in {'rectangular'}:
+                    map_kw['degree_interval'] = self.get_float(
+                        self.map_degree_interval,
+                        name='degree interval',
+                        positive=True,
+                        finite=True,
+                    )
+                if map_kw['projection'] in {'orthographic', 'azimuthal'}:
+                    map_kw['size'] = self.get_int(
+                        self.map_output_size,
+                        name='output size',
+                        positive=True,
+                    )
+                    map_kw['lon'] = self.get_float(
+                        self.map_lon,
+                        name='longitude',
+                        positive=False,
+                        finite=True,
+                    )
+                    map_kw['lat'] = self.get_float(
+                        self.map_lat,
+                        name='latitude',
+                        positive=False,
+                        finite=True,
+                    )
+        except ValueError:
+            return False
 
         # If we get to this point, everything should (hopefully) be working
 
@@ -1973,8 +1996,8 @@ class SaveObservation(Popup):
             path_nav=path_nav,
             save_map=save_map,
             path_map=path_map,
-            degree_interval=degree_interval,
             interpolation=interpolation,
+            map_kw=map_kw,
             keep_open=keep_open,
         )
         try:
@@ -2007,8 +2030,8 @@ class SavingProgress(Popup):
         path_nav: str,
         save_map: bool,
         path_map: str,
-        degree_interval: float,
-        interpolation: str,
+        interpolation:str,
+        map_kw: _MapKwargs,
         keep_open: bool,
     ):
         self.parent = parent
@@ -2018,8 +2041,8 @@ class SavingProgress(Popup):
         self.path_nav = path_nav
         self.save_map = save_map
         self.path_map = path_map
-        self.degree_interval = degree_interval
-        self.interpolation = interpolation
+        self.interpolation=interpolation
+        self.map_kw = map_kw
 
         self.keep_open = keep_open
 
@@ -2087,10 +2110,7 @@ class SavingProgress(Popup):
                 SaveMapProgressHookGUI(n_wavelengths, **self.map_widgets)
             )
             observation.save_mapped_observation(
-                self.path_map,
-                degree_interval=self.degree_interval,
-                interpolation=self.interpolation,  # type: ignore
-                **save_kwargs,
+                self.path_map, interpolation=self.interpolation, **self.map_kw, **save_kwargs
             )
             observation._remove_progress_hook()
         if self.keep_open:
@@ -2099,7 +2119,6 @@ class SavingProgress(Popup):
 
     def click_close(self) -> None:
         self.destroy()
-        self.parent.close_window()
 
     def destroy(self) -> None:
         self.window.destroy()
