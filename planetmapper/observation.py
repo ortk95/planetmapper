@@ -119,6 +119,9 @@ class Observation(BodyXY):
 
         # TODO validate/standardise shape of data here (cube etc.)
         self.data = np.asarray(self.data)
+        if len(self.data.shape) == 2:
+            # Turn data into cube for consistency
+            self.data = self.data[np.newaxis, ...]
         if self.header is not None:
             # use values from header to fill in arguments (e.g. target) which aren't
             # specified by the user

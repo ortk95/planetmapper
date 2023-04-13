@@ -7,9 +7,7 @@ import numpy as np
 import datetime
 from astropy.io import fits
 
-observation = planetmapper.Observation('~/Downloads/test.fits')
-# observation.run_gui()
-observation.plot_backplane_map(
-    'LON-GRAPHIC', projection='orthographic', lat=90, show=True
-)
-print(observation._get_equality_tuple())
+
+image = np.random.rand(100, 100)
+observation = planetmapper.Observation(data=image, target='JUPITER')
+observation.run_gui()

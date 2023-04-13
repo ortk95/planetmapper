@@ -34,5 +34,6 @@ This is likely to be due to an issue with your SPICE kernels or settings, possib
 
 - Make sure you are using the correct observer - e.g. a planet will appear in a different position from Earth and from JWST.
 - Make sure you are using the correct observation time - times in PlanetMapper default to UTC, so make sure there are no time zone conversions needed.
-- Make sure you have the latest version of any SPICE kernels, especially for any observers like JWST which have have locations which are difficult to predict accurately.
+- Make sure you have the latest version of any SPICE kernels, especially for any observers like HST or JWST which have have locations which are difficult to predict accurately.
 - Make sure you are using the correct aberration correction.
+- If you are using WCS information saved in the FITS header to automatically set the disc position, note that telescope pointing information (i.e. the WCS information) is never pefect. For example, due to the errors in guide star tracking, JWST pointing is only accurate to ~0.5".
