@@ -110,7 +110,7 @@ class TestObservation(unittest.TestCase):
             )
 
         with self.subTest('data+target+observer+utc'):
-            data = np.ones((5, 6))
+            data = np.ones((5, 6, 7))
             obs = Observation(
                 data=data,
                 target='Jupiter',
@@ -124,7 +124,7 @@ class TestObservation(unittest.TestCase):
             self.assertTrue(np.array_equal(obs.data, data))
 
         with self.subTest('data+header+target+observer+utc'):
-            data = np.ones((5, 6))
+            data = np.ones((5, 6, 7))
             header = fits.Header({'key': 'value'})
             obs = Observation(
                 data=data,
@@ -140,8 +140,26 @@ class TestObservation(unittest.TestCase):
             self.assertEqual(obs.header, header)
             self.assertTrue(np.array_equal(obs.data, data))
 
-        with self.subTest('data+header'):
+
+        with self.subTest('image+header'):
             data = np.ones((5, 6))
+            header = fits.Header(
+                {'OBJECT': 'jupiter', 'TELESCOP': 'HST', 'DATE-OBS': '2005-01-01'}
+            )
+            obs = Observation(
+                data=data,
+                header=header,
+            )
+            self.assertIsNone(obs.path)
+            self.assertEqual(obs.target, 'JUPITER')
+            self.assertEqual(obs.observer, 'HST')
+            self.assertEqual(obs.utc, '2005-01-01T00:00:00.000000')
+            self.assertEqual(obs.header, header)
+            data_expected = data[np.newaxis, :, :]
+            self.assertTrue(np.array_equal(obs.data, data_expected))
+
+        with self.subTest('data+header'):
+            data = np.ones((5, 6, 7))
             header = fits.Header(
                 {'OBJECT': 'jupiter', 'TELESCOP': 'HST', 'DATE-OBS': '2005-01-01'}
             )
@@ -157,7 +175,7 @@ class TestObservation(unittest.TestCase):
             self.assertTrue(np.array_equal(obs.data, data))
 
         with self.subTest('data+header+mix'):
-            data = np.ones((5, 6))
+            data = np.ones((5, 6, 7))
             header = fits.Header({'OBJECT': 'jupiter', 'DATE-OBS': '2005-01-01'})
             obs = Observation(
                 data=data,
@@ -172,7 +190,7 @@ class TestObservation(unittest.TestCase):
             self.assertTrue(np.array_equal(obs.data, data))
 
         with self.subTest('data+header+override'):
-            data = np.ones((5, 6))
+            data = np.ones((5, 6, 7))
             header = fits.Header(
                 {'OBJECT': 'mars', 'TELESCOP': 'HST', 'DATE-OBS': '2005-01-01'}
             )
