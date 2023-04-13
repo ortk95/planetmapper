@@ -67,7 +67,7 @@ DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
     'other_bodies': dict(zorder=3.8, marker='+', color='w', s=36),
     'other_bodies_labels': dict(zorder=3.81, color='grey'),
     'marked_coord': dict(zorder=4, color='cyan', linewidth=0.5, linestyle='dotted'),
-    'image': dict(zorder=0.9, cmap='inferno', vmin=0, vmax=100),
+    'image': dict(zorder=0.9, cmap='inferno'),
     '_': dict(
         grid_interval=30,
         image_mode='single',
@@ -76,6 +76,9 @@ DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
         image_idx_g=1,
         image_idx_b=2,
         image_gamma=1,
+        image_vmin=0,
+        image_vmax=100,
+        image_limit_type='absolute',
     ),
 }
 
@@ -84,6 +87,7 @@ LINESTYLES = ['solid', 'dashed', 'dotted', 'dashdot']
 MARKERS = ['x', '+', 'o', '.', '*', 'v', '^', '<', '>', ',', 'D', 'd', '|', '_']
 GRID_INTERVALS = ['10', '30', '45', '90']
 CMAPS = ['gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis']
+LIMIT_TYPES = ['absolute', 'percentile']
 
 MAP_INTERPOLATIONS = ('nearest', 'linear', 'quadratic', 'cubic')
 MAP_PROJECTIONS = ('rectangular', 'orthographic', 'azimuthal')
@@ -1009,12 +1013,22 @@ class GUI:
         self.remove_artists('image')
 
         mode = self.plot_settings['_'].setdefault('image_mode', 'single')
+        vmin = self.plot_settings['_'].setdefault('image_vmin', 0)
+        vmax = self.plot_settings['_'].setdefault('image_vmax', 1)
+        limit_type = self.plot_settings['_'].setdefault('image_limit_type', 'absolute')
+
         image = self.image_modes[mode][0]()  # type: ignore
+
+        if limit_type == 'percentile':
+            vmin = np.nanpercentile(image, vmin)
+            vmax = np.nanpercentile(image, vmax)
 
         self.plot_handles['image'].append(
             self.ax.imshow(
                 image,
                 origin='lower',
+                vmin=vmin,
+                vmax=vmax,
                 **self.plot_settings['image'],
             )
         )
@@ -2313,8 +2327,16 @@ class PlotImageSetting(ArtistSetting):
         general_settings = self.gui.plot_settings['_']
 
         self.cmap = tk.StringVar(value=settings.setdefault('cmap', 'gray'))
-        self.image_vmin = tk.StringVar(value=str(settings.setdefault('vmin', 0)))
-        self.image_vmax = tk.StringVar(value=str(settings.setdefault('vmax', 100)))
+
+        self.image_vmin = tk.StringVar(
+            value=str(general_settings.setdefault('image_vmin', 0))
+        )
+        self.image_vmax = tk.StringVar(
+            value=str(general_settings.setdefault('image_vmax', 100))
+        )
+        self.image_limit_type = tk.StringVar(
+            value=str(general_settings.setdefault('image_limit_type', 'absolute'))
+        )
 
         self.image_mode = tk.StringVar(
             value=general_settings.setdefault('image_mode', 'single')
@@ -2364,7 +2386,7 @@ class PlotImageSetting(ArtistSetting):
                     width=10,
                 )
 
-        self.grid: list[tuple[tk.Widget, tk.Widget, set[IMAGE_MODE]]] = [
+        self.grid: list[tuple[tk.Widget, tk.Widget, set[IMAGE_MODE|Literal['_readonly']]]] = [
             (
                 ttk.Label(frame, text='Wavelength index (single): '),
                 IndexInput(self.image_idx_single),
@@ -2431,14 +2453,32 @@ class PlotImageSetting(ArtistSetting):
                 ),
                 {'single', 'sum'},
             ),
+            (
+                ttk.Label(frame, text='vmin/vmax type: '),
+                ttk.Combobox(
+                    frame,
+                    textvariable=self.image_limit_type,
+                    values=LIMIT_TYPES,
+                    width=10,
+                    state='readonly',
+                ),
+                {'single', 'sum', '_readonly'},
+            ),
         ]
         self.add_to_menu_grid([(a, b) for a, b, c in self.grid], frame=frame)
 
         msg = '\n'.join(
             [
+                '',
                 'Images are scaled to vary from 0 to 100,',
                 'so set vmin=0 and vmax=100 to show the',
                 'entire dynamic range.',
+                '',
+                'Set vmin/vmax type to "percentile" to',
+                'calculate the limits as percentiles of the',
+                'data in the image. This can be useful if',
+                'your data has extreme outliers (e.g. try',
+                'vmin=1, vmax=99, type=percentile).',
             ]
         )
         ttk.Label(self.grid_frame, text=msg).pack()
@@ -2450,7 +2490,7 @@ class PlotImageSetting(ArtistSetting):
         mode = self.image_mode.get()
         for l, widget, modes in self.grid:
             if mode in modes:
-                widget['state'] = 'normal'
+                widget['state'] = 'readonly' if '_readonly' in modes else 'normal'
             else:
                 widget['state'] = 'disable'
 
@@ -2485,13 +2525,14 @@ class PlotImageSetting(ArtistSetting):
                 self.image_gamma, 'gamma', positive=False
             )
             if image_mode in {'single', 'sum'}:
-                settings['vmin'] = self.get_float(
+                general_settings['image_limit_type'] = self.image_limit_type.get()
+                general_settings['image_vmin'] = self.get_float(
                     self.image_vmin, 'vmin', positive=False
                 )
-                settings['vmax'] = self.get_float(
+                general_settings['image_vmax'] = self.get_float(
                     self.image_vmax, 'vmax', positive=False
                 )
-                if settings['vmin'] >= settings['vmax']:
+                if general_settings['image_vmin'] >= general_settings['image_vmax']:
                     tkinter.messagebox.showwarning(
                         title='Error parsing limits',
                         message=f'vmin must be less than vmax',
