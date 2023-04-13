@@ -38,31 +38,7 @@ S = TypeVar('S')
 P = ParamSpec('P')
 
 
-def _cache_clearable_result(fn: Callable[[S], T]) -> Callable[[S], T]:
-    """
-    Decorator to cache the output of a method call.
-
-    This requires that the class has a `self._cache` dict which can be used to store
-    the cached result. The dictionary key is derived from the name of the decorated
-    function.
-
-    The results cached by this decorator can be cleared using `self._cache.clear()`, so
-    this is useful for results which need to be invalidated (i.e. backplane images
-    which are invalidated the moment the disc params are changed). If the result is
-    stable (i.e. backplane maps) then use `_cache_stable_result` instead.
-    """
-
-    @functools.wraps(fn)
-    def decorated(self):
-        k = fn.__name__
-        if k not in self._cache:
-            self._cache[k] = fn(self)
-        return self._cache[k]
-
-    return decorated
-
-
-def _cache_clearable_result_with_args(
+def _cache_clearable_result(
     fn: Callable[Concatenate[S, P], T]
 ) -> Callable[Concatenate[S, P], T]:
     """
@@ -100,7 +76,7 @@ def _cache_stable_result(
     Very roughly, this is a type-hinted version of `functools.lru_cache` that doesn't
     cache self.
 
-    See _cache_clearable_result_with_args for more details.
+    See _cache_clearable_result for more details.
     """
 
     @functools.wraps(fn)
@@ -1951,7 +1927,7 @@ class BodyXY(Body):
         """
         return self._get_radec_map(**map_kwargs)[:, :, 1]
 
-    @_cache_clearable_result_with_args
+    @_cache_clearable_result
     @progress_decorator
     def _get_xy_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
