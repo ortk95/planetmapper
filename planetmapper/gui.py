@@ -27,7 +27,7 @@ import matplotlib as mpl
 
 from matplotlib.backends._backend_tk import NavigationToolbar2Tk  # TODO delete this?
 
-from . import base, data_loader, utils
+from . import base, common, data_loader, utils
 from .body import Body, BasicBody, NotFoundError
 from .body_xy import _MapKwargs
 from .observation import Observation
@@ -99,7 +99,7 @@ DEFAULT_HINT = (
 
 def _main(*args):
     """Called with `planetmapper` from the command line"""
-    print('Launching planetmapper...')
+    print(f'Launching PlanetMapper {common.__version__}')
     gui = GUI()
     if args:
         gui.set_observation(Observation(args[0]))
