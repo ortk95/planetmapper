@@ -3070,9 +3070,9 @@ class OutlinedText(Text):
 
 class CustomNavigationToolbar(NavigationToolbar2Tk):
     def __init__(self, canvas, window, *, pack_toolbar: bool = True, gui: GUI) -> None:
-        # Default tooltips don't work with tk (on my laptop with dark mode at lease)
+        # Default tooltips don't work with tk (on my laptop with dark mode at least)
         # so disable them here by setting to None, then use our custom tooltips instead.
-        # This list also removes the Save and Subplots buttons which we don't want.
+        # This list also removes the and Subplots button which we don't want.
         self.toolitems = (
             ('Home', None, 'home', 'home'),
             ('Back', None, 'back', 'back'),
@@ -3080,6 +3080,8 @@ class CustomNavigationToolbar(NavigationToolbar2Tk):
             (None, None, None, None),
             ('Pan', None, 'move', 'pan'),
             ('Zoom', None, 'zoom_to_rect', 'zoom'),
+            (None, None, None, None),
+            ('Save', None, 'filesave', 'save_figure'),
         )
         super().__init__(canvas, window, pack_toolbar=pack_toolbar)
         try:
