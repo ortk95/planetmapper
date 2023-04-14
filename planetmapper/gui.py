@@ -92,9 +92,7 @@ LIMIT_TYPES = ['absolute', 'percentile']
 MAP_INTERPOLATIONS = ('nearest', 'linear', 'quadratic', 'cubic')
 MAP_PROJECTIONS = ('rectangular', 'orthographic', 'azimuthal')
 
-DEFAULT_HINT = (
-    'Use the various options in "Find disc" to automatically adjust the disc position'
-)
+DEFAULT_HINT = ''
 
 
 def _main(*args):
@@ -321,6 +319,7 @@ class GUI:
             self.run_all_ui_callbacks()
             self.rebuild_plot()
             self.root.title(self.get_observation().get_description(multiline=False))
+            self.reset_help_hint()
 
         self.click_locations = []
         self.clear_click_location()
@@ -438,7 +437,7 @@ class GUI:
                 ('↻', 'clockwise', self.rotate_right, 1, 0),
             ],
             button_tooltip_base='Rotate fitted disc {hint}',
-            entry_tooltip='Set the rotation (in degrees) of the disc',
+            entry_tooltip='Set the rotation of the disc in degrees',
             numeric_entries=[('rotation', 'Rotation (°)')],
         )
 
@@ -450,7 +449,7 @@ class GUI:
                 ('+', 'Increase', self.increase_radius, 1, 0),
             ],
             button_tooltip_base='{hint} fitted disc radius',
-            entry_tooltip='Set the equatorial radius, r0, in pixels of the disc',
+            entry_tooltip='Set the equatorial radius of the disc, r0, in pixels',
             numeric_entries=[
                 ('r0', 'r0'),
                 ('plate_scale_arcsec', 'arcsec/pixel'),
@@ -673,9 +672,23 @@ class GUI:
         frame.pack(fill='x', padx=5, pady=1)
         self.help_hint = ttk.Label(frame, text=DEFAULT_HINT)
         self.help_hint.pack(side='left')
+        self.help_hint.bind('<Enter>', lambda e: self.reset_help_hint(hover=True))
+        self.help_hint.bind('<Leave>', lambda e: self.reset_help_hint())
+        self.reset_help_hint()
+
+    def set_help_hint(self, msg: str, *, color: str = 'black'):
+        self.help_hint.configure(text=msg, foreground=color)
+
+    def reset_help_hint(self, *, hover: bool = False):
+        path = self.get_observation().path
+        if path is None:
+            msg = ''
+        else:
+            msg = path if hover else os.path.basename(path)
+        self.set_help_hint(msg, color='gray50')
 
     def add_tooltip(
-        self, widget: Widget, msg: str, shortcut_fn: Callable | None = None
+        self, widget: Widget, msg: str, shortcut_fn: Callable | None = None, **kw
     ) -> Widget:
         if shortcut_fn is not None:
             keys = self.shortcuts.get(shortcut_fn, None)
@@ -686,14 +699,8 @@ class GUI:
                     key = key[1:-1]
                 msg = f'{msg} (keyboard shortcut: {key})'
 
-        def f_enter(event):
-            self.help_hint.configure(text=msg)
-
-        def f_leave(event):
-            self.help_hint.configure(text='')
-
-        widget.bind('<Enter>', f_enter)
-        widget.bind('<Leave>', f_leave)
+        widget.bind('<Enter>', lambda e: self.set_help_hint(msg, **kw))
+        widget.bind('<Leave>', lambda e: self.reset_help_hint())
         return widget
 
     # Coords
@@ -979,6 +986,11 @@ class GUI:
 
         self.fig.canvas.callbacks.connect(
             'button_press_event', self.figure_click_callback
+        )
+
+        self.add_tooltip(
+            self.canvas.get_tk_widget(),
+            'Customise the displayed data, colour scales and plotted features in the "Settings" tab',
         )
 
     def rebuild_plot(self) -> None:
@@ -2025,11 +2037,11 @@ class SaveObservation(Popup):
         finally:
             self.gui.get_observation()._remove_progress_hook()
 
-        self.gui.help_hint.configure(
-            text='File{s} saved successfully'.format(
-                s='s' if save_nav and save_map else ''
-            )
+        self.gui.set_help_hint(
+            'File{s} saved successfully'.format(s='s' if save_nav and save_map else ''),
+            color='green',
         )
+
         if keep_open:
             return False
         return True
@@ -2386,7 +2398,9 @@ class PlotImageSetting(ArtistSetting):
                     width=10,
                 )
 
-        self.grid: list[tuple[tk.Widget, tk.Widget, set[IMAGE_MODE|Literal['_readonly']]]] = [
+        self.grid: list[
+            tuple[tk.Widget, tk.Widget, set[IMAGE_MODE | Literal['_readonly']]]
+        ] = [
             (
                 ttk.Label(frame, text='Wavelength index (single): '),
                 IndexInput(self.image_idx_single),
