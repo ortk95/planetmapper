@@ -464,12 +464,21 @@ class Observation(BodyXY):
         This routine calculates the brightness in concentric annular apertures around
         `(x0, y0)` and sets `r0` as the radius where the brightness decreases the
         fastest. Note that this uses circular apertures, so will be less reliable for
-        targets with greater flattening.
+        targets with greater flattening and may not work well for targets which are not
+        entirely in the image frame.
+
+        Raises:
+            ValueError: if `x0` or `y0` are not within the image frame.
         """
+        if not self._xy_in_image_frame(self.get_x0(), self.get_y0()):
+            raise ValueError(
+                'x0 and y0 must be within the image frame to fit the radius'
+            )
+
         img = self._get_img_for_fitting()
         centroid = np.array([self.get_x0(), self.get_y0()])
 
-        r_ceil = int(min(*centroid, *(img.shape - centroid)))
+        r_ceil = max(int(min(*centroid, *(img.shape - centroid))), 2)
         if r_ceil > 100:
             r_list = np.linspace(1, r_ceil + 1, 100)
         else:
