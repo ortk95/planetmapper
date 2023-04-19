@@ -10,3 +10,4 @@ class TestCommon(unittest.TestCase):
         self.assertEqual(
             planetmapper.common.__url__, 'https://github.com/ortk95/planetmapper'
         )
+        # See also test_init
