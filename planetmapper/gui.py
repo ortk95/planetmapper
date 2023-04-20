@@ -1045,11 +1045,11 @@ class GUI:
         vmax = self.plot_settings['_'].setdefault('image_vmax', 1)
         limit_type = self.plot_settings['_'].setdefault('image_limit_type', 'absolute')
 
-        image = self.image_modes[mode][0]()  # type: ignore
-
-        if limit_type == 'percentile':
-            vmin = np.nanpercentile(image, vmin)
-            vmax = np.nanpercentile(image, vmax)
+        with utils.ignore_warnings('All-NaN slice encountered'):
+            image = self.image_modes[mode][0]()  # type: ignore
+            if limit_type == 'percentile':
+                vmin = np.nanpercentile(image, vmin)
+                vmax = np.nanpercentile(image, vmax)
 
         self.plot_handles['image'].append(
             self.ax.imshow(
