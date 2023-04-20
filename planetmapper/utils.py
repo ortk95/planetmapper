@@ -12,21 +12,6 @@ import matplotlib.ticker
 import numpy as np
 from matplotlib.axes import Axes
 
-class ignore_warnings(warnings.catch_warnings):
-    """
-    Context manager to ignore warnings using warnings.filterwarnings.
-    """
-
-    def __init__(self, *warining_strings: str, **kwargs):
-        super().__init__(**kwargs)
-        self.warning_strings = warining_strings
-
-    def __enter__(self):
-        out = super().__enter__()
-        for ws in self.warning_strings:
-            warnings.filterwarnings('ignore', ws)
-        return out
-
 
 def format_radec_axes(
     ax: Axes,
@@ -216,6 +201,22 @@ def decimal_degrees_to_dms_str(decimal_degrees: float, seconds_fmt: str = '') ->
     """
     d, m, s = decimal_degrees_to_dms(decimal_degrees)
     return f'{d}°{m}′{s:{seconds_fmt}}″'
+
+
+class ignore_warnings(warnings.catch_warnings):
+    """
+    Context manager to ignore general warnings using warnings.filterwarnings.
+    """
+
+    def __init__(self, *warining_strings: str, **kwargs):
+        super().__init__(**kwargs)
+        self.warning_strings = warining_strings
+
+    def __enter__(self):
+        out = super().__enter__()
+        for ws in self.warning_strings:
+            warnings.filterwarnings('ignore', ws)
+        return out
 
 
 class filter_fits_comment_warning(warnings.catch_warnings):
