@@ -174,7 +174,7 @@ class GUI:
             },
         )
         self.ui_callbacks: defaultdict[
-            SETTER_KEY, set[Callable[[], Any]]
+            SETTER_KEY | None, set[Callable[[], Any]]
         ] = defaultdict(set)
 
         self.getters: dict[SETTER_KEY, Callable[[], float]] = {
@@ -249,6 +249,8 @@ class GUI:
             for pattern in base._KERNEL_DATA['kernel_patterns']
         ]
 
+        self.delayed_actions: dict[str, tuple[Callable[[], Any], str]] = {}
+
         self.event_time_to_ignore = None
         self.gui_built = False
 
@@ -315,6 +317,13 @@ class GUI:
         else:
             self.plot_settings['_']['image_mode'] = 'sum'
 
+        self.plot_settings['_'].update(
+            image_idx_single=0,
+            image_idx_r=0,
+            image_idx_g=1,
+            image_idx_b=2,
+        )
+
         if self.gui_built:
             self.run_all_ui_callbacks()
             self.rebuild_plot()
@@ -368,6 +377,8 @@ class GUI:
                 selectbackground='#bdf',
                 selectforeground='black',
             )
+
+        self.style.map('TScale', troughcolor=[('disabled', '#d9d9d9')])
 
     def build_controls(self) -> None:
         self.notebook = ttk.Notebook(self.controls_frame)
@@ -522,7 +533,7 @@ class GUI:
         frame = ttk.LabelFrame(menu, text='Observation')
         frame.pack(fill='x', pady=5)
         frame.grid_columnconfigure(0, weight=1)
-        PlotImageSetting(
+        self.image_setting = PlotImageSetting(
             self,
             frame,
             'image',
@@ -530,6 +541,7 @@ class GUI:
             hint='the image of your observation',
             callbacks=[self.replot_image],
         )
+        self.ui_callbacks[None].add(self.image_setting.update_tool_ui_state)
 
         # Plot features
         frame = ttk.LabelFrame(menu, text='Plotted features')
@@ -960,6 +972,10 @@ class GUI:
         self.canvas.draw()
         self.update_coords(print_coords=print_coords)
 
+    def update_only_image(self) -> None:
+        self.replot_image()
+        self.canvas.draw()
+
     def build_plot(self) -> None:
         self.fig = plt.figure()
         self.ax = self.fig.add_axes([0.06, 0.03, 0.93, 0.96])
@@ -1029,11 +1045,11 @@ class GUI:
         vmax = self.plot_settings['_'].setdefault('image_vmax', 1)
         limit_type = self.plot_settings['_'].setdefault('image_limit_type', 'absolute')
 
-        image = self.image_modes[mode][0]()  # type: ignore
-
-        if limit_type == 'percentile':
-            vmin = np.nanpercentile(image, vmin)
-            vmax = np.nanpercentile(image, vmax)
+        with utils.ignore_warnings('All-NaN slice encountered'):
+            image = self.image_modes[mode][0]()  # type: ignore
+            if limit_type == 'percentile':
+                vmin = np.nanpercentile(image, vmin)
+                vmax = np.nanpercentile(image, vmax)
 
         self.plot_handles['image'].append(
             self.ax.imshow(
@@ -1196,6 +1212,23 @@ class GUI:
     def remove_artists(self, key: PLOT_KEY) -> None:
         while self.plot_handles[key]:
             self.plot_handles[key].pop().remove()
+
+    # Delayed actions
+    def add_delayed_action(self, name: str, ms: int, func: Callable[[], Any]) -> None:
+        self.cancel_delayed_action(name)
+        self.delayed_actions[name] = (
+            func,
+            self.root.after(ms, lambda: self.run_delayed_action(name)),
+        )
+
+    def cancel_delayed_action(self, name: str) -> None:
+        action = self.delayed_actions.pop(name, None)
+        if action:
+            self.root.after_cancel(action[1])
+
+    def run_delayed_action(self, name: str) -> None:
+        func, _ = self.delayed_actions.pop(name)
+        func()
 
     # Image
     def image_sum(self) -> np.ndarray:
@@ -2334,6 +2367,120 @@ class ArtistSetting(Popup):
 
 
 class PlotImageSetting(ArtistSetting):
+    REPLOT_DELAY_MS = 100
+
+    def __init__(
+        self,
+        gui: GUI,
+        parent: tk.Widget,
+        key: PLOT_KEY,
+        label: str | None = None,
+        hint: str | None = None,
+        callbacks: list[Callable[[], None]] | None = None,
+        row: int | None = None,
+    ):
+        super().__init__(gui, parent, key, label, hint, callbacks, row)
+
+        row = parent.grid_size()[1]
+
+        self.tools_frame = ttk.Frame(parent)
+        self.tools_frame.grid(
+            row=row, column=0, columnspan=2, padx=5, pady=5, sticky='nsew'
+        )
+
+        general_settings = self.gui.plot_settings['_']
+        self.single_wavelength_enabled = tk.IntVar(
+            value=int(general_settings.setdefault('image_mode', 'single') == 'single')
+        )
+        self.wavelength_variable = tk.IntVar(
+            value=int(general_settings.setdefault('image_idx_single', 0))
+        )
+
+        self.single_wavelength_checkbutton = ttk.Checkbutton(
+            self.tools_frame,
+            text='Single wavelength',
+            variable=self.single_wavelength_enabled,
+        )
+        self.single_wavelength_checkbutton.pack()
+
+        self.wavelength_slider = ttk.Scale(
+            self.tools_frame,
+            variable=self.wavelength_variable,
+            from_=0,
+            to=self.gui.get_observation().data.shape[0],
+        )
+        self.wavelength_slider.pack(fill='x')
+
+        self.enabled.trace_add('write', self.update_tool_ui_state)
+        self.single_wavelength_enabled.trace_add(
+            'write', self.on_single_wavelength_checkbutton_change
+        )
+        self.wavelength_variable.trace_add('write', self.on_wavelength_slider_change)
+
+        self.gui.add_tooltip(
+            self.single_wavelength_checkbutton,
+            'Toggle displaying single wavelength or average of all wavelengths (click Edit for more options)',
+        )
+        self.gui.add_tooltip(
+            self.wavelength_slider,
+            'Change displayed wavelength (click Edit for more options)',
+        )
+
+        self.in_tool_updating_state = False
+        self.update_tool_ui_state()
+
+    def on_single_wavelength_checkbutton_change(self, *_) -> None:
+        if self.in_tool_updating_state or self.gui.get_observation().data.shape[0] < 2:
+            return
+        is_single = bool(self.single_wavelength_enabled.get())
+        self.gui.plot_settings['_']['image_mode'] = 'single' if is_single else 'sum'
+        self.schedule_replot(skip_full_delay=True)
+
+    def on_wavelength_slider_change(self, *_) -> None:
+        if self.in_tool_updating_state or self.gui.get_observation().data.shape[0] < 2:
+            return
+
+        wavelength_idx = self.wavelength_variable.get()
+        if not self.single_wavelength_enabled.get():
+            # tick the checkbox if user changes the slider value
+            if wavelength_idx != self.gui.plot_settings['_']['image_idx_single']:
+                self.single_wavelength_enabled.set(1)
+
+        self.gui.plot_settings['_']['image_idx_single'] = wavelength_idx
+        self.schedule_replot()
+
+    def schedule_replot(self, skip_full_delay: bool = False) -> None:
+        self.gui.add_delayed_action(
+            'update_only_image',
+            1 if skip_full_delay else self.REPLOT_DELAY_MS,
+            self.gui.update_only_image,
+        )
+
+    def update_tool_ui_state(self, *_) -> None:
+        self.in_tool_updating_state = True
+        try:
+            general_settings = self.gui.plot_settings['_']
+            n_wavelengths = self.gui.get_observation().data.shape[0]
+
+            enable = self.enabled.get() and n_wavelengths > 1
+            is_single_wavelength = bool(
+                general_settings.setdefault('image_mode', 'single') == 'single'
+            )
+            wavelength_idx = int(general_settings.setdefault('image_idx_single', 0))
+
+            self.single_wavelength_enabled.set(int(is_single_wavelength))
+            self.wavelength_variable.set(wavelength_idx)
+
+            self.single_wavelength_checkbutton.configure(
+                state='normal' if enable else 'disable',
+            )
+            self.wavelength_slider.configure(
+                to=n_wavelengths - 1,
+                state='normal' if enable else 'disable',
+            )
+        finally:
+            self.in_tool_updating_state = False
+
     def make_menu(self) -> None:
         settings = self.gui.plot_settings[self.key]
         general_settings = self.gui.plot_settings['_']
@@ -2510,9 +2657,12 @@ class PlotImageSetting(ArtistSetting):
 
     def get_idx(self, stirng_variable: tk.StringVar, name: str) -> int:
         sz = self.gui.get_observation().data.shape[0]
-        return self.get_int(
+        value = self.get_int(
             stirng_variable, name=name, positive=False, minimum=-sz, maximum=sz - 1
         )
+        if value < 0:
+            value = sz - value
+        return value
 
     def apply_settings(self) -> bool:
         settings = {}
@@ -2569,6 +2719,7 @@ class PlotImageSetting(ArtistSetting):
 
         self.gui.plot_settings[self.key].update(settings)
         self.gui.plot_settings['_'].update(general_settings)
+        self.update_tool_ui_state()
         return True
 
     def get_window_size(self) -> str:
@@ -3085,11 +3236,11 @@ class CustomNavigationToolbar(NavigationToolbar2Tk):
         )
         super().__init__(canvas, window, pack_toolbar=pack_toolbar)
         try:
-            self._message_label.configure(foreground='#666666')
+            self._message_label.configure(foreground='#666666')  # type: ignore
         except:
             pass
         try:
-            for name, button in self._buttons.items():
+            for name, button in self._buttons.items():  # type: ignore
                 # Get default tooltips from super() and use them
                 for text, tooltip_text, image_file, callback in super().toolitems:
                     if text == name:

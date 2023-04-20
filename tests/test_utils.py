@@ -54,6 +54,29 @@ class TestUtils(unittest.TestCase):
                     dms_str,
                 )
 
+    def test_ignore_warnings(self):
+        warning_string1 = 'test warning string'
+        warning_string2 = 'test warning string 2'
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('always')
+            with self.assertWarns(UserWarning):
+                warnings.warn(warning_string1, UserWarning)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            with utils.ignore_warnings(warning_string1):
+                warnings.warn(warning_string1, UserWarning)
+
+            with utils.ignore_warnings(warning_string1, warning_string2):
+                warnings.warn(warning_string1, UserWarning)
+                warnings.warn(warning_string1, UserWarning)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('always')
+            with self.assertWarns(UserWarning):
+                warnings.warn(warning_string1, UserWarning)
+
     def test_filter_fits_comment_warning(self):
         card = (
             'KEY',
@@ -70,6 +93,13 @@ class TestUtils(unittest.TestCase):
         with warnings.catch_warnings():
             warnings.simplefilter('error')
             with utils.filter_fits_comment_warning():
+                header = fits.Header()
+                header.append(card)
+                header.tostring()
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('always')
+            with self.assertWarns(UserWarning):
                 header = fits.Header()
                 header.append(card)
                 header.tostring()
