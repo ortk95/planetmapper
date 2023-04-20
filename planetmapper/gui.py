@@ -249,6 +249,8 @@ class GUI:
             for pattern in base._KERNEL_DATA['kernel_patterns']
         ]
 
+        self.delayed_actions: dict[str, tuple[Callable[[], Any], str]] = {}
+
         self.event_time_to_ignore = None
         self.gui_built = False
 
@@ -376,11 +378,7 @@ class GUI:
                 selectforeground='black',
             )
 
-        self.style.map(
-            'TScale',
-            background=[('disabled', '#d9d9d9')],
-            troughcolor=[('disabled', '#d9d9d9')],
-        )
+        self.style.map('TScale', troughcolor=[('disabled', '#d9d9d9')])
 
     def build_controls(self) -> None:
         self.notebook = ttk.Notebook(self.controls_frame)
@@ -974,6 +972,10 @@ class GUI:
         self.canvas.draw()
         self.update_coords(print_coords=print_coords)
 
+    def update_only_image(self) -> None:
+        self.replot_image()
+        self.canvas.draw()
+
     def build_plot(self) -> None:
         self.fig = plt.figure()
         self.ax = self.fig.add_axes([0.06, 0.03, 0.93, 0.96])
@@ -1210,6 +1212,23 @@ class GUI:
     def remove_artists(self, key: PLOT_KEY) -> None:
         while self.plot_handles[key]:
             self.plot_handles[key].pop().remove()
+
+    # Delayed actions
+    def add_delayed_action(self, name: str, ms: int, func: Callable[[], Any]) -> None:
+        self.cancel_delayed_action(name)
+        self.delayed_actions[name] = (
+            func,
+            self.root.after(ms, lambda: self.run_delayed_action(name)),
+        )
+
+    def cancel_delayed_action(self, name: str) -> None:
+        action = self.delayed_actions.pop(name, None)
+        if action:
+            self.root.after_cancel(action[1])
+
+    def run_delayed_action(self, name: str) -> None:
+        func, _ = self.delayed_actions.pop(name)
+        func()
 
     # Image
     def image_sum(self) -> np.ndarray:
@@ -2348,6 +2367,8 @@ class ArtistSetting(Popup):
 
 
 class PlotImageSetting(ArtistSetting):
+    REPLOT_DELAY_MS = 100
+
     def __init__(
         self,
         gui: GUI,
@@ -2391,31 +2412,49 @@ class PlotImageSetting(ArtistSetting):
         self.wavelength_slider.pack(fill='x')
 
         self.enabled.trace_add('write', self.update_tool_ui_state)
-        self.single_wavelength_enabled.trace_add('write', self.on_wavelength_change)
-        self.wavelength_variable.trace_add('write', self.on_tool_change)
+        self.single_wavelength_enabled.trace_add(
+            'write', self.on_single_wavelength_checkbutton_change
+        )
+        self.wavelength_variable.trace_add('write', self.on_wavelength_slider_change)
+
+        self.gui.add_tooltip(
+            self.single_wavelength_checkbutton,
+            'Toggle displaying single wavelength or average of all wavelengths (click Edit for more options)',
+        )
+        self.gui.add_tooltip(
+            self.wavelength_slider,
+            'Change displayed wavelength (click Edit for more options)',
+        )
 
         self.in_tool_updating_state = False
         self.update_tool_ui_state()
 
-    def on_wavelength_change(self, *_) -> None:
-        # Enable single wavl when changing wavl
-        # this will then trigger the trace to call on_tool_change
-        self.single_wavelength_enabled.set(1)
+    def on_single_wavelength_checkbutton_change(self, *_) -> None:
+        if self.in_tool_updating_state or self.gui.get_observation().data.shape[0] < 2:
+            return
+        is_single = bool(self.single_wavelength_enabled.get())
+        self.gui.plot_settings['_']['image_mode'] = 'single' if is_single else 'sum'
+        self.schedule_replot(skip_full_delay=True)
 
-    def on_tool_change(self, *_) -> None:
-        if self.in_tool_updating_state:
+    def on_wavelength_slider_change(self, *_) -> None:
+        if self.in_tool_updating_state or self.gui.get_observation().data.shape[0] < 2:
             return
-        if self.gui.get_observation().data.shape[0] < 2:
-            return
-        general_settings = self.gui.plot_settings['_']
-        is_single_wavelength = bool(self.single_wavelength_enabled.get())
-        if is_single_wavelength:
-            general_settings['image_mode'] = 'single'
-            general_settings['image_idx_single'] = self.wavelength_variable.get()
-        else:
-            general_settings['image_mode'] = 'sum'
-        self.update_tool_ui_state()
+
+        wavelength_idx = self.wavelength_variable.get()
+        if not self.single_wavelength_enabled.get():
+            # tick the checkbox if user changes the slider value
+            if wavelength_idx != self.gui.plot_settings['_']['image_idx_single']:
+                self.single_wavelength_enabled.set(1)
+
+        self.gui.plot_settings['_']['image_idx_single'] = wavelength_idx
         self.schedule_replot()
+
+    def schedule_replot(self, skip_full_delay: bool = False) -> None:
+        self.gui.add_delayed_action(
+            'update_only_image',
+            1 if skip_full_delay else self.REPLOT_DELAY_MS,
+            self.gui.update_only_image,
+        )
 
     def update_tool_ui_state(self, *_) -> None:
         self.in_tool_updating_state = True
@@ -2436,15 +2475,11 @@ class PlotImageSetting(ArtistSetting):
                 state='normal' if enable else 'disable',
             )
             self.wavelength_slider.configure(
-                to=n_wavelengths,
+                to=n_wavelengths - 1,
                 state='normal' if enable else 'disable',
             )
         finally:
             self.in_tool_updating_state = False
-
-    def schedule_replot(self) -> None:
-        # TODO
-        pass
 
     def make_menu(self) -> None:
         settings = self.gui.plot_settings[self.key]
