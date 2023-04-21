@@ -3,17 +3,21 @@
 """
 Check GitHub tag version is equal to planetmapper.__version__.
 """
+import os
 import sys
-import planetmapper
+
+root = os.path.abspath(os.path.dirname(__file__))
+sys.path.append(os.path.join(root, 'planetmapper'))
+import common  #  type: ignore
 
 
 def main(tag_version: str):
-    planetmapper_version = 'v' + planetmapper.__version__
+    planetmapper_version = 'v' + common.__version__
 
     print('tag_version = {!r}'.format(tag_version))
     print(
-        'planetmapper.__version__ = {!r} ({!r})'.format(
-            planetmapper.__version__, planetmapper_version
+        'planetmapper.common.__version__ = {!r} ({!r})'.format(
+            common.__version__, planetmapper_version
         )
     )
     if tag_version == planetmapper_version:
