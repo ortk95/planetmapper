@@ -14,7 +14,7 @@ class TestInit(unittest.TestCase):
         self.assertEqual(planetmapper.__version__.strip(), planetmapper.__version__)
 
         self.assertGreater(
-            version.Version(planetmapper.__version__), version.Version('1.0')
+            version.Version(planetmapper.__version__), version.Version('1.6.2')
         )
         self.assertEqual(
             str(version.Version(planetmapper.__version__)), planetmapper.__version__

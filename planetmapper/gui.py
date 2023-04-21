@@ -2639,7 +2639,7 @@ class PlotImageSetting(ArtistSetting):
                 'calculate the limits as percentiles of the',
                 'data in the image. This can be useful if',
                 'your data has extreme outliers (e.g. try',
-                'vmin=1, vmax=99, type=percentile).',
+                'vmin=1, vmax=99 & type=percentile).',
             ]
         )
         ttk.Label(self.grid_frame, text=msg).pack()
