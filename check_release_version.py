@@ -5,6 +5,7 @@ Check GitHub tag version is equal to planetmapper.__version__.
 """
 import os
 import sys
+
 root = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(root, 'planetmapper'))
 import common  #  type: ignore
