@@ -95,9 +95,37 @@ MAP_PROJECTIONS = ('rectangular', 'orthographic', 'azimuthal')
 DEFAULT_HINT = ''
 
 
+# Deal with X11 font bug by replacing high codepoint chars with ASCII equivalents.
+# This seems to prevent the use of fonts which cause the X_OpenFont error which
+# XQuartz was producing when trying to run planetmapper over SSH on mac. This is a bit
+# of a hack and produces an uglier UI, but is better than always crashing.
+# TODO remove this when the bug is fixed in XQuartz
+# https://github.com/ortk95/planetmapper/issues/145
+try:
+    USE_X11_FONT_BUGFIX = bool(os.environ['PLANETMAPPER_USE_X11_FONT_BUGFIX'])
+except KeyError:
+    USE_X11_FONT_BUGFIX = False
+X11_FONT_BUGRIX_TRANSLATIONS = str.maketrans(
+    {
+        '↖': None,
+        '↑': '^',
+        '↗': None,
+        '←': '<',
+        '→': '>',
+        '↙': None,
+        '↓': 'v',
+        '↘': None,
+        '↺': '<',
+        '↻': '>',
+    }
+)
+
+
 def _main(*args):
     """Called with `planetmapper` from the command line"""
     print(f'Launching PlanetMapper {common.__version__}')
+    if USE_X11_FONT_BUGFIX:
+        print('Using X11 font bugfix')
     gui = GUI()
     if args:
         gui.set_observation(Observation(args[0]))
@@ -500,6 +528,7 @@ class GUI:
         button_frame = ttk.Frame(label_frame)
         button_frame.pack()
         for arrow, hint, fn, column, row in buttons:
+            arrow = self.maybe_replace_string_with_x11_bugfix(arrow)
             self.add_tooltip(
                 ttk.Button(button_frame, text=arrow, command=fn, width=1),
                 button_tooltip_base.format(hint=hint),
@@ -1363,6 +1392,12 @@ class GUI:
     # File IO
     def save_button(self) -> None:
         SaveObservation(self)
+
+    def maybe_replace_string_with_x11_bugfix(self, s: str) -> str:
+        # X11 font bug https://github.com/ortk95/planetmapper/issues/145
+        if USE_X11_FONT_BUGFIX:
+            s = s.translate(X11_FONT_BUGRIX_TRANSLATIONS)
+        return s
 
 
 class Popup:
