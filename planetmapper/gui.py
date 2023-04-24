@@ -304,7 +304,6 @@ class GUI:
             self.build_gui()
             self.bind_keyboard()
             self.root.mainloop()
-            # TODO do something when closed to kill figure etc.?
 
     def load_observation(self) -> None:
         if self.allow_open:
@@ -389,7 +388,13 @@ class GUI:
         self.build_controls()
         self.update_plot()
 
+        self.root.protocol('WM_DELETE_WINDOW', self.quit)
         self.gui_built = True
+
+    def quit(self) -> None:
+        plt.close(self.fig)
+        self.root.destroy()
+        self.gui_built = False
 
     def configure_style(self, root: tk.Tk | None) -> None:
         if root is None:
