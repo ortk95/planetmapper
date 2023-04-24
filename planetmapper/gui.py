@@ -125,7 +125,7 @@ def _main(*args):
     """Called with `planetmapper` from the command line"""
     print(f'Launching PlanetMapper {common.__version__}')
     if USE_X11_FONT_BUGFIX:
-        print('Using X11 font bugfix')
+        print('*** Using X11 font bugfix ***')
     gui = GUI()
     if args:
         gui.set_observation(Observation(args[0]))
