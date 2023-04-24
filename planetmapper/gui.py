@@ -125,7 +125,7 @@ def _main(*args):
     """Called with `planetmapper` from the command line"""
     print(f'Launching PlanetMapper {common.__version__}')
     if USE_X11_FONT_BUGFIX:
-        print('Using X11 font bugfix')
+        print('*** Using X11 font bugfix ***')
     gui = GUI()
     if args:
         gui.set_observation(Observation(args[0]))
@@ -304,7 +304,6 @@ class GUI:
             self.build_gui()
             self.bind_keyboard()
             self.root.mainloop()
-            # TODO do something when closed to kill figure etc.?
 
     def load_observation(self) -> None:
         if self.allow_open:
@@ -389,7 +388,13 @@ class GUI:
         self.build_controls()
         self.update_plot()
 
+        self.root.protocol('WM_DELETE_WINDOW', self.quit)
         self.gui_built = True
+
+    def quit(self) -> None:
+        plt.close(self.fig)
+        self.root.destroy()
+        self.gui_built = False
 
     def configure_style(self, root: tk.Tk | None) -> None:
         if root is None:
