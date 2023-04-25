@@ -1729,12 +1729,13 @@ class Body(SpiceBase):
 
         The order of precedence for the formatting is the `formatting` argument, then
         `**kwargs`, then the default formatting. For example, the following plot will
-        be red with a blue grid: ::
+        be red with a thin blue grid and green poles: ::
 
             body.plot_wireframe_radec(
                 color='r',
                 formatting={
-                    'grid': {'color': 'b'},
+                    'grid': {'color': 'b', 'linewidth': 0.5, 'linestyle': '-'},
+                    'pole': {'color': 'g'},
                 },
             )
 
