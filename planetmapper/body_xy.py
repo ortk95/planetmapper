@@ -30,7 +30,7 @@ from matplotlib.axes import Axes
 from matplotlib.collections import QuadMesh
 from spiceypy.utils.exceptions import NotFoundError
 
-from .body import Body
+from .body import Body, _WireframeKwargs
 from .progress import progress_decorator
 
 T = TypeVar('T')
@@ -943,17 +943,11 @@ class BodyXY(Body):
     def plot_wireframe_xy(
         self,
         ax: Axes | None = None,
-        color: str | tuple[float, float, float] = 'k',
         *,
-        label_poles: bool = True,
-        add_title: bool = True,
         add_axis_labels: bool = True,
-        grid_interval: float = 30,
-        indicate_equator: bool = False,
-        indicate_prime_meridian: bool = False,
         aspect_adjustable: Literal['box', 'datalim'] = 'box',
         show: bool = False,
-        **kwargs,
+        **wireframe_kwargs: Unpack[_WireframeKwargs],
     ) -> Axes:
         """
         Plot basic wireframe representation of the observation using image pixel
@@ -984,13 +978,7 @@ class BodyXY(Body):
         ax = self._plot_wireframe(
             transform=transform,
             ax=ax,
-            color=color,
-            label_poles=label_poles,
-            add_title=add_title,
-            grid_interval=grid_interval,
-            indicate_equator=indicate_equator,
-            indicate_prime_meridian=indicate_prime_meridian,
-            **kwargs,
+            **wireframe_kwargs
         )
 
         if self._test_if_img_size_valid():
