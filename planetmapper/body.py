@@ -1703,7 +1703,7 @@ class Body(SpiceBase):
         See also :func:`plot_wireframe_km` and :func:`BodyXY.plot_wireframe_xy` to plot
         the wireframe in other coordinate systems.
 
-        To plot a wireframe with the default appearance, simply use ::
+        To plot a wireframe with the default appearance, simply use: ::
 
             body.plot_wireframe_radec()
 
@@ -1713,11 +1713,12 @@ class Body(SpiceBase):
         individual components, and the `**kwargs` argument can be used to customise
         all components at once.
 
-        For example, to change the colour of the entire wireframe to red, you can use ::
+        For example, to change the colour of the entire wireframe to red, you can 
+        use: ::
 
             body.plot_wireframe_radec(color='r')
 
-        To change just the plotted terminator and dayside limb to red, use ::
+        To change just the plotted terminator and dayside limb to red, use: ::
 
             body.plot_wireframe_radec(
                 formatting={
@@ -1728,7 +1729,7 @@ class Body(SpiceBase):
 
         The order of precedence for the formatting is the `formatting` argument, then
         `**kwargs`, then the default formatting. For example, the following plot will
-        be red with a blue grid ::
+        be red with a blue grid: ::
 
             body.plot_wireframe_radec(
                 color='r',
@@ -1739,7 +1740,7 @@ class Body(SpiceBase):
 
         The default formatting is defined in :data:`DEFAULT_WIREFRAME_FORMATTING`. This
         can be modified after importing PlanetMapper to change the default appearance of
-        all wireframes ::
+        all wireframes: ::
 
             import planetmapper
             planetmapper.DEFAULT_WIREFRAME_FORMATTING['grid']['color'] = 'b'
