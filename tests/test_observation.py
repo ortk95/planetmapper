@@ -140,7 +140,6 @@ class TestObservation(unittest.TestCase):
             self.assertEqual(obs.header, header)
             self.assertTrue(np.array_equal(obs.data, data))
 
-
         with self.subTest('image+header'):
             data = np.ones((5, 6))
             header = fits.Header(
@@ -360,7 +359,9 @@ class TestObservation(unittest.TestCase):
         path = os.path.join(common_testing.TEMP_PATH, 'test_nav.fits')
 
         # test progress bar here too
-        self.observation.save_observation(path, show_progress=True)
+        self.observation.save_observation(
+            path, show_progress=True, wireframe_kwargs=dict(output_size=20, dpi=20)
+        )
         self.compare_fits_to_reference(path)
 
     def test_save_mapped_observation(self):
@@ -369,19 +370,51 @@ class TestObservation(unittest.TestCase):
 
         map_kwargs = {
             'rectangular-nearest': dict(degree_interval=30, interpolation='nearest'),
-            'rectangular-linear': dict(degree_interval=30, interpolation='linear'),
+            'rectangular-linear': dict(
+                degree_interval=30, interpolation='linear', include_wireframe=False
+            ),
             'rectangular-quadratic': dict(
-                degree_interval=30, interpolation='quadratic'
+                degree_interval=30,
+                interpolation='quadratic',
+                include_backplanes=False,
+                include_wireframe=False,
             ),
-            'rectangular-cubic': dict(degree_interval=30, interpolation='cubic'),
-            'orthographic-1': dict(projection='orthographic', size=10),
-            'orthographic-2': dict(projection='orthographic', lat=90, size=5),
+            'rectangular-cubic': dict(
+                degree_interval=30,
+                interpolation='cubic',
+                include_backplanes=False,
+                include_wireframe=False,
+            ),
+            'orthographic-1': dict(
+                projection='orthographic', size=10, include_wireframe=False
+            ),
+            'orthographic-2': dict(
+                projection='orthographic',
+                lat=90,
+                size=5,
+            ),
             'orthographic-3': dict(
-                projection='orthographic', lat=-21.3, lon=-42, size=4
+                projection='orthographic',
+                lat=-21.3,
+                lon=-42,
+                size=4,
+                include_wireframe=False,
             ),
-            'azimuthal-1': dict(projection='azimuthal', size=10),
-            'azimuthal-2': dict(projection='azimuthal', lat=-90, size=5),
-            'azimuthal-3': dict(projection='azimuthal', lat=42, lon=12.345, size=4),
+            'azimuthal-1': dict(
+                projection='azimuthal', size=10, include_wireframe=False
+            ),
+            'azimuthal-2': dict(
+                projection='azimuthal',
+                lat=-90,
+                size=5,
+            ),
+            'azimuthal-3': dict(
+                projection='azimuthal',
+                lat=42,
+                lon=12.345,
+                size=4,
+                include_wireframe=False,
+            ),
         }
 
         for map_type, map_kw in map_kwargs.items():
@@ -389,14 +422,17 @@ class TestObservation(unittest.TestCase):
                 map_type=map_type,
             ):
                 path = os.path.join(common_testing.TEMP_PATH, f'map_{map_type}.fits')
-                self.observation.save_mapped_observation(path, **map_kw)
+                self.observation.save_mapped_observation(
+                    path, **map_kw, wireframe_kwargs=dict(output_size=20, dpi=20)
+                )
                 self.compare_fits_to_reference(path)
 
     def compare_fits_to_reference(self, path: str):
         filename = os.path.basename(path)
         path_ref = os.path.join(common_testing.DATA_PATH, 'outputs', filename)
         with fits.open(path) as hdul, fits.open(path_ref) as hdul_ref:
-            self.assertEqual(len(hdul), len(hdul_ref))
+            with self.subTest('Number of backplanes', filename=filename):
+                self.assertEqual(len(hdul), len(hdul_ref))
             for hdu, hdu_ref in zip(hdul, hdul_ref):
                 self.assertEqual(hdu.name, hdu_ref.name)
                 extname = hdu.name
@@ -404,14 +440,21 @@ class TestObservation(unittest.TestCase):
                     data = hdu.data
                     data_ref = hdu_ref.data
                     self.assertEqual(data.shape, data_ref.shape)
-                    self.assertTrue(np.allclose(data, data_ref, equal_nan=True))
+
+                    # Significantly increase tolerance for wireframe as it is generated
+                    # from a Matplotlib plot, so is sensitive to the OS/environment
+                    # (e.g. fonts available), and is only a cosmetic backplane anyway
+                    # so the actual values don't matter anywhere near as much as the
+                    # other backplanes.
+                    atol = 64 if extname == 'WIREFRAME' else 1e-8 # 1e-8 is the default
+                    self.assertTrue(np.allclose(data, data_ref, atol=atol, equal_nan=True))
 
                 header = hdu.header
                 header_ref = hdu_ref.header
                 with self.subTest(filename=filename, extname=extname):
                     self.assertEqual(set(header.keys()), set(header_ref.keys()))
 
-                keys_to_skip = ['*DATE*', '*VERSION*']
+                keys_to_skip = {'*DATE*', '*VERSION*'}
                 for key in header.keys():
                     if any(
                         fnmatch.fnmatch(key.casefold(), pattern.casefold())

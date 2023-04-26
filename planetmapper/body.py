@@ -37,6 +37,7 @@ _WireframeComponent = Literal[
     'coordinate_of_interest_radec',
     'other_body_of_interest_marker',
     'other_body_of_interest_label',
+    'map_boundary',
 ]
 
 
@@ -80,6 +81,7 @@ DEFAULT_WIREFRAME_FORMATTING: dict[_WireframeComponent, dict[str, Any]] = {
         alpha=0.5,
         clip_on=True,
     ),
+    'map_boundary': dict(),
 }
 
 
@@ -1595,6 +1597,33 @@ class Body(SpiceBase):
 
         return poles
 
+    @staticmethod
+    def _get_wireframe_kw(
+        *,
+        base_formatting: dict[str, Any] | None = None,
+        common_formatting: dict[str, Any] | None = None,
+        formatting: dict[_WireframeComponent, dict[str, Any]] | None = None,
+    ) -> dict[_WireframeComponent, dict[str, Any]]:
+        formatting = formatting or {}
+        base_formatting = base_formatting or {}
+        common_formatting = common_formatting or {}
+
+        # deal with passing plot_wireframe_radec args to e.g. plot_wireframe_km
+        for k in ('show', 'dms_ticks'):
+            common_formatting.pop(k, None)
+
+        kwargs: dict[_WireframeComponent, dict[str, Any]] = defaultdict(dict)
+        for k in set(DEFAULT_WIREFRAME_FORMATTING.keys()) | set(formatting.keys()):
+            kwargs[k] = (
+                base_formatting
+                | DEFAULT_WIREFRAME_FORMATTING.get('all', {})
+                | DEFAULT_WIREFRAME_FORMATTING.get(k, {})
+                | common_formatting
+                | formatting.get('all', {})
+                | formatting.get(k, {})
+            )
+        return kwargs
+
     def _plot_wireframe(
         self,
         transform: None | matplotlib.transforms.Transform,
@@ -1615,21 +1644,11 @@ class Body(SpiceBase):
         else:
             transform = transform + ax.transData
 
-        # deal with passing plot_wireframe_radec args to e.g. plot_wireframe_km
-        common_formatting.pop('dms_ticks', None)
-
-        formatting = formatting or {}
-        kwargs: dict[_WireframeComponent, dict[str, Any]] = defaultdict(dict)
-        keys = set(DEFAULT_WIREFRAME_FORMATTING.keys()) | set(formatting.keys())
-        for k in keys:
-            kwargs[k] = (
-                dict(transform=transform)
-                | DEFAULT_WIREFRAME_FORMATTING.get('all', {})
-                | DEFAULT_WIREFRAME_FORMATTING.get(k, {})
-                | common_formatting
-                | formatting.get('all', {})
-                | formatting.get(k, {})
-            )
+        kwargs = self._get_wireframe_kw(
+            base_formatting=dict(transform=transform),
+            common_formatting=common_formatting,
+            formatting=formatting,
+        )
 
         lons = np.arange(0, 360, grid_interval)
         for lon, (ra, dec) in zip(lons, self.visible_lon_grid_radec(lons)):
@@ -1713,7 +1732,7 @@ class Body(SpiceBase):
         individual components, and the `**kwargs` argument can be used to customise
         all components at once.
 
-        For example, to change the colour of the entire wireframe to red, you can 
+        For example, to change the colour of the entire wireframe to red, you can
         use: ::
 
             body.plot_wireframe_radec(color='r')
@@ -1729,14 +1748,20 @@ class Body(SpiceBase):
 
         The order of precedence for the formatting is the `formatting` argument, then
         `**kwargs`, then the default formatting. For example, the following plot will
-        be red with a blue grid: ::
+        be red with a thin blue grid and green poles: ::
 
             body.plot_wireframe_radec(
                 color='r',
                 formatting={
-                    'grid': {'color': 'b'},
+                    'grid': {'color': 'b', 'linewidth': 0.5, 'linestyle': '-'},
+                    'pole': {'color': 'g'},
                 },
             )
+
+        Individual components can be hidden by setting `visible` to `False`. For
+        example, to hide the terminator, use: ::
+
+            body.plot_wireframe_radec(formatting={'terminator': {'visible': False}})
 
         The default formatting is defined in :data:`DEFAULT_WIREFRAME_FORMATTING`. This
         can be modified after importing PlanetMapper to change the default appearance of

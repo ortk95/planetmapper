@@ -2,7 +2,9 @@ import datetime
 import math
 import warnings
 import functools
+import io
 from typing import (
+    cast,
     Any,
     Callable,
     Concatenate,
@@ -30,7 +32,12 @@ from matplotlib.axes import Axes
 from matplotlib.collections import QuadMesh
 from spiceypy.utils.exceptions import NotFoundError
 
-from .body import Body, _WireframeKwargs
+from .body import (
+    Body,
+    _WireframeKwargs,
+    _WireframeComponent,
+    DEFAULT_WIREFRAME_FORMATTING,
+)
 from .progress import progress_decorator
 
 T = TypeVar('T')
@@ -939,43 +946,6 @@ class BodyXY(Body):
             self._get_radec2xy_matrix_radians()
         )
 
-    # Plotting
-    def plot_wireframe_xy(
-        self,
-        ax: Axes | None = None,
-        *,
-        add_axis_labels: bool = True,
-        aspect_adjustable: Literal['box', 'datalim'] = 'box',
-        show: bool = False,
-        **wireframe_kwargs: Unpack[_WireframeKwargs],
-    ) -> Axes:
-        """
-        Plot basic wireframe representation of the observation using image pixel
-        coordinates. See :func:`Body.plot_wireframe_radec` for details of accepted 
-        arguments.
-
-        Returns:
-            The axis containing the plotted wireframe.
-        """
-        transform = self.matplotlib_radec2xy_transform()
-        ax = self._plot_wireframe(
-            transform=transform,
-            ax=ax,
-            **wireframe_kwargs
-        )
-
-        if self._test_if_img_size_valid():
-            ax.set_xlim(-0.5, self._nx - 0.5)
-            ax.set_ylim(-0.5, self._ny - 0.5)
-        if add_axis_labels:
-            ax.set_xlabel('x (pixels)')
-            ax.set_ylabel('y (pixels)')
-        ax.set_aspect(1, adjustable=aspect_adjustable)
-
-        if show:
-            plt.show()
-        return ax
-
     # Mapping
     def map_img(
         self,
@@ -1091,6 +1061,411 @@ class BodyXY(Body):
 
     def _xy_in_image_frame(self, x: float, y: float) -> bool:
         return (-0.5 < x < self._nx - 0.5) and (-0.5 < y < self._ny - 0.5)
+
+    # Plotting
+    def plot_wireframe_xy(
+        self,
+        ax: Axes | None = None,
+        *,
+        add_axis_labels: bool = True,
+        aspect_adjustable: Literal['box', 'datalim'] = 'box',
+        show: bool = False,
+        **wireframe_kwargs: Unpack[_WireframeKwargs],
+    ) -> Axes:
+        """
+        Plot basic wireframe representation of the observation using image pixel
+        coordinates. See :func:`Body.plot_wireframe_radec` for details of accepted
+        arguments.
+
+        Returns:
+            The axis containing the plotted wireframe.
+        """
+        transform = self.matplotlib_radec2xy_transform()
+        ax = self._plot_wireframe(transform=transform, ax=ax, **wireframe_kwargs)
+
+        if self._test_if_img_size_valid():
+            ax.set_xlim(-0.5, self._nx - 0.5)
+            ax.set_ylim(-0.5, self._ny - 0.5)
+        if add_axis_labels:
+            ax.set_xlabel('x (pixels)')
+            ax.set_ylabel('y (pixels)')
+        ax.set_aspect(1, adjustable=aspect_adjustable)
+
+        if show:
+            plt.show()
+        return ax
+
+    def plot_map_wireframe(
+        self,
+        ax: Axes | None = None,
+        label_poles: bool = True,
+        add_title: bool = True,
+        add_axis_labels: bool = True,
+        grid_interval: float = 30,
+        indicate_equator: bool = True,
+        indicate_prime_meridian: bool = True,
+        aspect_adjustable: Literal['box', 'datalim'] = 'box',
+        formatting: dict[_WireframeComponent, dict[str, Any]] | None = None,
+        common_formatting: dict[str, Any] | None = None,
+        **map_kwargs: Unpack[_MapKwargs],
+    ):
+        """
+        Plot wireframe (e.g. gridlines) of the map projection of the observation. See
+        :func:`Body.plot_wireframe_radec` for details of accepted arguments.
+
+        For example, to plot an orthographic map's wireframe with a red boundary and
+        dashed gridlines, you can use: ::
+
+            body.plot_map_wireframe(
+                projection='orthographic',
+                lat=45,
+                formatting={
+                    'grid': {'linestyle': '--'},
+                    'map_boundary': {'color': 'red'},
+                }
+            )
+        """
+        if ax is None:
+            ax = cast(Axes, plt.gca())
+
+        kwargs = self._get_wireframe_kw(
+            common_formatting=common_formatting, formatting=formatting
+        )
+        _, _, _, _, transformer, map_kw_used = self.generate_map_coordinates(
+            **map_kwargs
+        )
+        projection = map_kw_used['projection']
+
+        ax.set_aspect(1, adjustable=aspect_adjustable)
+
+        lon_ticks = np.arange(0, 360.0001, grid_interval)
+        lat_ticks = np.arange(-90, 90.0001, grid_interval)
+
+        if projection == 'azimuthal':
+            # Run separately for either side of equator to reduce issues for azimuthal
+            # where the grid lines overplot each other. We still can get issues for e.g.
+            # lat=45, but this fixes the most common cases of lat=0,90,-90 and it's a
+            # relatively minor cosmetic bug so is probably more-or-less fine as-is.
+            npts = 360
+            lats_to_plot = [np.linspace(-90, 0, npts), np.linspace(0, 90, npts)]
+        else:
+            npts = 720
+            lats_to_plot = [np.linspace(-90, 90, npts)]
+        for lon in lon_ticks:
+            if lon == 360 or (lon == 0 and projection == 'rectangular'):
+                continue
+            for lats in lats_to_plot:
+                # pylint: disable-next=unpacking-non-sequence
+                x, y = transformer.transform(lon * np.ones(npts), lats)
+                ax.plot(
+                    x,
+                    y,
+                    **kwargs['grid']
+                    | (
+                        kwargs['prime_meridian']
+                        if lon == 0 and indicate_prime_meridian
+                        else {}
+                    ),
+                )
+        npts = 720
+        for lat in lat_ticks:
+            if lat in {-90, 90}:
+                continue
+            # pylint: disable-next=unpacking-non-sequence
+            x, y = transformer.transform(np.linspace(0, 360, npts), lat * np.ones(npts))
+            ax.plot(
+                x,
+                y,
+                **kwargs['grid']
+                | (kwargs['equator'] if lat == 0 and indicate_equator else {}),
+            )
+
+        boundary: tuple[np.ndarray, np.ndarray] | None = None
+        # Formulae for boundaries based on Cartopy CRS boundaries
+        if projection == 'orthographic':
+            # Elipse boundary - https://math.stackexchange.com/questions/91132
+            x0 = self.r_eq
+            theta = np.radians(map_kw_used['lat'])
+            y0 = np.sqrt(
+                self.r_eq**2 * (np.sin(theta)) ** 2
+                + self.r_polar**2 * (np.cos(theta)) ** 2
+            )
+            t = np.linspace(0, -2 * np.pi, 100)
+            boundary = (x0 * np.cos(t), y0 * np.sin(t))
+        elif projection == 'azimuthal':
+            # Circular boundary
+            x0 = y0 = self.r_eq * np.pi
+            t = np.linspace(0, -2 * np.pi, 100)
+            boundary = (x0 * np.cos(t), y0 * np.sin(t))
+
+        if boundary:
+            ax.plot(*boundary, **kwargs['map_boundary'])
+
+        if label_poles and projection != 'rectangular':
+            for lat, s in ((90, 'N'), (-90, 'S')):
+                # pylint: disable-next=unpacking-non-sequence
+                x, y = transformer.transform(0, lat)
+                if math.isfinite(x) and math.isfinite(y):
+                    ax.text(x, y, s, **kwargs['pole'])
+
+        if add_axis_labels:
+            if projection == 'rectangular':
+                if self.positive_longitude_direction == 'W':
+                    ax.set_xlim(360, 0)
+                else:
+                    ax.set_xlim(0, 360)
+                ax.set_ylim(-90, 90)
+                ax.set_xlabel(
+                    f'Planetographic longitude ({self.positive_longitude_direction})'
+                )
+                ax.set_ylabel('Planetographic latitude')
+
+                ax.set_xticks(lon_ticks)
+                ax.set_xticklabels(
+                    [f'{x:.0f}°' if x % 90 == 0 else '' for x in lon_ticks]
+                )
+
+                ax.set_yticks(lat_ticks)
+                ax.set_yticklabels(
+                    [f'{y:.0f}°' if y % 90 == 0 else '' for y in lat_ticks]
+                )
+            elif projection in {'orthographic', 'azimuthal'}:
+                ax.set_xticks([])
+                ax.set_yticks([])
+
+        if add_title:
+            ax.set_title(self.get_description(multiline=True))
+        return ax
+
+    def plot_map(
+        self,
+        map_img: np.ndarray,
+        ax: Axes | None = None,
+        *,
+        wireframe_kwargs: dict[str, Any] | None = None,
+        **kwargs,
+    ) -> QuadMesh:
+        """
+        Utility function to easily plot a mapped image using `plt.imshow` with
+        appropriate extents, axis labels, gridlines etc.
+
+        Args:
+            map_img: Image to plot.
+            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
+                a new figure and axis is created.
+            wireframe_kwargs: Dictionary of arguments passed to
+                :func:`plot_map_wireframe`.
+            **kwargs: Additional arguments are passed to
+                :func:`generate_map_coordinates` to specify the map projection used, and
+                to Matplotlib's `pcolormesh` to customise the plot. For example, can be
+                used to set the colormap of the plot using e.g.
+                `body.plot_map(..., projection='orthographic', cmap='Greys')`.
+
+        Returns:
+            Handle returned by Matplotlib's `pcolormesh`.
+        """
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        map_kwargs = {}
+        for k in set(_MapKwargs.__optional_keys__) | set(_MapKwargs.__required_keys__):
+            if k in kwargs:
+                map_kwargs[k] = kwargs.pop(k)
+
+        _, _, xx, yy, _, _ = self.generate_map_coordinates(**map_kwargs)
+        h = ax.pcolormesh(xx, yy, map_img, **kwargs)
+        self.plot_map_wireframe(ax=ax, **(wireframe_kwargs or {}), **map_kwargs)
+        return h
+
+    def imshow_map(self, *args, **kwargs):
+        """
+        Alias for `plot_map` for backwards compatibility.
+
+        :meta private:
+        """
+        # backwards compatibility
+        return self.plot_map(*args, **kwargs)
+
+    # Wireframe generation
+    def _get_wireframe_overlay(
+        self,
+        *,
+        output_size: int | None,
+        dpi: int,
+        nx: int,
+        ny: int,
+        rgba: bool,
+        plot_fn: Callable[[Axes], Any],
+    ) -> np.ndarray:
+        output_size = output_size or max(nx, ny)
+        s = output_size / dpi
+        if nx > ny:
+            figsize = (s, s * ny / nx)
+        else:
+            figsize = (s * nx / ny, s)
+
+        fig = plt.figure(figsize=figsize, dpi=dpi, facecolor='w')
+        ax = fig.add_axes([0, 0, 1, 1], facecolor='w')
+        plot_fn(ax)
+        ax.axis('off')
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        with io.BytesIO() as io_buf:
+            fig.savefig(io_buf, format='raw', dpi=dpi, transparent=rgba)
+            io_buf.seek(0)
+            img_arr = np.frombuffer(io_buf.getvalue(), dtype=np.uint8)
+        plt.close(fig)
+        img = img_arr.reshape((fig.canvas.get_width_height()[::-1]) + (4,))
+        if not rgba:
+            img = np.asarray(np.mean(img[:, :, :3], axis=-1), dtype=np.uint8)
+        img = np.flipud(img)  # Make consistent with FITS orientation
+        return img
+
+    def get_wireframe_overlay_img(
+        self,
+        output_size: int | None = 1500,
+        dpi: int = 200,
+        rgba: bool = False,
+        **plot_kwargs,
+    ) -> np.ndarray:
+        """
+        .. warning ::
+
+            This is a beta feature and the API may change in future.
+
+        Generate a wireframe image of the target.
+
+        This effectively generates an image version of :func:`plot_wireframe_xy` which
+        can then be used as an overlay on top of the observation when creating figures
+        in other applications.
+
+        See also :func:`get_wireframe_overlay_map`.
+
+        .. note ::
+
+            The returned image data follows the FITS orientation convention (with the
+            origin at the bottom left) so may need to be flipped vertically in some
+            applications. If needed, the image can be flipped in Python using: ::
+
+                np.flipud(body.get_wireframe_overlay_img())
+
+        .. hint ::
+
+            If you are creating plots with Matplotlib, it is generally better to use
+            :func:`plot_wireframe_xy` directly rather than generating an image as it
+            will produce a higher quality plot.
+
+        Args:
+            output_size: Size of the output image in pixels. This will be the length of
+                the longest side of the image. The other side will be scaled accordingly
+                to maintain the aspect ratio of the observed data. If `size` is `None`,
+                then the size is set to match the size of the observed data.
+            dpi: Dots per inch of the output image. This can be used to control the size
+                of plotted elements in the output image - larger `dpi` values will
+                produce larger plotted elements.
+            rgba: By default, the returned image only has a single greyscale channel. If
+                `rgba` is `True`, then the returned image has 4 channels (red, green,
+                blue, alpha) which can be used to more easily overlay the wireframe on
+                top of the observed data in other applications.
+            **plot_kwargs: Additional arguments passed to :func:`plot_wireframe_xy`.
+        Returns:
+            Image of the wireframe which has the same aspect ratio as the observed data.
+        """
+        # TODO remove beta note when stable
+        return self._get_wireframe_overlay(
+            output_size=output_size,
+            dpi=dpi,
+            nx=self._nx,
+            ny=self._ny,
+            rgba=rgba,
+            plot_fn=lambda ax: self.plot_wireframe_xy(
+                ax=ax,
+                color='k',
+                add_axis_labels=False,
+                add_title=False,
+                **plot_kwargs or {},
+            ),
+        )
+
+    def get_wireframe_overlay_map(
+        self,
+        output_size: int | None = 1500,
+        dpi: int = 200,
+        rgba: bool = False,
+        plot_kwargs: dict[str, Any] | None = None,
+        **map_kwargs: Unpack[_MapKwargs],
+    ) -> np.ndarray:
+        """
+        .. warning ::
+
+            This is a beta feature and the API may change in future.
+
+        Generate a wireframe map of the target.
+
+        This effectively generates an image version of :func:`plot_map_wireframe` which
+        can then be used as an overlay on top of the mapped observation when creating
+        figures in other applications.
+
+        See also :func:`get_wireframe_overlay_img`.
+
+        .. note ::
+
+            The returned image data follows the FITS orientation convention (with the
+            origin at the bottom left) so may need to be flipped vertically in some
+            applications. If needed, the image can be flipped in Python using: ::
+
+                np.flipud(body.get_wireframe_overlay_map())
+
+        .. hint ::
+
+            If you are creating plots with Matplotlib, it is generally better to use
+            :func:`plot_map_wireframe` directly rather than generating an image as it
+            will produce a higher quality plot.
+
+        Args:
+            output_size: Size of the output image in pixels. This will be the length of
+                the longest side of the map. The other side will be scaled accordingly
+                to maintain the aspect ratio of the observed data. If `size` is `None`,
+                then the size is set to match the pixel size of the map.
+            dpi: Dots per inch of the output image. This can be used to control the size
+                of plotted elements in the output image - larger `dpi` values will
+                produce larger plotted elements.
+            rgba: By default, the returned image only has a single greyscale channel. If
+                `rgba` is `True`, then the returned image has 4 channels (red, green,
+                blue, alpha) which can be used to more easily overlay the wireframe on
+                top of the observed data in other applications.
+            plot_kwargs: Dictionary of arguments passed to :func:`plot_map_wireframe`.
+            **map_kwargs: Additional arguments passed to
+                :func:`generate_map_coordinates` to specify map projection to use.
+        Returns:
+            Image of the map wireframe which has the same aspect ratio as the map.
+        """
+        # TODO remove beta note when stable
+        lons, lats, xx, yy, transformer, map_kw_used = self.generate_map_coordinates(
+            **map_kwargs
+        )
+        nx = xx.shape[1]
+        ny = yy.shape[0]
+
+        def plot_fn(ax: Axes):
+            self.plot_map_wireframe(
+                ax=ax,
+                add_axis_labels=False,
+                add_title=False,
+                **(plot_kwargs or {}) | dict(common_formatting=dict(color='k')),
+                **map_kwargs,
+            )
+            # Add dx/dy to the limits to ensure the wireframe covers all of each pixel
+            # as the xx and yy coordinates only give the centre of each pixel
+            dx = abs(xx[0][1] - xx[0][0])/2
+            ax.set_xlim(np.nanmin(xx) - dx, np.nanmax(xx) + dx)
+            dy = abs(yy[1][0] - yy[0][0])/2
+            ax.set_ylim(np.nanmin(yy) - dy, np.nanmax(yy) + dy)
+
+        return self._get_wireframe_overlay(
+            output_size=output_size, dpi=dpi, nx=nx, ny=ny, rgba=rgba, plot_fn=plot_fn
+        )
 
     # Backplane management
     @staticmethod
@@ -1290,8 +1665,8 @@ class BodyXY(Body):
             ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
                 a new figure and axis is created.
             show: Toggle showing the plotted figure with `plt.show()`
-            plot_kwargs: Passed to Matplotlib's `pcolormesh` when plotting the backplane
-                map. For example, can be used to set the colormap of the plot using
+            plot_kwargs: Passed to :func:`plot_map` when plotting the backplane map. For
+                example, can be used to set the colormap of the plot using
                 `body.plot_backplane_map(..., plot_kwargs=dict(cmap='Greys'))`.
             **map_kwargs: Additional arguments are passed to
                 :func:`generate_map_coordinates` to specify and customise the map
@@ -1310,101 +1685,9 @@ class BodyXY(Body):
             **plot_kwargs or {},
         )
         plt.colorbar(im, label=backplane.description)
-        ax.set_title(self.get_description(multiline=True))
         if show:
             plt.show()
         return ax
-
-    def plot_map(
-        self,
-        map_img: np.ndarray,
-        ax: Axes | None = None,
-        grid: bool = True,
-        **kwargs,
-    ) -> QuadMesh:
-        """
-        Utility function to easily plot a mapped image using `plt.imshow` with
-        appropriate extents, axis labels etc.
-
-        Args:
-            map_img: Image to plot.
-            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
-                a new figure and axis is created.
-            grid: Toggle plotting a lon/lat grid.
-            **kwargs: Additional arguments are passed to
-                :func:`generate_map_coordinates` to specify the map projection used, and
-                to Matplotlib's `pcolormesh` to customise the plot. For example, can be
-                used to set the colormap of the plot using e.g.
-                `body.plot_map(..., projection='orthographic', cmap='Greys')`.
-
-        Returns:
-            Handle returned by Matplotlib's `pcolormesh`.
-        """
-        if ax is None:
-            fig, ax = plt.subplots()
-
-        map_kwargs = {}
-        for k in set(_MapKwargs.__optional_keys__) | set(_MapKwargs.__required_keys__):
-            if k in kwargs:
-                map_kwargs[k] = kwargs.pop(k)
-
-        _, _, xx, yy, transformer, map_kw_used = self.generate_map_coordinates(
-            **map_kwargs
-        )
-        projection = map_kw_used['projection']
-
-        h = ax.pcolormesh(xx, yy, map_img, **kwargs)
-        ax.set_aspect(1, adjustable='box')
-
-        step = 30
-        lon_ticks = np.arange(0, 360.1, step)
-        lat_ticks = np.arange(-90, 90.1, step)
-
-        if projection == 'rectangular':
-            if self.positive_longitude_direction == 'W':
-                ax.set_xlim(360, 0)
-            else:
-                ax.set_xlim(0, 360)
-            ax.set_ylim(-90, 90)
-            ax.set_xlabel(
-                f'Planetographic longitude ({self.positive_longitude_direction})'
-            )
-            ax.set_ylabel('Planetographic latitude')
-
-            ax.set_xticks(lon_ticks)
-            ax.set_xticklabels([f'{x:.0f}°' if x % 90 == 0 else '' for x in lon_ticks])
-
-            ax.set_yticks(lat_ticks)
-            ax.set_yticklabels([f'{y:.0f}°' if y % 90 == 0 else '' for y in lat_ticks])
-
-        if grid:
-            grid_kw = dict(color='k', alpha=0.5, linewidth=1)
-            npts = 360
-            for lon in lon_ticks:
-                if lon == 360:
-                    continue
-                # pylint: disable-next=unpacking-non-sequence
-                x, y = transformer.transform(
-                    lon * np.ones(npts), np.linspace(-90, 90, npts)
-                )
-                ax.plot(x, y, **grid_kw, linestyle='-' if lon == 0 else ':')
-
-            for lat in lat_ticks:
-                # pylint: disable-next=unpacking-non-sequence
-                x, y = transformer.transform(
-                    np.linspace(0, 360, npts), lat * np.ones(npts)
-                )
-                ax.plot(x, y, **grid_kw, linestyle='-' if lat == 0 else ':')
-        return h
-
-    def imshow_map(self, *args, **kwargs):
-        """
-        Alias for `plot_map` for backwards compatibility.
-
-        :meta private:
-        """
-        # backwards compatibility
-        return self.plot_map(*args, **kwargs)
 
     # Mapping projection internals
     @_cache_stable_result
@@ -2554,4 +2837,42 @@ def _make_backplane_documentation_str() -> str:
             )
         )
         msg.append('')
+
+    msg.append('------------')
+    msg.append('')
+    msg.append('Wireframe images')
+    msg.append('=' * len(msg[-1]))
+    msg.append('')
+
+    msg.append(
+        'In addition to the above backplanes, a `WIREFRAME` backplane is also included '
+        'by default in saved FITS files. This backplane contains a "wireframe" image '
+        'of the body, which shows latitude/longitude gridlines, labels poles, displays '
+        'the body\'s limb etc. These wireframe images can be used to help orient the '
+        'observations, and can be used as an overlay if you are creating figures from '
+        'the FITS files.'
+    )
+    msg.append('')
+
+    msg.append(
+        'The wireframe images are a graphical guide rather than containing any '
+        'scientific data, so they are not registered like the other backplanes. '
+        'Note that the wireframe images have a fixed size, so they will not be the '
+        'same size as the data/mapped data (although the aspect ratio will be the '
+        'same).'
+    )
+    msg.append('')
+
+    msg.append(
+        '- Image function: :func:`planetmapper.{}`'.format(
+            body.get_wireframe_overlay_img.__qualname__
+        )
+    )
+    msg.append(
+        '- Map function: :func:`planetmapper.{}`'.format(
+            body.get_wireframe_overlay_map.__qualname__
+        )
+    )
+    msg.append('')
+
     return '\n'.join(msg)
