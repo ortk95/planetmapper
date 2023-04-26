@@ -1109,6 +1109,22 @@ class BodyXY(Body):
         common_formatting: dict[str, Any] | None = None,
         **map_kwargs: Unpack[_MapKwargs],
     ):
+        """
+        Plot wireframe (e.g. gridlines) of the map projection of the observation. See 
+        :func:`Body.plot_wireframe_radec` for details of accepted arguments.
+
+        For example, to plot an orthographic map's wireframe with a red boundary and 
+        dashed gridlines, you can use: ::
+
+            body.plot_map_wireframe(
+                projection='orthographic',
+                lat=45,
+                formatting={
+                    'grid': {'linestyle': '--'},
+                    'map_boundary': {'color': 'red'},
+                }
+            )
+        """
         if ax is None:
             ax = cast(Axes, plt.gca())
 
@@ -1127,6 +1143,9 @@ class BodyXY(Body):
 
         if projection == 'azimuthal':
             # Run separately for either side of equator to reduce issues for azimuthal
+            # where the grid lines overplot each other. We still can get issues for e.g.
+            # lat=45, but this fixes the most common cases of lat=0,90,-90 and it's a
+            # relatively minor cosmetic bug so is probably more-or-less fine as-is.
             npts = 360
             lats_to_plot = [np.linspace(-90, 0, npts), np.linspace(0, 90, npts)]
         else:
@@ -1228,13 +1247,14 @@ class BodyXY(Body):
     ) -> QuadMesh:
         """
         Utility function to easily plot a mapped image using `plt.imshow` with
-        appropriate extents, axis labels etc.
+        appropriate extents, axis labels, gridlines etc.
 
         Args:
             map_img: Image to plot.
             ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
                 a new figure and axis is created.
-            wireframe_kwargs: TODO
+            wireframe_kwargs: Dictionary of arguments passed to
+                :func:`plot_map_wireframe`.
             **kwargs: Additional arguments are passed to
                 :func:`generate_map_coordinates` to specify the map projection used, and
                 to Matplotlib's `pcolormesh` to customise the plot. For example, can be
@@ -1268,14 +1288,40 @@ class BodyXY(Body):
 
     # Wireframe generation
     def get_wireframe_overlay_img(
-        self,
-        size: int | None = 1500,
-        dpi: int = 200,
-        **plot_kwargs,
+        self, size: int | None = 1500, dpi: int = 200, **plot_kwargs
     ) -> np.ndarray:
-        """ """
-        # TODO add beta note
-        # TODO change name?
+        """
+        .. warning ::
+
+            This is a beta feature and the API may change in future.
+
+        Generate a wireframe image of the target.
+
+        This effectively generates an image version of :func:`plot_wireframe_xy` which
+        can then be used as an overlay on top of the observation when creating figures
+        in other applications.
+
+        See also :func:`get_wireframe_overlay_map`.
+
+        .. hint ::
+
+            If you are creating plots with Matplotlib, it is generally better to use
+            :func:`plot_wireframe_xy` directly rather than generating an image as it
+            will produce a higher quality plot.
+
+        Args:
+            size: Size of the output image in pixels. This will be the length of the
+                longest side of the image. The other side will be scaled accordingly to
+                maintain the aspect ratio of the observed data. If `size` is `None`,
+                then the size is set to match the size of the observed data.
+            dpi: Dots per inch of the output image. This can be used to control the size
+                of plotted elements in the output image - larger `dpi` values will
+                produce larger plotted elements.
+            **plot_kwargs: Additional arguments passed to :func:`plot_wireframe_xy`.
+        Returns:
+            Image of the wireframe which has the same aspect ratio as the observed data.
+        """
+        # TODO remove beta note when stable
         size = size or max(self._nx, self._ny)
         s = size / dpi
         if self._nx > self._ny:
@@ -1300,9 +1346,83 @@ class BodyXY(Body):
         img = np.asarray(np.mean(img_arr[:, :, :3], axis=-1), dtype=np.uint8)
         return img
 
-    def get_wireframe_overlay_map(self):
-        # TODO
-        pass
+    def get_wireframe_overlay_map(
+        self,
+        size: int | None = 1500,
+        dpi: int = 200,
+        plot_kwargs: dict[str, Any] | None = None,
+        **map_kwargs: Unpack[_MapKwargs],
+    ) -> np.ndarray:
+        """
+        .. warning ::
+
+            This is a beta feature and the API may change in future.
+
+        Generate a wireframe map of the target.
+
+        This effectively generates an image version of :func:`plot_map_wireframe` which
+        can then be used as an overlay on top of the mapped observation when creating
+        figures in other applications.
+
+        See also :func:`get_wireframe_overlay_img`.
+
+        .. hint ::
+
+            If you are creating plots with Matplotlib, it is generally better to use
+            :func:`plot_map_wireframe` directly rather than generating an image as it
+            will produce a higher quality plot.
+
+        Args:
+            size: Size of the output image in pixels. This will be the length of the
+                longest side of the map. The other side will be scaled accordingly to
+                maintain the aspect ratio of the observed data. If `size` is `None`,
+                then the size is set to match the pixel size of the map.
+            dpi: Dots per inch of the output image. This can be used to control the size
+                of plotted elements in the output image - larger `dpi` values will
+                produce larger plotted elements.
+            plot_kwargs: Dictionary of arguments passed to :func:`plot_map_wireframe`.
+            **map_kwargs: Additional arguments passed to
+                :func:`generate_map_coordinates` to specify map projection to use.
+        Returns:
+            Image of the map wireframe which has the same aspect ratio as the map.
+        """
+        # TODO remove beta note when stable
+        plot_kwargs = plot_kwargs or {}
+        lons, lats, xx, yy, transformer, map_kw_used = self.generate_map_coordinates(
+            **map_kwargs
+        )
+        nx = xx.shape[1]
+        ny = yy.shape[0]
+        size = size or max(nx, ny)
+        s = size / dpi
+        if nx > ny:
+            figsize = (s, s * ny / nx)
+        else:
+            figsize = (s * nx / ny, s)
+
+        fig = plt.figure(figsize=figsize, dpi=dpi, facecolor='w')
+        ax = fig.add_axes([0, 0, 1, 1], facecolor='w')
+        self.plot_map_wireframe(
+            ax=ax,
+            add_axis_labels=False,
+            add_title=False,
+            **plot_kwargs | dict(common_formatting=dict(color='k')),
+            **map_kwargs,
+        )
+        ax.set_xlim(np.nanmin(xx), np.nanmax(xx))
+        ax.set_ylim(np.nanmin(yy), np.nanmax(yy))
+        ax.axis('off')
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        with io.BytesIO() as io_buf:
+            fig.savefig(io_buf, format='raw', dpi=dpi)
+            io_buf.seek(0)
+            img_arr = np.frombuffer(io_buf.getvalue(), dtype=np.uint8)
+        plt.close(fig)
+        img_arr = img_arr.reshape((fig.canvas.get_width_height()[::-1]) + (4,))
+        img = np.asarray(np.mean(img_arr[:, :, :3], axis=-1), dtype=np.uint8)
+        return img
 
     # Backplane management
     @staticmethod
