@@ -383,6 +383,27 @@ class TestBodyXY(unittest.TestCase):
         self.body.plot_wireframe_km(ax=ax)
         plt.close(fig)
 
+        fig, ax = plt.subplots()
+        self.body.plot_map_wireframe(ax=ax)
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
+        self.body.plot_map_wireframe(ax=ax, projection='orthographic', lat=56)
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
+        self.body.plot_map_wireframe(ax=ax, projection='azimuthal', lat=-90)
+        plt.close(fig)
+    
+    def test_get_wireframe_overlay(self):
+        img = self.body.get_wireframe_overlay_img(size=100)
+        self.assertEqual(max(img.shape), 100)
+        self.assertEqual(len(img.shape), 2)
+
+        img = self.body.get_wireframe_overlay_map(size=100)
+        self.assertEqual(max(img.shape), 100)
+        self.assertEqual(len(img.shape), 2)
+
     def test_map_img(self):
         self.body.set_img_size(4, 3)
         self.body.set_disc_params(2, 1, 1.5, 45.678)
