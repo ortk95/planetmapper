@@ -440,7 +440,14 @@ class TestObservation(unittest.TestCase):
                     data = hdu.data
                     data_ref = hdu_ref.data
                     self.assertEqual(data.shape, data_ref.shape)
-                    self.assertTrue(np.allclose(data, data_ref, equal_nan=True))
+
+                    # Significantly increase tolerance for wireframe as it is generated
+                    # from a Matplotlib plot, so is sensitive to the OS/environment
+                    # (e.g. fonts available), and is only a cosmetic backplane anyway
+                    # so the actual values don't matter anywhere near as much as the
+                    # other backplanes.
+                    atol = 64 if extname == 'WIREFRAME' else 1e-8 # 1e-8 is the default
+                    self.assertTrue(np.allclose(data, data_ref, atol=atol, equal_nan=True))
 
                 header = hdu.header
                 header_ref = hdu_ref.header
