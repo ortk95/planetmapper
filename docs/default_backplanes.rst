@@ -147,3 +147,15 @@ This page lists the backplanes which are automatically registered to every insta
 
 - Image function: :func:`planetmapper.BodyXY.get_ring_plane_distance_img`
 - Map function: :func:`planetmapper.BodyXY.get_ring_plane_distance_map`
+
+------------
+
+Wireframe images
+================
+
+In addition to the above backplanes, a `WIREFRAME` backplane is also included by default in saved FITS files. This backplane contains a "wireframe" image of the body, which shows latitude/longitude gridlines, labels poles, displays the body's limb etc. These wireframe images can be used to help orient the observations, and can be used as an overlay if you are creating figures from the FITS files.
+
+The wireframe images are a graphical guide rather than containing any scientific data, so they are not registered like the other backplanes. Note that the wireframe images have a fixed size, so they will not be the same size as the data/mapped data (although the aspect ratio will be the same).
+
+- Image function: :func:`planetmapper.BodyXY.get_wireframe_overlay_img`
+- Map function: :func:`planetmapper.BodyXY.get_wireframe_overlay_map`

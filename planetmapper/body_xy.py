@@ -1110,10 +1110,10 @@ class BodyXY(Body):
         **map_kwargs: Unpack[_MapKwargs],
     ):
         """
-        Plot wireframe (e.g. gridlines) of the map projection of the observation. See 
+        Plot wireframe (e.g. gridlines) of the map projection of the observation. See
         :func:`Body.plot_wireframe_radec` for details of accepted arguments.
 
-        For example, to plot an orthographic map's wireframe with a red boundary and 
+        For example, to plot an orthographic map's wireframe with a red boundary and
         dashed gridlines, you can use: ::
 
             body.plot_map_wireframe(
@@ -1310,8 +1310,8 @@ class BodyXY(Body):
             will produce a higher quality plot.
 
         Args:
-            output_size: Size of the output image in pixels. This will be the length of 
-                the longest side of the image. The other side will be scaled accordingly 
+            output_size: Size of the output image in pixels. This will be the length of
+                the longest side of the image. The other side will be scaled accordingly
                 to maintain the aspect ratio of the observed data. If `size` is `None`,
                 then the size is set to match the size of the observed data.
             dpi: Dots per inch of the output image. This can be used to control the size
@@ -1373,8 +1373,8 @@ class BodyXY(Body):
             will produce a higher quality plot.
 
         Args:
-            output_size: Size of the output image in pixels. This will be the length of 
-                the longest side of the map. The other side will be scaled accordingly 
+            output_size: Size of the output image in pixels. This will be the length of
+                the longest side of the map. The other side will be scaled accordingly
                 to maintain the aspect ratio of the observed data. If `size` is `None`,
                 then the size is set to match the pixel size of the map.
             dpi: Dots per inch of the output image. This can be used to control the size
@@ -2794,4 +2794,42 @@ def _make_backplane_documentation_str() -> str:
             )
         )
         msg.append('')
+
+    msg.append('------------')
+    msg.append('')
+    msg.append('Wireframe images')
+    msg.append('=' * len(msg[-1]))
+    msg.append('')
+
+    msg.append(
+        'In addition to the above backplanes, a `WIREFRAME` backplane is also included '
+        'by default in saved FITS files. This backplane contains a "wireframe" image '
+        'of the body, which shows latitude/longitude gridlines, labels poles, displays '
+        'the body\'s limb etc. These wireframe images can be used to help orient the '
+        'observations, and can be used as an overlay if you are creating figures from '
+        'the FITS files.'
+    )
+    msg.append('')
+
+    msg.append(
+        'The wireframe images are a graphical guide rather than containing any '
+        'scientific data, so they are not registered like the other backplanes. '
+        'Note that the wireframe images have a fixed size, so they will not be the '
+        'same size as the data/mapped data (although the aspect ratio will be the '
+        'same).'
+    )
+    msg.append('')
+
+    msg.append(
+        '- Image function: :func:`planetmapper.{}`'.format(
+            body.get_wireframe_overlay_img.__qualname__
+        )
+    )
+    msg.append(
+        '- Map function: :func:`planetmapper.{}`'.format(
+            body.get_wireframe_overlay_map.__qualname__
+        )
+    )
+    msg.append('')
+
     return '\n'.join(msg)
