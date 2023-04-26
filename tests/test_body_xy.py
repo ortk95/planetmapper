@@ -396,11 +396,11 @@ class TestBodyXY(unittest.TestCase):
         plt.close(fig)
     
     def test_get_wireframe_overlay(self):
-        img = self.body.get_wireframe_overlay_img(size=100)
+        img = self.body.get_wireframe_overlay_img(output_size=100)
         self.assertEqual(max(img.shape), 100)
         self.assertEqual(len(img.shape), 2)
 
-        img = self.body.get_wireframe_overlay_map(size=100)
+        img = self.body.get_wireframe_overlay_map(output_size=100)
         self.assertEqual(max(img.shape), 100)
         self.assertEqual(len(img.shape), 2)
 

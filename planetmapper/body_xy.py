@@ -1288,7 +1288,7 @@ class BodyXY(Body):
 
     # Wireframe generation
     def get_wireframe_overlay_img(
-        self, size: int | None = 1500, dpi: int = 200, **plot_kwargs
+        self, output_size: int | None = 1500, dpi: int = 200, **plot_kwargs
     ) -> np.ndarray:
         """
         .. warning ::
@@ -1310,9 +1310,9 @@ class BodyXY(Body):
             will produce a higher quality plot.
 
         Args:
-            size: Size of the output image in pixels. This will be the length of the
-                longest side of the image. The other side will be scaled accordingly to
-                maintain the aspect ratio of the observed data. If `size` is `None`,
+            output_size: Size of the output image in pixels. This will be the length of 
+                the longest side of the image. The other side will be scaled accordingly 
+                to maintain the aspect ratio of the observed data. If `size` is `None`,
                 then the size is set to match the size of the observed data.
             dpi: Dots per inch of the output image. This can be used to control the size
                 of plotted elements in the output image - larger `dpi` values will
@@ -1322,8 +1322,8 @@ class BodyXY(Body):
             Image of the wireframe which has the same aspect ratio as the observed data.
         """
         # TODO remove beta note when stable
-        size = size or max(self._nx, self._ny)
-        s = size / dpi
+        output_size = output_size or max(self._nx, self._ny)
+        s = output_size / dpi
         if self._nx > self._ny:
             figsize = (s, s * self._ny / self._nx)
         else:
@@ -1348,7 +1348,7 @@ class BodyXY(Body):
 
     def get_wireframe_overlay_map(
         self,
-        size: int | None = 1500,
+        output_size: int | None = 1500,
         dpi: int = 200,
         plot_kwargs: dict[str, Any] | None = None,
         **map_kwargs: Unpack[_MapKwargs],
@@ -1373,9 +1373,9 @@ class BodyXY(Body):
             will produce a higher quality plot.
 
         Args:
-            size: Size of the output image in pixels. This will be the length of the
-                longest side of the map. The other side will be scaled accordingly to
-                maintain the aspect ratio of the observed data. If `size` is `None`,
+            output_size: Size of the output image in pixels. This will be the length of 
+                the longest side of the map. The other side will be scaled accordingly 
+                to maintain the aspect ratio of the observed data. If `size` is `None`,
                 then the size is set to match the pixel size of the map.
             dpi: Dots per inch of the output image. This can be used to control the size
                 of plotted elements in the output image - larger `dpi` values will
@@ -1393,8 +1393,8 @@ class BodyXY(Body):
         )
         nx = xx.shape[1]
         ny = yy.shape[0]
-        size = size or max(nx, ny)
-        s = size / dpi
+        output_size = output_size or max(nx, ny)
+        s = output_size / dpi
         if nx > ny:
             figsize = (s, s * ny / nx)
         else:
