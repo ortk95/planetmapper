@@ -2,6 +2,7 @@ import datetime
 import math
 import warnings
 import functools
+import io
 from typing import (
     Any,
     Callable,
@@ -951,18 +952,14 @@ class BodyXY(Body):
     ) -> Axes:
         """
         Plot basic wireframe representation of the observation using image pixel
-        coordinates. See :func:`Body.plot_wireframe_radec` for details of accepted 
+        coordinates. See :func:`Body.plot_wireframe_radec` for details of accepted
         arguments.
 
         Returns:
             The axis containing the plotted wireframe.
         """
         transform = self.matplotlib_radec2xy_transform()
-        ax = self._plot_wireframe(
-            transform=transform,
-            ax=ax,
-            **wireframe_kwargs
-        )
+        ax = self._plot_wireframe(transform=transform, ax=ax, **wireframe_kwargs)
 
         if self._test_if_img_size_valid():
             ax.set_xlim(-0.5, self._nx - 0.5)
@@ -1091,6 +1088,37 @@ class BodyXY(Body):
 
     def _xy_in_image_frame(self, x: float, y: float) -> bool:
         return (-0.5 < x < self._nx - 0.5) and (-0.5 < y < self._ny - 0.5)
+
+    # Wireframe generation
+    def get_wireframe_overlay(
+        self,
+        size: int = 1500,
+        dpi: int = 200,
+        **plot_kwargs,
+    ) -> np.ndarray:
+        """ """
+        s = size / dpi
+        if self._nx > self._ny:
+            figsize = (s, s * self._ny / self._nx)
+        else:
+            figsize = (s * self._nx / self._ny, s)
+
+        fig = plt.figure(figsize=figsize, dpi=dpi, facecolor='w')
+        ax = fig.add_axes([0, 0, 1, 1], facecolor='w')
+        self.plot_wireframe_xy(
+            ax=ax, color='k', add_axis_labels=False, add_title=False, **plot_kwargs
+        )
+        ax.axis('off')
+        ax.set_xticks([])
+        ax.set_yticks([])
+        with io.BytesIO() as io_buf:
+            fig.savefig(io_buf, format='raw', dpi=dpi)
+            io_buf.seek(0)
+            img_arr = np.frombuffer(io_buf.getvalue(), dtype=np.uint8)
+        plt.close(fig)
+        img_arr = img_arr.reshape((fig.canvas.get_width_height()[::-1]) + (4,))
+        img = np.asarray(np.mean(img_arr[:, :, :3], axis=-1), dtype=np.uint8)
+        return img
 
     # Backplane management
     @staticmethod
@@ -1320,6 +1348,7 @@ class BodyXY(Body):
         map_img: np.ndarray,
         ax: Axes | None = None,
         grid: bool = True,
+        boundary: bool = True,
         **kwargs,
     ) -> QuadMesh:
         """
@@ -1395,6 +1424,8 @@ class BodyXY(Body):
                     np.linspace(0, 360, npts), lat * np.ones(npts)
                 )
                 ax.plot(x, y, **grid_kw, linestyle='-' if lat == 0 else ':')
+        # TODO add boundary line for orthographic/azimuthal projections
+        # see cartopy crs example for generating elipses
         return h
 
     def imshow_map(self, *args, **kwargs):
