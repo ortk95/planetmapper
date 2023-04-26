@@ -1104,7 +1104,7 @@ class BodyXY(Body):
         grid_interval: float = 30,
         indicate_equator: bool = True,
         indicate_prime_meridian: bool = True,
-        aspect_adjustable: Literal['box', 'datalim'] = 'datalim',
+        aspect_adjustable: Literal['box', 'datalim'] = 'box',
         formatting: dict[_WireframeComponent, dict[str, Any]] | None = None,
         common_formatting: dict[str, Any] | None = None,
         **map_kwargs: Unpack[_MapKwargs],
@@ -1125,27 +1125,34 @@ class BodyXY(Body):
         lon_ticks = np.arange(0, 360.0001, grid_interval)
         lat_ticks = np.arange(-90, 90.0001, grid_interval)
 
-        npts = 720  # use relatively high npts to ensure smoother curves for azimuthal
+        if projection == 'azimuthal':
+            # Run separately for either side of equator to reduce issues for azimuthal
+            npts = 360
+            lats_to_plot = [np.linspace(-90, 0, npts), np.linspace(0, 90, npts)]
+        else:
+            npts = 720
+            lats_to_plot = [np.linspace(-90, 90, npts)]
         for lon in lon_ticks:
-            if lon == 360:
+            if lon == 360 or (lon == 0 and projection == 'rectangular'):
                 continue
-            # pylint: disable-next=unpacking-non-sequence
-            x, y = transformer.transform(
-                lon * np.ones(npts), np.linspace(-90, 90, npts)
-            )
-            ax.plot(
-                x,
-                y,
-                **kwargs['grid']
-                | (
-                    kwargs['prime_meridian']
-                    if lon == 0 and indicate_prime_meridian
-                    else {}
-                ),
-            )
+            for lats in lats_to_plot:
+                # pylint: disable-next=unpacking-non-sequence
+                x, y = transformer.transform(lon * np.ones(npts), lats)
+                ax.plot(
+                    x,
+                    y,
+                    **kwargs['grid']
+                    | (
+                        kwargs['prime_meridian']
+                        if lon == 0 and indicate_prime_meridian
+                        else {}
+                    ),
+                )
+        npts = 720
         for lat in lat_ticks:
             if lat in {-90, 90}:
                 continue
+            # pylint: disable-next=unpacking-non-sequence
             x, y = transformer.transform(np.linspace(0, 360, npts), lat * np.ones(npts))
             ax.plot(
                 x,
@@ -1153,23 +1160,6 @@ class BodyXY(Body):
                 **kwargs['grid']
                 | (kwargs['equator'] if lat == 0 and indicate_equator else {}),
             )
-
-        if projection == 'rectangular' and add_axis_labels:
-            if self.positive_longitude_direction == 'W':
-                ax.set_xlim(360, 0)
-            else:
-                ax.set_xlim(0, 360)
-            ax.set_ylim(-90, 90)
-            ax.set_xlabel(
-                f'Planetographic longitude ({self.positive_longitude_direction})'
-            )
-            ax.set_ylabel('Planetographic latitude')
-
-            ax.set_xticks(lon_ticks)
-            ax.set_xticklabels([f'{x:.0f}°' if x % 90 == 0 else '' for x in lon_ticks])
-
-            ax.set_yticks(lat_ticks)
-            ax.set_yticklabels([f'{y:.0f}°' if y % 90 == 0 else '' for y in lat_ticks])
 
         boundary: tuple[np.ndarray, np.ndarray] | None = None
         # Formulae for boundaries based on Cartopy CRS boundaries
@@ -1192,10 +1182,37 @@ class BodyXY(Body):
         if boundary:
             ax.plot(*boundary, **kwargs['map_boundary'])
 
-        if label_poles:
-            for lon, lat, s in self.get_poles_to_plot():
-                x, y = transformer.transform(lon, lat)
-                ax.text(x, y, s, **kwargs['pole'])
+        if label_poles and projection != 'rectangular':
+            for lat, s in ((90, 'N'), (-90, 'S')):
+                # pylint: disable-next=unpacking-non-sequence
+                x, y = transformer.transform(0, lat)
+                if math.isfinite(x) and math.isfinite(y):
+                    ax.text(x, y, s, **kwargs['pole'])
+
+        if add_axis_labels:
+            if projection == 'rectangular':
+                if self.positive_longitude_direction == 'W':
+                    ax.set_xlim(360, 0)
+                else:
+                    ax.set_xlim(0, 360)
+                ax.set_ylim(-90, 90)
+                ax.set_xlabel(
+                    f'Planetographic longitude ({self.positive_longitude_direction})'
+                )
+                ax.set_ylabel('Planetographic latitude')
+
+                ax.set_xticks(lon_ticks)
+                ax.set_xticklabels(
+                    [f'{x:.0f}°' if x % 90 == 0 else '' for x in lon_ticks]
+                )
+
+                ax.set_yticks(lat_ticks)
+                ax.set_yticklabels(
+                    [f'{y:.0f}°' if y % 90 == 0 else '' for y in lat_ticks]
+                )
+            elif projection in {'orthographic', 'azimuthal'}:
+                ax.set_xticks([])
+                ax.set_yticks([])
 
         if add_title:
             ax.set_title(self.get_description(multiline=True))
@@ -1205,7 +1222,8 @@ class BodyXY(Body):
         self,
         map_img: np.ndarray,
         ax: Axes | None = None,
-        grid: bool = True,
+        *,
+        wireframe_kwargs: dict[str, Any] | None = None,
         **kwargs,
     ) -> QuadMesh:
         """
@@ -1216,7 +1234,7 @@ class BodyXY(Body):
             map_img: Image to plot.
             ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
                 a new figure and axis is created.
-            grid: Toggle plotting a lon/lat grid.
+            wireframe_kwargs: TODO
             **kwargs: Additional arguments are passed to
                 :func:`generate_map_coordinates` to specify the map projection used, and
                 to Matplotlib's `pcolormesh` to customise the plot. For example, can be
@@ -1234,55 +1252,9 @@ class BodyXY(Body):
             if k in kwargs:
                 map_kwargs[k] = kwargs.pop(k)
 
-        _, _, xx, yy, transformer, map_kw_used = self.generate_map_coordinates(
-            **map_kwargs
-        )
-        projection = map_kw_used['projection']
-
+        _, _, xx, yy, _, _ = self.generate_map_coordinates(**map_kwargs)
         h = ax.pcolormesh(xx, yy, map_img, **kwargs)
-        ax.set_aspect(1, adjustable='box')
-
-        step = 30
-        lon_ticks = np.arange(0, 360.001, step)
-        lat_ticks = np.arange(-90, 90.001, step)
-
-        if projection == 'rectangular':
-            if self.positive_longitude_direction == 'W':
-                ax.set_xlim(360, 0)
-            else:
-                ax.set_xlim(0, 360)
-            ax.set_ylim(-90, 90)
-            ax.set_xlabel(
-                f'Planetographic longitude ({self.positive_longitude_direction})'
-            )
-            ax.set_ylabel('Planetographic latitude')
-
-            ax.set_xticks(lon_ticks)
-            ax.set_xticklabels([f'{x:.0f}°' if x % 90 == 0 else '' for x in lon_ticks])
-
-            ax.set_yticks(lat_ticks)
-            ax.set_yticklabels([f'{y:.0f}°' if y % 90 == 0 else '' for y in lat_ticks])
-
-        if grid:
-            grid_kw = dict(color='k', alpha=0.5, linewidth=1)
-            npts = 360
-            for lon in lon_ticks:
-                if lon == 360:
-                    continue
-                # pylint: disable-next=unpacking-non-sequence
-                x, y = transformer.transform(
-                    lon * np.ones(npts), np.linspace(-90, 90, npts)
-                )
-                ax.plot(x, y, **grid_kw, linestyle='-' if lon == 0 else ':')
-
-            for lat in lat_ticks:
-                # pylint: disable-next=unpacking-non-sequence
-                x, y = transformer.transform(
-                    np.linspace(0, 360, npts), lat * np.ones(npts)
-                )
-                ax.plot(x, y, **grid_kw, linestyle='-' if lat == 0 else ':')
-        # TODO add boundary line for orthographic/azimuthal projections
-        # see cartopy crs example for generating elipses
+        self.plot_map_wireframe(ax=ax, **(wireframe_kwargs or {}), **map_kwargs)
         return h
 
     def imshow_map(self, *args, **kwargs):
@@ -1530,8 +1502,8 @@ class BodyXY(Body):
             ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
                 a new figure and axis is created.
             show: Toggle showing the plotted figure with `plt.show()`
-            plot_kwargs: Passed to Matplotlib's `pcolormesh` when plotting the backplane
-                map. For example, can be used to set the colormap of the plot using
+            plot_kwargs: Passed to :func:`plot_map` when plotting the backplane map. For
+                example, can be used to set the colormap of the plot using
                 `body.plot_backplane_map(..., plot_kwargs=dict(cmap='Greys'))`.
             **map_kwargs: Additional arguments are passed to
                 :func:`generate_map_coordinates` to specify and customise the map
@@ -1550,7 +1522,6 @@ class BodyXY(Body):
             **plot_kwargs or {},
         )
         plt.colorbar(im, label=backplane.description)
-        ax.set_title(self.get_description(multiline=True))
         if show:
             plt.show()
         return ax

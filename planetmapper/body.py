@@ -1609,7 +1609,8 @@ class Body(SpiceBase):
         common_formatting = common_formatting or {}
 
         # deal with passing plot_wireframe_radec args to e.g. plot_wireframe_km
-        common_formatting.pop('dms_ticks', None)
+        for k in ('show', 'dms_ticks'):
+            common_formatting.pop(k, None)
 
         kwargs: dict[_WireframeComponent, dict[str, Any]] = defaultdict(dict)
         for k in set(DEFAULT_WIREFRAME_FORMATTING.keys()) | set(formatting.keys()):
