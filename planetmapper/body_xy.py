@@ -1287,8 +1287,47 @@ class BodyXY(Body):
         return self.plot_map(*args, **kwargs)
 
     # Wireframe generation
+    def _get_wireframe_overlay(
+        self,
+        *,
+        output_size: int | None,
+        dpi: int,
+        nx: int,
+        ny: int,
+        rgba: bool,
+        plot_fn: Callable[[Axes], Any],
+    ) -> np.ndarray:
+        output_size = output_size or max(nx, ny)
+        s = output_size / dpi
+        if nx > ny:
+            figsize = (s, s * ny / nx)
+        else:
+            figsize = (s * nx / ny, s)
+
+        fig = plt.figure(figsize=figsize, dpi=dpi, facecolor='w')
+        ax = fig.add_axes([0, 0, 1, 1], facecolor='w')
+        plot_fn(ax)
+        ax.axis('off')
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+        with io.BytesIO() as io_buf:
+            fig.savefig(io_buf, format='raw', dpi=dpi, transparent=rgba)
+            io_buf.seek(0)
+            img_arr = np.frombuffer(io_buf.getvalue(), dtype=np.uint8)
+        plt.close(fig)
+        img = img_arr.reshape((fig.canvas.get_width_height()[::-1]) + (4,))
+        if not rgba:
+            img = np.asarray(np.mean(img[:, :, :3], axis=-1), dtype=np.uint8)
+        img = np.flipud(img)  # Make consistent with FITS orientation
+        return img
+
     def get_wireframe_overlay_img(
-        self, output_size: int | None = 1500, dpi: int = 200, **plot_kwargs
+        self,
+        output_size: int | None = 1500,
+        dpi: int = 200,
+        rgba: bool = False,
+        **plot_kwargs,
     ) -> np.ndarray:
         """
         .. warning ::
@@ -1302,6 +1341,14 @@ class BodyXY(Body):
         in other applications.
 
         See also :func:`get_wireframe_overlay_map`.
+
+        .. note ::
+
+            The returned image data follows the FITS orientation convention (with the
+            origin at the bottom left) so may need to be flipped vertically in some
+            applications. If needed, the image can be flipped in Python using: ::
+
+                np.flipud(body.get_wireframe_overlay_img())
 
         .. hint ::
 
@@ -1317,39 +1364,35 @@ class BodyXY(Body):
             dpi: Dots per inch of the output image. This can be used to control the size
                 of plotted elements in the output image - larger `dpi` values will
                 produce larger plotted elements.
+            rgba: By default, the returned image only has a single greyscale channel. If
+                `rgba` is `True`, then the returned image has 4 channels (red, green,
+                blue, alpha) which can be used to more easily overlay the wireframe on
+                top of the observed data in other applications.
             **plot_kwargs: Additional arguments passed to :func:`plot_wireframe_xy`.
         Returns:
             Image of the wireframe which has the same aspect ratio as the observed data.
         """
         # TODO remove beta note when stable
-        output_size = output_size or max(self._nx, self._ny)
-        s = output_size / dpi
-        if self._nx > self._ny:
-            figsize = (s, s * self._ny / self._nx)
-        else:
-            figsize = (s * self._nx / self._ny, s)
-
-        fig = plt.figure(figsize=figsize, dpi=dpi, facecolor='w')
-        ax = fig.add_axes([0, 0, 1, 1], facecolor='w')
-        self.plot_wireframe_xy(
-            ax=ax, color='k', add_axis_labels=False, add_title=False, **plot_kwargs
+        return self._get_wireframe_overlay(
+            output_size=output_size,
+            dpi=dpi,
+            nx=self._nx,
+            ny=self._ny,
+            rgba=rgba,
+            plot_fn=lambda ax: self.plot_wireframe_xy(
+                ax=ax,
+                color='k',
+                add_axis_labels=False,
+                add_title=False,
+                **plot_kwargs or {},
+            ),
         )
-        ax.axis('off')
-        ax.set_xticks([])
-        ax.set_yticks([])
-        with io.BytesIO() as io_buf:
-            fig.savefig(io_buf, format='raw', dpi=dpi)
-            io_buf.seek(0)
-            img_arr = np.frombuffer(io_buf.getvalue(), dtype=np.uint8)
-        plt.close(fig)
-        img_arr = img_arr.reshape((fig.canvas.get_width_height()[::-1]) + (4,))
-        img = np.asarray(np.mean(img_arr[:, :, :3], axis=-1), dtype=np.uint8)
-        return img
 
     def get_wireframe_overlay_map(
         self,
         output_size: int | None = 1500,
         dpi: int = 200,
+        rgba: bool = False,
         plot_kwargs: dict[str, Any] | None = None,
         **map_kwargs: Unpack[_MapKwargs],
     ) -> np.ndarray:
@@ -1366,6 +1409,14 @@ class BodyXY(Body):
 
         See also :func:`get_wireframe_overlay_img`.
 
+        .. note ::
+
+            The returned image data follows the FITS orientation convention (with the
+            origin at the bottom left) so may need to be flipped vertically in some
+            applications. If needed, the image can be flipped in Python using: ::
+
+                np.flipud(body.get_wireframe_overlay_map())
+
         .. hint ::
 
             If you are creating plots with Matplotlib, it is generally better to use
@@ -1380,6 +1431,10 @@ class BodyXY(Body):
             dpi: Dots per inch of the output image. This can be used to control the size
                 of plotted elements in the output image - larger `dpi` values will
                 produce larger plotted elements.
+            rgba: By default, the returned image only has a single greyscale channel. If
+                `rgba` is `True`, then the returned image has 4 channels (red, green,
+                blue, alpha) which can be used to more easily overlay the wireframe on
+                top of the observed data in other applications.
             plot_kwargs: Dictionary of arguments passed to :func:`plot_map_wireframe`.
             **map_kwargs: Additional arguments passed to
                 :func:`generate_map_coordinates` to specify map projection to use.
@@ -1387,42 +1442,30 @@ class BodyXY(Body):
             Image of the map wireframe which has the same aspect ratio as the map.
         """
         # TODO remove beta note when stable
-        plot_kwargs = plot_kwargs or {}
         lons, lats, xx, yy, transformer, map_kw_used = self.generate_map_coordinates(
             **map_kwargs
         )
         nx = xx.shape[1]
         ny = yy.shape[0]
-        output_size = output_size or max(nx, ny)
-        s = output_size / dpi
-        if nx > ny:
-            figsize = (s, s * ny / nx)
-        else:
-            figsize = (s * nx / ny, s)
 
-        fig = plt.figure(figsize=figsize, dpi=dpi, facecolor='w')
-        ax = fig.add_axes([0, 0, 1, 1], facecolor='w')
-        self.plot_map_wireframe(
-            ax=ax,
-            add_axis_labels=False,
-            add_title=False,
-            **plot_kwargs | dict(common_formatting=dict(color='k')),
-            **map_kwargs,
+        def plot_fn(ax: Axes):
+            self.plot_map_wireframe(
+                ax=ax,
+                add_axis_labels=False,
+                add_title=False,
+                **(plot_kwargs or {}) | dict(common_formatting=dict(color='k')),
+                **map_kwargs,
+            )
+            # Add dx/dy to the limits to ensure the wireframe covers all of each pixel
+            # as the xx and yy coordinates only give the centre of each pixel
+            dx = abs(xx[0][1] - xx[0][0])/2
+            ax.set_xlim(np.nanmin(xx) - dx, np.nanmax(xx) + dx)
+            dy = abs(yy[1][0] - yy[0][0])/2
+            ax.set_ylim(np.nanmin(yy) - dy, np.nanmax(yy) + dy)
+
+        return self._get_wireframe_overlay(
+            output_size=output_size, dpi=dpi, nx=nx, ny=ny, rgba=rgba, plot_fn=plot_fn
         )
-        ax.set_xlim(np.nanmin(xx), np.nanmax(xx))
-        ax.set_ylim(np.nanmin(yy), np.nanmax(yy))
-        ax.axis('off')
-        ax.set_xticks([])
-        ax.set_yticks([])
-
-        with io.BytesIO() as io_buf:
-            fig.savefig(io_buf, format='raw', dpi=dpi)
-            io_buf.seek(0)
-            img_arr = np.frombuffer(io_buf.getvalue(), dtype=np.uint8)
-        plt.close(fig)
-        img_arr = img_arr.reshape((fig.canvas.get_width_height()[::-1]) + (4,))
-        img = np.asarray(np.mean(img_arr[:, :, :3], axis=-1), dtype=np.uint8)
-        return img
 
     # Backplane management
     @staticmethod
