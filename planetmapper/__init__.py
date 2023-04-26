@@ -76,7 +76,7 @@ for more information.
 """
 from .common import __version__, __author__, __url__
 from .base import SpiceBase, set_kernel_path, get_kernel_path
-from .body import Body
+from .body import Body, DEFAULT_WIREFRAME_FORMATTING
 from .body_xy import Backplane, BodyXY
 from .observation import Observation
 from .basic_body import BasicBody
@@ -98,6 +98,7 @@ __all__ = [
     'utils',
     'kernel_downloader',
     'data_loader',
+    'DEFAULT_WIREFRAME_FORMATTING',
 ]
 
 

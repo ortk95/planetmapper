@@ -1,5 +1,11 @@
 import datetime
-from typing import Callable, Literal, cast
+from collections import defaultdict
+from typing import Callable, Literal, cast, TypedDict, Any
+
+try:
+    from typing import Unpack
+except ImportError:
+    from typing_extensions import Unpack
 
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
@@ -16,6 +22,65 @@ from spiceypy.utils.exceptions import (
 from . import data_loader, utils
 from .base import SpiceBase, Numeric
 from .basic_body import BasicBody
+
+_WireframeComponent = Literal[
+    'all',
+    'grid',
+    'equator',
+    'prime_meridian',
+    'limb',
+    'limb_illuminated',
+    'terminator',
+    'ring',
+    'pole',
+    'coordinate_of_interest_lonlat',
+    'coordinate_of_interest_radec',
+    'other_body_of_interest_marker',
+    'other_body_of_interest_label',
+]
+
+
+class _WireframeKwargs(TypedDict, total=False):
+    label_poles: bool
+    add_title: bool
+    grid_interval: float
+    indicate_equator: bool
+    indicate_prime_meridian: bool
+    formatting: dict[_WireframeComponent, dict[str, Any]] | None
+    color: str | tuple[float, float, float]
+
+
+DEFAULT_WIREFRAME_FORMATTING: dict[_WireframeComponent, dict[str, Any]] = {
+    'all': dict(color='k'),
+    'grid': dict(alpha=0.5, linestyle=':'),
+    'equator': dict(linestyle='-'),
+    'prime_meridian': dict(linestyle='-'),
+    'limb': dict(linewidth=0.5),
+    'limb_illuminated': dict(),
+    'terminator': dict(linestyle='--'),
+    'ring': dict(linewidth=0.5),
+    'pole': dict(
+        ha='center',
+        va='center',
+        size='small',
+        weight='bold',
+        path_effects=[
+            path_effects.Stroke(linewidth=3, foreground='w'),
+            path_effects.Normal(),
+        ],
+        clip_on=True,
+    ),
+    'coordinate_of_interest_lonlat': dict(marker='x'),
+    'coordinate_of_interest_radec': dict(marker='+'),
+    'other_body_of_interest_marker': dict(marker='+'),
+    'other_body_of_interest_label': dict(
+        size='small',
+        ha='center',
+        va='center',
+        alpha=0.5,
+        clip_on=True,
+    ),
+}
 
 
 class Body(SpiceBase):
@@ -1534,134 +1599,89 @@ class Body(SpiceBase):
         self,
         transform: None | matplotlib.transforms.Transform,
         ax: Axes | None = None,
-        color: str | tuple[float, float, float] = 'k',
         label_poles: bool = True,
         add_title: bool = True,
         grid_interval: float = 30,
         indicate_equator: bool = False,
         indicate_prime_meridian: bool = False,
-        **kwargs,
+        formatting: dict[_WireframeComponent, dict[str, Any]] | None = None,
+        **common_formatting,
     ) -> Axes:
         """Plot generic wireframe representation of the observation"""
         if ax is None:
             ax = cast(Axes, plt.gca())
-
         if transform is None:
             transform = ax.transData
         else:
             transform = transform + ax.transData
 
-        gridline_kwargs = dict(
-            color=color,
-            alpha=0.5,
-            transform=transform,
-            **kwargs,
-        )
+        # deal with passing plot_wireframe_radec args to e.g. plot_wireframe_km
+        common_formatting.pop('dms_ticks', None)
+
+        formatting = formatting or {}
+        kwargs: dict[_WireframeComponent, dict[str, Any]] = defaultdict(dict)
+        keys = set(DEFAULT_WIREFRAME_FORMATTING.keys()) | set(formatting.keys())
+        for k in keys:
+            kwargs[k] = (
+                dict(transform=transform)
+                | DEFAULT_WIREFRAME_FORMATTING.get('all', {})
+                | DEFAULT_WIREFRAME_FORMATTING.get(k, {})
+                | common_formatting
+                | formatting.get('all', {})
+                | formatting.get(k, {})
+            )
+
         lons = np.arange(0, 360, grid_interval)
         for lon, (ra, dec) in zip(lons, self.visible_lon_grid_radec(lons)):
             ax.plot(
                 ra,
                 dec,
-                linestyle='-' if lon == 0 and indicate_prime_meridian else ':',
-                **gridline_kwargs,
+                **kwargs['grid']
+                | (
+                    kwargs['prime_meridian']
+                    if lon == 0 and indicate_prime_meridian
+                    else {}
+                ),
             )
         lats = np.arange(-90, 90, grid_interval)
         for lat, (ra, dec) in zip(lats, self.visible_lat_grid_radec(lats)):
             ax.plot(
                 ra,
                 dec,
-                linestyle='-' if lat == 0 and indicate_equator else ':',
-                **gridline_kwargs,
+                **kwargs['grid']
+                | (kwargs['equator'] if lat == 0 and indicate_equator else {}),
             )
 
-        ax.plot(
-            *self.limb_radec(),
-            color=color,
-            linewidth=0.5,
-            transform=transform,
-            **kwargs,
-        )
-        ax.plot(
-            *self.terminator_radec(),
-            color=color,
-            linestyle='--',
-            transform=transform,
-            **kwargs,
-        )
+        ax.plot(*self.limb_radec(), **kwargs['limb'])
+        ax.plot(*self.terminator_radec(), **kwargs['terminator'])
 
         ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination()
-        ax.plot(ra_day, dec_day, color=color, transform=transform, **kwargs)
+        ax.plot(ra_day, dec_day, **kwargs['limb_illuminated'])
 
         if label_poles:
             for lon, lat, s in self.get_poles_to_plot():
                 ra, dec = self.lonlat2radec(lon, lat)
-                ax.text(
-                    ra,
-                    dec,
-                    s,
-                    ha='center',
-                    va='center',
-                    size='small',
-                    weight='bold',
-                    color=color,
-                    path_effects=[
-                        path_effects.Stroke(linewidth=3, foreground='w'),
-                        path_effects.Normal(),
-                    ],
-                    transform=transform,
-                    clip_on=True,
-                    **kwargs,
-                )
+                ax.text(ra, dec, s, **kwargs['pole'])
 
         for lon, lat in self.coordinates_of_interest_lonlat:
             if self.test_if_lonlat_visible(lon, lat):
                 ra, dec = self.lonlat2radec(lon, lat)
-                ax.scatter(
-                    ra,
-                    dec,
-                    marker='x',  # type: ignore
-                    color=color,
-                    transform=transform,
-                    **kwargs,
-                )
+                ax.scatter(ra, dec, **kwargs['coordinate_of_interest_lonlat'])
         for ra, dec in self.coordinates_of_interest_radec:
-            ax.scatter(
-                ra,
-                dec,
-                marker='+',  # type: ignore
-                color=color,
-                transform=transform,
-                **kwargs,
-            )
+            ax.scatter(ra, dec, **kwargs['coordinate_of_interest_radec'])
 
         for radius in self.ring_radii:
             ra, dec = self.ring_radec(radius)
-            ax.plot(ra, dec, color=color, linewidth=0.5, transform=transform, **kwargs)
+            ax.plot(ra, dec, **kwargs['ring'])
 
         for body in self.other_bodies_of_interest:
             ra = body.target_ra
             dec = body.target_dec
             ax.text(
-                ra,
-                dec,
-                body.target + '\n',
-                size='small',
-                ha='center',
-                va='center',
-                color=color,
-                alpha=0.5,
-                transform=transform,
-                clip_on=True,
-                **kwargs,
+                ra, dec, body.target + '\n', **kwargs['other_body_of_interest_label']
             )
-            ax.scatter(
-                ra,
-                dec,
-                marker='+',  # type: ignore
-                color=color,
-                transform=transform,
-                **kwargs,
-            )
+            ax.scatter(ra, dec, **kwargs['other_body_of_interest_marker'])
+
         if add_title:
             ax.set_title(self.get_description(multiline=True))
         return ax
@@ -1669,27 +1689,69 @@ class Body(SpiceBase):
     def plot_wireframe_radec(
         self,
         ax: Axes | None = None,
-        color: str | tuple[float, float, float] = 'k',
         *,
-        label_poles: bool = True,
-        add_title: bool = True,
-        add_axis_labels: bool = True,
-        grid_interval: float = 30,
-        indicate_equator: bool = False,
-        indicate_prime_meridian: bool = False,
-        aspect_adjustable: Literal['box', 'datalim'] = 'datalim',
         dms_ticks: bool = True,
+        add_axis_labels: bool = True,
+        aspect_adjustable: Literal['box', 'datalim'] = 'datalim',
         show: bool = False,
-        **kwargs,
+        **wireframe_kwargs: Unpack[_WireframeKwargs],
     ) -> Axes:
         """
         Plot basic wireframe representation of the observation using RA/Dec sky
         coordinates.
 
+        See also :func:`plot_wireframe_km` and :func:`BodyXY.plot_wireframe_xy` to plot
+        the wireframe in other coordinate systems.
+
+        To plot a wireframe with the default appearance, simply use: ::
+
+            body.plot_wireframe_radec()
+
+        To customise the appearance of the plot, you can use the `formatting` and
+        `**kwargs` arguments which can be used to pass arguments to the Matplotlib
+        plotting functions. The `formatting` argument can be used to customise
+        individual components, and the `**kwargs` argument can be used to customise
+        all components at once.
+
+        For example, to change the colour of the entire wireframe to red, you can 
+        use: ::
+
+            body.plot_wireframe_radec(color='r')
+
+        To change just the plotted terminator and dayside limb to red, use: ::
+
+            body.plot_wireframe_radec(
+                formatting={
+                    'terminator': {'color': 'r'},
+                    'limb_illuminated': {'color': 'r'},
+                },
+            )
+
+        The order of precedence for the formatting is the `formatting` argument, then
+        `**kwargs`, then the default formatting. For example, the following plot will
+        be red with a blue grid: ::
+
+            body.plot_wireframe_radec(
+                color='r',
+                formatting={
+                    'grid': {'color': 'b'},
+                },
+            )
+
+        The default formatting is defined in :data:`DEFAULT_WIREFRAME_FORMATTING`. This
+        can be modified after importing PlanetMapper to change the default appearance of
+        all wireframes: ::
+
+            import planetmapper
+            planetmapper.DEFAULT_WIREFRAME_FORMATTING['grid']['color'] = 'b'
+            planetmapper.DEFAULT_WIREFRAME_FORMATTING['grid']['linestyle'] = '--'
+
+            body.plot_wireframe_radec() # This would have a blue dashed grid
+            body.plot_wireframe_radec(color='r') # This would be red with a dashed grid
+
         Args:
             ax: Matplotlib axis to use for plotting. If `ax` is None (the default), uses
                 `plt.gca()` to get the currently active axis.
-            color: Matplotlib color used for to plot the wireframe.
             label_poles: Toggle labelling the poles of the target body.
             add_title: Add title generated by :func:`get_description` to the axis.
             add_axis_labels: Add axis labels.
@@ -1700,25 +1762,34 @@ class Body(SpiceBase):
             aspect_adjustable: Set `adjustable` parameter when setting the aspect ratio.
                 Passed to :func:`matplotlib.axes.Axes.set_aspect`.
             dms_ticks: Toggle between showing ticks as degrees, minutes and seconds
-                (e.g. 12°34′56″) or decimal degrees (e.g. 12.582).
+                (e.g. 12°34′56″) or decimal degrees (e.g. 12.582). This argument is only
+                applicable for :func:`plot_wireframe_radec`.
             show: Toggle immediately showing the plotted figure with `plt.show()`.
+            formatting: Dictionary of formatting options for the wireframe components.
+                The keys of this dictionary are the names of the wireframe components
+                and the values are dictionaries of keyword arguments to pass to the
+                Matplotlib plotting function for that component. For example, to set the
+                `color` of the plotted rings to red, you could use::
+
+                    body.plot_wireframe_radec(formatting={'ring': {'color': 'r'}})
+
+                The following components can be formatted: `grid`, `equator`,
+                `prime_meridian`, `limb`, `limb_illuminated`, `terminator`, `ring`,
+                `pole`, `coordinate_of_interest_lonlat`, `coordinate_of_interest_radec`,
+                `other_body_of_interest_marker`, `other_body_of_interest_label`.
+
             **kwargs: Additional arguments are passed to Matplotlib plotting functions
-                (useful for e.g. specifying `zorder`).
+                for all components. This is useful for specifying properties like
+                `color` to customise the entire wireframe rather than a single
+                component. For example, to make the entire wireframe red, you could
+                use::
+
+                    body.plot_wireframe_radec(color='r')
 
         Returns:
             The axis containing the plotted wireframe.
         """
-        ax = self._plot_wireframe(
-            transform=None,
-            ax=ax,
-            color=color,
-            label_poles=label_poles,
-            add_title=add_title,
-            grid_interval=grid_interval,
-            indicate_equator=indicate_equator,
-            indicate_prime_meridian=indicate_prime_meridian,
-            **kwargs,
-        )
+        ax = self._plot_wireframe(transform=None, ax=ax, **wireframe_kwargs)
 
         utils.format_radec_axes(
             ax,
@@ -1735,55 +1806,22 @@ class Body(SpiceBase):
     def plot_wireframe_km(
         self,
         ax: Axes | None = None,
-        color: str | tuple[float, float, float] = 'k',
         *,
-        label_poles: bool = True,
-        add_title: bool = True,
         add_axis_labels: bool = True,
-        grid_interval: float = 30,
-        indicate_equator: bool = False,
-        indicate_prime_meridian: bool = False,
         aspect_adjustable: Literal['box', 'datalim'] = 'datalim',
         show: bool = False,
-        **kwargs,
+        **wireframe_kwargs: Unpack[_WireframeKwargs],
     ) -> Axes:
         """
         Plot basic wireframe representation of the observation on a target centred
-        frame.
-
-        Args:
-            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), uses
-                `plt.gca()` to get the currently active axis.
-            color: Matplotlib color used for to plot the wireframe.
-            label_poles: Toggle labelling the poles of the target body.
-            add_title: Add title generated by :func:`get_description` to the axis.
-            add_axis_labels: Add axis labels.
-            grid_interval: Spacing between grid lines in degrees.
-            indicate_equator: Toggle indicating the equator with a solid line.
-            indicate_prime_meridian: Toggle indicating the prime meridian with a solid
-                line.
-            aspect_adjustable: Set `adjustable` parameter when setting the aspect ratio.
-                Passed to :func:`matplotlib.axes.Axes.set_aspect`.
-            show: Toggle immediately showing the plotted figure with `plt.show()`.
-            **kwargs: Additional arguments are passed to Matplotlib plotting functions
-                (useful for e.g. specifying `zorder`).
+        frame. See :func:`plot_wireframe_radec` for details of accepted arguments.
 
         Returns:
             The axis containing the plotted wireframe.
         """
 
         transform = self.matplotlib_radec2km_transform()
-        ax = self._plot_wireframe(
-            transform=transform,
-            ax=ax,
-            color=color,
-            label_poles=label_poles,
-            add_title=add_title,
-            grid_interval=grid_interval,
-            indicate_equator=indicate_equator,
-            indicate_prime_meridian=indicate_prime_meridian,
-            **kwargs,
-        )
+        ax = self._plot_wireframe(transform=transform, ax=ax, **wireframe_kwargs)
         if add_axis_labels:
             ax.set_xlabel('Projected distance (km)')
             ax.set_ylabel('Projected distance (km)')
