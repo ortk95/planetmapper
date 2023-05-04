@@ -3,3 +3,6 @@ skip-string-normalization = true
 
 [tool.pylint.'MESSAGES CONTROL']
 disable = ["C", "R", "W", "E1101"]
+
+[tool.isort]
+profile = "black"
