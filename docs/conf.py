@@ -2,8 +2,9 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
-import sys
 import os
+import sys
+
 import sphinx_rtd_theme
 
 sys.path.insert(0, os.path.join(os.path.split(__file__)[0], '..'))

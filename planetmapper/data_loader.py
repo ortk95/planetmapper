@@ -1,6 +1,6 @@
-import os
-import json
 import functools
+import json
+import os
 
 
 def make_data_path(filename: str) -> str:

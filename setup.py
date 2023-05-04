@@ -1,10 +1,11 @@
 import os
 import sys
+
 import setuptools
 
 root = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(root, 'planetmapper'))
-import common  #  type: ignore
+import common  # type: ignore
 
 with open(os.path.join(root, 'README.md'), 'r') as f:
     long_description = f.read()

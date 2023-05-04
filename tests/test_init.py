@@ -1,7 +1,9 @@
 import unittest
-import planetmapper
+
 import common_testing
 from packaging import version
+
+import planetmapper
 
 
 class TestInit(unittest.TestCase):

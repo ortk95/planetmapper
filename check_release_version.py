@@ -8,7 +8,7 @@ import sys
 
 root = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(root, 'planetmapper'))
-import common  #  type: ignore
+import common  # type: ignore
 
 
 def main(tag_version: str):

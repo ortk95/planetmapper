@@ -1,14 +1,16 @@
-import unittest
+import datetime
 import os
+import unittest
+import warnings
+
 import common_testing
 import matplotlib.pyplot as plt
 import numpy as np
-from numpy import array, nan
 from astropy.io import fits
-import warnings
+from numpy import array, nan
+
 import planetmapper
 from planetmapper import utils
-import datetime
 
 
 class TestUtils(unittest.TestCase):

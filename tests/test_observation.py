@@ -1,13 +1,15 @@
-import unittest
+import fnmatch
 import os
+import unittest
+
 import common_testing
 import numpy as np
 from astropy.io import fits
+
 import planetmapper
 import planetmapper.base
 import planetmapper.progress
 from planetmapper import Observation
-import fnmatch
 
 
 class TestObservation(unittest.TestCase):

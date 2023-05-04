@@ -1,6 +1,6 @@
 import datetime
 from collections import defaultdict
-from typing import Callable, Literal, cast, TypedDict, Any
+from typing import Any, Callable, Literal, TypedDict, cast
 
 try:
     from typing import Unpack
@@ -20,7 +20,7 @@ from spiceypy.utils.exceptions import (
 )
 
 from . import data_loader, utils
-from .base import SpiceBase, Numeric
+from .base import Numeric, SpiceBase
 from .basic_body import BasicBody
 
 _WireframeComponent = Literal[

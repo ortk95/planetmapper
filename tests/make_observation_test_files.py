@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import planetmapper
-import numpy as np
-import matplotlib.pyplot as plt
-from astropy.io import fits
-import common_testing
 import os
+
+import common_testing
+import matplotlib.pyplot as plt
+import numpy as np
+from astropy.io import fits
+
+import planetmapper
 
 path = os.path.join(common_testing.DATA_PATH, 'inputs', 'image.png')
 image = np.ones((10, 5, 4), dtype=np.uint8) * 100

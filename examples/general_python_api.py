@@ -6,6 +6,7 @@ https://planetmapper.readthedocs.io/en/latest/general_python_api.html
 """
 import os
 import sys
+
 import matplotlib.pyplot as plt
 import numpy as np
 
