@@ -8,5 +8,6 @@ disable = ["C", "R", "W", "E1101"]
 profile = "black"
 
 [tool.coverage.run]
+branch = true
 include = ["planetmapper/*.py"]
 omit = ["planetmapper/gui.py", "planetmapper/kernel_downloader.py"]
