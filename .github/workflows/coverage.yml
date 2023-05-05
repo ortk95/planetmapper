@@ -24,6 +24,5 @@ jobs:
     - name: Coverage report
       run: |
         python3 -m coverage report
-        python3 -m coverage xml
     - name: Upload coverage to Coveralls
       uses: coverallsapp/github-action@v2
