@@ -21,5 +21,9 @@ jobs:
       continue-on-error: true
       run: |
         python3 -m coverage run -m unittest discover -s tests -v
+    - name: Coverage report
+      run: |
+        python3 -m coverage report
+        python3 -m coverage xml
     - name: Upload coverage to Coveralls
       uses: coverallsapp/github-action@v2
