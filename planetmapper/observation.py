@@ -1,7 +1,7 @@
 import datetime
 import os
 import warnings
-from typing import ParamSpec, TypeVar, Callable, Any, Literal
+from typing import Any, Callable, Literal, ParamSpec, TypeVar
 
 import astropy.wcs
 import numpy as np
@@ -12,8 +12,8 @@ from astropy.io import fits
 from astropy.utils.exceptions import AstropyWarning
 
 from . import common, utils
-from .body_xy import BodyXY, _MapKwargs, Unpack, _cache_clearable_result
-from .progress import progress_decorator, SaveMapProgressHookCLI, SaveNavProgressHookCLI
+from .body_xy import BodyXY, Unpack, _cache_clearable_result, _MapKwargs
+from .progress import SaveMapProgressHookCLI, SaveNavProgressHookCLI, progress_decorator
 
 T = TypeVar('T')
 S = TypeVar('S')

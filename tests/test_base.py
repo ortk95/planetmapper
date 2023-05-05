@@ -1,12 +1,14 @@
-import unittest
-import planetmapper
 import datetime
+import unittest
+from typing import Any, Callable, ParamSpec
+
+import common_testing
 import numpy as np
 import spiceypy as spice
-from typing import Callable, ParamSpec, Any
-import common_testing
-import planetmapper.progress
+
+import planetmapper
 import planetmapper.base
+import planetmapper.progress
 
 P = ParamSpec('P')
 

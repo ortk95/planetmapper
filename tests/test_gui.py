@@ -1,5 +1,7 @@
 import unittest
+
 import common_testing
+
 from planetmapper.gui import GUI
 
 

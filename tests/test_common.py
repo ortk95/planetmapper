@@ -1,7 +1,9 @@
 import unittest
+
+import common_testing
+
 import planetmapper
 import planetmapper.common
-import common_testing
 
 
 class TestCommon(unittest.TestCase):

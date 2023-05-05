@@ -10,8 +10,8 @@ import planetmapper.base
 import planetmapper.progress
 from planetmapper import BodyXY
 from planetmapper.body_xy import (
-    BackplaneNotFoundError,
     Backplane,
+    BackplaneNotFoundError,
     _cache_clearable_result,
     _cache_stable_result,
 )

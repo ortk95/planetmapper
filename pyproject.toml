@@ -3,3 +3,11 @@ skip-string-normalization = true
 
 [tool.pylint.'MESSAGES CONTROL']
 disable = ["C", "R", "W", "E1101"]
+
+[tool.isort]
+profile = "black"
+
+[tool.coverage.run]
+branch = true
+include = ["planetmapper/*.py"]
+omit = ["planetmapper/gui.py", "planetmapper/kernel_downloader.py"]

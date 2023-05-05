@@ -1,10 +1,9 @@
 import datetime
-import math
-import warnings
 import functools
 import io
+import math
+import warnings
 from typing import (
-    cast,
     Any,
     Callable,
     Concatenate,
@@ -13,8 +12,9 @@ from typing import (
     NamedTuple,
     ParamSpec,
     Protocol,
-    TypeVar,
     TypedDict,
+    TypeVar,
+    cast,
 )
 
 try:
@@ -33,10 +33,10 @@ from matplotlib.collections import QuadMesh
 from spiceypy.utils.exceptions import NotFoundError
 
 from .body import (
-    Body,
-    _WireframeKwargs,
-    _WireframeComponent,
     DEFAULT_WIREFRAME_FORMATTING,
+    Body,
+    _WireframeComponent,
+    _WireframeKwargs,
 )
 from .progress import progress_decorator
 

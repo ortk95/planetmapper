@@ -74,16 +74,13 @@ for more information.
     suggestions can be 
     `reported on GitHub <https://github.com/ortk95/planetmapper/issues/new>`__.
 """
-from .common import __version__, __author__, __url__
-from .base import SpiceBase, set_kernel_path, get_kernel_path
-from .body import Body, DEFAULT_WIREFRAME_FORMATTING
-from .body_xy import Backplane, BodyXY
-from .observation import Observation
+from . import data_loader, gui, kernel_downloader, utils
+from .base import SpiceBase, get_kernel_path, set_kernel_path
 from .basic_body import BasicBody
-from . import gui
-from . import utils
-from . import kernel_downloader
-from . import data_loader
+from .body import DEFAULT_WIREFRAME_FORMATTING, Body
+from .body_xy import Backplane, BodyXY
+from .common import __author__, __url__, __version__
+from .observation import Observation
 
 __all__ = [
     'set_kernel_path',

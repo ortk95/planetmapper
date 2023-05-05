@@ -7,10 +7,11 @@ import tkinter.messagebox
 import tkinter.scrolledtext
 import traceback
 from collections import defaultdict
+from functools import lru_cache
 from tkinter import ttk
 from typing import Any, Callable, Literal, TypeVar
-from functools import lru_cache
 
+import matplotlib as mpl
 import matplotlib.cm
 import matplotlib.colors
 import matplotlib.markers
@@ -20,19 +21,15 @@ import numpy as np
 import spiceypy as spice
 from astropy.io import fits
 from matplotlib.artist import Artist
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
-from matplotlib.backend_bases import MouseEvent, MouseButton
-from matplotlib.text import Text
-import matplotlib as mpl
-
+from matplotlib.backend_bases import MouseButton, MouseEvent
 from matplotlib.backends._backend_tk import NavigationToolbar2Tk  # TODO delete this?
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.text import Text
 
-from . import base, common, data_loader, utils
-from .body import Body, BasicBody, NotFoundError
+from . import base, common, data_loader, progress, utils
+from .body import BasicBody, Body, NotFoundError
 from .body_xy import _MapKwargs
 from .observation import Observation
-from . import progress
-
 
 Widget = TypeVar('Widget', bound=tk.Widget)
 SETTER_KEY = Literal[
