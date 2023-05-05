@@ -24,5 +24,8 @@ jobs:
     - name: Coverage report
       run: |
         python3 -m coverage report
+        python3 -m coverage lcov
     - name: Upload coverage to Coveralls
       uses: coverallsapp/github-action@v2
+      with:
+        path-to-lcov: ./coverage.lcov
