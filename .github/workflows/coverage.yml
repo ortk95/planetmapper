@@ -26,4 +26,4 @@ jobs:
         python -m coverage report
     - name: Upload coverage to Coveralls
       run: |
-        python -m coveralls --sercive=github
+        python -m coveralls --service=github
