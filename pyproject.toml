@@ -9,4 +9,3 @@ profile = "black"
 
 [tool.coverage.run]
 source = ["planetmapper"]
-branch = true
