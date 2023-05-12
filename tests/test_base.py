@@ -9,6 +9,7 @@ import spiceypy as spice
 import planetmapper
 import planetmapper.base
 import planetmapper.progress
+from planetmapper.base import BodyBase
 
 P = ParamSpec('P')
 
@@ -348,3 +349,88 @@ class TestKernelPath(unittest.TestCase):
 
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
         self.assertEqual(planetmapper.get_kernel_path(), common_testing.KERNEL_PATH)
+
+
+class TestBodyBase(unittest.TestCase):
+    def setUp(self):
+        planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
+
+    def test_init_target(self):
+        kw = dict(
+            utc='2005-01-01',
+            observer='earth',
+            aberration_correction='CN+S',
+            observer_frame='J2000',
+        )
+        self.assertEqual(
+            BodyBase(target='jupiter', **kw),
+            BodyBase(target=599, **kw),
+        )
+
+        self.assertEqual(
+            BodyBase(target='jupiter', **kw),
+            BodyBase(target=' JuPiteR   ', **kw),
+        )
+
+    def test_init_utc(self):
+        kw = dict(
+            target='jupiter',
+            observer='earth',
+            aberration_correction='CN+S',
+            observer_frame='J2000',
+        )
+        obj = BodyBase(utc='2005-01-01 12:00', **kw)
+        self.assertEqual(obj.utc, '2005-01-01T12:00:00.000000')
+
+        self.assertEqual(
+            obj,
+            BodyBase(utc=datetime.datetime(2005, 1, 1, 12), **kw),
+        )
+        self.assertEqual(
+            obj,
+            BodyBase(utc=53371.5, **kw),
+        )
+
+        self.assertEqual(
+            obj,
+            BodyBase(
+                utc=datetime.datetime(
+                    2005,
+                    1,
+                    1,
+                    15,
+                    tzinfo=datetime.timezone(datetime.timedelta(hours=3)),
+                ),
+                **kw,
+            ),
+        )
+
+    def test_eq(self):
+        obj = BodyBase(
+            target='jupiter',
+            utc='2005-01-01',
+            observer='earth',
+            aberration_correction='CN+S',
+            observer_frame='J2000',
+        )
+        self.assertEqual(
+            obj,
+            BodyBase(
+                target='jupiter',
+                utc='2005-01-01',
+                observer='earth',
+                aberration_correction='CN+S',
+                observer_frame='J2000',
+            ),
+        )
+
+        self.assertNotEqual(
+            obj,
+            BodyBase(
+                target='jupiter',
+                utc='2005-01-02',
+                observer='earth',
+                aberration_correction='CN+S',
+                observer_frame='J2000',
+            ),
+        )

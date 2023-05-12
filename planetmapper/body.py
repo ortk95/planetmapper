@@ -20,7 +20,7 @@ from spiceypy.utils.exceptions import (
 )
 
 from . import data_loader, utils
-from .base import Numeric, SpiceBase
+from .base import BodyBase, Numeric
 from .basic_body import BasicBody
 
 _WireframeComponent = Literal[
@@ -48,7 +48,11 @@ class _WireframeKwargs(TypedDict, total=False):
     indicate_equator: bool
     indicate_prime_meridian: bool
     formatting: dict[_WireframeComponent, dict[str, Any]] | None
+
+    # Hints for common formatting parameters to make type checking/autocomplete happy
     color: str | tuple[float, float, float]
+    alpha: float
+    zorder: float
 
 
 DEFAULT_WIREFRAME_FORMATTING: dict[_WireframeComponent, dict[str, Any]] = {
@@ -85,7 +89,7 @@ DEFAULT_WIREFRAME_FORMATTING: dict[_WireframeComponent, dict[str, Any]] = {
 }
 
 
-class Body(SpiceBase):
+class Body(BodyBase):
     """
     Class representing an astronomical body observed at a specific time.
 
@@ -140,7 +144,14 @@ class Body(SpiceBase):
         surface_method: str = 'ELLIPSOID',
         **kwargs,
     ) -> None:
-        super().__init__(**kwargs)
+        super().__init__(
+            target=target,
+            utc=utc,
+            observer=observer,
+            aberration_correction=aberration_correction,
+            observer_frame=observer_frame,
+            **kwargs,
+        )
 
         # Document instance variables
         self.et: float
@@ -250,39 +261,15 @@ class Body(SpiceBase):
         """
 
         # Process inputs
-        if isinstance(utc, float):
-            utc = self.mjd2dtm(utc)
-        if utc is None:
-            utc = datetime.datetime.now(datetime.timezone.utc)
-        if isinstance(utc, datetime.datetime):
-            # convert input datetime to UTC, then to a string compatible with spice
-            utc = utc.replace(tzinfo=datetime.timezone.utc)
-            utc = utc.strftime(self._DEFAULT_DTM_FORMAT_STRING)
-
-        self.target = self.standardise_body_name(target)
-        self.observer = self.standardise_body_name(observer)
-        self.observer_frame = observer_frame
         self.illumination_source = illumination_source
-        self.aberration_correction = aberration_correction
         self.subpoint_method = subpoint_method
         self.surface_method = surface_method
 
-        # Encode strings which are regularly passed to spice (for speed)
-        self._target_encoded = self._encode_str(self.target)
-        self._observer_encoded = self._encode_str(self.observer)
-        self._observer_frame_encoded = self._encode_str(self.observer_frame)
         self._illumination_source_encoded = self._encode_str(self.illumination_source)
-        self._aberration_correction_encoded = self._encode_str(
-            self.aberration_correction
-        )
         self._subpoint_method_encoded = self._encode_str(self.subpoint_method)
         self._surface_method_encoded = self._encode_str(self.surface_method)
 
         # Get target properties and state
-        self.et = spice.utc2et(utc)
-        self.dtm: datetime.datetime = self.et2dtm(self.et)
-        self.utc = self.dtm.strftime(self._DEFAULT_DTM_FORMAT_STRING)
-        self.target_body_id: int = spice.bodn2c(self.target)
         self.target_frame = 'IAU_' + self.target
         self._target_frame_encoded = self._encode_str(self.target_frame)
 
@@ -304,23 +291,6 @@ class Body(SpiceBase):
         else:
             self.positive_longitude_direction = 'E'
 
-        starg, lt = spice.spkezr(
-            self._target_encoded,  # type: ignore
-            self.et,
-            self._observer_frame_encoded,  # type: ignore
-            self._aberration_correction_encoded,  # type: ignore
-            self._observer_encoded,  # type: ignore
-        )
-        self._target_obsvec = cast(np.ndarray, starg)[:3]
-        self.target_light_time = cast(float, lt)
-        # cast() calls are only here to make type checking play nicely with spice.spkezr
-        self.target_distance = self.target_light_time * self.speed_of_light()
-        self._target_ra_radians, self._target_dec_radians = self._obsvec2radec_radians(
-            self._target_obsvec
-        )
-        self.target_ra, self.target_dec = self._radian_pair2degrees(
-            self._target_ra_radians, self._target_dec_radians
-        )
         self.target_diameter_arcsec = (
             60 * 60 * np.rad2deg(np.arcsin(2 * self.r_eq / self.target_distance))
         )
@@ -334,7 +304,7 @@ class Body(SpiceBase):
             self._aberration_correction_encoded,  # type: ignore
             self._observer_encoded,  # type: ignore
         )
-        self.subpoint_distance = np.linalg.norm(self._subpoint_rayvec)
+        self.subpoint_distance = float(np.linalg.norm(self._subpoint_rayvec))
         self.subpoint_lon, self.subpoint_lat = self.targvec2lonlat(
             self._subpoint_targvec
         )
@@ -380,12 +350,7 @@ class Body(SpiceBase):
 
     def _get_equality_tuple(self) -> tuple:
         return (
-            self.target,
-            self.utc,
-            self.observer,
-            self.observer_frame,
             self.illumination_source,
-            self.aberration_correction,
             self.subpoint_method,
             self.surface_method,
             super()._get_equality_tuple(),
@@ -508,7 +473,8 @@ class Body(SpiceBase):
         This is a convenience function to load data from :attr:`named_ring_data`.
 
         Args:
-            name: Name of ring. This is case insensitive.
+            name: Name of ring. This is case insensitive and any "ring" suffix is
+                optional.
 
         Raises:
             ValueError: if no ring with the provided name is found.
@@ -523,7 +489,10 @@ class Body(SpiceBase):
         for n, radii in self.named_ring_data.items():
             if name == standardise(n):
                 return radii
-        raise ValueError(f'No rings found named {name!r} in named_ring_data')
+        raise ValueError(
+            f'No rings found named {name!r} in named_ring_data.'
+            + f'\nValid names: {[standardise(n) for n in self.named_ring_data.keys()]}'
+        )
 
     def add_named_rings(self, *names: str) -> None:
         """
@@ -567,9 +536,7 @@ class Body(SpiceBase):
         frame.
         """
         # Get the target vector from the subpoint to the point of interest
-        targvec_offset = targvec - self._subpoint_targvec  # type: ignore
-        # ^ ignoring type warning due to numpy bug (TODO remove type: ingore in future)
-        # https://github.com/numpy/numpy/issues/22437
+        targvec_offset = targvec - self._subpoint_targvec
 
         # Calculate the difference in LOS distance between observer<->subpoint and
         # observer<->point of interest
@@ -589,7 +556,7 @@ class Body(SpiceBase):
         transform_matrix = spice.pxfrm2(
             self._target_frame_encoded,  # type: ignore
             self._observer_frame_encoded,  # type: ignore
-            targvec_et,
+            targvec_et,  #  type: ignore
             self.et,
         )
 
@@ -609,13 +576,6 @@ class Body(SpiceBase):
         )
         return np.matmul(px, rayvec)
 
-    def _obsvec2radec_radians(self, obsvec: np.ndarray) -> tuple[float, float]:
-        """
-        Transform rectangular vector in observer frame to observer ra/dec coordinates.
-        """
-        dst, ra, dec = spice.recrad(obsvec)
-        return ra, dec
-
     # Coordinate transformations observer -> target direction
     def _radec2obsvec_norm_radians(self, ra: float, dec: float) -> np.ndarray:
         return spice.radrec(1, ra, dec)
@@ -629,9 +589,7 @@ class Body(SpiceBase):
         """
 
         # Get the target vector from the subpoint to the point of interest
-        obsvec_offset = obsvec - self._subpoint_obsvec  # type: ignore
-        # ^ ignoring type warning due to numpy bug (TODO remove type: ingore in future)
-        # https://github.com/numpy/numpy/issues/22437
+        obsvec_offset = obsvec - self._subpoint_obsvec
 
         # Calculate the difference in LOS distance between observer<->subpoint and
         # observer<->point of interest
@@ -652,7 +610,7 @@ class Body(SpiceBase):
             self._observer_frame_encoded,  # type: ignore
             self._target_frame_encoded,  # type: ignore
             self.et,
-            obsvec_et,
+            obsvec_et,  # type: ignore
         )
 
         # Use the transform matrix to perform the actual transformation
@@ -947,7 +905,7 @@ class Body(SpiceBase):
             transform_rad2deg = matplotlib.transforms.Affine2D().scale(np.deg2rad(1))
             self._mpl_transform_radec2km = (
                 transform_rad2deg + self._get_matplotlib_radec2km_transform_radians()
-            )  #  type: ignore
+            )
         transform = self._mpl_transform_radec2km
         if ax:
             transform = transform + ax.transData

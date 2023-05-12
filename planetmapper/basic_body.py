@@ -4,10 +4,10 @@ from typing import cast
 import numpy as np
 import spiceypy as spice
 
-from .base import SpiceBase
+from .base import BodyBase
 
 
-class BasicBody(SpiceBase):
+class BasicBody(BodyBase):
     """
     Class representing astronomical body which is treated as a point source.
 
@@ -40,7 +40,14 @@ class BasicBody(SpiceBase):
     ) -> None:
         # some arguments are unused, but keep them so that the function has the same
         # signature as Body()
-        super().__init__(**kwargs)
+        super().__init__(
+            target=target,
+            utc=utc,
+            observer=observer,
+            aberration_correction=aberration_correction,
+            observer_frame=observer_frame,
+            **kwargs,
+        )
 
         # Document instance variables
         self.et: float
@@ -58,54 +65,8 @@ class BasicBody(SpiceBase):
         self.target_dec: float
         """Declination (Dec) of the target centre."""
 
-        # Process inputs
-        if isinstance(utc, float):
-            utc = self.mjd2dtm(utc)
-        if utc is None:
-            utc = datetime.datetime.now(datetime.timezone.utc)
-        if isinstance(utc, datetime.datetime):
-            # convert input datetime to UTC, then to a string compatible with spice
-            utc = utc.replace(tzinfo=datetime.timezone.utc)
-            utc = utc.strftime(self._DEFAULT_DTM_FORMAT_STRING)
-
-        self.target = self.standardise_body_name(target)
-        self.observer = self.standardise_body_name(observer)
-        self.observer_frame = observer_frame
-        self.aberration_correction = aberration_correction
-
-        # Get target properties and state
-        self.et = spice.utc2et(utc)
-        self.dtm: datetime.datetime = self.et2dtm(self.et)
-        self.utc = self.dtm.strftime(self._DEFAULT_DTM_FORMAT_STRING)
-        self.target_body_id: int = spice.bodn2c(self.target)
-
-        starg, lt = spice.spkezr(
-            self.target,
-            self.et,
-            self.observer_frame,
-            self.aberration_correction,
-            self.observer,
-        )
-        self._target_obsvec = cast(np.ndarray, starg)[:3]
-        self.target_light_time = cast(float, lt)
-        # cast() calls are only here to make type checking play nicely with spice.spkezr
-        self.target_distance = self.target_light_time * self.speed_of_light()
-        _, self._target_ra_radians, self._target_dec_radians = spice.recrad(
-            self._target_obsvec
-        )
-        self.target_ra, self.target_dec = self._radian_pair2degrees(
-            self._target_ra_radians, self._target_dec_radians
-        )
-
     def __repr__(self) -> str:
         return f'BasicBody({self.target!r}, {self.utc!r})'
 
     def _get_equality_tuple(self) -> tuple:
-        return (
-            self.target,
-            self.utc,
-            self.observer,
-            self.observer_frame,
-            self.aberration_correction,
-            super()._get_equality_tuple(),
-        )
+        return (super()._get_equality_tuple(),)

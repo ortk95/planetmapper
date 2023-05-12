@@ -1,7 +1,8 @@
 import datetime
 import glob
+import numbers
 import os
-from typing import TypeVar
+from typing import TypeVar, cast
 
 import astropy.time
 import numpy as np
@@ -340,6 +341,98 @@ class SpiceBase:
         """Update progress hook with `progress` of current function between 0 & 1"""
         if self._progress_hook is not None:
             self._progress_hook(progress, self._progress_call_stack)
+
+
+class BodyBase(SpiceBase):
+    """
+    Base class for :class:`planetmapper.Body` and :class:`planetmapper.BasicBody`.
+
+    You are unlikely to need to use this class directly - use :class:`planetmapper.Body`
+    or :class:`planetmapper.BasicBody` instead.
+    """
+
+    def __init__(
+        self,
+        *,
+        target: str | int,
+        utc: str | datetime.datetime | float | None,
+        observer: str | int,
+        aberration_correction: str,
+        observer_frame: str,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+
+        # Process inputs
+        if isinstance(utc, (float, int, numbers.Number)):
+            # Include a check for numbers.Number to allow other numeric types
+            utc = self.mjd2dtm(utc)
+        if utc is None:
+            utc = datetime.datetime.now(datetime.timezone.utc)
+        if isinstance(utc, datetime.datetime):
+            # convert input datetime to UTC, then to a string compatible with spice
+            if utc.tzinfo is None:
+                # Default to UTC if no timezone is specified
+                utc = utc.replace(tzinfo=datetime.timezone.utc)
+            # Standardise to UTC
+            utc = utc.astimezone(tz=datetime.timezone.utc)
+            utc = utc.strftime(self._DEFAULT_DTM_FORMAT_STRING)
+
+        self.target = self.standardise_body_name(target)
+        self.observer = self.standardise_body_name(observer)
+        self.observer_frame = observer_frame
+        self.aberration_correction = aberration_correction
+
+        self.et = spice.utc2et(utc)
+        self.dtm: datetime.datetime = self.et2dtm(self.et)
+        self.utc = self.dtm.strftime(self._DEFAULT_DTM_FORMAT_STRING)
+        self.target_body_id: int = spice.bodn2c(self.target)
+
+        # Encode strings which are regularly passed to spice (for speed)
+        self._target_encoded = self._encode_str(self.target)
+        self._observer_encoded = self._encode_str(self.observer)
+        self._observer_frame_encoded = self._encode_str(self.observer_frame)
+        self._aberration_correction_encoded = self._encode_str(
+            self.aberration_correction
+        )
+
+        starg, lt = spice.spkezr(
+            self._target_encoded,  # type: ignore
+            self.et,
+            self._observer_frame_encoded,  # type: ignore
+            self._aberration_correction_encoded,  # type: ignore
+            self._observer_encoded,  # type: ignore
+        )
+        self._target_obsvec = cast(np.ndarray, starg)[:3]
+        self.target_light_time = cast(float, lt)
+        # cast() calls are only here to make type checking play nicely with spice.spkezr
+        self.target_distance = self.target_light_time * self.speed_of_light()
+        self._target_ra_radians, self._target_dec_radians = self._obsvec2radec_radians(
+            self._target_obsvec
+        )
+        self.target_ra, self.target_dec = self._radian_pair2degrees(
+            self._target_ra_radians, self._target_dec_radians
+        )
+
+    def __repr__(self) -> str:
+        return f'BodyBase({self.target!r}, {self.utc!r})'
+
+    def _get_equality_tuple(self) -> tuple:
+        return (
+            self.target,
+            self.utc,
+            self.observer,
+            self.observer_frame,
+            self.aberration_correction,
+            super()._get_equality_tuple(),
+        )
+
+    def _obsvec2radec_radians(self, obsvec: np.ndarray) -> tuple[float, float]:
+        """
+        Transform rectangular vector in observer frame to observer ra/dec coordinates.
+        """
+        dst, ra, dec = spice.recrad(obsvec)
+        return ra, dec
 
 
 def load_kernels(*paths, clear_before: bool = False) -> list[str]:

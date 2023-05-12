@@ -24,6 +24,32 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(ax.xaxis_inverted())
         plt.close(fig)
 
+        fig, ax = plt.subplots()
+        ax.invert_xaxis()
+        utils.format_radec_axes(
+            ax, 0, dms_ticks=False, add_axis_labels=False, aspect_adjustable='box'
+        )
+        self.assertAlmostEqual(ax.get_aspect(), 1.0)  # type: ignore
+        self.assertTrue(ax.xaxis_inverted())
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
+        utils.format_radec_axes(ax, 30)
+
+        limits: list[tuple[float, float]] = [
+            (-1, 1),
+            (20.12, 20.123),
+            (-42.01, -42.010001),
+            (0.001, 0.005),
+            (-20, 30.1),
+            (42, 42.5),
+        ]
+        for limit in limits:
+            ax.set_xlim(*limit)
+            ax.set_ylim(*limit)
+            fig.canvas.draw()
+        plt.close(fig)
+
     def test_decimal_degrees_to_dms(self):
         pairs = [
             [0, (0, 0, 0)],
@@ -31,6 +57,8 @@ class TestUtils(unittest.TestCase):
             [1.23456789, (1, 14, 4.444404)],
             [-123.456, (-123, 27, 21.6)],
             [360, (360, 0, 0)],
+            [-0.1, (0, -6, 0)],
+            [-0.001, (0, 0, -3.6)],
         ]
         for decimal_degrees, dms in pairs:
             with self.subTest(decimal_degrees=decimal_degrees):
@@ -116,6 +144,14 @@ class TestUtils(unittest.TestCase):
             with self.subTest(a):
                 self.assertTrue(np.allclose(utils.normalise(a), b, equal_nan=True))
 
+        self.assertTrue(
+            np.allclose(
+                utils.normalise([1, 1, 1], single_value=42),
+                np.array([42, 42, 42]),
+                equal_nan=True,
+            )
+        )
+
     def test_check_path(self):
         path = os.path.join(
             common_testing.TEMP_PATH,
@@ -133,3 +169,5 @@ class TestUtils(unittest.TestCase):
         utils.check_path(os.path.join(path, 'test_file.txt'))
         self.assertTrue(os.path.exists(path))
         os.rmdir(path)
+
+        utils.check_path('')

@@ -17,6 +17,23 @@ from planetmapper.body_xy import (
 )
 
 
+class TestFunctions(unittest.TestCase):
+    def test_to_tuple(self):
+        pairs = [
+            (np.array([1, 2, 3]), (1, 2, 3)),
+            (np.array([[1, 2, 3]]), ((1, 2, 3),)),
+            (np.array(1), 1.0),
+        ]
+        for a, b in pairs:
+            with self.subTest(a=a, b=b):
+                self.assertEqual(planetmapper.body_xy._to_tuple(a), b)
+
+    def test_make_backplane_documentation_str(self):
+        self.assertIsInstance(
+            planetmapper.body_xy._make_backplane_documentation_str(), str
+        )
+
+
 class TestBodyXY(unittest.TestCase):
     def setUp(self):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
@@ -156,20 +173,25 @@ class TestBodyXY(unittest.TestCase):
                     self.assertTrue(np.allclose(body.km2xy(*km), xy, equal_nan=True))
 
     def test_set_disc_params(self):
-        with self.subTest('args'):
-            x0, y0, r0, rotation = [1.1, 2.2, 3.3, 4.4]
-            self.body.set_disc_params(x0, y0, r0, rotation)
-            self.assertEqual(self.body.get_x0(), x0)
-            self.assertEqual(self.body.get_y0(), y0)
-            self.assertEqual(self.body.get_r0(), r0)
-            self.assertAlmostEqual(self.body.get_rotation(), rotation)
-        with self.subTest('kwargs'):
-            x0, y0, r0, rotation = [1.11, 2.22, 3.33, 4.44]
-            self.body.set_disc_params(x0=x0, y0=y0, r0=r0, rotation=rotation)
-            self.assertEqual(self.body.get_x0(), x0)
-            self.assertEqual(self.body.get_y0(), y0)
-            self.assertEqual(self.body.get_r0(), r0)
-            self.assertAlmostEqual(self.body.get_rotation(), rotation)
+        x0, y0, r0, rotation = [1.1, 2.2, 3.3, 4.4]
+        self.body.set_disc_params(x0, y0, r0, rotation)
+        self.assertEqual(self.body.get_x0(), x0)
+        self.assertEqual(self.body.get_y0(), y0)
+        self.assertEqual(self.body.get_r0(), r0)
+        self.assertAlmostEqual(self.body.get_rotation(), rotation)
+
+        self.body.set_disc_params()
+        self.assertEqual(self.body.get_x0(), x0)
+        self.assertEqual(self.body.get_y0(), y0)
+        self.assertEqual(self.body.get_r0(), r0)
+        self.assertAlmostEqual(self.body.get_rotation(), rotation)
+
+        x0, y0, r0, rotation = [1.11, 2.22, 3.33, 4.44]
+        self.body.set_disc_params(x0=x0, y0=y0, r0=r0, rotation=rotation)
+        self.assertEqual(self.body.get_x0(), x0)
+        self.assertEqual(self.body.get_y0(), y0)
+        self.assertEqual(self.body.get_r0(), r0)
+        self.assertAlmostEqual(self.body.get_rotation(), rotation)
 
     def test_disc_params(self):
         with self.subTest('args'):
@@ -236,6 +258,12 @@ class TestBodyXY(unittest.TestCase):
 
         self.body_zero_size.set_img_size(3, 4)
         self.assertEqual(self.body_zero_size.get_img_size(), (3, 4))
+        self.body_zero_size.set_img_size()
+        self.assertEqual(self.body_zero_size.get_img_size(), (3, 4))
+        self.body_zero_size.set_img_size(nx=5)
+        self.assertEqual(self.body_zero_size.get_img_size(), (5, 4))
+        self.body_zero_size.set_img_size(ny=5)
+        self.assertEqual(self.body_zero_size.get_img_size(), (5, 5))
 
         self.body_zero_size.set_img_size(15, 10)
         self.assertEqual(self.body, self.body_zero_size)
@@ -394,7 +422,7 @@ class TestBodyXY(unittest.TestCase):
         fig, ax = plt.subplots()
         self.body.plot_map_wireframe(ax=ax, projection='azimuthal', lat=-90)
         plt.close(fig)
-    
+
     def test_get_wireframe_overlay(self):
         img = self.body.get_wireframe_overlay_img(output_size=100)
         self.assertEqual(max(img.shape), 100)
@@ -509,6 +537,38 @@ class TestBodyXY(unittest.TestCase):
         self.assertEqual(self.body.standardise_backplane_name(' EMISSION '), 'EMISSION')
         self.assertEqual(self.body.standardise_backplane_name('emission'), 'EMISSION')
         self.assertEqual(self.body.standardise_backplane_name('EmIsSiOn'), 'EMISSION')
+
+    def test_register_backplane(self):
+        name = '<<<TEST>>>'
+        description = 'A test backplane'
+        get_img = lambda: None
+        get_map = lambda: None
+
+        self.body.register_backplane(
+            name,
+            description,
+            get_img,  #  type: ignore
+            get_map,  #  type: ignore
+        )
+
+        backplane = self.body.get_backplane(name)
+        self.assertEqual(backplane.name, name)
+        self.assertEqual(backplane.description, description)
+        self.assertEqual(backplane.get_img, get_img)
+        self.assertEqual(backplane.get_map, get_map)
+
+        with self.assertRaises(ValueError):
+            self.body.register_backplane(
+                name,
+                description,
+                get_img=get_img,  #  type: ignore
+                get_map=get_map,  #  type: ignore
+            )
+
+        del self.body.backplanes[name]
+
+        with self.assertRaises(planetmapper.body_xy.BackplaneNotFoundError):
+            self.body.get_backplane(name)
 
     def test_backplane_summary_string(self):
         lines = [

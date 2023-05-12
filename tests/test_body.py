@@ -163,12 +163,24 @@ class TestBody(unittest.TestCase):
         self.body.ring_radii.clear()
         self.assertEqual(self.body.ring_radii, set())
 
-        self.body.add_named_rings('halo', 'main')
+        self.body.add_named_rings('halo', '   MaIn rinG ')
         self.assertEqual(self.body.ring_radii, {89400.0, 123000.0, 128940.0})
 
         self.body.add_named_rings('thebe extension')
         self.assertEqual(
             self.body.ring_radii, {89400.0, 123000.0, 128940.0, 221900.0, 280000.0}
+        )
+
+        with self.assertRaises(ValueError):
+            self.body.add_named_rings('<<<< test ring name >>>>')
+
+        self.body.ring_radii.clear()
+        self.assertEqual(self.body.ring_radii, set())
+
+        self.body.add_named_rings()
+        self.assertEqual(
+            self.body.ring_radii,
+            {280000.0, 181350.0, 128940.0, 221900.0, 89400.0, 123000.0},
         )
 
         self.body.ring_radii.clear()
@@ -545,3 +557,26 @@ class TestBody(unittest.TestCase):
 
         ax = self.body.plot_wireframe_km()
         plt.close(ax.figure)
+
+        self.body.add_named_rings()
+        self.body.coordinates_of_interest_lonlat.extend(
+            [(0, 0), (90, 0), (180, 0), (270, 0)]
+        )
+        self.body.coordinates_of_interest_radec.append(
+            (self.body.target_ra, self.body.target_dec)
+        )
+        fig, ax = plt.subplots()
+        self.body.plot_wireframe_km(
+            ax,
+            label_poles=False,
+            add_axis_labels=False,
+            aspect_adjustable='box',
+            add_title=False,
+            grid_interval=43,
+            indicate_equator=True,
+            indicate_prime_meridian=True,
+        )
+        plt.close(fig)
+        self.body.ring_radii.clear()
+        self.body.coordinates_of_interest_lonlat.clear()
+        self.body.coordinates_of_interest_radec.clear()
