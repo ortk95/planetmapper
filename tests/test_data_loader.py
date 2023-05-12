@@ -1,4 +1,5 @@
 import json
+import os
 import unittest
 
 import planetmapper
@@ -7,7 +8,7 @@ import planetmapper
 class TestDataLoader(unittest.TestCase):
     def test_make_data_path(self):
         p = planetmapper.data_loader.make_data_path('text.txt')
-        self.assertTrue(p.endswith('planetmapper/data/text.txt'))
+        self.assertTrue(p.endswith(os.path.join('planetmapper', 'data', 'text.txt')))
 
     def test_get_ring_radii(self):
         data = planetmapper.data_loader.get_ring_radii()

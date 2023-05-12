@@ -41,6 +41,8 @@ class TestObservation(unittest.TestCase):
                 observer='hst',
                 utc='2005-01-01T00:00:00',
             )
+            self.assertEqual(obs, obs)
+            self.assertNotEqual(obs, self.observation)
             self.assertEqual(obs.path, path)
             self.assertEqual(obs.target, 'JUPITER')
             self.assertEqual(obs.header['OBJECT'], 'JUPITER')
@@ -52,6 +54,8 @@ class TestObservation(unittest.TestCase):
         with self.subTest('planmap.fits'):
             path = os.path.join(common_testing.DATA_PATH, 'inputs', 'planmap.fits')
             obs = Observation(path)
+            self.assertEqual(obs, obs)
+            self.assertNotEqual(obs, self.observation)
             self.assertEqual(obs.path, path)
             self.assertEqual(obs.target, 'JUPITER')
             self.assertEqual(obs.observer, 'HST')
@@ -70,6 +74,8 @@ class TestObservation(unittest.TestCase):
         with self.subTest('planmap.fits+override'):
             path = os.path.join(common_testing.DATA_PATH, 'inputs', 'planmap.fits')
             obs = Observation(path, observer='EARTH', utc='2005-01-01')
+            self.assertEqual(obs, obs)
+            self.assertNotEqual(obs, self.observation)
             self.assertEqual(obs.path, path)
             self.assertEqual(obs.target, 'JUPITER')
             self.assertEqual(obs.observer, 'EARTH')
@@ -88,6 +94,8 @@ class TestObservation(unittest.TestCase):
         with self.subTest('wcs.fits'):
             path = os.path.join(common_testing.DATA_PATH, 'inputs', 'wcs.fits')
             obs = Observation(path)
+            self.assertEqual(obs, obs)
+            self.assertNotEqual(obs, self.observation)
             self.assertEqual(obs.path, path)
             self.assertEqual(obs.target, 'JUPITER')
             self.assertEqual(obs.observer, 'HST')
@@ -100,6 +108,8 @@ class TestObservation(unittest.TestCase):
         with self.subTest('extended.fits'):
             path = os.path.join(common_testing.DATA_PATH, 'inputs', 'extended.fits')
             obs = Observation(path)
+            self.assertEqual(obs, obs)
+            self.assertNotEqual(obs, self.observation)
             self.assertEqual(obs.path, path)
             self.assertEqual(obs.target, 'JUPITER')
             self.assertEqual(obs.observer, 'HST')
@@ -119,6 +129,8 @@ class TestObservation(unittest.TestCase):
                 observer='hst',
                 utc='2005-01-01T00:00:00',
             )
+            self.assertEqual(obs, obs)
+            self.assertNotEqual(obs, self.observation)
             self.assertIsNone(obs.path)
             self.assertEqual(obs.target, 'JUPITER')
             self.assertEqual(obs.observer, 'HST')
@@ -135,6 +147,8 @@ class TestObservation(unittest.TestCase):
                 observer='hst',
                 utc='2005-01-01T00:00:00',
             )
+            self.assertEqual(obs, obs)
+            self.assertNotEqual(obs, self.observation)
             self.assertIsNone(obs.path)
             self.assertEqual(obs.target, 'JUPITER')
             self.assertEqual(obs.observer, 'HST')
@@ -151,6 +165,8 @@ class TestObservation(unittest.TestCase):
                 data=data,
                 header=header,
             )
+            self.assertEqual(obs, obs)
+            self.assertNotEqual(obs, self.observation)
             self.assertIsNone(obs.path)
             self.assertEqual(obs.target, 'JUPITER')
             self.assertEqual(obs.observer, 'HST')
@@ -168,6 +184,8 @@ class TestObservation(unittest.TestCase):
                 data=data,
                 header=header,
             )
+            self.assertEqual(obs, obs)
+            self.assertNotEqual(obs, self.observation)
             self.assertIsNone(obs.path)
             self.assertEqual(obs.target, 'JUPITER')
             self.assertEqual(obs.observer, 'HST')
@@ -183,6 +201,8 @@ class TestObservation(unittest.TestCase):
                 header=header,
                 observer='HST',
             )
+            self.assertEqual(obs, obs)
+            self.assertNotEqual(obs, self.observation)
             self.assertIsNone(obs.path)
             self.assertEqual(obs.target, 'JUPITER')
             self.assertEqual(obs.observer, 'HST')
@@ -200,6 +220,8 @@ class TestObservation(unittest.TestCase):
                 header=header,
                 target='jupiter',
             )
+            self.assertEqual(obs, obs)
+            self.assertNotEqual(obs, self.observation)
             self.assertIsNone(obs.path)
             self.assertEqual(obs.target, 'JUPITER')
             self.assertEqual(obs.observer, 'HST')
@@ -360,6 +382,12 @@ class TestObservation(unittest.TestCase):
 
         path = os.path.join(common_testing.TEMP_PATH, 'test_nav.fits')
 
+        # test print info here
+        self.observation.save_observation(
+            path, print_info=True, wireframe_kwargs=dict(output_size=20, dpi=20)
+        )
+        self.compare_fits_to_reference(path)
+
         # test progress bar here too
         self.observation.save_observation(
             path, show_progress=True, wireframe_kwargs=dict(output_size=20, dpi=20)
@@ -371,7 +399,9 @@ class TestObservation(unittest.TestCase):
         self.observation.set_disc_method('<<<test>>>')
 
         map_kwargs = {
-            'rectangular-nearest': dict(degree_interval=30, interpolation='nearest'),
+            'rectangular-nearest': dict(
+                degree_interval=30, interpolation='nearest', show_progress=True
+            ),
             'rectangular-linear': dict(
                 degree_interval=30, interpolation='linear', include_wireframe=False
             ),
@@ -448,8 +478,10 @@ class TestObservation(unittest.TestCase):
                     # (e.g. fonts available), and is only a cosmetic backplane anyway
                     # so the actual values don't matter anywhere near as much as the
                     # other backplanes.
-                    atol = 64 if extname == 'WIREFRAME' else 1e-8 # 1e-8 is the default
-                    self.assertTrue(np.allclose(data, data_ref, atol=atol, equal_nan=True))
+                    atol = 64 if extname == 'WIREFRAME' else 1e-8  # 1e-8 is the default
+                    self.assertTrue(
+                        np.allclose(data, data_ref, atol=atol, equal_nan=True)
+                    )
 
                 header = hdu.header
                 header_ref = hdu_ref.header
