@@ -947,7 +947,7 @@ class GUI:
 
         try:
             # Disable when panning/zooming
-            if self.toolbar.mode._navigate_mode is not None:  #  type: ignore
+            if self.toolbar.mode._navigate_mode is not None: 
                 return
         except:
             pass
@@ -1077,7 +1077,7 @@ class GUI:
         limit_type = self.plot_settings['_'].setdefault('image_limit_type', 'absolute')
 
         with utils.ignore_warnings('All-NaN slice encountered'):
-            image = self.image_modes[mode][0]()  # type: ignore
+            image = self.image_modes[mode][0]()  
             if limit_type == 'percentile':
                 vmin = np.nanpercentile(image, vmin)
                 vmax = np.nanpercentile(image, vmax)

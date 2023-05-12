@@ -334,7 +334,7 @@ class Body(SpiceBase):
             self._aberration_correction_encoded,  # type: ignore
             self._observer_encoded,  # type: ignore
         )
-        self.subpoint_distance = np.linalg.norm(self._subpoint_rayvec)
+        self.subpoint_distance = float(np.linalg.norm(self._subpoint_rayvec))
         self.subpoint_lon, self.subpoint_lat = self.targvec2lonlat(
             self._subpoint_targvec
         )
@@ -571,9 +571,7 @@ class Body(SpiceBase):
         frame.
         """
         # Get the target vector from the subpoint to the point of interest
-        targvec_offset = targvec - self._subpoint_targvec  # type: ignore
-        # ^ ignoring type warning due to numpy bug (TODO remove type: ingore in future)
-        # https://github.com/numpy/numpy/issues/22437
+        targvec_offset = targvec - self._subpoint_targvec
 
         # Calculate the difference in LOS distance between observer<->subpoint and
         # observer<->point of interest
@@ -593,7 +591,7 @@ class Body(SpiceBase):
         transform_matrix = spice.pxfrm2(
             self._target_frame_encoded,  # type: ignore
             self._observer_frame_encoded,  # type: ignore
-            targvec_et,
+            targvec_et,  #  type: ignore
             self.et,
         )
 
@@ -633,9 +631,7 @@ class Body(SpiceBase):
         """
 
         # Get the target vector from the subpoint to the point of interest
-        obsvec_offset = obsvec - self._subpoint_obsvec  # type: ignore
-        # ^ ignoring type warning due to numpy bug (TODO remove type: ingore in future)
-        # https://github.com/numpy/numpy/issues/22437
+        obsvec_offset = obsvec - self._subpoint_obsvec
 
         # Calculate the difference in LOS distance between observer<->subpoint and
         # observer<->point of interest
@@ -656,7 +652,7 @@ class Body(SpiceBase):
             self._observer_frame_encoded,  # type: ignore
             self._target_frame_encoded,  # type: ignore
             self.et,
-            obsvec_et,
+            obsvec_et, # type: ignore
         )
 
         # Use the transform matrix to perform the actual transformation
@@ -951,7 +947,7 @@ class Body(SpiceBase):
             transform_rad2deg = matplotlib.transforms.Affine2D().scale(np.deg2rad(1))
             self._mpl_transform_radec2km = (
                 transform_rad2deg + self._get_matplotlib_radec2km_transform_radians()
-            )  #  type: ignore
+            ) 
         transform = self._mpl_transform_radec2km
         if ax:
             transform = transform + ax.transData
