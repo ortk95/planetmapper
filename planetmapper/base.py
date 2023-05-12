@@ -355,7 +355,7 @@ class BodyBase(SpiceBase):
         self,
         *,
         target: str | int,
-        utc: str | datetime.datetime | float | None = None,
+        utc: str | datetime.datetime | float | None,
         observer: str | int,
         aberration_correction: str,
         observer_frame: str,
