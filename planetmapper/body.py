@@ -386,6 +386,7 @@ class Body(BodyBase):
             :class:`Body` or :class:`BasicBody` instance which corresponds to
             `other_target`.
         """
+        # TODO add typing overload for fallback_to_basic_body=False -> Body only?
         try:
             return Body(
                 target=other_target,
@@ -1041,6 +1042,29 @@ class Body(BodyBase):
             True if the point is visible from the observer, otherwise False.
         """
         return self._test_if_targvec_visible(self.lonlat2targvec(lon, lat))
+
+    def test_other_body_los_intercept(
+        self, other_body: str | int | 'Body' | 'BasicBody'
+    ) -> Literal['transit', 'hidden', None]:
+        # TODO: implement
+        # TODO: document
+        # TODO: test
+        # TODO: rename?
+        raise NotImplementedError
+
+    def test_if_other_body_visible(
+        self, other_body: str | int | 'Body' | 'BasicBody'
+    ) -> bool:
+        # TODO: document
+        # TODO: test
+        return self.test_other_body_los_intercept(other_body) in {'transit', None}
+
+    def test_if_other_body_in_transit(
+        self, other_body: str | int | 'Body' | 'BasicBody'
+    ) -> bool:
+        # TODO: document
+        # TODO: test
+        return self.test_other_body_los_intercept(other_body) == 'transit'
 
     # Illumination
     def _illumination_angles_from_targvec_radians(
