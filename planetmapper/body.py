@@ -1044,7 +1044,7 @@ class Body(BodyBase):
         return self._test_if_targvec_visible(self.lonlat2targvec(lon, lat))
 
     def test_other_body_los_intercept(
-        self, other_body: str | int | 'Body' | 'BasicBody'
+        self, other_body: 'str | int | Body | BasicBody'
     ) -> Literal['transit', 'hidden', None]:
         # TODO: implement
         # TODO: document
@@ -1053,14 +1053,14 @@ class Body(BodyBase):
         raise NotImplementedError
 
     def test_if_other_body_visible(
-        self, other_body: str | int | 'Body' | 'BasicBody'
+        self, other_body: 'str | int | Body | BasicBody'
     ) -> bool:
         # TODO: document
         # TODO: test
         return self.test_other_body_los_intercept(other_body) in {'transit', None}
 
     def test_if_other_body_in_transit(
-        self, other_body: str | int | 'Body' | 'BasicBody'
+        self, other_body: 'str | int | Body | BasicBody'
     ) -> bool:
         # TODO: document
         # TODO: test
