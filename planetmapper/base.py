@@ -1,5 +1,6 @@
 import datetime
 import glob
+import numbers
 import os
 from typing import TypeVar, cast
 
@@ -363,13 +364,18 @@ class BodyBase(SpiceBase):
         super().__init__(**kwargs)
 
         # Process inputs
-        if isinstance(utc, float):
+        if isinstance(utc, (float, int, numbers.Number)):
+            # Include a check for numbers.Number to allow other numeric types
             utc = self.mjd2dtm(utc)
         if utc is None:
             utc = datetime.datetime.now(datetime.timezone.utc)
         if isinstance(utc, datetime.datetime):
             # convert input datetime to UTC, then to a string compatible with spice
-            utc = utc.replace(tzinfo=datetime.timezone.utc)
+            if utc.tzinfo is None:
+                # Default to UTC if no timezone is specified
+                utc = utc.replace(tzinfo=datetime.timezone.utc)
+            # Standardise to UTC
+            utc = utc.astimezone(tz=datetime.timezone.utc)
             utc = utc.strftime(self._DEFAULT_DTM_FORMAT_STRING)
 
         self.target = self.standardise_body_name(target)
@@ -409,7 +415,7 @@ class BodyBase(SpiceBase):
         )
 
     def __repr__(self) -> str:
-        return f'_BodyBase({self.target!r}, {self.utc!r})'
+        return f'BodyBase({self.target!r}, {self.utc!r})'
 
     def _get_equality_tuple(self) -> tuple:
         return (
