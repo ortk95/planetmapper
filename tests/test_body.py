@@ -163,12 +163,24 @@ class TestBody(unittest.TestCase):
         self.body.ring_radii.clear()
         self.assertEqual(self.body.ring_radii, set())
 
-        self.body.add_named_rings('halo', 'main')
+        self.body.add_named_rings('halo', '   MaIn rinG ')
         self.assertEqual(self.body.ring_radii, {89400.0, 123000.0, 128940.0})
 
         self.body.add_named_rings('thebe extension')
         self.assertEqual(
             self.body.ring_radii, {89400.0, 123000.0, 128940.0, 221900.0, 280000.0}
+        )
+
+        with self.assertRaises(ValueError):
+            self.body.add_named_rings('<<<< test ring name >>>>')
+
+        self.body.ring_radii.clear()
+        self.assertEqual(self.body.ring_radii, set())
+
+        self.body.add_named_rings()
+        self.assertEqual(
+            self.body.ring_radii,
+            {280000.0, 181350.0, 128940.0, 221900.0, 89400.0, 123000.0},
         )
 
         self.body.ring_radii.clear()
