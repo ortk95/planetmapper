@@ -234,9 +234,23 @@ class filter_fits_comment_warning(warnings.catch_warnings):
         return out
 
 
-def normalise(values, top=1, bottom=0, single_value=None):
+def normalise(
+    values: np.ndarray,
+    top: float = 1,
+    bottom: float = 0,
+    single_value: float | None = None,
+) -> np.ndarray:
     """
     Normalise iterable.
+
+    Args:
+        values: Iterable of values to normalise.
+        top: Top of normalised range.
+        bottom: Bottom of normalised range.
+        single_value: If all values are the same, return this value.
+
+    Returns:
+        Normalised values.
     """
     assert top > bottom
     values = np.array(values)
@@ -253,7 +267,7 @@ def normalise(values, top=1, bottom=0, single_value=None):
     return values * (top - bottom) + bottom
 
 
-def check_path(path: str):
+def check_path(path: str) -> None:
     """
     Checks if file path's directory tree exists, and creates it if necessary.
 

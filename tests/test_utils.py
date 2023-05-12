@@ -31,6 +31,8 @@ class TestUtils(unittest.TestCase):
             [1.23456789, (1, 14, 4.444404)],
             [-123.456, (-123, 27, 21.6)],
             [360, (360, 0, 0)],
+            [-0.1, (0, -6, 0)],
+            [-0.001, (0, 0, -3.6)],
         ]
         for decimal_degrees, dms in pairs:
             with self.subTest(decimal_degrees=decimal_degrees):
@@ -133,3 +135,5 @@ class TestUtils(unittest.TestCase):
         utils.check_path(os.path.join(path, 'test_file.txt'))
         self.assertTrue(os.path.exists(path))
         os.rmdir(path)
+
+        utils.check_path('')
