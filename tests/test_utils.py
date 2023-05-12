@@ -41,8 +41,8 @@ class TestUtils(unittest.TestCase):
             (20.12, 20.123),
             (-42.01, -42.010001),
             (0.001, 0.005),
-                (-20, 30.1),
-                (42, 42.5),
+            (-20, 30.1),
+            (42, 42.5),
         ]
         for limit in limits:
             ax.set_xlim(*limit)
