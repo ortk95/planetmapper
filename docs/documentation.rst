@@ -12,3 +12,7 @@
    :members:
    :undoc-members:
 
+.. autoclass:: planetmapper.base.BodyBase
+   :show-inheritance:
+   :members:
+   :undoc-members:

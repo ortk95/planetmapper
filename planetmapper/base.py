@@ -342,7 +342,14 @@ class SpiceBase:
             self._progress_hook(progress, self._progress_call_stack)
 
 
-class _BodyBase(SpiceBase):
+class BodyBase(SpiceBase):
+    """
+    Base class for :class:`planetmapper.Body` and :class:`planetmapper.BasicBody`.
+
+    You are unlikely to need to use this class directly - use :class:`planetmapper.Body`
+    or :class:`planetmapper.BasicBody` instead.
+    """
+
     def __init__(
         self,
         *,
@@ -413,13 +420,14 @@ class _BodyBase(SpiceBase):
             self.aberration_correction,
             super()._get_equality_tuple(),
         )
-    
+
     def _obsvec2radec_radians(self, obsvec: np.ndarray) -> tuple[float, float]:
         """
         Transform rectangular vector in observer frame to observer ra/dec coordinates.
         """
         dst, ra, dec = spice.recrad(obsvec)
         return ra, dec
+
 
 def load_kernels(*paths, clear_before: bool = False) -> list[str]:
     """

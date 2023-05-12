@@ -4,10 +4,10 @@ from typing import cast
 import numpy as np
 import spiceypy as spice
 
-from .base import SpiceBase, _BodyBase
+from .base import BodyBase
 
 
-class BasicBody(_BodyBase):
+class BasicBody(BodyBase):
     """
     Class representing astronomical body which is treated as a point source.
 

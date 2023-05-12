@@ -20,7 +20,7 @@ from spiceypy.utils.exceptions import (
 )
 
 from . import data_loader, utils
-from .base import Numeric, _BodyBase
+from .base import BodyBase, Numeric
 from .basic_body import BasicBody
 
 _WireframeComponent = Literal[
@@ -89,7 +89,7 @@ DEFAULT_WIREFRAME_FORMATTING: dict[_WireframeComponent, dict[str, Any]] = {
 }
 
 
-class Body(_BodyBase):
+class Body(BodyBase):
     """
     Class representing an astronomical body observed at a specific time.
 
