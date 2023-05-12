@@ -1,5 +1,4 @@
 import time
-import warnings
 from functools import wraps
 from typing import TYPE_CHECKING, Callable, Concatenate, ParamSpec, TypeVar
 
@@ -202,8 +201,8 @@ class SaveProgressHookCLI(SaveProgressHook):
         )
 
     def update_bar(self, progress_change: float) -> None:
-        # * 0.99999 to ensure floating point errros don't accumulate to >100%
-        self.bar.update(progress_change * 100 *0.99999)
+        # * 0.99999 to ensure floating point errros don't accumulate to >100%
+        self.bar.update(progress_change * 100 * 0.99999)
         if self.progress_parts.get(self.default_key, 0) >= 1:
             self.bar.update(100 - self.overall_progress * 100)
             self.bar.close()
