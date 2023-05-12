@@ -48,7 +48,11 @@ class _WireframeKwargs(TypedDict, total=False):
     indicate_equator: bool
     indicate_prime_meridian: bool
     formatting: dict[_WireframeComponent, dict[str, Any]] | None
+
+    # Hints for common formatting parameters to make type checking/autocomplete happy
     color: str | tuple[float, float, float]
+    alpha: float
+    zorder: float
 
 
 DEFAULT_WIREFRAME_FORMATTING: dict[_WireframeComponent, dict[str, Any]] = {
@@ -652,7 +656,7 @@ class Body(SpiceBase):
             self._observer_frame_encoded,  # type: ignore
             self._target_frame_encoded,  # type: ignore
             self.et,
-            obsvec_et, # type: ignore
+            obsvec_et,  # type: ignore
         )
 
         # Use the transform matrix to perform the actual transformation
@@ -947,7 +951,7 @@ class Body(SpiceBase):
             transform_rad2deg = matplotlib.transforms.Affine2D().scale(np.deg2rad(1))
             self._mpl_transform_radec2km = (
                 transform_rad2deg + self._get_matplotlib_radec2km_transform_radians()
-            ) 
+            )
         transform = self._mpl_transform_radec2km
         if ax:
             transform = transform + ax.transData
