@@ -49,6 +49,22 @@ class BasicBody(_BodyBase):
             **kwargs,
         )
 
+        # Document instance variables
+        self.et: float
+        """Ephemeris time of the observation corresponding to `utc`."""
+        self.dtm: datetime.datetime
+        """Python timezone aware datetime of the observation corresponding to `utc`."""
+        self.target_body_id: int
+        """SPICE numeric ID of the target body."""
+        self.target_light_time: float
+        """Light time from the target to the observer at the time of the observation."""
+        self.target_distance: float
+        """Distance from the target to the observer at the time of the observation."""
+        self.target_ra: float
+        """Right ascension (RA) of the target centre."""
+        self.target_dec: float
+        """Declination (Dec) of the target centre."""
+
     def __repr__(self) -> str:
         return f'BasicBody({self.target!r}, {self.utc!r})'
 
