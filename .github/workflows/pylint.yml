@@ -1,9 +1,6 @@
 name: Pylint
 
-on:
-  push:
-  schedule:
-    - cron: '30 2 * * 3'
+on: [push]
 
 jobs:
   lint:
