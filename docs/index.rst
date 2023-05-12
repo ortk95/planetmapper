@@ -5,8 +5,8 @@ A Python module for visualising, navigating and mapping Solar System observation
 
 Key features
 ============
-:ref:`Fit and map observations using a full featured user interface <gui examples>`
------------------------------------------------------------------------------------
+:ref:`Fit and map astronimical observations using a full featured user interface <gui examples>`
+------------------------------------------------------------------------------------------------
 .. image:: images/gui_fitting.png
     :width: 600
     :alt: Screenshot of the fitting window after the disc is fit.
