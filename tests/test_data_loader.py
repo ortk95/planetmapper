@@ -17,6 +17,8 @@ class TestDataLoader(unittest.TestCase):
         self.assertIsInstance(data['JUPITER'], dict)
         self.assertTrue(set(data.keys()) >= {'JUPITER', 'SATURN', 'URANUS', 'NEPTUNE'})
         self.assertEqual(data['SATURN']['A'], [122340.0, 136780.0])
+        self.assertEqual(data['SATURN']['B'], [91975.0, 117507.0])
+        self.assertEqual(data['SATURN']['C'], [74658.0, 91975.0])
 
         with open(planetmapper.data_loader.make_data_path('rings.json'), 'r') as f:
             json_data = json.load(f)
