@@ -118,7 +118,7 @@ class DMSFormatter(matplotlib.ticker.FuncFormatter):
             self.fmt_s = '02.0f'
 
         if self.skip_parts == {'d', 'm', 's'}:
-            self.skip_parts = {'d', 'm', 's'}
+            self.skip_parts = {}
         self.set_offset_string(ofs)
         return super().set_locs(locs)
 
@@ -235,9 +235,9 @@ class filter_fits_comment_warning(warnings.catch_warnings):
 
 
 def normalise(
-    values: np.ndarray,
-    top: float = 1,
-    bottom: float = 0,
+    values: np.ndarray | list[float],
+    top: float = 1.0,
+    bottom: float = 0.0,
     single_value: float | None = None,
 ) -> np.ndarray:
     """
@@ -264,7 +264,7 @@ def normalise(
         values = (values - vmin) / (vmax - vmin)
     else:
         values = values - vmin
-    return values * (top - bottom) + bottom
+    return values * (top - bottom) + bottom # type: ignore
 
 
 def check_path(path: str) -> None:
