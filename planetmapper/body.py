@@ -508,7 +508,8 @@ class Body(SpiceBase):
         This is a convenience function to load data from :attr:`named_ring_data`.
 
         Args:
-            name: Name of ring. This is case insensitive.
+            name: Name of ring. This is case insensitive and any "ring" suffix is
+                optional.
 
         Raises:
             ValueError: if no ring with the provided name is found.
@@ -523,7 +524,10 @@ class Body(SpiceBase):
         for n, radii in self.named_ring_data.items():
             if name == standardise(n):
                 return radii
-        raise ValueError(f'No rings found named {name!r} in named_ring_data')
+        raise ValueError(
+            f'No rings found named {name!r} in named_ring_data.'
+            + f'\nValid names: {[standardise(n) for n in self.named_ring_data.keys()]}'
+        )
 
     def add_named_rings(self, *names: str) -> None:
         """
