@@ -68,6 +68,10 @@ class TestBody(unittest.TestCase):
         self.assertEqual(self.body.coordinates_of_interest_radec, [])
         self.assertEqual(self.body.other_bodies_of_interest, [])
 
+        moon = Body('moon', '2005-01-01')
+        self.assertEqual(moon.positive_longitude_direction, 'E')
+        self.assertTrue(moon.prograde)
+
     def test_repr(self):
         self.assertEqual(
             repr(self.body),
@@ -565,6 +569,7 @@ class TestBody(unittest.TestCase):
         self.body.coordinates_of_interest_radec.append(
             (self.body.target_ra, self.body.target_dec)
         )
+        self.body.add_other_bodies_of_interest('amalthea')
         fig, ax = plt.subplots()
         self.body.plot_wireframe_km(
             ax,
@@ -580,3 +585,4 @@ class TestBody(unittest.TestCase):
         self.body.ring_radii.clear()
         self.body.coordinates_of_interest_lonlat.clear()
         self.body.coordinates_of_interest_radec.clear()
+        self.body.other_bodies_of_interest.clear()
