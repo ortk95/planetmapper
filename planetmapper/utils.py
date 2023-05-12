@@ -118,7 +118,7 @@ class DMSFormatter(matplotlib.ticker.FuncFormatter):
             self.fmt_s = '02.0f'
 
         if self.skip_parts == {'d', 'm', 's'}:
-            self.skip_parts = {}
+            self.skip_parts = set()
         self.set_offset_string(ofs)
         return super().set_locs(locs)
 
@@ -264,7 +264,7 @@ def normalise(
         values = (values - vmin) / (vmax - vmin)
     else:
         values = values - vmin
-    return values * (top - bottom) + bottom # type: ignore
+    return values * (top - bottom) + bottom  #  type: ignore
 
 
 def check_path(path: str) -> None:
