@@ -13,16 +13,6 @@ from planetmapper.body_xy import Backplane, BackplaneNotFoundError
 
 
 class TestFunctions(unittest.TestCase):
-    def test_to_tuple(self):
-        pairs = [
-            (np.array([1, 2, 3]), (1, 2, 3)),
-            (np.array([[1, 2, 3]]), ((1, 2, 3),)),
-            (np.array(1), 1.0),
-        ]
-        for a, b in pairs:
-            with self.subTest(a=a, b=b):
-                self.assertEqual(planetmapper.body_xy._to_tuple(a), b)
-
     def test_make_backplane_documentation_str(self):
         self.assertIsInstance(
             planetmapper.body_xy._make_backplane_documentation_str(), str
@@ -657,4 +647,3 @@ class TestBodyXY(unittest.TestCase):
         plt.close(fig)
 
     # Backplane contents tested against FITS reference in test_observation
-

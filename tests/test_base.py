@@ -9,7 +9,12 @@ import spiceypy as spice
 import planetmapper
 import planetmapper.base
 import planetmapper.progress
-from planetmapper.base import BodyBase, _cache_clearable_result, _cache_stable_result
+from planetmapper.base import (
+    BodyBase,
+    _cache_clearable_result,
+    _cache_stable_result,
+    _to_tuple,
+)
 
 P = ParamSpec('P')
 
@@ -505,3 +510,15 @@ class TestCache(unittest.TestCase):
         self.assertEqual(self.functions_called, ['f_stable'] * 3)
 
         self.assertEqual(len(self._stable_cache), 3)
+
+
+class TestFunctions(unittest.TestCase):
+    def test_to_tuple(self):
+        pairs = [
+            (np.array([1, 2, 3]), (1, 2, 3)),
+            (np.array([[1, 2, 3]]), ((1, 2, 3),)),
+            (np.array(1), 1.0),
+        ]
+        for a, b in pairs:
+            with self.subTest(a=a, b=b):
+                self.assertEqual(_to_tuple(a), b)
