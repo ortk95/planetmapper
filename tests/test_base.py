@@ -9,7 +9,7 @@ import spiceypy as spice
 import planetmapper
 import planetmapper.base
 import planetmapper.progress
-from planetmapper.base import BodyBase
+from planetmapper.base import BodyBase, _cache_clearable_result, _cache_stable_result
 
 P = ParamSpec('P')
 
@@ -434,3 +434,74 @@ class TestBodyBase(unittest.TestCase):
                 observer_frame='J2000',
             ),
         )
+
+
+class TestCache(unittest.TestCase):
+    def setUp(self):
+        self._cache = {}
+        self._stable_cache = {}
+        self.functions_called = []
+
+    @_cache_clearable_result
+    def f_clearable(self, a, b=1):
+        self.functions_called.append('f_clearable')
+        return ('f_clearable', a * b)
+
+    @_cache_stable_result
+    def f_stable(self, a, b=1):
+        self.functions_called.append('f_stable')
+        return ('f_stable', a * b)
+
+    def test_clearable_cache(self):
+        self.functions_called = []
+        for attempt in range(3):
+            with self.subTest(attempt=attempt):
+                self._cache.clear()
+                self.functions_called = []
+
+                self.assertEqual(self.f_clearable(1), ('f_clearable', 1))
+                self.assertEqual(self.functions_called, ['f_clearable'])
+                self.assertEqual(self.f_clearable(1), ('f_clearable', 1))
+                self.assertEqual(self.functions_called, ['f_clearable'])
+
+                self.assertEqual(self.f_clearable(2), ('f_clearable', 2))
+                self.assertEqual(self.functions_called, ['f_clearable'] * 2)
+                self.assertEqual(self.f_clearable(2), ('f_clearable', 2))
+                self.assertEqual(self.functions_called, ['f_clearable'] * 2)
+
+                self.assertEqual(self.f_clearable(2, b=2), ('f_clearable', 4))
+                self.assertEqual(self.functions_called, ['f_clearable'] * 3)
+                self.assertEqual(self.f_clearable(2, b=2), ('f_clearable', 4))
+                self.assertEqual(self.functions_called, ['f_clearable'] * 3)
+
+                self.assertEqual(self.f_clearable(1), ('f_clearable', 1))
+                self.assertEqual(self.f_clearable(2), ('f_clearable', 2))
+                self.assertEqual(self.f_clearable(2, b=2), ('f_clearable', 4))
+                self.assertEqual(self.functions_called, ['f_clearable'] * 3)
+
+                self.assertEqual(len(self._cache), 3)
+
+    def test_stable_cache(self):
+        self.functions_called = []
+
+        self.assertEqual(self.f_stable(1), ('f_stable', 1))
+        self.assertEqual(self.functions_called, ['f_stable'])
+        self.assertEqual(self.f_stable(1), ('f_stable', 1))
+        self.assertEqual(self.functions_called, ['f_stable'])
+
+        self.assertEqual(self.f_stable(2), ('f_stable', 2))
+        self.assertEqual(self.functions_called, ['f_stable'] * 2)
+        self.assertEqual(self.f_stable(2), ('f_stable', 2))
+        self.assertEqual(self.functions_called, ['f_stable'] * 2)
+
+        self.assertEqual(self.f_stable(2, b=2), ('f_stable', 4))
+        self.assertEqual(self.functions_called, ['f_stable'] * 3)
+        self.assertEqual(self.f_stable(2, b=2), ('f_stable', 4))
+        self.assertEqual(self.functions_called, ['f_stable'] * 3)
+
+        self.assertEqual(self.f_stable(1), ('f_stable', 1))
+        self.assertEqual(self.f_stable(2), ('f_stable', 2))
+        self.assertEqual(self.f_stable(2, b=2), ('f_stable', 4))
+        self.assertEqual(self.functions_called, ['f_stable'] * 3)
+
+        self.assertEqual(len(self._stable_cache), 3)
