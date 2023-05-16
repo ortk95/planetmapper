@@ -118,7 +118,7 @@ class TestSpiceBase(unittest.TestCase):
                 self.assertAlmostEqual(self.obj.calculate_doppler_factor(rv), df)
 
     def test_load_spice_kernels(self):
-        self.assertTrue(planetmapper.SpiceBase._KERNELS_LOADED)
+        self.assertTrue(planetmapper.base._KERNEL_DATA['kernels_loaded'])
 
     def test_close_loop(self):
         self.assertTrue(
@@ -332,13 +332,11 @@ class TestSpiceStringEncoding(unittest.TestCase):
 
 class TestKernelPath(unittest.TestCase):
     def setUp(self) -> None:
-        spice.kclear()
-        planetmapper.SpiceBase._KERNELS_LOADED = False
+        planetmapper.base._clear_kernels()
 
     def tearDown(self) -> None:
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
-        planetmapper.SpiceBase._KERNELS_LOADED = False
-        spice.kclear()
+        planetmapper.base._clear_kernels()
 
     def test_kernel_path(self):
         path = 'abcdef/ghi/jkl'

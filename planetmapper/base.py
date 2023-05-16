@@ -3,8 +3,8 @@ import functools
 import glob
 import numbers
 import os
+from typing import Any, Callable, Concatenate, ParamSpec, TypeVar, cast
 
-from typing import Callable, Concatenate, ParamSpec, TypeVar, cast, Any
 import astropy.time
 import numpy as np
 import spiceypy as spice
@@ -16,6 +16,7 @@ DEFAULT_KERNEL_PATH = '~/spice_kernels/'
 _KERNEL_DATA = {
     'kernel_path': None,
     'kernel_patterns': ('**/*.bsp', '**/*.tpc', '**/*.tls'),
+    'kernels_loaded': False,
 }
 
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
@@ -121,7 +122,6 @@ class SpiceBase:
     """
 
     _DEFAULT_DTM_FORMAT_STRING = '%Y-%m-%dT%H:%M:%S.%f'
-    _KERNELS_LOADED = False
 
     def __init__(
         self,
@@ -257,9 +257,8 @@ class SpiceBase:
         beta = radial_velocity / self.speed_of_light()
         return np.sqrt((1 + beta) / (1 - beta))  #  type: ignore
 
-    @classmethod
     def load_spice_kernels(
-        cls,
+        self,
         kernel_path: str | None = None,
         manual_kernels: None | list[str] = None,
         only_if_needed: bool = True,
@@ -293,7 +292,7 @@ class SpiceBase:
             only_if_needed: If this is `True`, kernels will only be loaded once per
                 session.
         """
-        if only_if_needed and cls._KERNELS_LOADED:
+        if only_if_needed and _KERNEL_DATA['kernels_loaded']:
             return
         if manual_kernels:
             kernels = manual_kernels
@@ -307,7 +306,6 @@ class SpiceBase:
             ]
 
         kernel_paths = load_kernels(*kernels)
-
         if len(kernel_paths) == 0:
             print()
             print(f'WARNING: no SPICE kernels found in directory {kernel_path!r}')
@@ -316,7 +314,7 @@ class SpiceBase:
             )
             print()
         else:
-            cls._KERNELS_LOADED = True
+            _KERNEL_DATA['kernels_loaded'] = True
 
     @staticmethod
     def close_loop(arr: np.ndarray) -> np.ndarray:
@@ -543,6 +541,17 @@ def load_kernels(*paths, clear_before: bool = False) -> list[str]:
     for kernel in sorted(kernels):
         spice.furnsh(kernel)
     return list(kernels)
+
+
+def _clear_kernels() -> None:
+    """
+    Clear spice kernel pool.
+
+    This function calls `spice.kclear()`, and also indicates to PlanetMapper that
+    kernels will need to be reloaded when a new object is created.
+    """
+    spice.kclear()
+    _KERNEL_DATA['kernels_loaded'] = False
 
 
 def set_kernel_path(path: str | None) -> None:
