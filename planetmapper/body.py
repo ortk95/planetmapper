@@ -1054,29 +1054,61 @@ class Body(BodyBase):
         """
         return self._test_if_targvec_visible(self.lonlat2targvec(lon, lat))
 
-    def test_other_body_los_intercept(
-        self, other_body: 'str | int | Body | BasicBody'
-    ) -> Literal['transit', 'hidden', None]:
+    def other_body_los_intercept(
+        self, other: 'str | int | Body | BasicBody'
+    ) -> None | Literal['transit', 'hidden', 'part transit', 'part hidden']:
         # TODO: implement
         # TODO: document
         # TODO: test
         # TODO: rename?
-        raise NotImplementedError
+        if not isinstance(other, BodyBase):
+            other = self.create_other_body(other)
+
+        if isinstance(other, BasicBody):
+            try:
+                self.radec2lonlat(
+                    other.target_ra, other.target_dec, not_found_nan=False
+                )
+            except NotFoundError:
+                return None  # No intercept with the target body
+            if other.target_distance - self.target_distance < 0:
+                return 'hidden'
+            else:
+                return 'transit'
+
+        occultation = spice.occult(
+            self.target,
+            'ELLIPSOID',
+            self.target_frame,
+            other.target,
+            'ELLIPSOID',
+            other.target_frame,
+            self.aberration_correction,
+            self.observer,
+            self.et,
+        )
+        match occultation:
+            case -3 | -2:
+                return 'hidden'
+            case -1:
+                return 'part hidden'
+            case 0:
+                return None
+            case 1:
+                return 'part transit'
+            case 2 | 3:
+                return 'transit'
+            case _:
+                raise ValueError(f'Unknown occultation code: {occultation}')
 
     def test_if_other_body_visible(
-        self, other_body: 'str | int | Body | BasicBody'
+        self, other: 'str | int | Body | BasicBody'
     ) -> bool:
         # TODO: document
         # TODO: test
         # TODO: add as option in create_other_body/add_other_bodies_of_interest
-        return self.test_other_body_los_intercept(other_body) in {'transit', None}
-
-    def test_if_other_body_in_transit(
-        self, other_body: 'str | int | Body | BasicBody'
-    ) -> bool:
-        # TODO: document
-        # TODO: test
-        return self.test_other_body_los_intercept(other_body) == 'transit'
+        # TODO: use in wireframe plotting
+        return  self.other_body_los_intercept(other) != 'hidden'
 
     # Illumination
     def _illumination_angles_from_targvec_radians(
