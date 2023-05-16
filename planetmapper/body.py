@@ -1,6 +1,6 @@
 import datetime
 from collections import defaultdict
-from typing import Any, Callable, Literal, TypedDict, cast
+from typing import Any, Callable, Literal, TypedDict, cast, overload
 
 try:
     from typing import Unpack
@@ -356,6 +356,18 @@ class Body(BodyBase):
             super()._get_equality_tuple(),
         )
 
+    @overload
+    def create_other_body(
+        self, other_target: str | int, fallback_to_basic_body: Literal[False]
+    ) -> 'Body':
+        ...
+
+    @overload
+    def create_other_body(
+        self, other_target: str | int, fallback_to_basic_body: Literal[True]
+    ) -> 'Body|BasicBody':
+        ...
+
     def create_other_body(
         self, other_target: str | int, fallback_to_basic_body: bool = True
     ) -> 'Body|BasicBody':
@@ -386,7 +398,6 @@ class Body(BodyBase):
             :class:`Body` or :class:`BasicBody` instance which corresponds to
             `other_target`.
         """
-        # TODO add typing overload for fallback_to_basic_body=False -> Body only?
         try:
             return Body(
                 target=other_target,
