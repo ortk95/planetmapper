@@ -1096,14 +1096,11 @@ class Body(BodyBase):
                 return 'part transit'
             case 2 | 3:
                 return 'transit'
-            case _:
-                raise ValueError(f'Unknown occultation code: {occultation}')
+        raise ValueError(f'Unknown occultation code: {occultation}')
 
     def test_if_other_body_visible(self, other: 'str | int | Body | BasicBody') -> bool:
         # TODO: document
-        # TODO: test
         # TODO: add as option in create_other_body/add_other_bodies_of_interest
-        # TODO: use in wireframe plotting
         return self.other_body_los_intercept(other) != 'hidden'
 
     # Illumination
@@ -1718,9 +1715,10 @@ class Body(BodyBase):
         for body in self.other_bodies_of_interest:
             ra = body.target_ra
             dec = body.target_dec
-            ax.text(
-                ra, dec, body.target + '\n', **kwargs['other_body_of_interest_label']
-            )
+            label = body.target
+            if not self.test_if_other_body_visible(body):
+                label = f'({label})'
+            ax.text(ra, dec, label + '\n', **kwargs['other_body_of_interest_label'])
             ax.scatter(ra, dec, **kwargs['other_body_of_interest_marker'])
 
         if add_title:

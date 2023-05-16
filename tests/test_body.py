@@ -364,7 +364,7 @@ class TestBody(unittest.TestCase):
             ('thebe', 'transit', True),
             ('metis', 'hidden', False),
             ('amalthea', None, True),
-            ('adrastea', None, False),
+            ('adrastea', None, True),
         ]
 
         for moon, intercept, visible in intercepts:
