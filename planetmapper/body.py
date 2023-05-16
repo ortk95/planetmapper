@@ -421,7 +421,9 @@ class Body(BodyBase):
             )
 
     # Stuff to customise wireframe plots
-    def add_other_bodies_of_interest(self, *other_targets: str | int) -> None:
+    def add_other_bodies_of_interest(
+        self, *other_targets: str | int, only_visible: bool = False
+    ) -> None:
         """
         Add targets to the list of :attr:`other_bodies_of_interest` of interest to mark
         when plotting. The other targets are created using :func:`create_other_body`.
@@ -444,11 +446,16 @@ class Body(BodyBase):
         Args:
             *other_targets: Names of the other targets, passed to :class:`Body`
         """
+        # TODO document only_visible
+        # TODO test only_visible
         for other_target in other_targets:
-            self.other_bodies_of_interest.append(self.create_other_body(other_target))
+            body = self.create_other_body(other_target)
+            if only_visible and not self.test_if_other_body_visible(body):
+                continue
+            self.other_bodies_of_interest.append(body)
 
     def add_satellites_to_bodies_of_interest(
-        self, skip_insufficient_data: bool = False
+        self, skip_insufficient_data: bool = False, only_visible: bool = False
     ) -> None:
         """
         Automatically add all satellites in the target planetary system to
@@ -464,12 +471,15 @@ class Body(BodyBase):
             skip_insufficient_data: If True, satellites with insufficient data in the
                 SPICE kernel will be skipped. If False, an exception will be raised.
         """
+        # TODO document only_visible
+        # TODO test only_visible
         id_base = (self.target_body_id // 100) * 100
         for other_target in range(id_base + 1, id_base + 99):
             try:
-                self.other_bodies_of_interest.append(
-                    self.create_other_body(other_target)
-                )
+                body = self.create_other_body(other_target)
+                if only_visible and not self.test_if_other_body_visible(body):
+                    continue
+                self.other_bodies_of_interest.append(body)
             except SpiceSPKINSUFFDATA:
                 if skip_insufficient_data:
                     continue
