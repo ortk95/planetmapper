@@ -364,7 +364,7 @@ class Body(BodyBase):
 
     @overload
     def create_other_body(
-        self, other_target: str | int, fallback_to_basic_body: Literal[True]
+        self, other_target: str | int, fallback_to_basic_body: bool = True
     ) -> 'Body|BasicBody':
         ...
 
@@ -1068,6 +1068,7 @@ class Body(BodyBase):
     ) -> bool:
         # TODO: document
         # TODO: test
+        # TODO: add as option in create_other_body/add_other_bodies_of_interest
         return self.test_other_body_los_intercept(other_body) in {'transit', None}
 
     def test_if_other_body_in_transit(
