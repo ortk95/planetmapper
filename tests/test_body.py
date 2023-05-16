@@ -356,6 +356,41 @@ class TestBody(unittest.TestCase):
             )
         )
 
+    def test_other_body_los_intercept(self):
+        utc = '2005-01-01 04:00:00'
+        jupiter = planetmapper.Body('Jupiter', utc)
+
+        intercepts: list[tuple[str, str | None, bool]] = [
+            ('thebe', 'transit', True),
+            ('metis', 'hidden', False),
+            ('amalthea', None, True),
+            ('adrastea', None, False),
+        ]
+
+        for moon, intercept, visible in intercepts:
+            body = jupiter.create_other_body(moon)
+            arguments = [
+                moon,
+                body,
+                body.target_body_id,
+                planetmapper.BasicBody(moon, utc),
+            ]
+            for arg in arguments:
+                with self.subTest(moon=moon, arg=arg):
+                    self.assertEqual(jupiter.other_body_los_intercept(arg), intercept)
+                    self.assertEqual(
+                        jupiter.test_if_other_body_visible(arg),
+                        visible,
+                    )
+    
+        body = planetmapper.Body('Jupiter', '2005-01-01 00:35:24')
+        self.assertEqual(body.other_body_los_intercept('amalthea'), 'part transit')
+        self.assertEqual(body.test_if_other_body_visible('amalthea'), True)
+
+        body = planetmapper.Body('Jupiter', '2005-01-01 06:34:05')
+        self.assertEqual(body.other_body_los_intercept('amalthea'), 'part hidden')
+        self.assertEqual(body.test_if_other_body_visible('amalthea'), True)
+
     def test_illimination_angles_from_lonlat(self):
         self.assertTrue(
             np.allclose(

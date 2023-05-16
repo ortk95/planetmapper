@@ -1057,9 +1057,7 @@ class Body(BodyBase):
     def other_body_los_intercept(
         self, other: 'str | int | Body | BasicBody'
     ) -> None | Literal['transit', 'hidden', 'part transit', 'part hidden']:
-        # TODO: implement
         # TODO: document
-        # TODO: test
         # TODO: rename?
         if not isinstance(other, BodyBase):
             other = self.create_other_body(other)
@@ -1101,14 +1099,12 @@ class Body(BodyBase):
             case _:
                 raise ValueError(f'Unknown occultation code: {occultation}')
 
-    def test_if_other_body_visible(
-        self, other: 'str | int | Body | BasicBody'
-    ) -> bool:
+    def test_if_other_body_visible(self, other: 'str | int | Body | BasicBody') -> bool:
         # TODO: document
         # TODO: test
         # TODO: add as option in create_other_body/add_other_bodies_of_interest
         # TODO: use in wireframe plotting
-        return  self.other_body_los_intercept(other) != 'hidden'
+        return self.other_body_los_intercept(other) != 'hidden'
 
     # Illumination
     def _illumination_angles_from_targvec_radians(
