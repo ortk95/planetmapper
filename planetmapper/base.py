@@ -1,9 +1,10 @@
 import datetime
+import functools
 import glob
 import numbers
 import os
-from typing import TypeVar, cast
 
+from typing import Callable, Concatenate, ParamSpec, TypeVar, cast, Any
 import astropy.time
 import numpy as np
 import spiceypy as spice
@@ -18,6 +19,86 @@ _KERNEL_DATA = {
 }
 
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
+
+
+T = TypeVar('T')
+S = TypeVar('S')
+P = ParamSpec('P')
+
+
+def _cache_clearable_result(
+    fn: Callable[Concatenate[S, P], T]
+) -> Callable[Concatenate[S, P], T]:
+    """
+    Decorator to cache the output of a method call with variable arguments.
+
+    This requires that the class has a `self._cache` dict which can be used to store
+    the cached result. The dictionary key is derived from the name of the decorated
+    function.
+
+    The results cached by this decorator can be cleared using `self._cache.clear()`, so
+    this is useful for results which need to be invalidated (i.e. backplane images
+    which are invalidated the moment the disc params are changed). If the result is
+    stable (i.e. backplane maps) then use `_cache_stable_result` instead.
+
+    Note that any numpy arguments will be converted to (nested) tuples.
+    """
+
+    @functools.wraps(fn)
+    def decorated(self, *args_in: P.args, **kwargs_in: P.kwargs):
+        args, kwargs = _replace_np_arrr_args_with_tuples(args_in, kwargs_in)
+        k = (fn.__name__, args, frozenset(kwargs.items()))
+        if k not in self._cache:
+            self._cache[k] = fn(self, *args, **kwargs)  # type: ignore
+        return self._cache[k]
+
+    return decorated
+
+
+def _cache_stable_result(
+    fn: Callable[Concatenate[S, P], T]
+) -> Callable[Concatenate[S, P], T]:
+    """
+    Decorator to cache stable result
+
+    Very roughly, this is a type-hinted version of `functools.lru_cache` that doesn't
+    cache self.
+
+    See _cache_clearable_result for more details.
+    """
+
+    @functools.wraps(fn)
+    def decorated(self, *args_in: P.args, **kwargs_in: P.kwargs):
+        args, kwargs = _replace_np_arrr_args_with_tuples(args_in, kwargs_in)
+        k = (fn.__name__, args, frozenset(kwargs.items()))
+        if k not in self._stable_cache:
+            self._stable_cache[k] = fn(self, *args, **kwargs)  # type: ignore
+        return self._stable_cache[k]
+
+    return decorated
+
+
+def _replace_np_arrr_args_with_tuples(args, kwargs) -> tuple[tuple, dict[str, Any]]:
+    args = tuple(_maybe_np_arr_to_tuple(a) for a in args)
+    kwargs = {k: _maybe_np_arr_to_tuple(v) for k, v in kwargs.items()}
+    return args, kwargs
+
+
+def _maybe_np_arr_to_tuple(o: Any) -> Any:
+    if isinstance(o, np.ndarray):
+        return _to_tuple(o)
+    return o
+
+
+def _to_tuple(arr: np.ndarray):
+    if arr.ndim > 1:
+        return tuple(_to_tuple(a) for a in arr)
+    elif arr.ndim == 1:
+        return tuple(arr)
+    elif arr.ndim == 0:
+        return float(arr)
+    else:
+        raise ValueError(f'Error converting arr {arr!r} to tuple')
 
 
 class SpiceBase:
@@ -53,6 +134,9 @@ class SpiceBase:
         super().__init__()
         self._optimize_speed = optimize_speed
 
+        self._cache = {}
+        self._stable_cache = {}
+
         self._progress_hook: progress.ProgressHook | None = None
         self._progress_call_stack: list[str] = []
 
@@ -74,6 +158,13 @@ class SpiceBase:
 
     def _get_equality_tuple(self) -> tuple:
         return (self._optimize_speed, repr(self))
+
+    def _clear_cache(self):
+        """
+        Clear cached results from `_cache_result`.
+        """
+        # TODO document cache clearing (incl stable cache)
+        self._cache.clear()
 
     def standardise_body_name(self, name: str | int) -> str:
         """
