@@ -257,8 +257,8 @@ class SpiceBase:
         beta = radial_velocity / self.speed_of_light()
         return np.sqrt((1 + beta) / (1 - beta))  #  type: ignore
 
+    @staticmethod
     def load_spice_kernels(
-        self,
         kernel_path: str | None = None,
         manual_kernels: None | list[str] = None,
         only_if_needed: bool = True,
