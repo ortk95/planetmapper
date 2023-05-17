@@ -27,7 +27,13 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from matplotlib.text import Text
 
 from . import base, common, data_loader, progress, utils
-from .body import BasicBody, Body, NotFoundError
+from .body import (
+    DEFAULT_WIREFRAME_FORMATTING,
+    BasicBody,
+    Body,
+    NotFoundError,
+    _WireframeComponent,
+)
 from .body_xy import _MapKwargs
 from .observation import Observation
 
@@ -37,16 +43,16 @@ SETTER_KEY = Literal[
 ]
 PLOT_KEY = Literal[
     'image',
-    'limb',
-    'limb_dayside',
-    'terminator',
     'grid',
-    'rings',
-    'poles',
-    'coordinates_lonlat',
-    'coordinates_radec',
-    'other_bodies',
-    'other_bodies_labels',
+    'limb',
+    'limb_illuminated',
+    'terminator',
+    'ring',
+    'pole',
+    'coordinate_of_interest_lonlat',
+    'coordinate_of_interest_radec',
+    'other_body_of_interest_marker',
+    'other_body_of_interest_label',
     'marked_coord',
     '_',
 ]
@@ -56,13 +62,13 @@ DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
     'grid': dict(zorder=3.1, color='#333', linewidth=1, linestyle='dotted'),
     'terminator': dict(zorder=3.2, color='w', linewidth=1, linestyle='dashed'),
     'limb': dict(zorder=3.3, color='w', linewidth=0.5, linestyle='solid'),
-    'limb_dayside': dict(zorder=3.31, color='w', linewidth=1, linestyle='solid'),
-    'rings': dict(zorder=3.4, color='w', linewidth=0.5, linestyle='solid'),
-    'poles': dict(zorder=3.5, color='k', outline_color='w'),
-    'coordinates_lonlat': dict(zorder=3.6, marker='x', color='k', s=36),
-    'coordinates_radec': dict(zorder=3.7, marker='+', color='k', s=36),
-    'other_bodies': dict(zorder=3.8, marker='+', color='w', s=36),
-    'other_bodies_labels': dict(zorder=3.81, color='grey'),
+    'limb_illuminated': dict(zorder=3.31, color='w', linewidth=1, linestyle='solid'),
+    'ring': dict(zorder=3.4, color='w', linewidth=0.5, linestyle='solid'),
+    'pole': dict(zorder=3.5, color='k', outline_color='w'),
+    'coordinate_of_interest_lonlat': dict(zorder=3.6, marker='x', color='k', s=36),
+    'coordinate_of_interest_radec': dict(zorder=3.7, marker='+', color='k', s=36),
+    'other_body_of_interest_marker': dict(zorder=3.8, marker='+', color='w', s=36),
+    'other_body_of_interest_label': dict(zorder=3.81, color='grey'),
     'marked_coord': dict(zorder=4, color='cyan', linewidth=0.5, linestyle='dotted'),
     'image': dict(zorder=0.9, cmap='inferno'),
     '_': dict(
@@ -101,7 +107,7 @@ DEFAULT_HINT = ''
 try:
     USE_X11_FONT_BUGFIX = bool(os.environ['PLANETMAPPER_USE_X11_FONT_BUGFIX'])
 except KeyError:
-    USE_X11_FONT_BUGFIX = False
+    USE_X11_FONT_BUGFIX = False # pyright: ignore[reportConstantRedefinition]
 X11_FONT_BUGRIX_TRANSLATIONS = str.maketrans(
     {
         '↖': None,
@@ -582,7 +588,7 @@ class GUI:
         PlotLineSetting(
             self,
             frame,
-            'limb_dayside',
+            'limb_illuminated',
             label='Limb (dayside)',
             hint='the illuminated part of the target\'s limb',
         )
@@ -604,22 +610,22 @@ class GUI:
         PlotRingsSetting(
             self,
             frame,
-            'rings',
-            label='Rings',
+            'ring',
+            label='ring',
             hint='rings around the target (click Edit to define ring radii)',
             callbacks=[self.replot_rings],
         )
         PlotOutlinedTextSetting(
             self,
             frame,
-            'poles',
-            label='Poles',
+            'pole',
+            label='pole',
             hint='the target\'s poles',
         )
         PlotCoordinatesSetting(
             self,
             frame,
-            'coordinates_lonlat',
+            'coordinate_of_interest_lonlat',
             label='Lon/Lat POI',
             hint='points of interest on the surface of the target (click Edit to define POI)',
             callbacks=[self.replot_coordinates_lonlat],
@@ -636,7 +642,7 @@ class GUI:
         PlotCoordinatesSetting(
             self,
             frame,
-            'coordinates_radec',
+            'coordinate_of_interest_radec',
             label='RA/Dec POI',
             hint='points of interest in the sky (click Edit to define POI)',
             callbacks=[self.replot_coordinates_radec],
@@ -653,7 +659,7 @@ class GUI:
         PlotOtherBodyScatterSetting(
             self,
             frame,
-            'other_bodies',
+            'other_body_of_interest_marker',
             label='Other bodies',
             hint='other bodies of interest (click Edit to specify other bodies to show, e.g. moons)',
             callbacks=[self.replot_other_bodies],
@@ -661,7 +667,7 @@ class GUI:
         PlotOtherBodyTextSetting(
             self,
             frame,
-            'other_bodies_labels',
+            'other_body_of_interest_label',
             label='Other body labels',
             hint='labels for other bodies of interest (click Edit to specify other bodies to show, e.g. moons)',
             callbacks=[self.replot_other_bodies],
@@ -947,7 +953,7 @@ class GUI:
 
         try:
             # Disable when panning/zooming
-            if self.toolbar.mode._navigate_mode is not None: 
+            if self.toolbar.mode._navigate_mode is not None:
                 return
         except:
             pass
@@ -1077,7 +1083,7 @@ class GUI:
         limit_type = self.plot_settings['_'].setdefault('image_limit_type', 'absolute')
 
         with utils.ignore_warnings('All-NaN slice encountered'):
-            image = self.image_modes[mode][0]()  
+            image = self.image_modes[mode][0]()
             if limit_type == 'percentile':
                 vmin = np.nanpercentile(image, vmin)
                 vmax = np.nanpercentile(image, vmax)
@@ -1094,7 +1100,7 @@ class GUI:
 
     def replot_limb(self):
         self.remove_artists('limb')
-        self.remove_artists('limb_dayside')
+        self.remove_artists('limb_illuminated')
         self.plot_handles['limb'].extend(
             self.ax.plot(
                 *self.get_observation().limb_radec(),
@@ -1108,12 +1114,12 @@ class GUI:
             ra_night,
             dec_night,
         ) = self.get_observation().limb_radec_by_illumination()
-        self.plot_handles['limb_dayside'].extend(
+        self.plot_handles['limb_illuminated'].extend(
             self.ax.plot(
                 ra_day,
                 dec_day,
                 transform=self.transform,
-                **self.plot_settings['limb_dayside'],
+                **self.plot_settings['limb_illuminated'],
             )
         )
 
@@ -1128,10 +1134,10 @@ class GUI:
         )
 
     def replot_poles(self):
-        self.remove_artists('poles')
+        self.remove_artists('pole')
         for lon, lat, s in self.get_observation().get_poles_to_plot():
             ra, dec = self.get_observation().lonlat2radec(lon, lat)
-            self.plot_handles['poles'].append(
+            self.plot_handles['pole'].append(
                 self.ax.add_artist(
                     OutlinedText(
                         ra,
@@ -1143,7 +1149,7 @@ class GUI:
                         size='small',
                         transform=self.transform,
                         clip_on=True,
-                        **self.plot_settings['poles'],
+                        **self.plot_settings['pole'],
                     )
                 )
             )
@@ -1162,52 +1168,52 @@ class GUI:
             )
 
     def replot_coordinates_lonlat(self) -> None:
-        self.remove_artists('coordinates_lonlat')
+        self.remove_artists('coordinate_of_interest_lonlat')
         for lon, lat in self.get_observation().coordinates_of_interest_lonlat:
             if self.get_observation().test_if_lonlat_visible(lon, lat):
                 ra, dec = self.get_observation().lonlat2radec(lon, lat)
-                self.plot_handles['coordinates_lonlat'].append(
+                self.plot_handles['coordinate_of_interest_lonlat'].append(
                     self.ax.scatter(
                         ra,
                         dec,
                         transform=self.transform,
-                        **self.plot_settings['coordinates_lonlat'],
+                        **self.plot_settings['coordinate_of_interest_lonlat'],
                     )
                 )
 
     def replot_coordinates_radec(self) -> None:
-        self.remove_artists('coordinates_radec')
+        self.remove_artists('coordinate_of_interest_radec')
         for ra, dec in self.get_observation().coordinates_of_interest_radec:
-            self.plot_handles['coordinates_radec'].append(
+            self.plot_handles['coordinate_of_interest_radec'].append(
                 self.ax.scatter(
                     ra,
                     dec,
                     transform=self.transform,
-                    **self.plot_settings['coordinates_radec'],
+                    **self.plot_settings['coordinate_of_interest_radec'],
                 )
             )
 
     def replot_rings(self) -> None:
-        self.remove_artists('rings')
+        self.remove_artists('ring')
         for radius in self.get_observation().ring_radii:
             ra, dec = self.get_observation().ring_radec(radius)
-            self.plot_handles['rings'].extend(
+            self.plot_handles['ring'].extend(
                 self.ax.plot(
                     ra,
                     dec,
                     transform=self.transform,
-                    **self.plot_settings['rings'],
+                    **self.plot_settings['ring'],
                 )
             )
 
     def replot_other_bodies(self) -> None:
-        self.remove_artists('other_bodies_labels')
-        self.remove_artists('other_bodies')
+        self.remove_artists('other_body_of_interest_label')
+        self.remove_artists('other_body_of_interest_marker')
         for body in self.get_observation().other_bodies_of_interest:
             ra = body.target_ra
             dec = body.target_dec
 
-            self.plot_handles['other_bodies_labels'].append(
+            self.plot_handles['other_body_of_interest_label'].append(
                 self.ax.text(
                     ra,
                     dec,
@@ -1217,15 +1223,15 @@ class GUI:
                     va='center',
                     transform=self.transform,
                     clip_on=True,
-                    **self.plot_settings['other_bodies_labels'],
+                    **self.plot_settings['other_body_of_interest_label'],
                 )
             )
-            self.plot_handles['other_bodies'].append(
+            self.plot_handles['other_body_of_interest_marker'].append(
                 self.ax.scatter(
                     ra,
                     dec,
                     transform=self.transform,
-                    **self.plot_settings['other_bodies'],
+                    **self.plot_settings['other_body_of_interest_marker'],
                 )
             )
 
@@ -3273,11 +3279,11 @@ class CustomNavigationToolbar(NavigationToolbar2Tk):
         )
         super().__init__(canvas, window, pack_toolbar=pack_toolbar)
         try:
-            self._message_label.configure(foreground='#666666')  # type: ignore
+            self._message_label.configure(foreground='#666666')
         except:
             pass
         try:
-            for name, button in self._buttons.items():  # type: ignore
+            for name, button in self._buttons.items():
                 # Get default tooltips from super() and use them
                 for text, tooltip_text, image_file, callback in super().toolitems:
                     if text == name:
