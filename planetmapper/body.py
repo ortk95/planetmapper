@@ -15,6 +15,7 @@ import spiceypy as spice
 from matplotlib.axes import Axes
 from spiceypy.utils.exceptions import (
     NotFoundError,
+    SpiceBODIESNOTDISTINCT,
     SpiceKERNELVARNOTFOUND,
     SpiceSPKINSUFFDATA,
 )
@@ -458,6 +459,26 @@ class Body(BodyBase):
                 continue
             self.other_bodies_of_interest.append(body)
 
+    def _get_all_satellite_bodies(
+        self, skip_insufficient_data: bool = False, only_visible: bool = False
+    ) -> 'list[Body | BasicBody]':
+        out: 'list[Body | BasicBody]' = []
+        id_base = (self.target_body_id // 100) * 100
+        for other_target in range(id_base + 1, id_base + 99):
+            try:
+                body = self.create_other_body(other_target)
+                if only_visible and not self.test_if_other_body_visible(body):
+                    continue
+                out.append(body)
+            except SpiceSPKINSUFFDATA:
+                if skip_insufficient_data:
+                    continue
+                else:
+                    raise
+            except NotFoundError:
+                continue
+        return out
+
     def add_satellites_to_bodies_of_interest(
         self, skip_insufficient_data: bool = False, only_visible: bool = False
     ) -> None:
@@ -477,20 +498,12 @@ class Body(BodyBase):
             only_visible: If `True`, satellites which are hidden behind the target body
                 will not be added.
         """
-        id_base = (self.target_body_id // 100) * 100
-        for other_target in range(id_base + 1, id_base + 99):
-            try:
-                body = self.create_other_body(other_target)
-                if only_visible and not self.test_if_other_body_visible(body):
-                    continue
-                self.other_bodies_of_interest.append(body)
-            except SpiceSPKINSUFFDATA:
-                if skip_insufficient_data:
-                    continue
-                else:
-                    raise
-            except NotFoundError:
-                continue
+        satellites = self._get_all_satellite_bodies(
+            skip_insufficient_data=skip_insufficient_data, only_visible=only_visible
+        )
+        for satellite in satellites:
+            if satellite not in self.other_bodies_of_interest:
+                self.other_bodies_of_interest.append(satellite)
 
     def ring_radii_from_name(self, name: str) -> list[float]:
         """
@@ -1070,7 +1083,7 @@ class Body(BodyBase):
 
     def other_body_los_intercept(
         self, other: 'str | int | Body | BasicBody'
-    ) -> None | Literal['transit', 'hidden', 'part transit', 'part hidden']:
+    ) -> None | Literal['transit', 'hidden', 'part transit', 'part hidden', 'same']:
         """
         Test for line-of-sight intercept between the target body and another body.
 
@@ -1102,6 +1115,9 @@ class Body(BodyBase):
                   part is visible.
                 - `'transit'` - all of Europa's disk is in front of Jupiter.
                 - `'part transit'` - part of Europa's disk is in front of Jupiter.
+
+            The return value can also be `'same'`, which means that the other body is
+            the same object as the target body (or has an identical location).
         """
         if not isinstance(other, BodyBase):
             other = self.create_other_body(other)
@@ -1113,22 +1129,28 @@ class Body(BodyBase):
                 )
             except NotFoundError:
                 return None  # No intercept with the target body
-            if other.target_distance - self.target_distance > 0:
+            if other.target_distance == self.target_distance:
+                return 'same'
+            elif other.target_distance - self.target_distance > 0:
                 return 'hidden'
             else:
                 return 'transit'
 
-        occultation = spice.occult(
-            self.target,
-            'ELLIPSOID',
-            self.target_frame,
-            other.target,
-            'ELLIPSOID',
-            other.target_frame,
-            self.aberration_correction,
-            self.observer,
-            self.et,
-        )
+        try:
+            occultation = spice.occult(
+                self.target,
+                'ELLIPSOID',
+                self.target_frame,
+                other.target,
+                'ELLIPSOID',
+                other.target_frame,
+                self.aberration_correction,
+                self.observer,
+                self.et,
+            )
+        except SpiceBODIESNOTDISTINCT:
+            return 'same'
+
         match occultation:
             case 3:
                 return 'hidden'

@@ -32,37 +32,37 @@ from .body_xy import _MapKwargs
 from .observation import Observation
 
 Widget = TypeVar('Widget', bound=tk.Widget)
-SETTER_KEY = Literal[
+SetterKey = Literal[
     'x0', 'y0', 'r0', 'rotation', 'step', 'plate_scale_arcsec', 'plate_scale_km'
 ]
-PLOT_KEY = Literal[
+PlotKey = Literal[
     'image',
-    'limb',
-    'limb_dayside',
-    'terminator',
     'grid',
-    'rings',
-    'poles',
-    'coordinates_lonlat',
-    'coordinates_radec',
-    'other_bodies',
-    'other_bodies_labels',
+    'limb',
+    'limb_illuminated',
+    'terminator',
+    'ring',
+    'pole',
+    'coordinate_of_interest_lonlat',
+    'coordinate_of_interest_radec',
+    'other_body_of_interest_marker',
+    'other_body_of_interest_label',
     'marked_coord',
     '_',
 ]
-IMAGE_MODE = Literal['sum', 'single', 'rgb']
+ImageMode = Literal['sum', 'single', 'rgb']
 
-DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
+DEFAULT_PLOT_SETTINGS: dict[PlotKey, dict] = {
     'grid': dict(zorder=3.1, color='#333', linewidth=1, linestyle='dotted'),
     'terminator': dict(zorder=3.2, color='w', linewidth=1, linestyle='dashed'),
     'limb': dict(zorder=3.3, color='w', linewidth=0.5, linestyle='solid'),
-    'limb_dayside': dict(zorder=3.31, color='w', linewidth=1, linestyle='solid'),
-    'rings': dict(zorder=3.4, color='w', linewidth=0.5, linestyle='solid'),
-    'poles': dict(zorder=3.5, color='k', outline_color='w'),
-    'coordinates_lonlat': dict(zorder=3.6, marker='x', color='k', s=36),
-    'coordinates_radec': dict(zorder=3.7, marker='+', color='k', s=36),
-    'other_bodies': dict(zorder=3.8, marker='+', color='w', s=36),
-    'other_bodies_labels': dict(zorder=3.81, color='grey'),
+    'limb_illuminated': dict(zorder=3.31, color='w', linewidth=1, linestyle='solid'),
+    'ring': dict(zorder=3.4, color='w', linewidth=0.5, linestyle='solid'),
+    'pole': dict(zorder=3.5, color='k', outline_color='w'),
+    'coordinate_of_interest_lonlat': dict(zorder=3.6, marker='x', color='k', s=36),
+    'coordinate_of_interest_radec': dict(zorder=3.7, marker='+', color='k', s=36),
+    'other_body_of_interest_marker': dict(zorder=3.8, marker='+', color='w', s=36),
+    'other_body_of_interest_label': dict(zorder=3.81, color='grey'),
     'marked_coord': dict(zorder=4, color='cyan', linewidth=0.5, linestyle='dotted'),
     'image': dict(zorder=0.9, cmap='inferno'),
     '_': dict(
@@ -80,11 +80,11 @@ DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
 }
 
 
-LINESTYLES = ['solid', 'dashed', 'dotted', 'dashdot']
-MARKERS = ['x', '+', 'o', '.', '*', 'v', '^', '<', '>', ',', 'D', 'd', '|', '_']
-GRID_INTERVALS = ['10', '30', '45', '90']
-CMAPS = ['gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis']
-LIMIT_TYPES = ['absolute', 'percentile']
+LINESTYLES = ('solid', 'dashed', 'dotted', 'dashdot')
+MARKERS = ('x', '+', 'o', '.', '*', 'v', '^', '<', '>', ',', 'D', 'd', '|', '_')
+GRID_INTERVALS = ('10', '30', '45', '90')
+CMAPS = ('gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis')
+LIMIT_TYPES = ('absolute', 'percentile')
 
 MAP_INTERPOLATIONS = ('nearest', 'linear', 'quadratic', 'cubic')
 MAP_PROJECTIONS = ('rectangular', 'orthographic', 'azimuthal')
@@ -101,7 +101,7 @@ DEFAULT_HINT = ''
 try:
     USE_X11_FONT_BUGFIX = bool(os.environ['PLANETMAPPER_USE_X11_FONT_BUGFIX'])
 except KeyError:
-    USE_X11_FONT_BUGFIX = False
+    USE_X11_FONT_BUGFIX = False  # pyright: ignore[reportConstantRedefinition]
 X11_FONT_BUGRIX_TRANSLATIONS = str.maketrans(
     {
         '↖': None,
@@ -181,7 +181,7 @@ class GUI:
         self.shortcuts_to_keep_in_entry = ['<Control-s>', '<Control-o>']
 
         self.setter_callbacks: defaultdict[
-            SETTER_KEY, list[Callable[[float], Any]]
+            SetterKey, list[Callable[[float], Any]]
         ] = defaultdict(
             list,
             {
@@ -199,10 +199,10 @@ class GUI:
             },
         )
         self.ui_callbacks: defaultdict[
-            SETTER_KEY | None, set[Callable[[], Any]]
+            SetterKey | None, set[Callable[[], Any]]
         ] = defaultdict(set)
 
-        self.getters: dict[SETTER_KEY, Callable[[], float]] = {
+        self.getters: dict[SetterKey, Callable[[], float]] = {
             'x0': lambda: self.get_observation().get_x0(),
             'y0': lambda: self.get_observation().get_y0(),
             'r0': lambda: self.get_observation().get_r0(),
@@ -211,8 +211,8 @@ class GUI:
             'plate_scale_arcsec': lambda: self.get_observation().get_plate_scale_arcsec(),
             'plate_scale_km': lambda: self.get_observation().get_plate_scale_km(),
         }
-        self.plot_handles: defaultdict[PLOT_KEY, list[Artist]] = defaultdict(list)
-        self.plot_settings: defaultdict[PLOT_KEY, dict] = defaultdict(dict)
+        self.plot_handles: defaultdict[PlotKey, list[Artist]] = defaultdict(list)
+        self.plot_settings: defaultdict[PlotKey, dict] = defaultdict(dict)
         for k, v in DEFAULT_PLOT_SETTINGS.items():
             self.plot_settings[k] = v.copy()
 
@@ -323,7 +323,7 @@ class GUI:
         """
         self._observation = observation
 
-        self.image_modes: dict[IMAGE_MODE, tuple[Callable[[], np.ndarray], str]] = {
+        self.image_modes: dict[ImageMode, tuple[Callable[[], np.ndarray], str]] = {
             'single': (self.image_single, 'Single wavelength'),
             'sum': (self.image_sum, 'Sum all wavelengths'),
             'rgb': (self.image_rgb, 'RGB composite'),
@@ -518,10 +518,10 @@ class GUI:
         buttons: list[tuple[str, str, Callable[[], None], int, int]],
         button_tooltip_base: str,
         entry_tooltip: str,
-        numeric_entries: list[SETTER_KEY | tuple[SETTER_KEY, str]],
+        numeric_entries: list[SetterKey | tuple[SetterKey, str]],
         ipadx=30,
         ipady=1,
-        add_callbacks: list[SETTER_KEY] | None = None,
+        add_callbacks: list[SetterKey] | None = None,
         **kw,
     ) -> None:
         label_frame = ttk.LabelFrame(frame, text=label)
@@ -582,7 +582,7 @@ class GUI:
         PlotLineSetting(
             self,
             frame,
-            'limb_dayside',
+            'limb_illuminated',
             label='Limb (dayside)',
             hint='the illuminated part of the target\'s limb',
         )
@@ -604,7 +604,7 @@ class GUI:
         PlotRingsSetting(
             self,
             frame,
-            'rings',
+            'ring',
             label='Rings',
             hint='rings around the target (click Edit to define ring radii)',
             callbacks=[self.replot_rings],
@@ -612,14 +612,14 @@ class GUI:
         PlotOutlinedTextSetting(
             self,
             frame,
-            'poles',
+            'pole',
             label='Poles',
             hint='the target\'s poles',
         )
         PlotCoordinatesSetting(
             self,
             frame,
-            'coordinates_lonlat',
+            'coordinate_of_interest_lonlat',
             label='Lon/Lat POI',
             hint='points of interest on the surface of the target (click Edit to define POI)',
             callbacks=[self.replot_coordinates_lonlat],
@@ -636,7 +636,7 @@ class GUI:
         PlotCoordinatesSetting(
             self,
             frame,
-            'coordinates_radec',
+            'coordinate_of_interest_radec',
             label='RA/Dec POI',
             hint='points of interest in the sky (click Edit to define POI)',
             callbacks=[self.replot_coordinates_radec],
@@ -653,15 +653,15 @@ class GUI:
         PlotOtherBodyScatterSetting(
             self,
             frame,
-            'other_bodies',
-            label='Other bodies',
+            'other_body_of_interest_marker',
+            label='Other bodies (e.g. moons)',
             hint='other bodies of interest (click Edit to specify other bodies to show, e.g. moons)',
             callbacks=[self.replot_other_bodies],
         )
         PlotOtherBodyTextSetting(
             self,
             frame,
-            'other_bodies_labels',
+            'other_body_of_interest_label',
             label='Other body labels',
             hint='labels for other bodies of interest (click Edit to specify other bodies to show, e.g. moons)',
             callbacks=[self.replot_other_bodies],
@@ -947,7 +947,7 @@ class GUI:
 
         try:
             # Disable when panning/zooming
-            if self.toolbar.mode._navigate_mode is not None: 
+            if self.toolbar.mode._navigate_mode is not None:
                 return
         except:
             pass
@@ -1077,7 +1077,7 @@ class GUI:
         limit_type = self.plot_settings['_'].setdefault('image_limit_type', 'absolute')
 
         with utils.ignore_warnings('All-NaN slice encountered'):
-            image = self.image_modes[mode][0]()  
+            image = self.image_modes[mode][0]()
             if limit_type == 'percentile':
                 vmin = np.nanpercentile(image, vmin)
                 vmax = np.nanpercentile(image, vmax)
@@ -1094,7 +1094,7 @@ class GUI:
 
     def replot_limb(self):
         self.remove_artists('limb')
-        self.remove_artists('limb_dayside')
+        self.remove_artists('limb_illuminated')
         self.plot_handles['limb'].extend(
             self.ax.plot(
                 *self.get_observation().limb_radec(),
@@ -1108,12 +1108,12 @@ class GUI:
             ra_night,
             dec_night,
         ) = self.get_observation().limb_radec_by_illumination()
-        self.plot_handles['limb_dayside'].extend(
+        self.plot_handles['limb_illuminated'].extend(
             self.ax.plot(
                 ra_day,
                 dec_day,
                 transform=self.transform,
-                **self.plot_settings['limb_dayside'],
+                **self.plot_settings['limb_illuminated'],
             )
         )
 
@@ -1128,10 +1128,10 @@ class GUI:
         )
 
     def replot_poles(self):
-        self.remove_artists('poles')
+        self.remove_artists('pole')
         for lon, lat, s in self.get_observation().get_poles_to_plot():
             ra, dec = self.get_observation().lonlat2radec(lon, lat)
-            self.plot_handles['poles'].append(
+            self.plot_handles['pole'].append(
                 self.ax.add_artist(
                     OutlinedText(
                         ra,
@@ -1143,7 +1143,7 @@ class GUI:
                         size='small',
                         transform=self.transform,
                         clip_on=True,
-                        **self.plot_settings['poles'],
+                        **self.plot_settings['pole'],
                     )
                 )
             )
@@ -1162,70 +1162,74 @@ class GUI:
             )
 
     def replot_coordinates_lonlat(self) -> None:
-        self.remove_artists('coordinates_lonlat')
+        self.remove_artists('coordinate_of_interest_lonlat')
         for lon, lat in self.get_observation().coordinates_of_interest_lonlat:
             if self.get_observation().test_if_lonlat_visible(lon, lat):
                 ra, dec = self.get_observation().lonlat2radec(lon, lat)
-                self.plot_handles['coordinates_lonlat'].append(
+                self.plot_handles['coordinate_of_interest_lonlat'].append(
                     self.ax.scatter(
                         ra,
                         dec,
                         transform=self.transform,
-                        **self.plot_settings['coordinates_lonlat'],
+                        **self.plot_settings['coordinate_of_interest_lonlat'],
                     )
                 )
 
     def replot_coordinates_radec(self) -> None:
-        self.remove_artists('coordinates_radec')
+        self.remove_artists('coordinate_of_interest_radec')
         for ra, dec in self.get_observation().coordinates_of_interest_radec:
-            self.plot_handles['coordinates_radec'].append(
+            self.plot_handles['coordinate_of_interest_radec'].append(
                 self.ax.scatter(
                     ra,
                     dec,
                     transform=self.transform,
-                    **self.plot_settings['coordinates_radec'],
+                    **self.plot_settings['coordinate_of_interest_radec'],
                 )
             )
 
     def replot_rings(self) -> None:
-        self.remove_artists('rings')
+        self.remove_artists('ring')
         for radius in self.get_observation().ring_radii:
             ra, dec = self.get_observation().ring_radec(radius)
-            self.plot_handles['rings'].extend(
+            self.plot_handles['ring'].extend(
                 self.ax.plot(
                     ra,
                     dec,
                     transform=self.transform,
-                    **self.plot_settings['rings'],
+                    **self.plot_settings['ring'],
                 )
             )
 
     def replot_other_bodies(self) -> None:
-        self.remove_artists('other_bodies_labels')
-        self.remove_artists('other_bodies')
+        self.remove_artists('other_body_of_interest_label')
+        self.remove_artists('other_body_of_interest_marker')
         for body in self.get_observation().other_bodies_of_interest:
             ra = body.target_ra
             dec = body.target_dec
-
-            self.plot_handles['other_bodies_labels'].append(
+            label = body.target
+            hidden = not self.get_observation().test_if_other_body_visible(body)
+            if hidden:
+                label = f'({label})'
+            self.plot_handles['other_body_of_interest_label'].append(
                 self.ax.text(
                     ra,
                     dec,
-                    body.target + '\n',
+                    label + '\n',
                     size='small',
                     ha='center',
                     va='center',
                     transform=self.transform,
                     clip_on=True,
-                    **self.plot_settings['other_bodies_labels'],
+                    **self.plot_settings['other_body_of_interest_label'],
                 )
             )
-            self.plot_handles['other_bodies'].append(
+            self.plot_handles['other_body_of_interest_marker'].append(
                 self.ax.scatter(
                     ra,
                     dec,
                     transform=self.transform,
-                    **self.plot_settings['other_bodies'],
+                    alpha=0.5 if hidden else 1,
+                    **self.plot_settings['other_body_of_interest_marker'],
                 )
             )
 
@@ -1240,7 +1244,7 @@ class GUI:
                 self.ax.axhline(y, **self.plot_settings['marked_coord'])
             )
 
-    def remove_artists(self, key: PLOT_KEY) -> None:
+    def remove_artists(self, key: PlotKey) -> None:
         while self.plot_handles[key]:
             self.plot_handles[key].pop().remove()
 
@@ -1313,9 +1317,7 @@ class GUI:
         if update_plot:
             self.update_plot()
 
-    def set_value(
-        self, key: SETTER_KEY, value: float, update_plot: bool = True
-    ) -> None:
+    def set_value(self, key: SetterKey, value: float, update_plot: bool = True) -> None:
         for fn in self.setter_callbacks[key]:
             fn(value)
         for fn in self.ui_callbacks[key]:
@@ -2265,14 +2267,14 @@ class ArtistSetting(Popup):
         self,
         gui: GUI,
         parent: tk.Widget,
-        key: PLOT_KEY,
+        key: PlotKey,
         label: str | None = None,
         hint: str | None = None,
         callbacks: list[Callable[[], None]] | None = None,
         row: int | None = None,
     ):
         self.parent = parent
-        self.key: PLOT_KEY = key
+        self.key: PlotKey = key
         self.gui = gui
         self._enable_callback = True
         if label is None:
@@ -2410,7 +2412,7 @@ class PlotImageSetting(ArtistSetting):
         self,
         gui: GUI,
         parent: tk.Widget,
-        key: PLOT_KEY,
+        key: PlotKey,
         label: str | None = None,
         hint: str | None = None,
         callbacks: list[Callable[[], None]] | None = None,
@@ -2583,7 +2585,7 @@ class PlotImageSetting(ArtistSetting):
                 )
 
         self.grid: list[
-            tuple[tk.Widget, tk.Widget, set[IMAGE_MODE | Literal['_readonly']]]
+            tuple[tk.Widget, tk.Widget, set[ImageMode | Literal['_readonly']]]
         ] = [
             (
                 ttk.Label(frame, text='Wavelength index (single): '),
@@ -2979,7 +2981,7 @@ class PlotCoordinatesSetting(PlotScatterSetting):
         self,
         gui: GUI,
         parent: tk.Widget,
-        key: PLOT_KEY,
+        key: PlotKey,
         coordinate_list: list[tuple[float, float]],
         menu_label: str,
         label: str | None = None,
@@ -3080,9 +3082,6 @@ class PlotOutlinedTextSetting(ArtistSetting):
 
 class GenericOtherBodySetting(ArtistSetting):
     def add_other_body_menu_setting(self):
-        value = '\n'.join(
-            b.target for b in self.gui.get_observation().other_bodies_of_interest
-        )
         label = '\n'.join(
             [
                 'List other bodies of interest to',
@@ -3095,22 +3094,57 @@ class GenericOtherBodySetting(ArtistSetting):
         ttk.Label(self.menu_frame, text='\n' + label).pack(fill='x')
         self.txt = tkinter.scrolledtext.ScrolledText(self.menu_frame)
         self.txt.pack(fill='both')
+
+        self.button_frame = ttk.Frame(self.menu_frame)
+        self.button_frame.pack(fill='x', pady=3)
+        self.add_satellites_button = ttk.Button(
+            self.button_frame,
+            text='Add all visible satellites in target system',
+            command=self.add_satellites,
+        )
+        self.add_satellites_button.pack()
+
+        self.populate_text_box()
+
+    def populate_text_box(
+        self, bodies: list[Body | BasicBody] | None = None, append: bool = False
+    ) -> None:
+        if bodies is None:
+            bodies = self.gui.get_observation().other_bodies_of_interest
+        bodies = sorted((b for b in bodies), key=lambda b: b.target_body_id)
+
+        if append:
+            lines = [l for l in self.txt.get('1.0', 'end').splitlines() if l.strip()]
+        else:
+            lines = []
+
+        for b in bodies:
+            line = b.target
+            if line not in lines:
+                lines.append(line)
+        value = '\n'.join(lines)
+        self.txt.delete('1.0', 'end')
         self.txt.insert('1.0', value)
+
+    def add_satellites(self) -> None:
+        bodies = self.gui.get_observation()._get_all_satellite_bodies(
+            skip_insufficient_data=True, only_visible=True
+        )
+        self.populate_text_box(bodies, append=True)
 
     def apply_other_body_setting(self) -> bool:
         bodies: list[Body | BasicBody] = []
         string = self.txt.get('1.0', 'end')
-        for line in string.splitlines():
-            line = line.strip()
-            if line:
-                try:
-                    bodies.append(self.gui.get_observation().create_other_body(line))
-                except NotFoundError:
-                    tkinter.messagebox.showwarning(
-                        title=f'Error parsing target name',
-                        message=f'Target {line!r} is not recognised by SPICE',
-                    )
-                    return False
+        lines = [l for line in string.splitlines() if (l := line.strip())]
+        for line in set(lines):
+            try:
+                bodies.append(self.gui.get_observation().create_other_body(line))
+            except NotFoundError:
+                tkinter.messagebox.showwarning(
+                    title=f'Error parsing target name',
+                    message=f'Target {line!r} is not recognised by SPICE',
+                )
+                return False
         self.gui.get_observation().other_bodies_of_interest.clear()
         self.gui.get_observation().other_bodies_of_interest[:] = bodies
         return True
@@ -3169,14 +3203,14 @@ class NumericEntry:
         self,
         gui: GUI,
         parent: tk.Widget,
-        key: SETTER_KEY,
+        key: SetterKey,
         label: str | None = None,
         row: int | None = None,
-        add_callbacks: list[SETTER_KEY] | None = None,
+        add_callbacks: list[SetterKey] | None = None,
         **kw,
     ):
         self.parent = parent
-        self.key: SETTER_KEY = key
+        self.key: SetterKey = key
         self.gui = gui
         self._enable_callback = True
 
@@ -3273,11 +3307,11 @@ class CustomNavigationToolbar(NavigationToolbar2Tk):
         )
         super().__init__(canvas, window, pack_toolbar=pack_toolbar)
         try:
-            self._message_label.configure(foreground='#666666')  # type: ignore
+            self._message_label.configure(foreground='#666666')
         except:
             pass
         try:
-            for name, button in self._buttons.items():  # type: ignore
+            for name, button in self._buttons.items():
                 # Get default tooltips from super() and use them
                 for text, tooltip_text, image_file, callback in super().toolitems:
                     if text == name:

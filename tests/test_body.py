@@ -407,6 +407,7 @@ class TestBody(unittest.TestCase):
             ('metis', 'transit', True),
             ('amalthea', None, True),
             ('adrastea', None, True),
+            ('jupiter', 'same', True),
         ]
 
         for moon, intercept, visible in intercepts:
