@@ -3099,7 +3099,7 @@ class GenericOtherBodySetting(ArtistSetting):
         self.button_frame.pack(fill='x', pady=3)
         self.add_satellites_button = ttk.Button(
             self.button_frame,
-            text='Add all visible satellites of target',
+            text='Add all visible satellites in target system',
             command=self.add_satellites,
         )
         self.add_satellites_button.pack()
