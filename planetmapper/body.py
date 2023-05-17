@@ -452,7 +452,6 @@ class Body(BodyBase):
             only_visible: If `True`, other targets which are hidden behind the target
                 will not be added to :attr:`other_bodies_of_interest`.
         """
-        # TODO test only_visible
         for other_target in other_targets:
             body = self.create_other_body(other_target)
             if only_visible and not self.test_if_other_body_visible(body):
