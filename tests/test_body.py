@@ -361,8 +361,8 @@ class TestBody(unittest.TestCase):
         jupiter = planetmapper.Body('Jupiter', utc)
 
         intercepts: list[tuple[str, str | None, bool]] = [
-            ('thebe', 'transit', True),
-            ('metis', 'hidden', False),
+            ('thebe', 'hidden', False),
+            ('metis', 'transit', True),
             ('amalthea', None, True),
             ('adrastea', None, True),
         ]
@@ -382,13 +382,13 @@ class TestBody(unittest.TestCase):
                         jupiter.test_if_other_body_visible(arg),
                         visible,
                     )
-    
+
         body = planetmapper.Body('Jupiter', '2005-01-01 00:35:24')
-        self.assertEqual(body.other_body_los_intercept('amalthea'), 'part transit')
+        self.assertEqual(body.other_body_los_intercept('amalthea'), 'part hidden')
         self.assertEqual(body.test_if_other_body_visible('amalthea'), True)
 
         body = planetmapper.Body('Jupiter', '2005-01-01 06:34:05')
-        self.assertEqual(body.other_body_los_intercept('amalthea'), 'part hidden')
+        self.assertEqual(body.other_body_los_intercept('amalthea'), 'part transit')
         self.assertEqual(body.test_if_other_body_visible('amalthea'), True)
 
     def test_illimination_angles_from_lonlat(self):
@@ -621,3 +621,12 @@ class TestBody(unittest.TestCase):
         self.body.coordinates_of_interest_lonlat.clear()
         self.body.coordinates_of_interest_radec.clear()
         self.body.other_bodies_of_interest.clear()
+
+        # Test hidden other bodies
+        jupiter = planetmapper.Body('jupiter', utc='2005-01-01T04:00')
+        jupiter.add_other_bodies_of_interest('thebe', 'metis', 'amalthea', 'adrastea')
+        fig, ax = plt.subplots()
+        jupiter.plot_wireframe_radec(ax)
+        plt.close(fig)
+
+        
