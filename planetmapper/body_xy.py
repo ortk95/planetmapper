@@ -685,19 +685,44 @@ class BodyXY(Body):
         return xlim, ylim
 
     def get_img_limits_radec(self) -> tuple[tuple[float, float], tuple[float, float]]:
-        # TODO document
-        # TODO test
+        """
+        Get the limits of the image coordinates in the RA/Dec coordinate system.
+
+        This can be used to set the axis limits of a plot, for example: ::
+
+            xlim, ylim = obs.get_img_limits_radec()
+            plt.xlim(*xlim)
+            plt.ylim(*ylim)
+
+        See also :func:`get_img_limits_km` and :func:`get_img_limits_xy`.
+
+        Returns:
+            `(ra_left, ra_right), (dec_min, dec_max)` tuple containing the minimum and
+            maximum RA and Dec coordinates of the pixels in the image respectively.
+        """
         xlim, ylim = self._get_img_limits(self.xy2radec)
-        return xlim[::-1], ylim
+        return xlim[::-1], ylim  # flip xlim because RA increases to the left
 
     def get_img_limits_km(self) -> tuple[tuple[float, float], tuple[float, float]]:
-        # TODO document
-        # TODO test
+        """
+        Get the limits of the image coordinates in the target centred plane. See
+        :func:`get_img_limits_radec` for more details.
+
+        Returns:
+            `(km_x_min, km_x_max), (km_y_min, km_y_max)` tuple containing the minimum 
+            and maximum target plane distance coordinates of the pixels in the image.
+        """
         return self._get_img_limits(self.xy2km)
 
     def get_img_limits_xy(self) -> tuple[tuple[float, float], tuple[float, float]]:
-        # TODO document
-        # TODO test
+        """
+        Get the limits of the image coordinates. See :func:`get_img_limits_radec` for
+        more details.
+
+        Returns:
+            `(x_min, x_max), (y_min, y_max)` tuple containing the minimum and maximum
+            pixel coordinates of the pixels in the image.
+        """
         return self._get_img_limits(lambda x, y: (x, y))
 
     # Illumination functions etc.
