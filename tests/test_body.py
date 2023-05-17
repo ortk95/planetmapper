@@ -134,6 +134,23 @@ class TestBody(unittest.TestCase):
         self.body.other_bodies_of_interest.clear()
         self.assertEqual(self.body.other_bodies_of_interest, [])
 
+        utc = '2005-01-01 04:00:00'
+        jupiter = planetmapper.Body('Jupiter', utc)
+        jupiter.add_other_bodies_of_interest('THEBE', only_visible=True)
+        self.assertEqual(jupiter.other_bodies_of_interest, [])
+
+        jupiter.add_other_bodies_of_interest('AMALTHEA', 'THEBE', only_visible=True)
+        self.assertEqual(jupiter.other_bodies_of_interest, [Body('AMALTHEA', utc)])
+
+        jupiter.other_bodies_of_interest.clear()
+        self.assertEqual(jupiter.other_bodies_of_interest, [])
+
+        jupiter.add_other_bodies_of_interest('AMALTHEA', 'THEBE')
+        self.assertEqual(
+            jupiter.other_bodies_of_interest,
+            [Body('AMALTHEA', utc), Body('THEBE', utc)],
+        )
+
     def test_add_satellites_to_bodies_of_interest(self):
         self.body.other_bodies_of_interest.clear()
         with self.assertRaises(SpiceSPKINSUFFDATA):
@@ -152,6 +169,31 @@ class TestBody(unittest.TestCase):
         )
         self.body.other_bodies_of_interest.clear()
         self.assertEqual(self.body.other_bodies_of_interest, [])
+
+        utc = '2005-01-01 04:00:00'
+        jupiter = planetmapper.Body('Jupiter', utc)
+        jupiter.add_satellites_to_bodies_of_interest(
+            skip_insufficient_data=True, only_visible=True
+        )
+        self.assertEqual(
+            jupiter.other_bodies_of_interest,
+            [Body('AMALTHEA', utc), Body('ADRASTEA', utc), Body('METIS', utc)],
+        )
+        jupiter.other_bodies_of_interest.clear()
+        self.assertEqual(jupiter.other_bodies_of_interest, [])
+
+        jupiter.add_satellites_to_bodies_of_interest(skip_insufficient_data=True)
+        self.assertEqual(
+            jupiter.other_bodies_of_interest,
+            [
+                Body('AMALTHEA', utc),
+                Body('THEBE', utc),
+                Body('ADRASTEA', utc),
+                Body('METIS', utc),
+            ],
+        )
+        jupiter.other_bodies_of_interest.clear()
+        self.assertEqual(jupiter.other_bodies_of_interest, [])
 
     def test_ring_raddii_from_name(self):
         self.assertEqual(self.body.ring_radii_from_name('Halo'), [89400.0, 123000.0])
@@ -628,5 +670,3 @@ class TestBody(unittest.TestCase):
         fig, ax = plt.subplots()
         jupiter.plot_wireframe_radec(ax)
         plt.close(fig)
-
-        

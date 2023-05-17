@@ -478,7 +478,6 @@ class Body(BodyBase):
             only_visible: If `True`, satellites which are hidden behind the target body
                 will not be added.
         """
-        # TODO test only_visible
         id_base = (self.target_body_id // 100) * 100
         for other_target in range(id_base + 1, id_base + 99):
             try:
@@ -1105,7 +1104,6 @@ class Body(BodyBase):
                 - `'transit'` - all of Europa's disk is in front of Jupiter.
                 - `'part transit'` - part of Europa's disk is in front of Jupiter.
         """
-        # TODO: rename?
         if not isinstance(other, BodyBase):
             other = self.create_other_body(other)
 
