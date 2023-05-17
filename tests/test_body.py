@@ -467,6 +467,17 @@ class TestBody(unittest.TestCase):
             )
         )
 
+    def test_if_lonlat_illuminated(self):
+        pairs: list[tuple[tuple[float, float], bool]] = [
+            ((0, 0), False),
+            ((180, 12), True),
+        ]
+        for (lon, lat), illuminated in pairs:
+            with self.subTest(lon=lon, lat=lat):
+                self.assertEqual(
+                    self.body.test_if_lonlat_illuminated(lon, lat), illuminated
+                )
+
     def test_ring_plane_coordinates(self):
         self.assertTrue(
             np.allclose(
