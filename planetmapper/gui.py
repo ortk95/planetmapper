@@ -27,13 +27,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 from matplotlib.text import Text
 
 from . import base, common, data_loader, progress, utils
-from .body import (
-    DEFAULT_WIREFRAME_FORMATTING,
-    BasicBody,
-    Body,
-    NotFoundError,
-    _WireframeComponent,
-)
+from .body import BasicBody, Body, NotFoundError
 from .body_xy import _MapKwargs
 from .observation import Observation
 
@@ -107,7 +101,7 @@ DEFAULT_HINT = ''
 try:
     USE_X11_FONT_BUGFIX = bool(os.environ['PLANETMAPPER_USE_X11_FONT_BUGFIX'])
 except KeyError:
-    USE_X11_FONT_BUGFIX = False # pyright: ignore[reportConstantRedefinition]
+    USE_X11_FONT_BUGFIX = False  # pyright: ignore[reportConstantRedefinition]
 X11_FONT_BUGRIX_TRANSLATIONS = str.maketrans(
     {
         '↖': None,
@@ -1212,7 +1206,10 @@ class GUI:
         for body in self.get_observation().other_bodies_of_interest:
             ra = body.target_ra
             dec = body.target_dec
-
+            label = body.target
+            hidden = not self.get_observation().test_if_other_body_visible(body)
+            if hidden:
+                label = f'({label})'
             self.plot_handles['other_body_of_interest_label'].append(
                 self.ax.text(
                     ra,
@@ -1231,6 +1228,7 @@ class GUI:
                     ra,
                     dec,
                     transform=self.transform,
+                    alpha=0.5 if hidden else 1,
                     **self.plot_settings['other_body_of_interest_marker'],
                 )
             )
@@ -1319,9 +1317,7 @@ class GUI:
         if update_plot:
             self.update_plot()
 
-    def set_value(
-        self, key: SetterKey, value: float, update_plot: bool = True
-    ) -> None:
+    def set_value(self, key: SetterKey, value: float, update_plot: bool = True) -> None:
         for fn in self.setter_callbacks[key]:
             fn(value)
         for fn in self.ui_callbacks[key]:
