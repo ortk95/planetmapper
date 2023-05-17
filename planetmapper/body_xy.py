@@ -667,6 +667,39 @@ class BodyXY(Body):
         dx, dy = self.radec2xy(ra0 + dra, dec0 + ddec)
         self.adjust_disc_params(dx=dx, dy=dy)
 
+    # Limit getters
+    def _get_xy_corner_coordinates(self) -> list[tuple[float, float]]:
+        return [
+            (-0.5, -0.5),
+            (-0.5, self._ny - 0.5),
+            (self._nx - 0.5, -0.5),
+            (self._nx - 0.5, self._ny - 0.5),
+        ]
+
+    def _get_img_limits(
+        self, func: Callable[[float, float], tuple[float, float]]
+    ) -> tuple[tuple[float, float], tuple[float, float]]:
+        xy_lim = [func(x, y) for x, y in self._get_xy_corner_coordinates()]
+        xlim = (min(x for x, _ in xy_lim), max(x for x, _ in xy_lim))
+        ylim = (min(y for _, y in xy_lim), max(y for _, y in xy_lim))
+        return xlim, ylim
+
+    def get_img_limits_radec(self) -> tuple[tuple[float, float], tuple[float, float]]:
+        # TODO document
+        # TODO test
+        xlim, ylim = self._get_img_limits(self.xy2radec)
+        return xlim[::-1], ylim
+
+    def get_img_limits_km(self) -> tuple[tuple[float, float], tuple[float, float]]:
+        # TODO document
+        # TODO test
+        return self._get_img_limits(self.xy2km)
+
+    def get_img_limits_xy(self) -> tuple[tuple[float, float], tuple[float, float]]:
+        # TODO document
+        # TODO test
+        return self._get_img_limits(lambda x, y: (x, y))
+
     # Illumination functions etc.
     def limb_xy(self, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         """
