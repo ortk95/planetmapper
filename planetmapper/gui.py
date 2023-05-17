@@ -38,10 +38,10 @@ from .body_xy import _MapKwargs
 from .observation import Observation
 
 Widget = TypeVar('Widget', bound=tk.Widget)
-SETTER_KEY = Literal[
+SetterKey = Literal[
     'x0', 'y0', 'r0', 'rotation', 'step', 'plate_scale_arcsec', 'plate_scale_km'
 ]
-PLOT_KEY = Literal[
+PlotKey = Literal[
     'image',
     'grid',
     'limb',
@@ -56,9 +56,9 @@ PLOT_KEY = Literal[
     'marked_coord',
     '_',
 ]
-IMAGE_MODE = Literal['sum', 'single', 'rgb']
+ImageMode = Literal['sum', 'single', 'rgb']
 
-DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
+DEFAULT_PLOT_SETTINGS: dict[PlotKey, dict] = {
     'grid': dict(zorder=3.1, color='#333', linewidth=1, linestyle='dotted'),
     'terminator': dict(zorder=3.2, color='w', linewidth=1, linestyle='dashed'),
     'limb': dict(zorder=3.3, color='w', linewidth=0.5, linestyle='solid'),
@@ -86,11 +86,11 @@ DEFAULT_PLOT_SETTINGS: dict[PLOT_KEY, dict] = {
 }
 
 
-LINESTYLES = ['solid', 'dashed', 'dotted', 'dashdot']
-MARKERS = ['x', '+', 'o', '.', '*', 'v', '^', '<', '>', ',', 'D', 'd', '|', '_']
-GRID_INTERVALS = ['10', '30', '45', '90']
-CMAPS = ['gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis']
-LIMIT_TYPES = ['absolute', 'percentile']
+LINESTYLES = ('solid', 'dashed', 'dotted', 'dashdot')
+MARKERS = ('x', '+', 'o', '.', '*', 'v', '^', '<', '>', ',', 'D', 'd', '|', '_')
+GRID_INTERVALS = ('10', '30', '45', '90')
+CMAPS = ('gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis')
+LIMIT_TYPES = ('absolute', 'percentile')
 
 MAP_INTERPOLATIONS = ('nearest', 'linear', 'quadratic', 'cubic')
 MAP_PROJECTIONS = ('rectangular', 'orthographic', 'azimuthal')
@@ -187,7 +187,7 @@ class GUI:
         self.shortcuts_to_keep_in_entry = ['<Control-s>', '<Control-o>']
 
         self.setter_callbacks: defaultdict[
-            SETTER_KEY, list[Callable[[float], Any]]
+            SetterKey, list[Callable[[float], Any]]
         ] = defaultdict(
             list,
             {
@@ -205,10 +205,10 @@ class GUI:
             },
         )
         self.ui_callbacks: defaultdict[
-            SETTER_KEY | None, set[Callable[[], Any]]
+            SetterKey | None, set[Callable[[], Any]]
         ] = defaultdict(set)
 
-        self.getters: dict[SETTER_KEY, Callable[[], float]] = {
+        self.getters: dict[SetterKey, Callable[[], float]] = {
             'x0': lambda: self.get_observation().get_x0(),
             'y0': lambda: self.get_observation().get_y0(),
             'r0': lambda: self.get_observation().get_r0(),
@@ -217,8 +217,8 @@ class GUI:
             'plate_scale_arcsec': lambda: self.get_observation().get_plate_scale_arcsec(),
             'plate_scale_km': lambda: self.get_observation().get_plate_scale_km(),
         }
-        self.plot_handles: defaultdict[PLOT_KEY, list[Artist]] = defaultdict(list)
-        self.plot_settings: defaultdict[PLOT_KEY, dict] = defaultdict(dict)
+        self.plot_handles: defaultdict[PlotKey, list[Artist]] = defaultdict(list)
+        self.plot_settings: defaultdict[PlotKey, dict] = defaultdict(dict)
         for k, v in DEFAULT_PLOT_SETTINGS.items():
             self.plot_settings[k] = v.copy()
 
@@ -329,7 +329,7 @@ class GUI:
         """
         self._observation = observation
 
-        self.image_modes: dict[IMAGE_MODE, tuple[Callable[[], np.ndarray], str]] = {
+        self.image_modes: dict[ImageMode, tuple[Callable[[], np.ndarray], str]] = {
             'single': (self.image_single, 'Single wavelength'),
             'sum': (self.image_sum, 'Sum all wavelengths'),
             'rgb': (self.image_rgb, 'RGB composite'),
@@ -524,10 +524,10 @@ class GUI:
         buttons: list[tuple[str, str, Callable[[], None], int, int]],
         button_tooltip_base: str,
         entry_tooltip: str,
-        numeric_entries: list[SETTER_KEY | tuple[SETTER_KEY, str]],
+        numeric_entries: list[SetterKey | tuple[SetterKey, str]],
         ipadx=30,
         ipady=1,
-        add_callbacks: list[SETTER_KEY] | None = None,
+        add_callbacks: list[SetterKey] | None = None,
         **kw,
     ) -> None:
         label_frame = ttk.LabelFrame(frame, text=label)
@@ -1246,7 +1246,7 @@ class GUI:
                 self.ax.axhline(y, **self.plot_settings['marked_coord'])
             )
 
-    def remove_artists(self, key: PLOT_KEY) -> None:
+    def remove_artists(self, key: PlotKey) -> None:
         while self.plot_handles[key]:
             self.plot_handles[key].pop().remove()
 
@@ -1320,7 +1320,7 @@ class GUI:
             self.update_plot()
 
     def set_value(
-        self, key: SETTER_KEY, value: float, update_plot: bool = True
+        self, key: SetterKey, value: float, update_plot: bool = True
     ) -> None:
         for fn in self.setter_callbacks[key]:
             fn(value)
@@ -2271,14 +2271,14 @@ class ArtistSetting(Popup):
         self,
         gui: GUI,
         parent: tk.Widget,
-        key: PLOT_KEY,
+        key: PlotKey,
         label: str | None = None,
         hint: str | None = None,
         callbacks: list[Callable[[], None]] | None = None,
         row: int | None = None,
     ):
         self.parent = parent
-        self.key: PLOT_KEY = key
+        self.key: PlotKey = key
         self.gui = gui
         self._enable_callback = True
         if label is None:
@@ -2416,7 +2416,7 @@ class PlotImageSetting(ArtistSetting):
         self,
         gui: GUI,
         parent: tk.Widget,
-        key: PLOT_KEY,
+        key: PlotKey,
         label: str | None = None,
         hint: str | None = None,
         callbacks: list[Callable[[], None]] | None = None,
@@ -2589,7 +2589,7 @@ class PlotImageSetting(ArtistSetting):
                 )
 
         self.grid: list[
-            tuple[tk.Widget, tk.Widget, set[IMAGE_MODE | Literal['_readonly']]]
+            tuple[tk.Widget, tk.Widget, set[ImageMode | Literal['_readonly']]]
         ] = [
             (
                 ttk.Label(frame, text='Wavelength index (single): '),
@@ -2985,7 +2985,7 @@ class PlotCoordinatesSetting(PlotScatterSetting):
         self,
         gui: GUI,
         parent: tk.Widget,
-        key: PLOT_KEY,
+        key: PlotKey,
         coordinate_list: list[tuple[float, float]],
         menu_label: str,
         label: str | None = None,
@@ -3175,14 +3175,14 @@ class NumericEntry:
         self,
         gui: GUI,
         parent: tk.Widget,
-        key: SETTER_KEY,
+        key: SetterKey,
         label: str | None = None,
         row: int | None = None,
-        add_callbacks: list[SETTER_KEY] | None = None,
+        add_callbacks: list[SetterKey] | None = None,
         **kw,
     ):
         self.parent = parent
-        self.key: SETTER_KEY = key
+        self.key: SetterKey = key
         self.gui = gui
         self._enable_callback = True
 
