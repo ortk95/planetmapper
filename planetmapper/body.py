@@ -15,6 +15,7 @@ import spiceypy as spice
 from matplotlib.axes import Axes
 from spiceypy.utils.exceptions import (
     NotFoundError,
+    SpiceBODIESNOTDISTINCT,
     SpiceKERNELVARNOTFOUND,
     SpiceSPKINSUFFDATA,
 )
@@ -1082,7 +1083,7 @@ class Body(BodyBase):
 
     def other_body_los_intercept(
         self, other: 'str | int | Body | BasicBody'
-    ) -> None | Literal['transit', 'hidden', 'part transit', 'part hidden']:
+    ) -> None | Literal['transit', 'hidden', 'part transit', 'part hidden', 'same']:
         """
         Test for line-of-sight intercept between the target body and another body.
 
@@ -1114,6 +1115,9 @@ class Body(BodyBase):
                   part is visible.
                 - `'transit'` - all of Europa's disk is in front of Jupiter.
                 - `'part transit'` - part of Europa's disk is in front of Jupiter.
+
+            The return value can also be `'same'`, which means that the other body is
+            the same object as the target body (or has an identical location).
         """
         if not isinstance(other, BodyBase):
             other = self.create_other_body(other)
@@ -1125,22 +1129,28 @@ class Body(BodyBase):
                 )
             except NotFoundError:
                 return None  # No intercept with the target body
-            if other.target_distance - self.target_distance > 0:
+            if other.target_distance == self.target_distance:
+                return 'same'
+            elif other.target_distance - self.target_distance > 0:
                 return 'hidden'
             else:
                 return 'transit'
 
-        occultation = spice.occult(
-            self.target,
-            'ELLIPSOID',
-            self.target_frame,
-            other.target,
-            'ELLIPSOID',
-            other.target_frame,
-            self.aberration_correction,
-            self.observer,
-            self.et,
-        )
+        try:
+            occultation = spice.occult(
+                self.target,
+                'ELLIPSOID',
+                self.target_frame,
+                other.target,
+                'ELLIPSOID',
+                other.target_frame,
+                self.aberration_correction,
+                self.observer,
+                self.et,
+            )
+        except SpiceBODIESNOTDISTINCT:
+            return 'same'
+
         match occultation:
             case 3:
                 return 'hidden'
