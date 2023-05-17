@@ -9,7 +9,12 @@ import spiceypy as spice
 import planetmapper
 import planetmapper.base
 import planetmapper.progress
-from planetmapper.base import BodyBase
+from planetmapper.base import (
+    BodyBase,
+    _cache_clearable_result,
+    _cache_stable_result,
+    _to_tuple,
+)
 
 P = ParamSpec('P')
 
@@ -113,7 +118,7 @@ class TestSpiceBase(unittest.TestCase):
                 self.assertAlmostEqual(self.obj.calculate_doppler_factor(rv), df)
 
     def test_load_spice_kernels(self):
-        self.assertTrue(planetmapper.SpiceBase._KERNELS_LOADED)
+        self.assertTrue(planetmapper.base._KERNEL_DATA['kernels_loaded'])
 
     def test_close_loop(self):
         self.assertTrue(
@@ -327,13 +332,11 @@ class TestSpiceStringEncoding(unittest.TestCase):
 
 class TestKernelPath(unittest.TestCase):
     def setUp(self) -> None:
-        spice.kclear()
-        planetmapper.SpiceBase._KERNELS_LOADED = False
+        planetmapper.base._clear_kernels()
 
     def tearDown(self) -> None:
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
-        planetmapper.SpiceBase._KERNELS_LOADED = False
-        spice.kclear()
+        planetmapper.base._clear_kernels()
 
     def test_kernel_path(self):
         path = 'abcdef/ghi/jkl'
@@ -434,3 +437,86 @@ class TestBodyBase(unittest.TestCase):
                 observer_frame='J2000',
             ),
         )
+
+
+class TestCache(unittest.TestCase):
+    def setUp(self):
+        self._cache = {}
+        self._stable_cache = {}
+        self.functions_called = []
+
+    @_cache_clearable_result
+    def f_clearable(self, a, b=1):
+        self.functions_called.append('f_clearable')
+        return ('f_clearable', a * b)
+
+    @_cache_stable_result
+    def f_stable(self, a, b=1):
+        self.functions_called.append('f_stable')
+        return ('f_stable', a * b)
+
+    def test_clearable_cache(self):
+        self.functions_called = []
+        for attempt in range(3):
+            with self.subTest(attempt=attempt):
+                self._cache.clear()
+                self.functions_called = []
+
+                self.assertEqual(self.f_clearable(1), ('f_clearable', 1))
+                self.assertEqual(self.functions_called, ['f_clearable'])
+                self.assertEqual(self.f_clearable(1), ('f_clearable', 1))
+                self.assertEqual(self.functions_called, ['f_clearable'])
+
+                self.assertEqual(self.f_clearable(2), ('f_clearable', 2))
+                self.assertEqual(self.functions_called, ['f_clearable'] * 2)
+                self.assertEqual(self.f_clearable(2), ('f_clearable', 2))
+                self.assertEqual(self.functions_called, ['f_clearable'] * 2)
+
+                self.assertEqual(self.f_clearable(2, b=2), ('f_clearable', 4))
+                self.assertEqual(self.functions_called, ['f_clearable'] * 3)
+                self.assertEqual(self.f_clearable(2, b=2), ('f_clearable', 4))
+                self.assertEqual(self.functions_called, ['f_clearable'] * 3)
+
+                self.assertEqual(self.f_clearable(1), ('f_clearable', 1))
+                self.assertEqual(self.f_clearable(2), ('f_clearable', 2))
+                self.assertEqual(self.f_clearable(2, b=2), ('f_clearable', 4))
+                self.assertEqual(self.functions_called, ['f_clearable'] * 3)
+
+                self.assertEqual(len(self._cache), 3)
+
+    def test_stable_cache(self):
+        self.functions_called = []
+
+        self.assertEqual(self.f_stable(1), ('f_stable', 1))
+        self.assertEqual(self.functions_called, ['f_stable'])
+        self.assertEqual(self.f_stable(1), ('f_stable', 1))
+        self.assertEqual(self.functions_called, ['f_stable'])
+
+        self.assertEqual(self.f_stable(2), ('f_stable', 2))
+        self.assertEqual(self.functions_called, ['f_stable'] * 2)
+        self.assertEqual(self.f_stable(2), ('f_stable', 2))
+        self.assertEqual(self.functions_called, ['f_stable'] * 2)
+
+        self.assertEqual(self.f_stable(2, b=2), ('f_stable', 4))
+        self.assertEqual(self.functions_called, ['f_stable'] * 3)
+        self.assertEqual(self.f_stable(2, b=2), ('f_stable', 4))
+        self.assertEqual(self.functions_called, ['f_stable'] * 3)
+
+        self.assertEqual(self.f_stable(1), ('f_stable', 1))
+        self.assertEqual(self.f_stable(2), ('f_stable', 2))
+        self.assertEqual(self.f_stable(2, b=2), ('f_stable', 4))
+        self.assertEqual(self.functions_called, ['f_stable'] * 3)
+
+        self.assertEqual(len(self._stable_cache), 3)
+
+
+class TestFunctions(unittest.TestCase):
+    def test_to_tuple(self):
+        pairs = [
+            (np.array([1, 2, 3]), (1, 2, 3)),
+            (np.array([[1, 2, 3]]), ((1, 2, 3),)),
+            (np.array(1), 1.0),
+        ]
+        for a, b in pairs:
+            with self.subTest(a=a, b=b):
+                self.assertEqual(_to_tuple(a), b)

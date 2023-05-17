@@ -5,7 +5,7 @@
 [![Pylint](https://github.com/ortk95/planetmapper/actions/workflows/pylint.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/pylint.yml)
 [![Format](https://github.com/ortk95/planetmapper/actions/workflows/format.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/format.yml)
 [![Tests](https://github.com/ortk95/planetmapper/actions/workflows/test.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/test.yml)
-[![Coverage Status](https://coveralls.io/repos/github/ortk95/planetmapper/badge.svg)](https://coveralls.io/github/ortk95/planetmapper)
+[![Coverage Status](https://img.shields.io/coverallsCoverage/github/ortk95/planetmapper)](https://coveralls.io/github/ortk95/planetmapper)
 [![Documentation Status](https://readthedocs.org/projects/planetmapper/badge/?version=latest)](https://planetmapper.readthedocs.io/en/latest/?badge=latest)
 
 
@@ -23,7 +23,7 @@ pip install planetmapper --upgrade
 _Requires Python 3.10+_
 
 ## Key features
-### [Fit and map observations using a full featured user interface](https://planetmapper.readthedocs.io/en/latest/user_interface.html)
+### [Fit and map astronomical observations using a full featured user interface](https://planetmapper.readthedocs.io/en/latest/user_interface.html)
 ![PlanetMapper graphical user interface](https://github.com/ortk95/planetmapper/blob/main/docs/images/gui_fitting.png?raw=true)
 
 ### [Easily visualise solar system observations with just a few lines of code](https://planetmapper.readthedocs.io/en/latest/general_python_api.html#wireframe-plots)

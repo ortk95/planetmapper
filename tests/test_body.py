@@ -68,6 +68,10 @@ class TestBody(unittest.TestCase):
         self.assertEqual(self.body.coordinates_of_interest_radec, [])
         self.assertEqual(self.body.other_bodies_of_interest, [])
 
+        moon = Body('moon', '2005-01-01')
+        self.assertEqual(moon.positive_longitude_direction, 'E')
+        self.assertTrue(moon.prograde)
+
     def test_repr(self):
         self.assertEqual(
             repr(self.body),
@@ -130,6 +134,23 @@ class TestBody(unittest.TestCase):
         self.body.other_bodies_of_interest.clear()
         self.assertEqual(self.body.other_bodies_of_interest, [])
 
+        utc = '2005-01-01 04:00:00'
+        jupiter = planetmapper.Body('Jupiter', utc)
+        jupiter.add_other_bodies_of_interest('THEBE', only_visible=True)
+        self.assertEqual(jupiter.other_bodies_of_interest, [])
+
+        jupiter.add_other_bodies_of_interest('AMALTHEA', 'THEBE', only_visible=True)
+        self.assertEqual(jupiter.other_bodies_of_interest, [Body('AMALTHEA', utc)])
+
+        jupiter.other_bodies_of_interest.clear()
+        self.assertEqual(jupiter.other_bodies_of_interest, [])
+
+        jupiter.add_other_bodies_of_interest('AMALTHEA', 'THEBE')
+        self.assertEqual(
+            jupiter.other_bodies_of_interest,
+            [Body('AMALTHEA', utc), Body('THEBE', utc)],
+        )
+
     def test_add_satellites_to_bodies_of_interest(self):
         self.body.other_bodies_of_interest.clear()
         with self.assertRaises(SpiceSPKINSUFFDATA):
@@ -148,6 +169,31 @@ class TestBody(unittest.TestCase):
         )
         self.body.other_bodies_of_interest.clear()
         self.assertEqual(self.body.other_bodies_of_interest, [])
+
+        utc = '2005-01-01 04:00:00'
+        jupiter = planetmapper.Body('Jupiter', utc)
+        jupiter.add_satellites_to_bodies_of_interest(
+            skip_insufficient_data=True, only_visible=True
+        )
+        self.assertEqual(
+            jupiter.other_bodies_of_interest,
+            [Body('AMALTHEA', utc), Body('ADRASTEA', utc), Body('METIS', utc)],
+        )
+        jupiter.other_bodies_of_interest.clear()
+        self.assertEqual(jupiter.other_bodies_of_interest, [])
+
+        jupiter.add_satellites_to_bodies_of_interest(skip_insufficient_data=True)
+        self.assertEqual(
+            jupiter.other_bodies_of_interest,
+            [
+                Body('AMALTHEA', utc),
+                Body('THEBE', utc),
+                Body('ADRASTEA', utc),
+                Body('METIS', utc),
+            ],
+        )
+        jupiter.other_bodies_of_interest.clear()
+        self.assertEqual(jupiter.other_bodies_of_interest, [])
 
     def test_ring_raddii_from_name(self):
         self.assertEqual(self.body.ring_radii_from_name('Halo'), [89400.0, 123000.0])
@@ -351,6 +397,41 @@ class TestBody(unittest.TestCase):
                 equal_nan=True,
             )
         )
+
+    def test_other_body_los_intercept(self):
+        utc = '2005-01-01 04:00:00'
+        jupiter = planetmapper.Body('Jupiter', utc)
+
+        intercepts: list[tuple[str, str | None, bool]] = [
+            ('thebe', 'hidden', False),
+            ('metis', 'transit', True),
+            ('amalthea', None, True),
+            ('adrastea', None, True),
+        ]
+
+        for moon, intercept, visible in intercepts:
+            body = jupiter.create_other_body(moon)
+            arguments = [
+                moon,
+                body,
+                body.target_body_id,
+                planetmapper.BasicBody(moon, utc),
+            ]
+            for arg in arguments:
+                with self.subTest(moon=moon, arg=arg):
+                    self.assertEqual(jupiter.other_body_los_intercept(arg), intercept)
+                    self.assertEqual(
+                        jupiter.test_if_other_body_visible(arg),
+                        visible,
+                    )
+
+        body = planetmapper.Body('Jupiter', '2005-01-01 00:35:24')
+        self.assertEqual(body.other_body_los_intercept('amalthea'), 'part hidden')
+        self.assertEqual(body.test_if_other_body_visible('amalthea'), True)
+
+        body = planetmapper.Body('Jupiter', '2005-01-01 06:34:05')
+        self.assertEqual(body.other_body_los_intercept('amalthea'), 'part transit')
+        self.assertEqual(body.test_if_other_body_visible('amalthea'), True)
 
     def test_illimination_angles_from_lonlat(self):
         self.assertTrue(
@@ -565,6 +646,7 @@ class TestBody(unittest.TestCase):
         self.body.coordinates_of_interest_radec.append(
             (self.body.target_ra, self.body.target_dec)
         )
+        self.body.add_other_bodies_of_interest('amalthea')
         fig, ax = plt.subplots()
         self.body.plot_wireframe_km(
             ax,
@@ -580,3 +662,11 @@ class TestBody(unittest.TestCase):
         self.body.ring_radii.clear()
         self.body.coordinates_of_interest_lonlat.clear()
         self.body.coordinates_of_interest_radec.clear()
+        self.body.other_bodies_of_interest.clear()
+
+        # Test hidden other bodies
+        jupiter = planetmapper.Body('jupiter', utc='2005-01-01T04:00')
+        jupiter.add_other_bodies_of_interest('thebe', 'metis', 'amalthea', 'adrastea')
+        fig, ax = plt.subplots()
+        jupiter.plot_wireframe_radec(ax)
+        plt.close(fig)

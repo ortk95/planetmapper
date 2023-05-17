@@ -1,6 +1,6 @@
 import datetime
 from collections import defaultdict
-from typing import Any, Callable, Literal, TypedDict, cast
+from typing import Any, Callable, Literal, TypedDict, cast, overload
 
 try:
     from typing import Unpack
@@ -37,6 +37,8 @@ _WireframeComponent = Literal[
     'coordinate_of_interest_radec',
     'other_body_of_interest_marker',
     'other_body_of_interest_label',
+    'hidden_other_body_of_interest_marker',
+    'hidden_other_body_of_interest_label',
     'map_boundary',
 ]
 
@@ -85,6 +87,8 @@ DEFAULT_WIREFRAME_FORMATTING: dict[_WireframeComponent, dict[str, Any]] = {
         alpha=0.5,
         clip_on=True,
     ),
+    'hidden_other_body_of_interest_marker': dict(alpha=0.333),
+    'hidden_other_body_of_interest_label': dict(),
     'map_boundary': dict(),
 }
 
@@ -356,6 +360,18 @@ class Body(BodyBase):
             super()._get_equality_tuple(),
         )
 
+    @overload
+    def create_other_body(
+        self, other_target: str | int, fallback_to_basic_body: Literal[False]
+    ) -> 'Body':
+        ...
+
+    @overload
+    def create_other_body(
+        self, other_target: str | int, fallback_to_basic_body: bool = True
+    ) -> 'Body|BasicBody':
+        ...
+
     def create_other_body(
         self, other_target: str | int, fallback_to_basic_body: bool = True
     ) -> 'Body|BasicBody':
@@ -409,7 +425,9 @@ class Body(BodyBase):
             )
 
     # Stuff to customise wireframe plots
-    def add_other_bodies_of_interest(self, *other_targets: str | int) -> None:
+    def add_other_bodies_of_interest(
+        self, *other_targets: str | int, only_visible: bool = False
+    ) -> None:
         """
         Add targets to the list of :attr:`other_bodies_of_interest` of interest to mark
         when plotting. The other targets are created using :func:`create_other_body`.
@@ -431,12 +449,17 @@ class Body(BodyBase):
 
         Args:
             *other_targets: Names of the other targets, passed to :class:`Body`
+            only_visible: If `True`, other targets which are hidden behind the target
+                will not be added to :attr:`other_bodies_of_interest`.
         """
         for other_target in other_targets:
-            self.other_bodies_of_interest.append(self.create_other_body(other_target))
+            body = self.create_other_body(other_target)
+            if only_visible and not self.test_if_other_body_visible(body):
+                continue
+            self.other_bodies_of_interest.append(body)
 
     def add_satellites_to_bodies_of_interest(
-        self, skip_insufficient_data: bool = False
+        self, skip_insufficient_data: bool = False, only_visible: bool = False
     ) -> None:
         """
         Automatically add all satellites in the target planetary system to
@@ -451,13 +474,16 @@ class Body(BodyBase):
         Args:
             skip_insufficient_data: If True, satellites with insufficient data in the
                 SPICE kernel will be skipped. If False, an exception will be raised.
+            only_visible: If `True`, satellites which are hidden behind the target body
+                will not be added.
         """
         id_base = (self.target_body_id // 100) * 100
         for other_target in range(id_base + 1, id_base + 99):
             try:
-                self.other_bodies_of_interest.append(
-                    self.create_other_body(other_target)
-                )
+                body = self.create_other_body(other_target)
+                if only_visible and not self.test_if_other_body_visible(body):
+                    continue
+                self.other_bodies_of_interest.append(body)
             except SpiceSPKINSUFFDATA:
                 if skip_insufficient_data:
                     continue
@@ -1041,6 +1067,98 @@ class Body(BodyBase):
             True if the point is visible from the observer, otherwise False.
         """
         return self._test_if_targvec_visible(self.lonlat2targvec(lon, lat))
+
+    def other_body_los_intercept(
+        self, other: 'str | int | Body | BasicBody'
+    ) -> None | Literal['transit', 'hidden', 'part transit', 'part hidden']:
+        """
+        Test for line-of-sight intercept between the target body and another body.
+
+        This can be used to test for if another body (e.g. a moon) is in front of or
+        behind the target body (e.g. a planet).
+
+        See also :func:`test_if_other_body_visible`.
+
+        .. warning::
+
+            This method does not perform any checks to ensure that any input
+            :class:`Body` or :class:`BasicBody` instances have a consistent observer
+            location and observation time as the target body.
+
+        Args:
+            other: Other body to test for intercept with. Can be a :class`Body` (or
+                :class:`BasicBody`) instance, or a string/integer NAIF ID code which is
+                passed to :func:`create_other_body`.
+
+        Returns:
+            None if there is no intercept, otherwise a string indicating the type of
+            intercept. For example, with `jupiter.other_body_los_intercept('europa')`,
+            the possible return values mean:
+
+                - `None` - there is no intercept, meaning that Europa and Jupiter do not
+                  overlap in the sky.
+                - `'hidden'` - all of Europa's disk is hidden behind Jupiter.
+                - `'part hidden'` - part of Europa's disk is hidden behind Jupiter and
+                  part is visible.
+                - `'transit'` - all of Europa's disk is in front of Jupiter.
+                - `'part transit'` - part of Europa's disk is in front of Jupiter.
+        """
+        if not isinstance(other, BodyBase):
+            other = self.create_other_body(other)
+
+        if isinstance(other, BasicBody):
+            try:
+                self.radec2lonlat(
+                    other.target_ra, other.target_dec, not_found_nan=False
+                )
+            except NotFoundError:
+                return None  # No intercept with the target body
+            if other.target_distance - self.target_distance > 0:
+                return 'hidden'
+            else:
+                return 'transit'
+
+        occultation = spice.occult(
+            self.target,
+            'ELLIPSOID',
+            self.target_frame,
+            other.target,
+            'ELLIPSOID',
+            other.target_frame,
+            self.aberration_correction,
+            self.observer,
+            self.et,
+        )
+        match occultation:
+            case 3:
+                return 'hidden'
+            case 1 | 2:
+                return 'part hidden'
+            case 0:
+                return None
+            case -1 | -3:
+                return 'part transit'
+            case -2:
+                return 'transit'
+        raise ValueError(f'Unknown occultation code: {occultation}')
+
+    def test_if_other_body_visible(self, other: 'str | int | Body | BasicBody') -> bool:
+        """
+        Test if another body is visible, or is hidden behind the target body.
+
+        This is a convenience method equivalent to: ::
+
+            body.other_body_los_intercept(other) != 'hidden'
+
+        Args:
+            other: Other body to test for visibility, passed to
+                :func:`other_body_los_intercept`.
+
+        Returns:
+            `False` if the other body is hidden behind the target body, otherwise
+            `True`.
+        """
+        return self.other_body_los_intercept(other) != 'hidden'
 
     # Illumination
     def _illumination_angles_from_targvec_radians(
@@ -1654,10 +1772,23 @@ class Body(BodyBase):
         for body in self.other_bodies_of_interest:
             ra = body.target_ra
             dec = body.target_dec
+            label = body.target
+            hidden = not self.test_if_other_body_visible(body)
+            if hidden:
+                label = f'({label})'
             ax.text(
-                ra, dec, body.target + '\n', **kwargs['other_body_of_interest_label']
+                ra,
+                dec,
+                label + '\n',
+                **kwargs['other_body_of_interest_label']
+                | (kwargs['hidden_other_body_of_interest_label'] if hidden else {}),
             )
-            ax.scatter(ra, dec, **kwargs['other_body_of_interest_marker'])
+            ax.scatter(
+                ra,
+                dec,
+                **kwargs['other_body_of_interest_marker']
+                | (kwargs['hidden_other_body_of_interest_marker'] if hidden else {}),
+            )
 
         if add_title:
             ax.set_title(self.get_description(multiline=True))
@@ -1759,7 +1890,9 @@ class Body(BodyBase):
                 The following components can be formatted: `grid`, `equator`,
                 `prime_meridian`, `limb`, `limb_illuminated`, `terminator`, `ring`,
                 `pole`, `coordinate_of_interest_lonlat`, `coordinate_of_interest_radec`,
-                `other_body_of_interest_marker`, `other_body_of_interest_label`.
+                `other_body_of_interest_marker`, `other_body_of_interest_label`,
+                `hidden_other_body_of_interest_marker`,
+                `hidden_other_body_of_interest_label`.
 
             **kwargs: Additional arguments are passed to Matplotlib plotting functions
                 for all components. This is useful for specifying properties like
