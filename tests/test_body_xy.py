@@ -291,6 +291,27 @@ class TestBodyXY(unittest.TestCase):
             )
         )
 
+    def test_img_limits(self):
+        self.assertEqual(self.body.get_img_limits_xy(), ((-0.5, 14.5), (-0.5, 9.5)))
+        self.assertTrue(
+            np.allclose(
+                self.body.get_img_limits_radec(),
+                (
+                    (196.38091225891438, 196.36417481895663),
+                    (-5.571901975157448, -5.560796287842726),
+                ),
+            )
+        )
+        self.assertTrue(
+            np.allclose(
+                self.body.get_img_limits_km(),
+                (
+                    (-151773.3647184372, 130762.09502601624),
+                    (-125352.05899906158, 117394.22356271744),
+                ),
+            )
+        )
+
     def test_limb_xy(self):
         self.body.set_disc_params(5, 8, 10, 45)
         self.assertTrue(
