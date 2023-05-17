@@ -605,7 +605,7 @@ class GUI:
             self,
             frame,
             'ring',
-            label='ring',
+            label='Rings',
             hint='rings around the target (click Edit to define ring radii)',
             callbacks=[self.replot_rings],
         )
@@ -613,7 +613,7 @@ class GUI:
             self,
             frame,
             'pole',
-            label='pole',
+            label='Poles',
             hint='the target\'s poles',
         )
         PlotCoordinatesSetting(
@@ -654,7 +654,7 @@ class GUI:
             self,
             frame,
             'other_body_of_interest_marker',
-            label='Other bodies',
+            label='Other bodies (e.g. moons)',
             hint='other bodies of interest (click Edit to specify other bodies to show, e.g. moons)',
             callbacks=[self.replot_other_bodies],
         )
@@ -1214,7 +1214,7 @@ class GUI:
                 self.ax.text(
                     ra,
                     dec,
-                    body.target + '\n',
+                    label + '\n',
                     size='small',
                     ha='center',
                     va='center',
@@ -3082,9 +3082,6 @@ class PlotOutlinedTextSetting(ArtistSetting):
 
 class GenericOtherBodySetting(ArtistSetting):
     def add_other_body_menu_setting(self):
-        value = '\n'.join(
-            b.target for b in self.gui.get_observation().other_bodies_of_interest
-        )
         label = '\n'.join(
             [
                 'List other bodies of interest to',
@@ -3097,22 +3094,57 @@ class GenericOtherBodySetting(ArtistSetting):
         ttk.Label(self.menu_frame, text='\n' + label).pack(fill='x')
         self.txt = tkinter.scrolledtext.ScrolledText(self.menu_frame)
         self.txt.pack(fill='both')
+
+        self.button_frame = ttk.Frame(self.menu_frame)
+        self.button_frame.pack(fill='x', pady=3)
+        self.add_satellites_button = ttk.Button(
+            self.button_frame,
+            text='Add all visible satellites of target',
+            command=self.add_satellites,
+        )
+        self.add_satellites_button.pack()
+
+        self.populate_text_box()
+
+    def populate_text_box(
+        self, bodies: list[Body | BasicBody] | None = None, append: bool = False
+    ) -> None:
+        if bodies is None:
+            bodies = self.gui.get_observation().other_bodies_of_interest
+        bodies = sorted((b for b in bodies), key=lambda b: b.target_body_id)
+
+        if append:
+            lines = [l for l in self.txt.get('1.0', 'end').splitlines() if l.strip()]
+        else:
+            lines = []
+
+        for b in bodies:
+            line = b.target
+            if line not in lines:
+                lines.append(line)
+        value = '\n'.join(lines)
+        self.txt.delete('1.0', 'end')
         self.txt.insert('1.0', value)
+
+    def add_satellites(self) -> None:
+        bodies = self.gui.get_observation()._get_all_satellite_bodies(
+            skip_insufficient_data=True, only_visible=True
+        )
+        self.populate_text_box(bodies, append=True)
 
     def apply_other_body_setting(self) -> bool:
         bodies: list[Body | BasicBody] = []
         string = self.txt.get('1.0', 'end')
-        for line in string.splitlines():
-            line = line.strip()
-            if line:
-                try:
-                    bodies.append(self.gui.get_observation().create_other_body(line))
-                except NotFoundError:
-                    tkinter.messagebox.showwarning(
-                        title=f'Error parsing target name',
-                        message=f'Target {line!r} is not recognised by SPICE',
-                    )
-                    return False
+        lines = [l for line in string.splitlines() if (l := line.strip())]
+        for line in set(lines):
+            try:
+                bodies.append(self.gui.get_observation().create_other_body(line))
+            except NotFoundError:
+                tkinter.messagebox.showwarning(
+                    title=f'Error parsing target name',
+                    message=f'Target {line!r} is not recognised by SPICE',
+                )
+                return False
         self.gui.get_observation().other_bodies_of_interest.clear()
         self.gui.get_observation().other_bodies_of_interest[:] = bodies
         return True

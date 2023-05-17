@@ -458,6 +458,26 @@ class Body(BodyBase):
                 continue
             self.other_bodies_of_interest.append(body)
 
+    def _get_all_satellite_bodies(
+        self, skip_insufficient_data: bool = False, only_visible: bool = False
+    ) -> 'list[Body | BasicBody]':
+        out: 'list[Body | BasicBody]' = []
+        id_base = (self.target_body_id // 100) * 100
+        for other_target in range(id_base + 1, id_base + 99):
+            try:
+                body = self.create_other_body(other_target)
+                if only_visible and not self.test_if_other_body_visible(body):
+                    continue
+                out.append(body)
+            except SpiceSPKINSUFFDATA:
+                if skip_insufficient_data:
+                    continue
+                else:
+                    raise
+            except NotFoundError:
+                continue
+        return out
+
     def add_satellites_to_bodies_of_interest(
         self, skip_insufficient_data: bool = False, only_visible: bool = False
     ) -> None:
@@ -477,20 +497,12 @@ class Body(BodyBase):
             only_visible: If `True`, satellites which are hidden behind the target body
                 will not be added.
         """
-        id_base = (self.target_body_id // 100) * 100
-        for other_target in range(id_base + 1, id_base + 99):
-            try:
-                body = self.create_other_body(other_target)
-                if only_visible and not self.test_if_other_body_visible(body):
-                    continue
-                self.other_bodies_of_interest.append(body)
-            except SpiceSPKINSUFFDATA:
-                if skip_insufficient_data:
-                    continue
-                else:
-                    raise
-            except NotFoundError:
-                continue
+        satellites = self._get_all_satellite_bodies(
+            skip_insufficient_data=skip_insufficient_data, only_visible=only_visible
+        )
+        for satellite in satellites:
+            if satellite not in self.other_bodies_of_interest:
+                self.other_bodies_of_interest.append(satellite)
 
     def ring_radii_from_name(self, name: str) -> list[float]:
         """
