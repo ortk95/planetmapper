@@ -293,6 +293,7 @@ class BodyXY(Body):
         other._y0 = self._y0
         other._r0 = self._r0
         other._rotation_radians = self._rotation_radians
+        other.set_disc_method(self.get_disc_method())
 
     # Coordinate transformations
     @_cache_clearable_result

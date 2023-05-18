@@ -182,6 +182,7 @@ class TestBodyXY(unittest.TestCase):
         self.assertEqual(body.ring_radii, copy.ring_radii)
         self.assertEqual(body.get_img_size(), copy.get_img_size())
         self.assertEqual(body.get_disc_params(), copy.get_disc_params())
+        self.assertEqual(body.get_disc_method(), copy.get_disc_method())
 
         body.set_x0(-99)
         self.assertNotEqual(body, copy)

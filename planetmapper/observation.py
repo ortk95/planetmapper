@@ -88,6 +88,10 @@ class Observation(BodyXY):
         header: fits.Header | None = None,
         **kwargs,
     ) -> None:
+        self._path_arg = path
+        self._data_arg = data
+        self._header_arg = header
+
         # Add docstrings
         self.data: np.ndarray
         """Observed data."""
@@ -151,10 +155,21 @@ class Observation(BodyXY):
     def _get_equality_tuple(self) -> tuple:
         return (
             self.path,
-            self.data.data,
+            np.nan_to_num(self.data).data,
+            np.isnan(self.data).data,
             self.header,
             super()._get_equality_tuple(),
         )
+
+    def _get_kwargs(self) -> dict[str, Any]:
+        kw = super()._get_kwargs() | dict(
+            path=self._path_arg,
+            data=self._data_arg,
+            header=self._header_arg,
+        )
+        kw.pop('nx')
+        kw.pop('ny')
+        return kw
 
     def _load_data_from_path(self):
         assert self.path is not None
