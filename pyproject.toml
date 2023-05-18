@@ -1,5 +1,9 @@
 [tool.black]
 skip-string-normalization = true
+exclude = ""
+# Manually set exclude="" to prevent black using .gitignore due
+# to black not parsing trailing slashes in .gitignore correctly
+# https://github.com/psf/black/issues/3694
 
 [tool.pylint.'MESSAGES CONTROL']
 disable = ["C", "R", "W", "E1101"]
