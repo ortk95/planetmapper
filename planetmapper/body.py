@@ -6,6 +6,10 @@ try:
     from typing import Unpack
 except ImportError:
     from typing_extensions import Unpack
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
 
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
@@ -360,6 +364,24 @@ class Body(BodyBase):
             self.surface_method,
             super()._get_equality_tuple(),
         )
+
+    def _get_kwargs(self) -> dict[str, Any]:
+        # TODO test
+        return super()._get_kwargs() | dict(
+            illumination_source=self.illumination_source,
+            subpoint_method=self.subpoint_method,
+            surface_method=self.surface_method,
+        )
+
+    def _copy_options_to_other(self, other: Self) -> None:
+        # TODO test
+        super()._copy_options_to_other(other)
+        other.other_bodies_of_interest = self.other_bodies_of_interest.copy()
+        other.coordinates_of_interest_lonlat = (
+            self.coordinates_of_interest_lonlat.copy()
+        )
+        other.coordinates_of_interest_radec = self.coordinates_of_interest_radec.copy()
+        other.ring_radii = self.ring_radii.copy()
 
     @overload
     def create_other_body(

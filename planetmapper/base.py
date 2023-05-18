@@ -5,6 +5,11 @@ import numbers
 import os
 from typing import Any, Callable, Concatenate, ParamSpec, TypeVar, cast
 
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 import astropy.time
 import numpy as np
 import spiceypy as spice
@@ -157,10 +162,22 @@ class SpiceBase:
         return self._get_equality_tuple() == other._get_equality_tuple()
 
     def __hash__(self) -> int:
+        # TODO test
+        # TODO document
         return hash(self._get_equality_tuple())
 
     def _get_equality_tuple(self) -> tuple:
         return (self._optimize_speed, repr(self))
+
+    def _get_kwargs(self) -> dict[str, Any]:
+        """Get kwargs for __init__"""
+        # TODO test
+        return dict(optimize_speed=self._optimize_speed)
+
+    def _copy_options_to_other(self, other: Self) -> None:
+        """Copy options to other instance - used in conjunction with _get_kwargs"""
+        # TODO test
+        pass
 
     def _clear_cache(self):
         """
@@ -518,6 +535,24 @@ class BodyBase(SpiceBase):
             self.aberration_correction,
             super()._get_equality_tuple(),
         )
+
+    def _get_kwargs(self) -> dict[str, Any]:
+        return super()._get_kwargs() | dict(
+            target=self.target,
+            utc=self.utc,
+            observer=self.observer,
+            aberration_correction=self.aberration_correction,
+            observer_frame=self.observer_frame,
+        )
+
+    def copy(self) -> Self:
+        """
+        Return a copy of this object.
+        """
+        # TODO test
+        new = self.__class__(**self._get_kwargs())
+        self._copy_options_to_other(new)
+        return new
 
     def _obsvec2radec_radians(self, obsvec: np.ndarray) -> tuple[float, float]:
         """
