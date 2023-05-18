@@ -1,3 +1,4 @@
+import numpy as np
 import datetime
 import functools
 import glob
@@ -10,12 +11,11 @@ try:
 except ImportError:
     from typing_extensions import Self
 
-import astropy.time
-import numpy as np
 import spiceypy as spice
+import astropy.time
 
 from . import progress
-
+__TEST = [1,2,3,]
 DEFAULT_KERNEL_PATH = '~/spice_kernels/'
 
 _KERNEL_DATA = {

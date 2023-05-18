@@ -164,7 +164,9 @@ class TestBody(unittest.TestCase):
         self.assertEqual(body.ring_radii, copy.ring_radii)
 
         body.coordinates_of_interest_lonlat.append((5, 6))
-        self.assertNotEqual(body.coordinates_of_interest_lonlat, copy.coordinates_of_interest_lonlat)
+        self.assertNotEqual(
+            body.coordinates_of_interest_lonlat, copy.coordinates_of_interest_lonlat
+        )
 
     def test_create_other_body(self):
         self.assertEqual(
