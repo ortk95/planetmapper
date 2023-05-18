@@ -143,6 +143,10 @@ class BodyXY(Body):
     If `nx` and `ny` are not set, then some functionality (such as generating backplane
     images) will not be available and will raise a `ValueError` if called.
 
+    :class:`BodyXY` instances are mutable and therefore not hashable, meaning that they
+    cannot be used as dictionary keys. :func:`to_body` can be used to create a
+    :class:`Body` instance which is hashable.
+
     Args:
         target: Name of target body, passed to :class:`Body`.
         utc: Time of observation, passed to :class:`Body`.
@@ -252,13 +256,32 @@ class BodyXY(Body):
     def from_body(
         cls, body: Body, nx: int = 0, ny: int = 0, *, sz: int | None = None
     ) -> Self:
-        # TODO document
+        """
+        Create a :class:`BodyXY` instance with the same parameters as a :class:`Body`
+        instance.
+
+        Args:
+            body: :class:`Body` instance to convert.
+            nx: Number of pixels in the x dimension of the image.
+            ny: Number of pixels in the y dimension of the image.
+            sz: Convenience parameter to set both `nx` and `ny` to the same value.
+
+        Returns:
+            :class:`BodyXY` instance with the same parameters as the input :class:`Body`
+            instance and the specified image dimensions.
+        """
         new = cls(**body._get_kwargs(), nx=nx, ny=ny, sz=sz)
         body._copy_options_to_other(new)
         return new
 
     def to_body(self) -> Body:
-        # TODO document
+        """
+        Create a :class:`Body` instance from a :class:`BodyXY` instance.
+
+        Returns:
+            :class:`Body` instance with the same parameters as the input :class:`BodyXY`
+            instance.
+        """
         new = Body(**Body._get_kwargs(self))
         Body._copy_options_to_other(self, new)
         return new

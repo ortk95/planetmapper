@@ -157,12 +157,11 @@ class SpiceBase:
         return f'{self.__class__.__name__}()'
 
     def __eq__(self, other) -> bool:
-        if not isinstance(other, self.__class__):
-            return False
-        return self._get_equality_tuple() == other._get_equality_tuple()
+        if isinstance(other, SpiceBase):
+            return self._get_equality_tuple() == other._get_equality_tuple()
+        return False
 
     def __hash__(self) -> int:
-        # TODO document
         return hash(self._get_equality_tuple())
 
     def _get_equality_tuple(self) -> tuple:
@@ -174,7 +173,7 @@ class SpiceBase:
 
             return (self.a, self.b, super()._get_equality_tuple())
 
-        Used by __eq__ and hashed by __hash__.
+        Used by __eq__ and __hash__.
         """
         return (self._optimize_speed, repr(self))
 
@@ -202,6 +201,7 @@ class SpiceBase:
         Subclasses should override this to include any additional information needed to
         build a new object e.g.
 
+            super()._copy_options_to_other(other)
             other.c = self.c.copy()
         """
         pass
@@ -210,7 +210,6 @@ class SpiceBase:
         """
         Return a copy of this object.
         """
-        # TODO test
         new = self.__class__(**self._get_kwargs())
         self._copy_options_to_other(new)
         return new

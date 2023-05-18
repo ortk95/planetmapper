@@ -115,6 +115,8 @@ class Body(BodyBase):
     example `'jupiter'`, `'JUPITER'`, `' Jupiter '`, `'599'` and `599` will
     all resolve to `'JUPITER'`.
 
+    :class:`Body` instances are hashable, so can be used as dictionary keys.
+
     This class inherits from :class:`SpiceBase` so the methods described above are also
     available.
 
