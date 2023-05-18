@@ -366,7 +366,6 @@ class Body(BodyBase):
         )
 
     def _get_kwargs(self) -> dict[str, Any]:
-        # TODO test
         return super()._get_kwargs() | dict(
             illumination_source=self.illumination_source,
             subpoint_method=self.subpoint_method,
@@ -374,7 +373,6 @@ class Body(BodyBase):
         )
 
     def _copy_options_to_other(self, other: Self) -> None:
-        # TODO test
         super()._copy_options_to_other(other)
         other.other_bodies_of_interest = self.other_bodies_of_interest.copy()
         other.coordinates_of_interest_lonlat = (

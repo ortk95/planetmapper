@@ -162,7 +162,6 @@ class SpiceBase:
         return self._get_equality_tuple() == other._get_equality_tuple()
 
     def __hash__(self) -> int:
-        # TODO test
         # TODO document
         return hash(self._get_equality_tuple())
 
@@ -171,12 +170,10 @@ class SpiceBase:
 
     def _get_kwargs(self) -> dict[str, Any]:
         """Get kwargs for __init__"""
-        # TODO test
         return dict(optimize_speed=self._optimize_speed)
 
     def _copy_options_to_other(self, other: Self) -> None:
         """Copy options to other instance - used in conjunction with _get_kwargs"""
-        # TODO test
         pass
 
     def _clear_cache(self):

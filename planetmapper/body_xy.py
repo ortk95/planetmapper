@@ -252,13 +252,13 @@ class BodyXY(Body):
     def from_body(
         cls, body: Body, nx: int = 0, ny: int = 0, *, sz: int | None = None
     ) -> Self:
-        # TODO test
+        # TODO document
         new = cls(**body._get_kwargs(), nx=nx, ny=ny, sz=sz)
         body._copy_options_to_other(new)
         return new
 
     def to_body(self) -> Body:
-        # TODO test
+        # TODO document
         new = Body(**Body._get_kwargs(self))
         Body._copy_options_to_other(self, new)
         return new
@@ -266,7 +266,7 @@ class BodyXY(Body):
     def __repr__(self) -> str:
         return f'BodyXY({self.target!r}, {self.utc!r}, {self._nx!r}, {self._ny!r}, observer={self.observer!r})'
 
-    __hash__ = None  # type: ignore # TODO test
+    __hash__ = None  # type: ignore
 
     def _get_equality_tuple(self) -> tuple:
         return (
@@ -280,14 +280,12 @@ class BodyXY(Body):
         )
 
     def _get_kwargs(self) -> dict[str, Any]:
-        # TODO test
         return super()._get_kwargs() | dict(
             nx=self._nx,
             ny=self._ny,
         )
 
     def _copy_options_to_other(self, other: Self) -> None:
-        # TODO test
         super()._copy_options_to_other(other)
         other._nx = self._nx
         other._ny = self._ny
