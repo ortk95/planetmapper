@@ -457,7 +457,8 @@ class Body(BodyBase):
             body = self.create_other_body(other_target)
             if only_visible and not self.test_if_other_body_visible(body):
                 continue
-            self.other_bodies_of_interest.append(body)
+            if body not in self.other_bodies_of_interest:
+                self.other_bodies_of_interest.append(body)
 
     def _get_all_satellite_bodies(
         self, skip_insufficient_data: bool = False, only_visible: bool = False
@@ -1104,7 +1105,7 @@ class Body(BodyBase):
                 passed to :func:`create_other_body`.
 
         Returns:
-            None if there is no intercept, otherwise a string indicating the type of
+            `None` if there is no intercept, otherwise a string indicating the type of
             intercept. For example, with `jupiter.other_body_los_intercept('europa')`,
             the possible return values mean:
 
@@ -1178,6 +1179,7 @@ class Body(BodyBase):
 
         Returns:
             `False` if the other body is hidden behind the target body, otherwise
+            `True`. If any part of the other body is visible, this method will return
             `True`.
         """
         return self.other_body_los_intercept(other) != 'hidden'

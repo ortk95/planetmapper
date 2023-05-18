@@ -156,6 +156,9 @@ class SpiceBase:
             return False
         return self._get_equality_tuple() == other._get_equality_tuple()
 
+    def __hash__(self) -> int:
+        return hash(self._get_equality_tuple())
+
     def _get_equality_tuple(self) -> tuple:
         return (self._optimize_speed, repr(self))
 

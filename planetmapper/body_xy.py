@@ -247,6 +247,8 @@ class BodyXY(Body):
     def __repr__(self) -> str:
         return f'BodyXY({self.target!r}, {self.utc!r}, {self._nx!r}, {self._ny!r}, observer={self.observer!r})'
 
+    __hash__ = None # type: ignore
+
     def _get_equality_tuple(self) -> tuple:
         return (
             self._nx,
@@ -709,7 +711,7 @@ class BodyXY(Body):
         :func:`get_img_limits_radec` for more details.
 
         Returns:
-            `(km_x_min, km_x_max), (km_y_min, km_y_max)` tuple containing the minimum 
+            `(km_x_min, km_x_max), (km_y_min, km_y_max)` tuple containing the minimum
             and maximum target plane distance coordinates of the pixels in the image.
         """
         return self._get_img_limits(self.xy2km)
