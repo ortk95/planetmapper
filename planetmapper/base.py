@@ -207,13 +207,16 @@ class SpiceBase:
         """
         pass
 
+    def __copy__(self) -> Self:
+        new = self.__class__(**self._get_kwargs())
+        self._copy_options_to_other(new)
+        return new
+
     def copy(self) -> Self:
         """
         Return a copy of this object.
         """
-        new = self.__class__(**self._get_kwargs())
-        self._copy_options_to_other(new)
-        return new
+        return self.__copy__()
 
     def _clear_cache(self):
         """
