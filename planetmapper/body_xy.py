@@ -17,6 +17,10 @@ try:
     from typing import Unpack
 except ImportError:
     from typing_extensions import Unpack
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
 
 import matplotlib.patches
 import matplotlib.pyplot as plt
@@ -139,6 +143,10 @@ class BodyXY(Body):
     If `nx` and `ny` are not set, then some functionality (such as generating backplane
     images) will not be available and will raise a `ValueError` if called.
 
+    :class:`BodyXY` instances are mutable and therefore not hashable, meaning that they
+    cannot be used as dictionary keys. :func:`to_body` can be used to create a
+    :class:`Body` instance which is hashable.
+
     Args:
         target: Name of target body, passed to :class:`Body`.
         utc: Time of observation, passed to :class:`Body`.
@@ -244,8 +252,44 @@ class BodyXY(Body):
         self.backplanes = {}
         self._register_default_backplanes()
 
+    @classmethod
+    def from_body(
+        cls, body: Body, nx: int = 0, ny: int = 0, *, sz: int | None = None
+    ) -> Self:
+        """
+        Create a :class:`BodyXY` instance with the same parameters as a :class:`Body`
+        instance.
+
+        Args:
+            body: :class:`Body` instance to convert.
+            nx: Number of pixels in the x dimension of the image.
+            ny: Number of pixels in the y dimension of the image.
+            sz: Convenience parameter to set both `nx` and `ny` to the same value.
+
+        Returns:
+            :class:`BodyXY` instance with the same parameters as the input :class:`Body`
+            instance and the specified image dimensions.
+        """
+        new = cls(**body._get_kwargs(), nx=nx, ny=ny, sz=sz)
+        body._copy_options_to_other(new)
+        return new
+
+    def to_body(self) -> Body:
+        """
+        Create a :class:`Body` instance from a :class:`BodyXY` instance.
+
+        Returns:
+            :class:`Body` instance with the same parameters as the input :class:`BodyXY`
+            instance.
+        """
+        new = Body(**Body._get_kwargs(self))
+        Body._copy_options_to_other(self, new)
+        return new
+
     def __repr__(self) -> str:
         return f'BodyXY({self.target!r}, {self.utc!r}, {self._nx!r}, {self._ny!r}, observer={self.observer!r})'
+
+    __hash__ = None  # type: ignore
 
     def _get_equality_tuple(self) -> tuple:
         return (
@@ -257,6 +301,22 @@ class BodyXY(Body):
             self._rotation_radians,
             super()._get_equality_tuple(),
         )
+
+    def _get_kwargs(self) -> dict[str, Any]:
+        return super()._get_kwargs() | dict(
+            nx=self._nx,
+            ny=self._ny,
+        )
+
+    def _copy_options_to_other(self, other: Self) -> None:
+        super()._copy_options_to_other(other)
+        other._nx = self._nx
+        other._ny = self._ny
+        other._x0 = self._x0
+        other._y0 = self._y0
+        other._r0 = self._r0
+        other._rotation_radians = self._rotation_radians
+        other.set_disc_method(self.get_disc_method())
 
     # Coordinate transformations
     @_cache_clearable_result
@@ -709,7 +769,7 @@ class BodyXY(Body):
         :func:`get_img_limits_radec` for more details.
 
         Returns:
-            `(km_x_min, km_x_max), (km_y_min, km_y_max)` tuple containing the minimum 
+            `(km_x_min, km_x_max), (km_y_min, km_y_max)` tuple containing the minimum
             and maximum target plane distance coordinates of the pixels in the image.
         """
         return self._get_img_limits(self.xy2km)

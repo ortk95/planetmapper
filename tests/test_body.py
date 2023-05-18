@@ -110,6 +110,62 @@ class TestBody(unittest.TestCase):
             ),
         )
 
+    def test_hash(self):
+        self.assertEqual(
+            hash(self.body),
+            hash(Body('Jupiter', observer='HST', utc='2005-01-01T00:00:00')),
+        )
+        times = [
+            '2005-01-01T00:00:00',
+            '2005-01-01T00:00:00',
+            '2005-01-01T00:00:00',
+            '2005-01-01T00:00:01',
+            '2005-01-01T00:00:02',
+        ]
+        d = {}
+        for time in times:
+            d[Body('Jupiter', observer='HST', utc=time)] = time
+        self.assertEqual(len(d), 3)
+
+    def test_get_kwargs(self):
+        self.assertEqual(
+            self.body._get_kwargs(),
+            {
+                'optimize_speed': True,
+                'target': 'JUPITER',
+                'utc': '2005-01-01T00:00:00.000000',
+                'observer': 'HST',
+                'aberration_correction': 'CN',
+                'observer_frame': 'J2000',
+                'illumination_source': 'SUN',
+                'subpoint_method': 'INTERCEPT/ELLIPSOID',
+                'surface_method': 'ELLIPSOID',
+            },
+        )
+
+    def test_copy(self):
+        body = Body('Jupiter', observer='HST', utc='2005-01-01T00:00:00')
+        body.add_other_bodies_of_interest('amalthea')
+        body.coordinates_of_interest_lonlat.append((0, 0))
+        body.coordinates_of_interest_radec.extend([(1, 2), (3, 4)])
+        body.add_named_rings()
+
+        copy = body.copy()
+        self.assertEqual(body, copy)
+        self.assertIsNot(body, copy)
+        self.assertEqual(body._get_kwargs(), copy._get_kwargs())
+        self.assertEqual(body.other_bodies_of_interest, copy.other_bodies_of_interest)
+        self.assertEqual(
+            body.coordinates_of_interest_lonlat, copy.coordinates_of_interest_lonlat
+        )
+        self.assertEqual(
+            body.coordinates_of_interest_radec, copy.coordinates_of_interest_radec
+        )
+        self.assertEqual(body.ring_radii, copy.ring_radii)
+
+        body.coordinates_of_interest_lonlat.append((5, 6))
+        self.assertNotEqual(body.coordinates_of_interest_lonlat, copy.coordinates_of_interest_lonlat)
+
     def test_create_other_body(self):
         self.assertEqual(
             self.body.create_other_body('amalthea'),

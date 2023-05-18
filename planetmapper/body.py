@@ -6,6 +6,10 @@ try:
     from typing import Unpack
 except ImportError:
     from typing_extensions import Unpack
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
 
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
@@ -110,6 +114,8 @@ class Body(BodyBase):
     :func:`SpiceBase.standardise_body_name`, so a variety of formats are acceptable. For
     example `'jupiter'`, `'JUPITER'`, `' Jupiter '`, `'599'` and `599` will
     all resolve to `'JUPITER'`.
+
+    :class:`Body` instances are hashable, so can be used as dictionary keys.
 
     This class inherits from :class:`SpiceBase` so the methods described above are also
     available.
@@ -361,6 +367,22 @@ class Body(BodyBase):
             super()._get_equality_tuple(),
         )
 
+    def _get_kwargs(self) -> dict[str, Any]:
+        return super()._get_kwargs() | dict(
+            illumination_source=self.illumination_source,
+            subpoint_method=self.subpoint_method,
+            surface_method=self.surface_method,
+        )
+
+    def _copy_options_to_other(self, other: Self) -> None:
+        super()._copy_options_to_other(other)
+        other.other_bodies_of_interest = self.other_bodies_of_interest.copy()
+        other.coordinates_of_interest_lonlat = (
+            self.coordinates_of_interest_lonlat.copy()
+        )
+        other.coordinates_of_interest_radec = self.coordinates_of_interest_radec.copy()
+        other.ring_radii = self.ring_radii.copy()
+
     @overload
     def create_other_body(
         self, other_target: str | int, fallback_to_basic_body: Literal[False]
@@ -457,7 +479,8 @@ class Body(BodyBase):
             body = self.create_other_body(other_target)
             if only_visible and not self.test_if_other_body_visible(body):
                 continue
-            self.other_bodies_of_interest.append(body)
+            if body not in self.other_bodies_of_interest:
+                self.other_bodies_of_interest.append(body)
 
     def _get_all_satellite_bodies(
         self, skip_insufficient_data: bool = False, only_visible: bool = False
@@ -1104,7 +1127,7 @@ class Body(BodyBase):
                 passed to :func:`create_other_body`.
 
         Returns:
-            None if there is no intercept, otherwise a string indicating the type of
+            `None` if there is no intercept, otherwise a string indicating the type of
             intercept. For example, with `jupiter.other_body_los_intercept('europa')`,
             the possible return values mean:
 
@@ -1178,6 +1201,7 @@ class Body(BodyBase):
 
         Returns:
             `False` if the other body is hidden behind the target body, otherwise
+            `True`. If any part of the other body is visible, this method will return
             `True`.
         """
         return self.other_body_los_intercept(other) != 'hidden'

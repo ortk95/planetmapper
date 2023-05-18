@@ -1,5 +1,5 @@
 import datetime
-from typing import cast
+from typing import Any, cast
 
 import numpy as np
 import spiceypy as spice
@@ -70,3 +70,6 @@ class BasicBody(BodyBase):
 
     def _get_equality_tuple(self) -> tuple:
         return (super()._get_equality_tuple(),)
+
+    def _get_kwargs(self) -> dict[str, Any]:
+        return super()._get_kwargs()

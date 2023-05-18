@@ -240,6 +240,20 @@ class TestObservation(unittest.TestCase):
     def test_repr(self):
         self.assertEqual(repr(self.observation), f'Observation({self.path!r})')
 
+    def test_hash(self):
+        with self.assertRaises(TypeError):
+            hash(self.observation)
+
+    def test_eq(self):
+        self.assertEqual(self.observation, self.observation)
+        self.assertEqual(self.observation, Observation(self.path))
+
+    def test_copy(self):
+        copy = self.observation.copy()
+        self.assertEqual(copy.path, self.observation.path)
+        self.assertEqual(repr(copy), repr(self.observation))
+        self.assertEqual(copy, self.observation)
+
     def test_disc_from_header(self):
         with self.assertRaises(ValueError):
             self.observation.disc_from_header()

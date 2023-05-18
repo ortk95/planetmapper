@@ -34,6 +34,13 @@ class TestSpiceBase(unittest.TestCase):
         self.assertEqual(self.obj, planetmapper.SpiceBase())
         self.assertNotEqual(self.obj, planetmapper.SpiceBase(optimize_speed=False))
 
+    def test_hash(self):
+        self.assertEqual(hash(self.obj), hash(planetmapper.SpiceBase()))
+        # Hashes for unequal object can be the same, so don't do assertNotEqual here
+
+    def test_get_kwargs(self):
+        self.assertEqual(self.obj._get_kwargs(), {'optimize_speed': True})
+
     def test_standardise_body_name(self):
         self.assertEqual(self.obj.standardise_body_name('JUPITER'), 'JUPITER')
         self.assertEqual(self.obj.standardise_body_name(' JuPiTeR   '), 'JUPITER')
@@ -435,6 +442,27 @@ class TestBodyBase(unittest.TestCase):
                 observer='earth',
                 aberration_correction='CN+S',
                 observer_frame='J2000',
+            ),
+        )
+
+    def test_hash(self):
+        obj = BodyBase(
+            target='jupiter',
+            utc='2005-01-01',
+            observer='earth',
+            aberration_correction='CN+S',
+            observer_frame='J2000',
+        )
+        self.assertEqual(
+            hash(obj),
+            hash(
+                BodyBase(
+                    target='jupiter',
+                    utc='2005-01-01',
+                    observer='earth',
+                    aberration_correction='CN+S',
+                    observer_frame='J2000',
+                )
             ),
         )
 

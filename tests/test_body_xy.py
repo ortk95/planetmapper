@@ -43,6 +43,65 @@ class TestBodyXY(unittest.TestCase):
         self.assertEqual(self.body_zero_size._nx, 0)
         self.assertEqual(self.body_zero_size._ny, 0)
 
+    def test_from_body(self):
+        body = planetmapper.Body('Jupiter', observer='HST', utc='2005-01-01T00:00:00')
+        body.add_other_bodies_of_interest('amalthea')
+        body.coordinates_of_interest_lonlat.append((0, 0))
+        body.coordinates_of_interest_radec.extend([(0, 0), (1, 1)])
+        body.add_named_rings()
+
+        body_xy = BodyXY.from_body(body, nx=15, ny=10)
+        self.assertEqual(
+            body_xy,
+            BodyXY('Jupiter', observer='HST', utc='2005-01-01T00:00:00', nx=15, ny=10),
+        )
+
+        self.assertEqual(body.target, body_xy.target)
+        self.assertEqual(body.utc, body_xy.utc)
+        self.assertEqual(body.observer, body_xy.observer)
+        self.assertEqual(
+            body.coordinates_of_interest_lonlat, body_xy.coordinates_of_interest_lonlat
+        )
+        self.assertEqual(
+            body.coordinates_of_interest_radec, body_xy.coordinates_of_interest_radec
+        )
+        self.assertEqual(body.ring_radii, body_xy.ring_radii)
+
+        body.coordinates_of_interest_radec.clear()
+        self.assertNotEqual(
+            body.coordinates_of_interest_radec, body_xy.coordinates_of_interest_radec
+        )
+
+    def test_to_body(self):
+        body_xy = BodyXY('Jupiter', observer='HST', utc='2005-01-01T00:00:00', sz=10)
+        body_xy.add_other_bodies_of_interest('amalthea')
+        body_xy.coordinates_of_interest_lonlat.append((0, 0))
+        body_xy.coordinates_of_interest_radec.extend([(0, 0), (1, 1)])
+
+        body = body_xy.to_body()
+        self.assertEqual(
+            body,
+            planetmapper.Body('Jupiter', observer='HST', utc='2005-01-01T00:00:00'),
+        )
+
+        self.assertEqual(body.target, body_xy.target)
+        self.assertEqual(body.utc, body_xy.utc)
+        self.assertEqual(body.observer, body_xy.observer)
+        self.assertEqual(
+            body.coordinates_of_interest_lonlat, body_xy.coordinates_of_interest_lonlat
+        )
+        self.assertEqual(
+            body.coordinates_of_interest_radec, body_xy.coordinates_of_interest_radec
+        )
+        self.assertEqual(body.ring_radii, body_xy.ring_radii)
+
+        body.coordinates_of_interest_radec.clear()
+        self.assertNotEqual(
+            body.coordinates_of_interest_radec, body_xy.coordinates_of_interest_radec
+        )
+
+        self.assertEqual(BodyXY.from_body(body, sz=10), body_xy)
+
     def test_repr(self):
         self.assertEqual(
             repr(self.body),
@@ -72,6 +131,62 @@ class TestBodyXY(unittest.TestCase):
         self.assertNotEqual(
             self.body, BodyXY('Jupiter', utc='2005-01-01T00:00:00', nx=15, ny=11)
         )
+
+    def test_hash(self):
+        with self.assertRaises(TypeError):
+            hash(self.body)
+        with self.assertRaises(TypeError):
+            hash(self.body_zero_size)
+        with self.assertRaises(TypeError):
+            d = {self.body: 1}
+
+    def test_get_kwargs(self):
+        self.assertEqual(
+            self.body._get_kwargs(),
+            {
+                'optimize_speed': True,
+                'target': 'JUPITER',
+                'utc': '2005-01-01T00:00:00.000000',
+                'observer': 'HST',
+                'aberration_correction': 'CN',
+                'observer_frame': 'J2000',
+                'illumination_source': 'SUN',
+                'subpoint_method': 'INTERCEPT/ELLIPSOID',
+                'surface_method': 'ELLIPSOID',
+                'nx': 15,
+                'ny': 10,
+            },
+        )
+
+    def test_copy(self):
+        body = BodyXY(
+            'Jupiter', observer='HST', utc='2005-01-01T00:00:00', nx=15, ny=10
+        )
+        body.add_other_bodies_of_interest('amalthea')
+        body.coordinates_of_interest_lonlat.append((0, 0))
+        body.coordinates_of_interest_radec.extend([(1, 2), (3, 4)])
+        body.add_named_rings()
+        body.set_disc_params(1, 2, 3, 4)
+
+        copy = body.copy()
+        self.assertEqual(body, copy)
+        self.assertIsNot(body, copy)
+        self.assertEqual(body._get_kwargs(), copy._get_kwargs())
+        self.assertEqual(body.other_bodies_of_interest, copy.other_bodies_of_interest)
+        self.assertEqual(
+            body.coordinates_of_interest_lonlat, copy.coordinates_of_interest_lonlat
+        )
+        self.assertEqual(
+            body.coordinates_of_interest_radec, copy.coordinates_of_interest_radec
+        )
+        self.assertEqual(body.ring_radii, copy.ring_radii)
+        self.assertEqual(body.get_img_size(), copy.get_img_size())
+        self.assertEqual(body.get_disc_params(), copy.get_disc_params())
+        self.assertEqual(body.get_disc_method(), copy.get_disc_method())
+
+        body.set_x0(-99)
+        self.assertNotEqual(body, copy)
+        self.assertNotEqual(body.get_x0(), copy.get_x0())
 
     def test_cache(self):
         self.body._cache[' test '] = None

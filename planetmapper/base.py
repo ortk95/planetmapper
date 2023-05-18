@@ -5,6 +5,11 @@ import numbers
 import os
 from typing import Any, Callable, Concatenate, ParamSpec, TypeVar, cast
 
+try:
+    from typing import Self
+except ImportError:
+    from typing_extensions import Self
+
 import astropy.time
 import numpy as np
 import spiceypy as spice
@@ -152,12 +157,66 @@ class SpiceBase:
         return f'{self.__class__.__name__}()'
 
     def __eq__(self, other) -> bool:
-        if not isinstance(other, self.__class__):
-            return False
-        return self._get_equality_tuple() == other._get_equality_tuple()
+        return (
+            isinstance(other, SpiceBase)
+            and self._get_equality_tuple() == other._get_equality_tuple()
+        )
+
+    def __hash__(self) -> int:
+        return hash(self._get_equality_tuple())
 
     def _get_equality_tuple(self) -> tuple:
+        """
+        Tuple containing all the information needed to determine object equality.
+
+        Subclasses should override this to include any additional information needed to
+        determine equality e.g.
+
+            return (self.a, self.b, super()._get_equality_tuple())
+
+        Used by __eq__ and __hash__.
+        """
         return (self._optimize_speed, repr(self))
+
+    def _get_kwargs(self) -> dict[str, Any]:
+        """
+        Get kwargs used to __init__ a new object of this class.
+
+        This is used by `copy` to copy the options of this object to a new object in
+        conjunction with `_copy_options_to_other`.
+
+        Subclasses should override this to include any additional information needed to
+        build a new object e.g.
+
+            return super()._get_kwargs() | dict(a=self.a, b=self.b)
+        """
+        return dict(optimize_speed=self._optimize_speed)
+
+    def _copy_options_to_other(self, other: Self) -> None:
+        """
+        Copy customisable options, attributes etc. to another object.
+
+        This is used by e.g. `copy` to copy the options of this object to a new
+        object in conjunction with `_get_kwargs`.
+
+        Subclasses should override this to include any additional information needed to
+        build a new object e.g.
+
+            super()._copy_options_to_other(other)
+            other.c = self.c.copy()
+        """
+        pass
+
+    def __copy__(self) -> Self:
+        new = self.__class__(**self._get_kwargs())
+        self._copy_options_to_other(new)
+        return new
+
+    def copy(self) -> Self:
+        """
+        Return a copy of this object.
+        """
+        return self.__copy__()
 
     def _clear_cache(self):
         """
@@ -514,6 +573,15 @@ class BodyBase(SpiceBase):
             self.observer_frame,
             self.aberration_correction,
             super()._get_equality_tuple(),
+        )
+
+    def _get_kwargs(self) -> dict[str, Any]:
+        return super()._get_kwargs() | dict(
+            target=self.target,
+            utc=self.utc,
+            observer=self.observer,
+            aberration_correction=self.aberration_correction,
+            observer_frame=self.observer_frame,
         )
 
     def _obsvec2radec_radians(self, obsvec: np.ndarray) -> tuple[float, float]:
