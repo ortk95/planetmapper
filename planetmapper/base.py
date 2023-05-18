@@ -157,9 +157,10 @@ class SpiceBase:
         return f'{self.__class__.__name__}()'
 
     def __eq__(self, other) -> bool:
-        if isinstance(other, SpiceBase):
-            return self._get_equality_tuple() == other._get_equality_tuple()
-        return False
+        return (
+            isinstance(other, SpiceBase)
+            and self._get_equality_tuple() == other._get_equality_tuple()
+        )
 
     def __hash__(self) -> int:
         return hash(self._get_equality_tuple())
