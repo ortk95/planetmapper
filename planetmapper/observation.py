@@ -153,6 +153,10 @@ class Observation(BodyXY):
         return f'Observation({self.path!r})'
 
     def _get_equality_tuple(self) -> tuple:
+        # Use nan_to_num to convert NaNs to zeros, so that NaNs in the data don't
+        # cause the equality check to fail. Then use isnan to compare the NaN masks
+        # to ensure e.g. [1, NaN] != [1, 0]. Compare .data to get booleans rather
+        # than numpy's array of booleans.
         return (
             self.path,
             np.nan_to_num(self.data).data,

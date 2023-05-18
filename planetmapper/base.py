@@ -166,15 +166,54 @@ class SpiceBase:
         return hash(self._get_equality_tuple())
 
     def _get_equality_tuple(self) -> tuple:
+        """
+        Tuple containing all the information needed to determine object equality.
+
+        Subclasses should override this to include any additional information needed to
+        determine equality e.g.
+
+            return (self.a, self.b, super()._get_equality_tuple())
+
+        Used by __eq__ and hashed by __hash__.
+        """
         return (self._optimize_speed, repr(self))
 
     def _get_kwargs(self) -> dict[str, Any]:
-        """Get kwargs for __init__"""
+        """
+        Get kwargs used to __init__ a new object of this class.
+
+        This is used by `copy` to copy the options of this object to a new object in
+        conjunction with `_copy_options_to_other`.
+
+        Subclasses should override this to include any additional information needed to
+        build a new object e.g.
+
+            return super()._get_kwargs() | dict(a=self.a, b=self.b)
+        """
         return dict(optimize_speed=self._optimize_speed)
 
     def _copy_options_to_other(self, other: Self) -> None:
-        """Copy options to other instance - used in conjunction with _get_kwargs"""
+        """
+        Copy customisable options, attributes etc. to another object.
+
+        This is used by e.g. `copy` to copy the options of this object to a new
+        object in conjunction with `_get_kwargs`.
+
+        Subclasses should override this to include any additional information needed to
+        build a new object e.g.
+
+            other.c = self.c.copy()
+        """
         pass
+
+    def copy(self) -> Self:
+        """
+        Return a copy of this object.
+        """
+        # TODO test
+        new = self.__class__(**self._get_kwargs())
+        self._copy_options_to_other(new)
+        return new
 
     def _clear_cache(self):
         """
@@ -541,15 +580,6 @@ class BodyBase(SpiceBase):
             aberration_correction=self.aberration_correction,
             observer_frame=self.observer_frame,
         )
-
-    def copy(self) -> Self:
-        """
-        Return a copy of this object.
-        """
-        # TODO test
-        new = self.__class__(**self._get_kwargs())
-        self._copy_options_to_other(new)
-        return new
 
     def _obsvec2radec_radians(self, obsvec: np.ndarray) -> tuple[float, float]:
         """
