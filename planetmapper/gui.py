@@ -1721,7 +1721,7 @@ class OpenObservation(Popup):
                 )
                 return False
         try:
-            observation = Observation(**kwargs, load_kernels=False)
+            observation = Observation(**kwargs, auto_load_kernels=False)
         # pylint: disable-next=broad-except
         except Exception as e:
             traceback.print_exc()
