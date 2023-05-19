@@ -32,8 +32,8 @@ def print_json():
 
 
 def parse_ring_webpage(url: str) -> dict[str, list[float]]:
-    html = load_webpage(url)
-    table = html.split('<table')[1].split('</table>')[0]
+    page_html = load_webpage(url)
+    table = page_html.split('<table')[1].split('</table>')[0]
     rows = table.split('<tr>')[2:]
     rings_dict: dict[str, list[float]] = {}
     edges_dict = {}
@@ -82,6 +82,7 @@ def parse_row(
 
 
 def load_webpage(url: str) -> str:
+    # pylint: disable=consider-using-with
     user_agent = {'User-agent': 'Mozilla/5.0'}
     request = urllib.request.Request(url, headers=user_agent)
     webpage = urllib.request.urlopen(request, timeout=31).read().decode()

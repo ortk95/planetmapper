@@ -49,6 +49,7 @@ def _cache_clearable_result(
 
     Note that any numpy arguments will be converted to (nested) tuples.
     """
+    # pylint: disable=protected-access
 
     @functools.wraps(fn)
     def decorated(self, *args_in: P.args, **kwargs_in: P.kwargs):
@@ -73,6 +74,7 @@ def _cache_stable_result(
     See _cache_clearable_result for more details.
     """
 
+    # pylint: disable=protected-access
     @functools.wraps(fn)
     def decorated(self, *args_in: P.args, **kwargs_in: P.kwargs):
         args, kwargs = _replace_np_arrr_args_with_tuples(args_in, kwargs_in)
@@ -121,7 +123,8 @@ class SpiceBase:
         optimize_speed: Toggle speed optimizations. For typical observations, the
             optimizations can make code significantly faster with no effect on accuracy,
             so should generally be left enabled.
-        load_kernels: Toggle automatic kernel loading with :func:`load_spice_kernels`.
+        auto_load_kernels: Toggle automatic kernel loading with
+            :func:`load_spice_kernels`.
         kernel_path: Passed to  :func:`load_spice_kernels` if `load_kernels` is True.
         manual_kernels: Passed to  :func:`load_spice_kernels` if `load_kernels` is True.
     """
@@ -132,7 +135,7 @@ class SpiceBase:
         self,
         show_progress: bool = False,
         optimize_speed: bool = True,
-        load_kernels: bool = True,
+        auto_load_kernels: bool = True,
         kernel_path: str | None = None,
         manual_kernels: None | list[str] = None,
     ) -> None:
@@ -148,7 +151,7 @@ class SpiceBase:
         if show_progress:
             self._set_progress_hook(progress.CLIProgressHook())
 
-        if load_kernels:
+        if auto_load_kernels:
             self.load_spice_kernels(
                 kernel_path=kernel_path, manual_kernels=manual_kernels
             )
@@ -205,7 +208,6 @@ class SpiceBase:
             super()._copy_options_to_other(other)
             other.c = self.c.copy()
         """
-        pass
 
     def __copy__(self) -> Self:
         new = self.__class__(**self._get_kwargs())
@@ -485,10 +487,10 @@ class SpiceBase:
         self._progress_hook = None
         self._progress_call_stack = []
 
-    def _update_progress_hook(self, progress: float) -> None:
-        """Update progress hook with `progress` of current function between 0 & 1"""
+    def _update_progress_hook(self, progress_frac: float) -> None:
+        """Update progress hook with progress of current function between 0 & 1"""
         if self._progress_hook is not None:
-            self._progress_hook(progress, self._progress_call_stack)
+            self._progress_hook(progress_frac, self._progress_call_stack)
 
 
 class BodyBase(SpiceBase):
@@ -588,7 +590,7 @@ class BodyBase(SpiceBase):
         """
         Transform rectangular vector in observer frame to observer ra/dec coordinates.
         """
-        dst, ra, dec = spice.recrad(obsvec)
+        _, ra, dec = spice.recrad(obsvec)
         return ra, dec
 
 

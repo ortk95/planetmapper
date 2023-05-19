@@ -496,8 +496,7 @@ class Body(BodyBase):
             except SpiceSPKINSUFFDATA:
                 if skip_insufficient_data:
                     continue
-                else:
-                    raise
+                raise
             except NotFoundError:
                 continue
         return out
@@ -680,7 +679,7 @@ class Body(BodyBase):
 
     def _obsvec_norm2targvec(self, obsvec_norm: np.ndarray) -> np.ndarray:
         """TODO add note about raising NotFoundError"""
-        spoint, trgepc, srfvec = spice.sincpt(
+        spoint, *_ = spice.sincpt(
             self._surface_method_encoded,
             self._target_encoded,
             self.et,

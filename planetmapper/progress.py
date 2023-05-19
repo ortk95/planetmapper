@@ -2,7 +2,6 @@ import time
 from functools import wraps
 from typing import TYPE_CHECKING, Callable, Concatenate, ParamSpec, TypeVar
 
-import numpy as np
 import tqdm
 
 if TYPE_CHECKING:
@@ -16,6 +15,7 @@ P = ParamSpec('P')
 def progress_decorator(
     fn: Callable[Concatenate[S, P], T]
 ) -> Callable[Concatenate[S, P], T]:
+    # pylint: disable=protected-access
     @wraps(fn)
     def decorated(self: 'SpiceBase', *args: P.args, **kwargs: P.kwargs):
         if self._progress_hook is None:
@@ -48,8 +48,8 @@ class CLIProgressHook(ProgressHook):
     General progress hook to display progress of each decorated function individually.
     """
 
-    def __init__(self, leave: bool | None = None, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, leave: bool | None = None, **kwargs) -> None:
+        super().__init__(**kwargs)
         self.leave = leave
         self.bars: dict[tuple[str, ...], tqdm.tqdm] = {}
 
@@ -91,14 +91,14 @@ class TotalTimingProgressHook(ProgressHook):
             self_duration = full_diration
             for k, v in self.self_durations.items():
                 if len(k) > len(key) and k[: len(key)] == key:
-                    self_duration -= self.self_durations[k]
+                    self_duration -= v
             self.self_durations[key] = self_duration
             desc = '> ' * (len(key) - 1) + key[-1]
             print(f'{full_diration:5.2f} {self_duration:5.2f}  {desc}')
 
 
 # Specific progress hooks for use in saving
-class SaveProgressHook(ProgressHook):
+class _SaveProgressHook(ProgressHook):
     """
     Base class for progress hook to use when saving data.
 
@@ -147,7 +147,8 @@ class SaveProgressHook(ProgressHook):
         return ''
 
 
-class SaveNavProgressHook(SaveProgressHook):
+# pylint: disable-next=abstract-method
+class _SaveNavProgressHook(_SaveProgressHook):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.weights: dict[str, float] = {
@@ -167,7 +168,8 @@ class SaveNavProgressHook(SaveProgressHook):
         return 'Saving observation'
 
 
-class SaveMapProgressHook(SaveProgressHook):
+# pylint: disable-next=abstract-method
+class _SaveMapProgressHook(_SaveProgressHook):
     def __init__(self, n_wavelengths: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.n_wavelengths = n_wavelengths
@@ -189,7 +191,7 @@ class SaveMapProgressHook(SaveProgressHook):
         return 'Saving map'
 
 
-class SaveProgressHookCLI(SaveProgressHook):
+class _SaveProgressHookCLI(_SaveProgressHook):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.bar = tqdm.tqdm(
@@ -208,11 +210,9 @@ class SaveProgressHookCLI(SaveProgressHook):
             self.bar.close()
 
 
-class SaveNavProgressHookCLI(SaveNavProgressHook, SaveProgressHookCLI):
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+class SaveNavProgressHookCLI(_SaveNavProgressHook, _SaveProgressHookCLI):
+    pass
 
 
-class SaveMapProgressHookCLI(SaveMapProgressHook, SaveProgressHookCLI):
-    def __init__(self, n_wavelengths: int, *args, **kwargs) -> None:
-        super().__init__(n_wavelengths, *args, **kwargs)
+class SaveMapProgressHookCLI(_SaveMapProgressHook, _SaveProgressHookCLI):
+    pass

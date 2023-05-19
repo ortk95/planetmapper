@@ -33,5 +33,5 @@ def get_ring_radii() -> dict[str, dict[str, list[float]]]:
         ring respectively. Otherwise, the length should be 1, meaning the ring has a
         single radius.
     """
-    with open(make_data_path('rings.json'), 'r') as f:
+    with open(make_data_path('rings.json'), encoding='utf-8') as f:
         return json.load(f)

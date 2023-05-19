@@ -6,7 +6,23 @@ exclude = ""
 # https://github.com/psf/black/issues/3694
 
 [tool.pylint.'MESSAGES CONTROL']
-disable = ["C", "R", "W", "E1101"]
+disable = [
+    "C",
+    "fixme",
+    "unused-variable",
+    "no-else-return",
+    "use-dict-literal",
+    "duplicate-code",
+    "too-many-arguments",
+    "too-many-instance-attributes",
+    "too-many-locals",
+    "too-many-statements",
+    "too-many-branches",
+    "too-many-public-methods",
+    "too-few-public-methods",
+    "too-many-ancestors",
+    "too-many-return-statements",
+    ]
 
 [tool.isort]
 profile = "black"

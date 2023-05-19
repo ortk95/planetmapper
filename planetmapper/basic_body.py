@@ -1,8 +1,4 @@
 import datetime
-from typing import Any, cast
-
-import numpy as np
-import spiceypy as spice
 
 from .base import BodyBase
 
@@ -33,13 +29,12 @@ class BasicBody(BodyBase):
         *,
         aberration_correction: str = 'CN',
         observer_frame: str = 'J2000',
-        illumination_source=None,
-        subpoint_method=None,
-        surface_method=None,
         **kwargs,
     ) -> None:
-        # some arguments are unused, but keep them so that the function has the same
+        # some arguments are unused, but allow them so that the function has the same
         # signature as Body()
+        for k in ('illumination_source', 'subpoint_method', 'surface_method'):
+            kwargs.pop(k, None)
         super().__init__(
             target=target,
             utc=utc,
@@ -70,6 +65,3 @@ class BasicBody(BodyBase):
 
     def _get_equality_tuple(self) -> tuple:
         return (super()._get_equality_tuple(),)
-
-    def _get_kwargs(self) -> dict[str, Any]:
-        return super()._get_kwargs()

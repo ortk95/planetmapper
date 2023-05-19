@@ -270,6 +270,7 @@ class BodyXY(Body):
             :class:`BodyXY` instance with the same parameters as the input :class:`Body`
             instance and the specified image dimensions.
         """
+        # pylint: disable=protected-access
         new = cls(**body._get_kwargs(), nx=nx, ny=ny, sz=sz)
         body._copy_options_to_other(new)
         return new
@@ -310,12 +311,8 @@ class BodyXY(Body):
 
     def _copy_options_to_other(self, other: Self) -> None:
         super()._copy_options_to_other(other)
-        other._nx = self._nx
-        other._ny = self._ny
-        other._x0 = self._x0
-        other._y0 = self._y0
-        other._r0 = self._r0
-        other._rotation_radians = self._rotation_radians
+        other.set_img_size(*self.get_img_size())
+        other.set_disc_params(*self.get_disc_params())
         other.set_disc_method(self.get_disc_method())
 
     # Coordinate transformations
@@ -1288,6 +1285,7 @@ class BodyXY(Body):
             fig, ax = plt.subplots()
 
         map_kwargs = {}
+        # pylint: disable-next=no-member
         for k in set(_MapKwargs.__optional_keys__) | set(_MapKwargs.__required_keys__):
             if k in kwargs:
                 map_kwargs[k] = kwargs.pop(k)
@@ -1574,13 +1572,13 @@ class BodyXY(Body):
         name = self.standardise_backplane_name(name)
         try:
             return self.backplanes[name]
-        except:
+        except KeyError as exc:
             raise BackplaneNotFoundError(
                 '{n!r} not found. Currently registered backplanes are: {r}.'.format(
                     n=name,
                     r=', '.join([repr(n) for n in self.backplanes.keys()]),
                 )
-            )
+            ) from exc
 
     def get_backplane_img(self, name: str) -> np.ndarray:
         """
@@ -2819,6 +2817,7 @@ class BackplaneNotFoundError(Exception):
 
 def _make_backplane_documentation_str() -> str:
     class _BodyXY_ForDocumentation(BodyXY):
+        # pylint: disable-next=super-init-not-called
         def __init__(self):
             self.backplanes = {}
             self.positive_longitude_direction = 'W'
