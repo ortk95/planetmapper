@@ -30,4 +30,4 @@ profile = "black"
 [tool.coverage.run]
 branch = true
 include = ["planetmapper/*.py"]
-omit = ["planetmapper/gui.py", "planetmapper/kernel_downloader.py"]
+omit = ["planetmapper/gui.py"]
