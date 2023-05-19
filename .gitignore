@@ -3,6 +3,7 @@
 !*/
 !*.py
 !*.md
+!*.sh
 !*.rst
 !*.yaml
 !*.yml
