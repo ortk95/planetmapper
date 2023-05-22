@@ -102,7 +102,7 @@ def download_kernel(url: str, force_download: bool = False, note: str = '') -> N
         if force_download:
             print('  Kernel already exists, downloading anyway')
         else:
-            print('  ✅ Kernel already exists locally')
+            print('  OK - Kernel already exists locally')
             return
     local_path = _convert_url_to_local_path(url)
     print(f'  Downloading to {local_path}')
