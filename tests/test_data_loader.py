@@ -20,10 +20,16 @@ class TestDataLoader(unittest.TestCase):
         self.assertEqual(data['SATURN']['B'], [91975.0, 117507.0])
         self.assertEqual(data['SATURN']['C'], [74658.0, 91975.0])
 
-        with open(planetmapper.data_loader.make_data_path('rings.json'), 'r') as f:
+        with open(planetmapper.data_loader.make_data_path('rings.json')) as f:
             json_data = json.load(f)
+
+        with open(
+            planetmapper.data_loader.make_data_path('rings.json'), encoding='utf-8'
+        ) as f:
+            json_data_utf8 = json.load(f)
 
         print('planetmapper.data_loader.get_ring_radii()', data)
         print('json.load(f)', json_data)
+        print('json.load(f, encoding="utf-8")', json_data_utf8)
 
         self.assertEqual(data, json_data)
