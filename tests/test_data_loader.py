@@ -23,4 +23,7 @@ class TestDataLoader(unittest.TestCase):
         with open(planetmapper.data_loader.make_data_path('rings.json'), 'r') as f:
             json_data = json.load(f)
 
+        print('planetmapper.data_loader.get_ring_radii()', data)
+        print('json.load(f)', json_data)
+
         self.assertEqual(data, json_data)
