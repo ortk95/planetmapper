@@ -26,3 +26,12 @@ class TestDataLoader(unittest.TestCase):
             json_data = json.load(f)
 
         self.assertEqual(data, json_data)
+
+        # Check that copy is returned properly
+        radii = planetmapper.data_loader.get_ring_radii()
+        radii['<< test >>'] = {'test': [1.1, 2.2]}
+        radii['SATURN']['A'] = [1.1, 2.2]
+        del radii[f'JUPITER']
+        self.assertNotEqual(radii, json_data)
+        self.assertNotEqual(radii, data)
+        self.assertNotEqual(radii, planetmapper.data_loader.get_ring_radii())

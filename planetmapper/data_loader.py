@@ -1,3 +1,4 @@
+import copy
 import functools
 import json
 import os
@@ -8,7 +9,7 @@ def make_data_path(filename: str) -> str:
     Generates a path to a static data file.
 
     Args:
-        filename: Filename of the data file stored in planetmapper/data
+        filename: Filename of the data file stored in `planetmapper/data`
 
     Returns:
         Absolute path to the data file.
@@ -17,7 +18,6 @@ def make_data_path(filename: str) -> str:
     return os.path.join(data_dir, filename)
 
 
-@functools.lru_cache
 def get_ring_radii() -> dict[str, dict[str, list[float]]]:
     """
     Load planetary ring radii from data file.
@@ -33,5 +33,10 @@ def get_ring_radii() -> dict[str, dict[str, list[float]]]:
         ring respectively. Otherwise, the length should be 1, meaning the ring has a
         single radius.
     """
+    return copy.deepcopy(_get_ring_radii_data())
+
+
+@functools.cache
+def _get_ring_radii_data() -> dict[str, dict[str, list[float]]]:
     with open(make_data_path('rings.json'), encoding='utf-8') as f:
         return json.load(f)
