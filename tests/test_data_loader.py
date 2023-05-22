@@ -31,6 +31,7 @@ class TestDataLoader(unittest.TestCase):
         print('planetmapper.data_loader.get_ring_radii()', data)
         print('json.load(f)', json_data)
         print('json.load(f, encoding="utf-8")', json_data_utf8)
-        print('Liberté, Libert�')
+        print('Liberté')
+        print('Libert\u00e9')
 
         self.assertEqual(data, json_data)
