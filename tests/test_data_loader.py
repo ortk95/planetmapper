@@ -24,7 +24,6 @@ class TestDataLoader(unittest.TestCase):
             planetmapper.data_loader.make_data_path('rings.json'), encoding='utf-8'
         ) as f:
             json_data = json.load(f)
-
         self.assertEqual(data, json_data)
 
         # Check that copy is returned properly
@@ -35,3 +34,5 @@ class TestDataLoader(unittest.TestCase):
         self.assertNotEqual(radii, json_data)
         self.assertNotEqual(radii, data)
         self.assertNotEqual(radii, planetmapper.data_loader.get_ring_radii())
+        self.assertEqual(data, planetmapper.data_loader.get_ring_radii())
+        self.assertEqual(json_data, planetmapper.data_loader.get_ring_radii())
