@@ -36,3 +36,27 @@ class TestDataLoader(unittest.TestCase):
         self.assertNotEqual(radii, planetmapper.data_loader.get_ring_radii())
         self.assertEqual(data, planetmapper.data_loader.get_ring_radii())
         self.assertEqual(json_data, planetmapper.data_loader.get_ring_radii())
+
+    def test_get_ring_aliases(self):
+        data = planetmapper.data_loader.get_ring_aliases()
+        self.assertIsInstance(data, dict)
+        self.assertEqual(data['liberte'], 'liberté')
+        self.assertEqual(data['egalite'], 'egalité')
+
+        with open(
+            planetmapper.data_loader.make_data_path('ring_aliases.json'),
+            encoding='utf-8',
+        ) as f:
+            json_data = json.load(f)
+        self.assertEqual(data, json_data)
+
+        # Check that copy is returned properly
+        aliases = planetmapper.data_loader.get_ring_aliases()
+        aliases['<< test >>'] = 'test'
+        aliases['liberte'] = 'test'
+        del aliases['egalite']
+        self.assertNotEqual(aliases, json_data)
+        self.assertNotEqual(aliases, data)
+        self.assertNotEqual(aliases, planetmapper.data_loader.get_ring_aliases())
+        self.assertEqual(data, planetmapper.data_loader.get_ring_aliases())
+        self.assertEqual(json_data, planetmapper.data_loader.get_ring_aliases())

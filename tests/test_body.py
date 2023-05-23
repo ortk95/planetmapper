@@ -253,7 +253,22 @@ class TestBody(unittest.TestCase):
         jupiter.other_bodies_of_interest.clear()
         self.assertEqual(jupiter.other_bodies_of_interest, [])
 
-    def test_ring_raddii_from_name(self):
+    def test_standardise_ring_name(self):
+        pairs = [
+            ('a', 'a'),
+            ('A', 'a'),
+            ('  a  ', 'a'),
+            (' c  RiNg ', 'c'),
+            ('liberte', 'liberté'),
+            ('égalité', 'egalité'),
+            ('égalité', 'egalité'),
+            (' FrAternitE ring ', 'fraternité'),
+        ]
+        for name, expected in pairs:
+            with self.subTest(name=name):
+                self.assertEqual(self.body._standardise_ring_name(name), expected)
+
+    def test_ring_radii_from_name(self):
         self.assertEqual(self.body.ring_radii_from_name('Halo'), [89400.0, 123000.0])
         self.assertEqual(
             self.body.ring_radii_from_name('   MaIn rinG         '),
