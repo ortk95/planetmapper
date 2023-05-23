@@ -542,7 +542,7 @@ class Body(BodyBase):
 
         Args:
             name: Name of ring. This is case insensitive and, "ring" suffix is
-                optional and non-ascii versions are allowed. For example, `'liberte'`
+                optional and non-ASCII versions are allowed. For example, `'liberte'`
                 will load the `'Liberté'` ring radii for Uranus and `'amalthea'` will
                 load the `'Amalthea Ring'` radii for Jupiter.
 
