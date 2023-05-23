@@ -102,7 +102,7 @@ def download_kernel(url: str, force_download: bool = False, note: str = '') -> N
         if force_download:
             print('  Kernel already exists, downloading anyway')
         else:
-            print('  ✅ Kernel already exists locally')
+            print('  OK - Kernel already exists locally')
             return
     local_path = _convert_url_to_local_path(url)
     print(f'  Downloading to {local_path}')
@@ -122,6 +122,7 @@ def get_kernel_paths_from_webpage(index_url: str) -> list[str]:
     Returns:
         List of URL strings corresponding to kernels on the webpage.
     """
+    # pylint: disable=consider-using-with
     assert index_url.startswith(URL_ROOT), f'URL must begin with {URL_ROOT}'
     webpage = urllib.request.urlopen(index_url).read().decode()
     data = webpage.split('<!--start data_content-->')[1].split('</table>')[0]

@@ -189,6 +189,7 @@ class Observation(BodyXY):
                 if hdu.data is not None:
                     data = hdu.data
                     if idx:
+                        # pylint: disable-next=no-member
                         header = hdul[0].header.copy()  # type: ignore
                         header.update(hdu.header.copy())
                     else:
@@ -251,7 +252,7 @@ class Observation(BodyXY):
                 end = float(header['MJD-END'])  #  type: ignore
                 mjd = (beg + end) / 2
                 kw['utc'] = mjd
-            except:
+            except (KeyError, TypeError, ValueError):
                 pass
             if 'utc' not in kw:
                 try:
@@ -306,8 +307,8 @@ class Observation(BodyXY):
                 r0=self.header[self._make_fits_kw('DISC R0')],  # type: ignore
                 rotation=self.header[self._make_fits_kw('DISC ROT')],  # type: ignore
             )
-        except KeyError:
-            raise ValueError('No disc parameters found in FITS header')
+        except KeyError as exc:
+            raise ValueError('No disc parameters found in FITS header') from exc
 
     def _get_wcs_from_header(self, suppress_warnings: bool = False) -> astropy.wcs.WCS:
         with warnings.catch_warnings():
@@ -1180,6 +1181,7 @@ class Observation(BodyXY):
             List of `(x, y)` pixel coordinate tuples corresponding to where the user
             clicked on the plot window to mark a location.
         """
+        # pylint: disable=cyclic-import
         from .gui import GUI  # Prevent circular imports
 
         gui = GUI(allow_open=False)

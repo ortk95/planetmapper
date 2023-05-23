@@ -3,9 +3,7 @@ Various general helpful utilities.
 """
 import os
 import pathlib
-import traceback
 import warnings
-from datetime import datetime
 from typing import Literal
 
 import matplotlib.ticker
@@ -64,6 +62,7 @@ class DMSFormatter(matplotlib.ticker.FuncFormatter):
         self.skip_parts = set()
         self.fmt_s = '02.0f'
 
+    # pylint: disable-next=unused-argument
     def _format(self, dd, pos):
         d, m, s = decimal_degrees_to_dms(dd)
         out = []

@@ -1,3 +1,4 @@
+# pylint: disable=attribute-defined-outside-init,protected-access
 import math
 import os
 import tkinter as tk
@@ -7,7 +8,6 @@ import tkinter.messagebox
 import tkinter.scrolledtext
 import traceback
 from collections import defaultdict
-from functools import lru_cache
 from tkinter import ttk
 from typing import Any, Callable, Literal, TypeVar
 
@@ -22,7 +22,6 @@ import spiceypy as spice
 from astropy.io import fits
 from matplotlib.artist import Artist
 from matplotlib.backend_bases import MouseButton, MouseEvent
-from matplotlib.backends._backend_tk import NavigationToolbar2Tk  # TODO delete this?
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.text import Text
 
@@ -189,7 +188,7 @@ class GUI:
                 'y0': [lambda f: self.get_observation().set_y0(f)],
                 'r0': [lambda f: self.get_observation().set_r0(f)],
                 'rotation': [lambda f: self.get_observation().set_rotation(f)],
-                'step': [lambda f: self.set_step(f)],
+                'step': [self.set_step],
                 'plate_scale_arcsec': [
                     lambda f: self.get_observation().set_plate_scale_arcsec(f)
                 ],
@@ -280,7 +279,7 @@ class GUI:
         self.gui_built = False
 
     def __repr__(self) -> str:
-        return f'InteractiveObservation()'
+        return 'InteractiveObservation()'
 
     def run(self) -> None:
         """
@@ -949,6 +948,7 @@ class GUI:
             # Disable when panning/zooming
             if self.toolbar.mode._navigate_mode is not None:
                 return
+        # pylint: disable-next=bare-except
         except:
             pass
 
@@ -1632,6 +1632,7 @@ class OpenObservation(Popup):
         if any(path.endswith(ext) for ext in Observation.FITS_FILE_EXTENSIONS):
             try:
                 with fits.open(path) as hdul:
+                    # pylint: disable-next=no-member
                     header = hdul[0].header  # type: ignore
                 Observation._add_kw_from_header(kwargs, header)
             except FileNotFoundError:
@@ -1673,12 +1674,13 @@ class OpenObservation(Popup):
 
         kernel_help = 'Check for typos and make sure you have listed all the required SPICE kernels'
 
-        sb = base.SpiceBase(load_kernels=False)
+        sb = base.SpiceBase(auto_load_kernels=False)
         try:
             target = sb.standardise_body_name(kwargs['target'])
+        # pylint: disable-next=bare-except
         except:
             tkinter.messagebox.showwarning(
-                title=f'Error parsing target',
+                title='Error parsing target',
                 message='Target name {!r} not recognised\n{}'.format(
                     kwargs['target'], kernel_help
                 ),
@@ -1687,9 +1689,10 @@ class OpenObservation(Popup):
 
         try:
             observer = sb.standardise_body_name(kwargs['observer'])
+        # pylint: disable-next=bare-except
         except:
             tkinter.messagebox.showwarning(
-                title=f'Error parsing observer',
+                title='Error parsing observer',
                 message='Observer name {!r} not recognised\n{}'.format(
                     kwargs['observer'], kernel_help
                 ),
@@ -1698,7 +1701,7 @@ class OpenObservation(Popup):
 
         if target == observer:
             tkinter.messagebox.showwarning(
-                title=f'Target and observer identical',
+                title='Target and observer identical',
                 message='Target and observer must correspond to different bodies',
             )
             return False
@@ -1708,20 +1711,22 @@ class OpenObservation(Popup):
         except ValueError:
             try:
                 spice.utc2et(kwargs['utc'])
+            # pylint: disable-next=bare-except
             except:
                 tkinter.messagebox.showwarning(
-                    title=f'Error parsing utc',
+                    title='Error parsing utc',
                     message='Could not parse {!r}\n{}'.format(
                         kwargs['utc'], kernel_help
                     ),
                 )
                 return False
         try:
-            observation = Observation(**kwargs, load_kernels=False)
+            observation = Observation(**kwargs, auto_load_kernels=False)
+        # pylint: disable-next=broad-except
         except Exception as e:
             traceback.print_exc()
             tkinter.messagebox.showwarning(
-                title=f'Error processing inputs',
+                title='Error processing inputs',
                 message=f'Error: {e}' + '\n\nSee terminal for more details',
             )
             return False
@@ -2048,8 +2053,8 @@ class SaveObservation(Popup):
 
         if (save_nav and len(path_nav) == 0) or (save_map and len(path_map) == 0):
             tkinter.messagebox.showwarning(
-                title=f'Error saving file',
-                message=f'File paths must not be empty',
+                title='Error saving file',
+                message='File paths must not be empty',
             )
             return False
 
@@ -2099,10 +2104,11 @@ class SaveObservation(Popup):
         )
         try:
             saving_process.run_save()
+        # pylint: disable-next=broad-except
         except Exception as e:
             traceback.print_exc()
             tkinter.messagebox.showwarning(
-                title=f'Error saving files',
+                title='Error saving files',
                 message=f'Error: {e}' + '\n\nSee terminal for more details',
             )
             return False
@@ -2227,7 +2233,7 @@ class SavingProgress(Popup):
 
 
 # Progress hooks
-class SaveProgressHookGUI(progress.SaveProgressHook):
+class SaveProgressHookGUI(progress._SaveProgressHook):
     def __init__(
         self,
         label: ttk.Label,
@@ -2251,14 +2257,12 @@ class SaveProgressHookGUI(progress.SaveProgressHook):
         self.bar.update_idletasks()
 
 
-class SaveNavProgressHookGUI(progress.SaveNavProgressHook, SaveProgressHookGUI):
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+class SaveNavProgressHookGUI(progress._SaveNavProgressHook, SaveProgressHookGUI):
+    pass
 
 
-class SaveMapProgressHookGUI(progress.SaveMapProgressHook, SaveProgressHookGUI):
-    def __init__(self, n_wavelengths: int, *args, **kwargs) -> None:
-        super().__init__(n_wavelengths, *args, **kwargs)
+class SaveMapProgressHookGUI(progress._SaveMapProgressHook, SaveProgressHookGUI):
+    pass
 
 
 # Artist settings popups
@@ -2738,7 +2742,7 @@ class PlotImageSetting(ArtistSetting):
                 if general_settings['image_vmin'] >= general_settings['image_vmax']:
                     tkinter.messagebox.showwarning(
                         title='Error parsing limits',
-                        message=f'vmin must be less than vmax',
+                        message='vmin must be less than vmax',
                     )
                     return False
         except ValueError:
@@ -3011,7 +3015,7 @@ class PlotCoordinatesSetting(PlotScatterSetting):
                     coordinates = line.split(',')
                     if len(coordinates) != 2:
                         tkinter.messagebox.showwarning(
-                            title=f'Error parsing coordinates',
+                            title='Error parsing coordinates',
                             message=f'Line {line!r} must have exactly two values separated by a comma',
                         )
                         return False
@@ -3080,6 +3084,7 @@ class PlotOutlinedTextSetting(ArtistSetting):
         return True
 
 
+# pylint: disable-next=abstract-method
 class GenericOtherBodySetting(ArtistSetting):
     def add_other_body_menu_setting(self):
         label = '\n'.join(
@@ -3141,7 +3146,7 @@ class GenericOtherBodySetting(ArtistSetting):
                 bodies.append(self.gui.get_observation().create_other_body(line))
             except NotFoundError:
                 tkinter.messagebox.showwarning(
-                    title=f'Error parsing target name',
+                    title='Error parsing target name',
                     message=f'Target {line!r} is not recognised by SPICE',
                 )
                 return False
@@ -3308,6 +3313,7 @@ class CustomNavigationToolbar(NavigationToolbar2Tk):
         super().__init__(canvas, window, pack_toolbar=pack_toolbar)
         try:
             self._message_label.configure(foreground='#666666')
+        # pylint: disable-next=bare-except
         except:
             pass
         try:
@@ -3318,5 +3324,6 @@ class CustomNavigationToolbar(NavigationToolbar2Tk):
                         hint = tooltip_text.replace('\n', ', ')
                         gui.add_tooltip(button, hint)
                         break
+        # pylint: disable-next=bare-except
         except:
             pass

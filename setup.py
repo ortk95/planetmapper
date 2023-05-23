@@ -5,9 +5,10 @@ import setuptools
 
 root = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(root, 'planetmapper'))
+# pylint: disable-next=import-error
 import common  # type: ignore
 
-with open(os.path.join(root, 'README.md'), 'r') as f:
+with open(os.path.join(root, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
 setuptools.setup(

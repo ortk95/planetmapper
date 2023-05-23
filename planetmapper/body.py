@@ -496,8 +496,7 @@ class Body(BodyBase):
             except SpiceSPKINSUFFDATA:
                 if skip_insufficient_data:
                     continue
-                else:
-                    raise
+                raise
             except NotFoundError:
                 continue
         return out
@@ -528,6 +527,13 @@ class Body(BodyBase):
             if satellite not in self.other_bodies_of_interest:
                 self.other_bodies_of_interest.append(satellite)
 
+    @staticmethod
+    def _standardise_ring_name(name: str) -> str:
+        name = name.casefold().strip().removesuffix('ring')
+        for a, b in data_loader.get_ring_aliases().items():
+            name = name.replace(a, b)
+        return name.casefold().strip()
+
     def ring_radii_from_name(self, name: str) -> list[float]:
         """
         Get list of ring radii in km for a named ring.
@@ -535,8 +541,10 @@ class Body(BodyBase):
         This is a convenience function to load data from :attr:`named_ring_data`.
 
         Args:
-            name: Name of ring. This is case insensitive and any "ring" suffix is
-                optional.
+            name: Name of ring. This is case insensitive and, "ring" suffix is
+                optional and non-ascii versions are allowed. For example, `'liberte'`
+                will load the `'Liberté'` ring radii for Uranus and `'amalthea'` will
+                load the `'Amalthea Ring'` radii for Jupiter.
 
         Raises:
             ValueError: if no ring with the provided name is found.
@@ -546,14 +554,15 @@ class Body(BodyBase):
             give the inner and outer radii of the ring respectively. Otherwise, the
             length should be 1, meaning the ring has a single radius.
         """
-        standardise = lambda name: name.casefold().strip().removesuffix('ring').strip()
-        name = standardise(name.casefold().strip())
+        name = self._standardise_ring_name(name)
         for n, radii in self.named_ring_data.items():
-            if name == standardise(n):
+            if name == self._standardise_ring_name(n):
                 return radii
         raise ValueError(
             f'No rings found named {name!r} in named_ring_data.'
-            + f'\nValid names: {[standardise(n) for n in self.named_ring_data.keys()]}'
+            + '\nValid names: {}'.format(
+                [self._standardise_ring_name(n) for n in self.named_ring_data.keys()]
+            )
         )
 
     def add_named_rings(self, *names: str) -> None:
@@ -680,7 +689,7 @@ class Body(BodyBase):
 
     def _obsvec_norm2targvec(self, obsvec_norm: np.ndarray) -> np.ndarray:
         """TODO add note about raising NotFoundError"""
-        spoint, trgepc, srfvec = spice.sincpt(
+        spoint, *_ = spice.sincpt(
             self._surface_method_encoded,
             self._target_encoded,
             self.et,

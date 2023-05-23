@@ -8,6 +8,7 @@ import sys
 
 root = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(os.path.join(root, 'planetmapper'))
+# pylint: disable-next=import-error
 import common  # type: ignore
 
 

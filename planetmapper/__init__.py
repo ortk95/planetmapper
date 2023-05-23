@@ -101,4 +101,5 @@ __all__ = [
 
 def main():
     """:meta private:"""
+    # pylint: disable-next=protected-access
     gui._main()
