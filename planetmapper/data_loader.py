@@ -27,7 +27,7 @@ def get_ring_radii() -> dict[str, dict[str, list[float]]]:
 
     Returns:
         Dictionary where the keys are planet names and the values are dictionaries
-        contianing ring data. These ring data dictionaries have keys corresponding to
+        containing ring data. These ring data dictionaries have keys corresponding to
         the names of the rings, and values with a list of ring radii in km. If the
         length of this list is 2, then the values give the inner and outer radii of the
         ring respectively. Otherwise, the length should be 1, meaning the ring has a
@@ -47,7 +47,7 @@ def get_ring_aliases() -> dict[str, str]:
     Load ring aliases from data file.
 
     These are used to allow pure ASCII ring names to be used in functions such as
-    :func:`planetmapepr.Body.add_named_rings`.
+    :func:`planetmapper.Body.add_named_rings`.
 
     Returns:
         Dictionary where the keys are variants of ring names (e.g. `liberte`) and the
