@@ -1672,7 +1672,7 @@ class OpenObservation(Popup):
         kernels = [k.strip() for k in string.splitlines()]
         base.load_kernels(*kernels, clear_before=True)
 
-        kernel_help = 'Check for typos and make sure you have listed all the required SPICE kernels'
+        kernel_help = '\n' + base._SPICE_ERROR_HELP_TEXT
 
         sb = base.SpiceBase(auto_load_kernels=False)
         try:
