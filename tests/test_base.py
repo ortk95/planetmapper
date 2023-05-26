@@ -348,7 +348,9 @@ class TestKernelPath(unittest.TestCase):
         planetmapper.base._clear_kernels()
 
     def test_kernel_path(self):
-        path = 'abcdef/ghi/jkl'
+        path = os.path.join(
+            common_testing.TEMP_PATH, 'test_kernel_path', 'set_kernel_path'
+        )
         planetmapper.set_kernel_path(path)
         self.assertEqual(planetmapper.get_kernel_path(), path)
 
@@ -357,6 +359,48 @@ class TestKernelPath(unittest.TestCase):
         planetmapper.set_kernel_path(None)
         self.assertEqual(
             planetmapper.get_kernel_path(), planetmapper.base.DEFAULT_KERNEL_PATH
+        )
+
+        planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
+        self.assertEqual(planetmapper.get_kernel_path(), common_testing.KERNEL_PATH)
+        self.assertEqual(
+            planetmapper.get_kernel_path(return_source=True),
+            (common_testing.KERNEL_PATH, 'set_kernel_path()'),
+        )
+
+        environemnt_variable_path = os.path.join(
+            common_testing.TEMP_PATH, 'test_kernel_path', 'environment_variable'
+        )
+        os.environ['PLANETMAPPER_KERNEL_PATH'] = environemnt_variable_path
+        self.assertEqual(planetmapper.get_kernel_path(), common_testing.KERNEL_PATH)
+        self.assertEqual(
+            planetmapper.get_kernel_path(return_source=True),
+            (common_testing.KERNEL_PATH, 'set_kernel_path()'),
+        )
+
+        planetmapper.set_kernel_path(None)
+        self.assertEqual(planetmapper.get_kernel_path(), environemnt_variable_path)
+        self.assertEqual(
+            planetmapper.get_kernel_path(return_source=True),
+            (environemnt_variable_path, 'PLANETMAPPER_KERNEL_PATH'),
+        )
+
+        os.environ['PLANETMAPPER_KERNEL_PATH'] = ''
+        self.assertEqual(
+            planetmapper.get_kernel_path(), planetmapper.base.DEFAULT_KERNEL_PATH
+        )
+        self.assertEqual(
+            planetmapper.get_kernel_path(return_source=True),
+            (planetmapper.base.DEFAULT_KERNEL_PATH, 'default'),
+        )
+
+        os.environ.pop('PLANETMAPPER_KERNEL_PATH')
+        self.assertEqual(
+            planetmapper.get_kernel_path(), planetmapper.base.DEFAULT_KERNEL_PATH
+        )
+        self.assertEqual(
+            planetmapper.get_kernel_path(return_source=True),
+            (planetmapper.base.DEFAULT_KERNEL_PATH, 'default'),
         )
 
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
