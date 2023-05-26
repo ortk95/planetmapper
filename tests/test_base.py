@@ -1,10 +1,12 @@
 import datetime
+import os
 import unittest
 from typing import Any, Callable, ParamSpec
 
 import common_testing
 import numpy as np
 import spiceypy as spice
+from spiceypy.utils.exceptions import SpiceNOLEAPSECONDS, SpiceSPKINSUFFDATA
 
 import planetmapper
 import planetmapper.base
@@ -359,6 +361,10 @@ class TestKernelPath(unittest.TestCase):
 
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
         self.assertEqual(planetmapper.get_kernel_path(), common_testing.KERNEL_PATH)
+        self.assertEqual(
+            planetmapper.get_kernel_path(return_source=True),
+            (common_testing.KERNEL_PATH, 'set_kernel_path()'),
+        )
 
 
 class TestBodyBase(unittest.TestCase):
@@ -465,6 +471,41 @@ class TestBodyBase(unittest.TestCase):
                 )
             ),
         )
+
+    def test_kernel_errors(self):
+        planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
+        planetmapper.base._clear_kernels()
+
+        try:
+            BodyBase(
+                target='mars',
+                utc='2000-01-01',
+                observer='earth',
+                aberration_correction='CN+S',
+                observer_frame='J2000',
+            )
+        except SpiceSPKINSUFFDATA as e:
+            self.assertIn(planetmapper.base._SPICE_ERROR_HELP_TEXT, e.message)
+            self.assertIn(planetmapper.base.get_kernel_path(), e.message)
+
+        kernel_path = os.path.join(common_testing.TEMP_PATH, 'empty_kernel_path')
+        planetmapper.base._clear_kernels()
+        planetmapper.set_kernel_path(kernel_path)
+
+        try:
+            BodyBase(
+                target='mars',
+                utc='2000-01-01',
+                observer='earth',
+                aberration_correction='CN+S',
+                observer_frame='J2000',
+            )
+        except SpiceNOLEAPSECONDS as e:
+            self.assertIn(planetmapper.base._SPICE_ERROR_HELP_TEXT, e.message)
+            self.assertIn(planetmapper.base.get_kernel_path(), e.message)
+
+        planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
+        planetmapper.base._clear_kernels()
 
 
 class TestCache(unittest.TestCase):

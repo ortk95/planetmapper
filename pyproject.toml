@@ -23,6 +23,9 @@ disable = [
     "too-many-ancestors",
     "too-many-return-statements",
     ]
+enable = [
+    "useless-suppression",
+    ]
 
 [tool.isort]
 profile = "black"

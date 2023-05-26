@@ -3,7 +3,16 @@ import functools
 import glob
 import numbers
 import os
-from typing import Any, Callable, Concatenate, ParamSpec, TypeVar, cast
+from typing import (
+    Any,
+    Callable,
+    Concatenate,
+    Literal,
+    ParamSpec,
+    TypeVar,
+    cast,
+    overload,
+)
 
 try:
     from typing import Self
@@ -13,6 +22,7 @@ except ImportError:
 import astropy.time
 import numpy as np
 import spiceypy as spice
+from spiceypy.utils.exceptions import SpiceyPyError
 
 from . import progress
 
@@ -30,6 +40,14 @@ Numeric = TypeVar('Numeric', bound=float | np.ndarray)
 T = TypeVar('T')
 S = TypeVar('S')
 P = ParamSpec('P')
+
+_SPICE_ERROR_HELP_URL = (
+    'https://planetmapper.readthedocs.io/en/latest/common_issues.html#spice-errors'
+)
+_SPICE_ERROR_HELP_TEXT = (
+    'Check your SPICE kernels are set up correctly - see the help page for more info:\n'
+    + _SPICE_ERROR_HELP_URL
+)
 
 
 def _cache_clearable_result(
@@ -52,7 +70,7 @@ def _cache_clearable_result(
     # pylint: disable=protected-access
 
     @functools.wraps(fn)
-    def decorated(self, *args_in: P.args, **kwargs_in: P.kwargs):
+    def decorated(self, *args_in: P.args, **kwargs_in: P.kwargs) -> T:
         args, kwargs = _replace_np_arrr_args_with_tuples(args_in, kwargs_in)
         k = (fn.__name__, args, frozenset(kwargs.items()))
         if k not in self._cache:
@@ -76,7 +94,7 @@ def _cache_stable_result(
 
     # pylint: disable=protected-access
     @functools.wraps(fn)
-    def decorated(self, *args_in: P.args, **kwargs_in: P.kwargs):
+    def decorated(self, *args_in: P.args, **kwargs_in: P.kwargs) -> T:
         args, kwargs = _replace_np_arrr_args_with_tuples(args_in, kwargs_in)
         k = (fn.__name__, args, frozenset(kwargs.items()))
         if k not in self._stable_cache:
@@ -84,6 +102,37 @@ def _cache_stable_result(
         return self._stable_cache[k]
 
     return decorated
+
+
+def _add_help_note_to_spice_errors(fn: Callable[P, T]) -> Callable[P, T]:
+    """
+    Decorator to add help text to spice errors
+
+    This modifies the error message for specific spice errors to include PlanetMapper
+    specific help about kernel loading.
+    """
+
+    @functools.wraps(fn)
+    def decorated(*args: P.args, **kwargs: P.kwargs) -> T:
+        try:
+            return fn(*args, **kwargs)
+        except SpiceyPyError as e:
+            e.message += '\n\n' + _get_spice_error_help_note()
+            raise e
+
+    return decorated
+
+
+def _get_spice_error_help_note() -> str:
+    kernel_path, kernel_source = get_kernel_path(return_source=True)
+    return '\n'.join(
+        (
+            _SPICE_ERROR_HELP_TEXT,
+            '',
+            f'Kernel directory path: {kernel_path}',
+            f'Kernel path source: {kernel_source}',
+        )
+    )
 
 
 def _replace_np_arrr_args_with_tuples(args, kwargs) -> tuple[tuple, dict[str, Any]]:
@@ -501,6 +550,7 @@ class BodyBase(SpiceBase):
     or :class:`planetmapper.BasicBody` instead.
     """
 
+    @_add_help_note_to_spice_errors
     def __init__(
         self,
         *,
@@ -636,7 +686,17 @@ def set_kernel_path(path: str | None) -> None:
     _KERNEL_DATA['kernel_path'] = path
 
 
-def get_kernel_path() -> str:
+@overload
+def get_kernel_path(return_source: Literal[False] = False) -> str:
+    ...
+
+
+@overload
+def get_kernel_path(return_source: Literal[True]) -> tuple[str, str]:
+    ...
+
+
+def get_kernel_path(return_source: bool = False) -> str | tuple[str, str]:
     """
     Get the path of the directory of SPICE kernels used in PlanetMapper.
 
@@ -648,15 +708,31 @@ def get_kernel_path() -> str:
 
     #. If `PLANETMAPPER_KERNEL_PATH` is not set, then the default value,
        `'~/spice_kernels/'` is used.
+
+    Args:
+        return_source: If `True`, return a tuple of the kernel path and a string which
+            indicates the source of the kernel path. If `False` (the default), return
+            only the kernel path. The possible source strings are:
+            `'set_kernel_path()'`, `'PLANETMAPPER_KERNEL_PATH'`, and `'default'`.
+
+    Returns:
+        The path of the directory of SPICE kernels used in PlanetMapper. If
+        `return_source` is `True`, then a tuple of the kernel path and a string
+        indicating the source of the kernel path is returned.
     """
-    if _KERNEL_DATA['kernel_path'] is not None:
-        return _KERNEL_DATA['kernel_path']
+    if (path := _KERNEL_DATA['kernel_path']) is not None:
+        if return_source:
+            return path, 'set_kernel_path()'
+        return path
 
     try:
-        path = os.environ['PLANETMAPPER_KERNEL_PATH']
-        if path:
+        if path := os.environ['PLANETMAPPER_KERNEL_PATH']:
+            if return_source:
+                return path, 'PLANETMAPPER_KERNEL_PATH'
             return path
     except KeyError:
         pass
 
+    if return_source:
+        return DEFAULT_KERNEL_PATH, 'default'
     return DEFAULT_KERNEL_PATH
