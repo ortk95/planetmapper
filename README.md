@@ -1,10 +1,8 @@
 # PlanetMapper
 
 [![PyPI](https://img.shields.io/pypi/v/planetmapper?label=PyPi&logo=python&logoColor=silver)](https://pypi.org/project/planetmapper/)
-[![Upload Package](https://github.com/ortk95/planetmapper/actions/workflows/python-publish.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/python-publish.yml)
-[![Pylint](https://github.com/ortk95/planetmapper/actions/workflows/pylint.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/pylint.yml)
-[![Format](https://github.com/ortk95/planetmapper/actions/workflows/format.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/format.yml)
-[![Tests](https://github.com/ortk95/planetmapper/actions/workflows/test.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/test.yml)
+[![Publish](https://github.com/ortk95/planetmapper/actions/workflows/python-publish.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/python-publish.yml)
+[![Checks](https://github.com/ortk95/planetmapper/actions/workflows/checks.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/checks.yml)
 [![Coverage Status](https://img.shields.io/coverallsCoverage/github/ortk95/planetmapper)](https://coveralls.io/github/ortk95/planetmapper)
 [![Documentation Status](https://readthedocs.org/projects/planetmapper/badge/?version=latest)](https://planetmapper.readthedocs.io/en/latest/?badge=latest)
 
