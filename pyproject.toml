@@ -5,6 +5,17 @@ exclude = ""
 # to black not parsing trailing slashes in .gitignore correctly
 # https://github.com/psf/black/issues/3694
 
+
+[tool.isort]
+profile = "black"
+
+
+[tool.coverage.run]
+branch = true
+include = ["planetmapper/*.py"]
+omit = ["planetmapper/gui.py"]
+
+
 [tool.pylint.'MESSAGES CONTROL']
 disable = [
     "C",
@@ -27,10 +38,13 @@ enable = [
     "useless-suppression",
     ]
 
-[tool.isort]
-profile = "black"
 
-[tool.coverage.run]
-branch = true
-include = ["planetmapper/*.py"]
-omit = ["planetmapper/gui.py"]
+[tool.pyright]
+include = ["planetmapper/*.py", "setup.py"]
+exclude = ["planetmapper/gui.py"]
+reportPropertyTypeMismatch = true
+reportConstantRedefinition = true
+reportIncompatibleMethodOverride = true
+reportIncompatibleVariableOverride = true
+reportUnnecessaryComparison = true
+reportUnnecessaryContains = true
