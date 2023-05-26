@@ -225,6 +225,7 @@ class TestSpiceStringEncoding(unittest.TestCase):
     def setUp(self):
         planetmapper.SpiceBase.load_spice_kernels()
         self.obj = planetmapper.SpiceBase(optimize_speed=True)
+        self.obj_slow = planetmapper.SpiceBase(optimize_speed=False)
 
     def compare_function_outputs(
         self, fn: Callable[P, Any], *args: P.args, **kw: P.kwargs
@@ -233,6 +234,7 @@ class TestSpiceStringEncoding(unittest.TestCase):
         string_functions = [
             lambda x: x,
             self.obj._encode_str,
+            self.obj_slow._encode_str,
         ]
         outputs = []
         for f in string_functions:
@@ -242,12 +244,16 @@ class TestSpiceStringEncoding(unittest.TestCase):
                 )
             )
         self.assertEqual(len(outputs[0]), len(outputs[1]))
-        for a, b in zip(outputs[0], outputs[1]):
-            self.assertEqual(type(a), type(b))
-            if isinstance(a, np.ndarray):
-                self.assertTrue(np.array_equal(a, b))
+        self.assertEqual(len(outputs[0]), len(outputs[2]))
+        for identity, optimized, slow in zip(outputs[0], outputs[1], outputs[2]):
+            self.assertEqual(type(identity), type(optimized))
+            self.assertEqual(type(identity), type(slow))
+            if isinstance(identity, np.ndarray):
+                self.assertTrue(np.array_equal(identity, optimized))
+                self.assertTrue(np.array_equal(identity, slow))
             else:
-                self.assertEqual(a, b)
+                self.assertEqual(identity, optimized)
+                self.assertEqual(identity, slow)
 
     def test_spkezr(self):
         self.compare_function_outputs(
