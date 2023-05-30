@@ -30,6 +30,14 @@ class TestBody(unittest.TestCase):
             153.12614128206837,
         )
 
+        # Test Saturrn automatically has A, B & C rings added
+        saturn = Body('saturn', '2000-01-01')
+        self.assertEqual(saturn.target, 'SATURN')
+        self.assertEqual(saturn.target_body_id, 699)
+        self.assertEqual(
+            saturn.ring_radii, {74658.0, 91975.0, 117507.0, 122340.0, 136780.0}
+        )
+
     def test_attributes(self):
         self.assertEqual(self.body.target, 'JUPITER')
         self.assertEqual(self.body.utc, '2005-01-01T00:00:00.000000')
@@ -203,6 +211,12 @@ class TestBody(unittest.TestCase):
         jupiter.other_bodies_of_interest.clear()
         self.assertEqual(jupiter.other_bodies_of_interest, [])
 
+        jupiter.add_other_bodies_of_interest('AMALTHEA', 'THEBE')
+        self.assertEqual(
+            jupiter.other_bodies_of_interest,
+            [Body('AMALTHEA', utc), Body('THEBE', utc)],
+        )
+        # Check duplicate bodies are not added
         jupiter.add_other_bodies_of_interest('AMALTHEA', 'THEBE')
         self.assertEqual(
             jupiter.other_bodies_of_interest,
@@ -754,4 +768,49 @@ class TestBody(unittest.TestCase):
         jupiter.add_other_bodies_of_interest('thebe', 'metis', 'amalthea', 'adrastea')
         fig, ax = plt.subplots()
         jupiter.plot_wireframe_radec(ax)
+        plt.close(fig)
+
+    def test_matplotlib_transforms(self):
+        self.assertTrue(
+            np.allclose(
+                self.body.matplotlib_km2radec_transform().get_matrix(),
+                array(
+                    [
+                        [-6.40343479e-08, 2.88537788e-08, 1.96371986e02],
+                        [2.87177471e-08, 6.37324567e-08, -5.56579385e00],
+                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                    ]
+                ),
+            )
+        )
+
+        self.assertTrue(
+            np.allclose(
+                self.body.matplotlib_radec2km_transform().get_matrix(),
+                array(
+                    [
+                        [-1.29809749e07, 5.87691418e06, 2.58180951e09],
+                        [5.84920736e06, 1.30424639e07, -1.07602880e09],
+                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                    ]
+                ),
+            )
+        )
+
+        fig, axis = plt.subplots()
+        for ax in [None, axis]:
+            with self.subTest(ax=ax):
+                # Test caching works
+                self.body.matplotlib_radec2km_transform(ax)
+                t1 = self.body.matplotlib_radec2km_transform(ax)
+                self.body._mpl_transform_radec2km = None
+                t2 = self.body.matplotlib_radec2km_transform(ax)
+                self.assertEqual(t1, t2)
+
+                self.body.matplotlib_km2radec_transform(ax)
+                t1 = self.body.matplotlib_km2radec_transform(ax)
+                self.body._mpl_transform_km2radec = None
+                t2 = self.body.matplotlib_km2radec_transform(ax)
+                self.assertEqual(t1, t2)
+
         plt.close(fig)

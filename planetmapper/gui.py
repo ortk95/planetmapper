@@ -1000,7 +1000,7 @@ class GUI:
 
     # Plotting
     def update_plot(self, print_coords: bool = False) -> None:
-        self.get_observation().update_transform()
+        self.get_observation().update_transforms()
         self.canvas.draw()
         self.update_coords(print_coords=print_coords)
 

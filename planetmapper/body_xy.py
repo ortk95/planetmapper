@@ -248,6 +248,9 @@ class BodyXY(Body):
         self._mpl_transform_radec2xy_radians: matplotlib.transforms.Affine2D | None = (
             None
         )
+        self._mpl_transform_xy2radec_radians: matplotlib.transforms.Affine2D | None = (
+            None
+        )
 
         self.backplanes = {}
         self._register_default_backplanes()
@@ -867,36 +870,15 @@ class BodyXY(Body):
             )
         return self._mpl_transform_radec2xy_radians
 
-    def matplotlib_radec2xy_transform(
-        self, ax: Axes | None = None
-    ) -> matplotlib.transforms.Transform:
-        """
-        Get matplotlib transform which converts RA/Dec sky coordinates to image pixel
-        coordinates.
+    def _get_matplotlib_xy2radec_transform_radians(
+        self,
+    ) -> matplotlib.transforms.Affine2D:
+        if self._mpl_transform_xy2radec_radians is None:
+            self._mpl_transform_xy2radec_radians = matplotlib.transforms.Affine2D(
+                self._get_xy2radec_matrix_radians()
+            )
+        return self._mpl_transform_xy2radec_radians
 
-        The transform is a mutable object which can be dynamically updated using
-        :func:`update_transform` when the `radec` to `xy` coordinate conversion changes.
-        This can be useful for plotting data (e.g. the planet's limb) using RA/Dec
-        coordinates onto an axis using image pixel coordinates when fitting the disc.
-
-        Args:
-            ax: Optionally specify a matplotlib axis to return
-                `transform_radec2xy + ax.transData`. This value can then be used in the
-                `transform` keyword argument of a Matplotlib function without any
-                further modification.
-
-        Returns:
-            Matplotlib transformation from `radec` to `xy` coordinates.
-        """
-        if self._mpl_transform_radec2xy is None:
-            transform_rad2deg = matplotlib.transforms.Affine2D().scale(np.deg2rad(1))
-            self._mpl_transform_radec2xy = (
-                transform_rad2deg + self._get_matplotlib_radec2xy_transform_radians()
-            )  #  type: ignore
-        transform = self._mpl_transform_radec2xy
-        if ax:
-            transform = transform + ax.transData
-        return transform
 
     def matplotlib_xy2radec_transform(
         self, ax: Axes | None = None
@@ -922,7 +904,7 @@ class BodyXY(Body):
 
         Args:
             ax: Optionally specify a matplotlib axis to return
-                `transform_radec2xy + ax.transData`. This value can then be used in the
+                `transform_xy2radec + ax.transData`. This value can then be used in the
                 `transform` keyword argument of a Matplotlib function without any
                 further modification.
 
@@ -930,16 +912,30 @@ class BodyXY(Body):
             Matplotlib transformation from `xy` to `radec` coordinates.
         """
         if self._mpl_transform_xy2radec is None:
+            transform_deg2rad = matplotlib.transforms.Affine2D().scale(np.rad2deg(1))
             self._mpl_transform_xy2radec = (
-                self.matplotlib_radec2xy_transform().inverted()
+                self._get_matplotlib_xy2radec_transform_radians() + transform_deg2rad
             )
         transform = self._mpl_transform_xy2radec
         if ax:
             transform = transform + ax.transData
         return transform
-
+    
+    def matplotlib_radec2xy_transform(
+        self, ax: Axes | None = None
+    ) -> matplotlib.transforms.Transform:
+        if self._mpl_transform_radec2xy is None:
+            transform_rad2deg = matplotlib.transforms.Affine2D().scale(np.deg2rad(1))
+            self._mpl_transform_radec2xy = (
+                transform_rad2deg + self._get_matplotlib_radec2xy_transform_radians()
+            )  # type: ignore
+        transform = self._mpl_transform_radec2xy
+        if ax:
+            transform = transform + ax.transData
+        return transform
+    
     def matplotlib_xy2km_transform(
-        self, ax: Axes | None
+        self, ax: Axes | None = None
     ) -> matplotlib.transforms.Transform:
         return (
             self.matplotlib_xy2radec_transform()
@@ -947,7 +943,7 @@ class BodyXY(Body):
         )
 
     def matplotlib_km2xy_transform(
-        self, ax: Axes | None
+        self, ax: Axes | None = None
     ) -> matplotlib.transforms.Transform:
         return (
             self.matplotlib_km2radec_transform()
@@ -956,11 +952,15 @@ class BodyXY(Body):
 
     def update_transform(self) -> None:
         """
-        Update the transformation returned by :func:`matplotlib_radec2xy_transform`
+        Update the transformations returned by :func:`matplotlib_radec2xy_transform`
+        and :func:`matplotlib_xy2radec_transform`
         to use the latest disc parameter values `(x0, y0, r0, rotation)`.
         """
         self._get_matplotlib_radec2xy_transform_radians().set_matrix(
             self._get_radec2xy_matrix_radians()
+        )
+        self._get_matplotlib_xy2radec_transform_radians().set_matrix(
+            self._get_xy2radec_matrix_radians()
         )
 
     # Mapping
