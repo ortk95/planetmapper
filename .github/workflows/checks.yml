@@ -14,6 +14,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: isort/isort-action@v1
+  
+  pyright:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: jakebailey/pyright-action@v1
 
   pylint:
     runs-on: ubuntu-latest

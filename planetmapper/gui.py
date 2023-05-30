@@ -22,7 +22,8 @@ import spiceypy as spice
 from astropy.io import fits
 from matplotlib.artist import Artist
 from matplotlib.backend_bases import MouseButton, MouseEvent
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk  # type: ignore
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.text import Text
 
 from . import base, common, data_loader, progress, utils

@@ -1806,19 +1806,21 @@ class BodyXY(Body):
             for the default case this is
             `{'projection': 'rectangular', 'degree_interval': 1}`).
         """
+        info: dict[str, Any]  # Explicitly declare type of info to make pyright happy
         if projection == 'rectangular':
             lon_coords = np.arange(degree_interval / 2, 360, degree_interval)
             if self.positive_longitude_direction == 'W':
                 lon_coords = lon_coords[::-1]
             lat_coords = np.arange(-90 + degree_interval / 2, 90, degree_interval)
             lon_coords, lat_coords = np.meshgrid(lon_coords, lat_coords)
+            info = dict(projection=projection, degree_interval=degree_interval)
             return (
                 lon_coords,
                 lat_coords,
                 lon_coords,
                 lat_coords,
                 self._get_pyproj_transformer(),
-                dict(projection=projection, degree_interval=degree_interval),
+                info,
             )
         elif projection == 'manual':
             if lon_coords is None or lat_coords is None:
@@ -1835,13 +1837,14 @@ class BodyXY(Body):
                 raise ValueError('lon_coords and lat_coords must be 1D or 2D arrays')
             if lon_coords.shape != lat_coords.shape:
                 raise ValueError('lon_coords and lat_coords must have the same shape')
+            info = dict(projection=projection)
             return (
                 lon_coords,
                 lat_coords,
                 lon_coords,
                 lat_coords,
                 self._get_pyproj_transformer(),
-                dict(projection=projection),
+                info,
             )
         elif projection == 'orthographic':
             proj = '+proj=ortho +a={a} +b={b} +lon_0={lon_0} +lat_0={lat_0} +y_0={y_0} +type=crs'.format(
@@ -1852,9 +1855,10 @@ class BodyXY(Body):
                 y_0=(self.r_polar - self.r_eq) * np.sin(np.radians(lat * 2)),
             )
             lim = max(self.r_eq, self.r_polar) * 1.01
+            info = dict(projection=projection, lon=lon, lat=lat, size=size)
             return (
                 *self._get_pyproj_map_coords(proj, np.linspace(-lim, lim, size)),
-                dict(projection=projection, lon=lon, lat=lat, size=size),
+                info,
             )
         elif projection == 'azimuthal':
             proj = '+proj=aeqd +R={a} +lon_0={lon_0} +lat_0={lat_0} +type=crs'.format(
@@ -1863,18 +1867,20 @@ class BodyXY(Body):
                 lat_0=lat,
             )
             lim = max(self.r_eq, self.r_polar) * np.pi * 1.01
+            info = dict(projection=projection, lon=lon, lat=lat, size=size)
             return (
                 *self._get_pyproj_map_coords(proj, np.linspace(-lim, lim, size)),
-                dict(projection=projection, lon=lon, lat=lat, size=size),
+                info,
             )
         else:
             if projection_x_coords is None:
                 raise ValueError('x coords must be provided')
+            info = dict(projection=projection)
             return (
                 *self._get_pyproj_map_coords(
                     projection, projection_x_coords, projection_y_coords
                 ),
-                dict(projection=projection),
+                info,
             )
 
     def _get_pyproj_map_coords(

@@ -4,11 +4,12 @@ exclude = ""
 # Manually set exclude="" to prevent black using .gitignore due
 # to black not parsing trailing slashes in .gitignore correctly
 # https://github.com/psf/black/issues/3694
+include = '\.py?$'
 
 
 [tool.isort]
 profile = "black"
-
+src_paths = ["planetmapper", "tests"]
 
 [tool.coverage.run]
 branch = true
@@ -41,7 +42,6 @@ enable = [
 
 [tool.pyright]
 include = ["planetmapper/*.py", "setup.py"]
-exclude = ["planetmapper/gui.py"]
 reportPropertyTypeMismatch = true
 reportConstantRedefinition = true
 reportIncompatibleMethodOverride = true
