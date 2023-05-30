@@ -1,11 +1,16 @@
 import datetime
 import unittest
+from unittest.mock import MagicMock, patch
 
 import common_testing
 import matplotlib.pyplot as plt
 import numpy as np
 from numpy import array, nan
-from spiceypy.utils.exceptions import NotFoundError, SpiceSPKINSUFFDATA
+from spiceypy.utils.exceptions import (
+    NotFoundError,
+    SpiceKERNELVARNOTFOUND,
+    SpiceSPKINSUFFDATA,
+)
 
 import planetmapper
 import planetmapper.base
@@ -29,6 +34,33 @@ class TestBody(unittest.TestCase):
             ).subpoint_lon,
             153.12614128206837,
         )
+
+        # Test Saturrn automatically has A, B & C rings added
+        saturn = Body('saturn', '2000-01-01')
+        self.assertEqual(saturn.target, 'SATURN')
+        self.assertEqual(saturn.target_body_id, 699)
+        self.assertEqual(
+            saturn.ring_radii, {74658.0, 91975.0, 117507.0, 122340.0, 136780.0}
+        )
+
+    def test_rotation_sense(self):
+        comparisons: list[tuple[str, str, bool]] = [
+            ('sun', 'E', True),
+            ('moon', 'E', True),
+            ('earth', 'E', True),
+            ('jupiter', 'W', True),
+            ('amalthea', 'W', True),
+            ('uranus', 'E', False),
+        ]
+        for target, positive_dir, prograde in comparisons:
+            with self.subTest(target=target):
+                body = planetmapper.Body(
+                    target,
+                    observer='HST',
+                    utc='2005-01-01T00:00:00',
+                )
+                self.assertEqual(body.positive_longitude_direction, positive_dir)
+                self.assertEqual(body.prograde, prograde)
 
     def test_attributes(self):
         self.assertEqual(self.body.target, 'JUPITER')
@@ -173,6 +205,14 @@ class TestBody(unittest.TestCase):
             self.body.create_other_body('amalthea'),
             Body('AMALTHEA', observer='HST', utc='2005-01-01T00:00:00'),
         )
+        self.assertEqual(
+            self.body.create_other_body('daphnis'),
+            planetmapper.BasicBody(
+                'DAPHNIS', observer='HST', utc='2005-01-01T00:00:00'
+            ),
+        )
+        with self.assertRaises(SpiceKERNELVARNOTFOUND):
+            self.body.create_other_body('daphnis', fallback_to_basic_body=False)
 
     def test_add_other_bodies_of_interest(self):
         self.body.add_other_bodies_of_interest('amalthea')
@@ -208,23 +248,37 @@ class TestBody(unittest.TestCase):
             jupiter.other_bodies_of_interest,
             [Body('AMALTHEA', utc), Body('THEBE', utc)],
         )
+        # Check duplicate bodies are not added
+        jupiter.add_other_bodies_of_interest('AMALTHEA', 'THEBE')
+        self.assertEqual(
+            jupiter.other_bodies_of_interest,
+            [Body('AMALTHEA', utc), Body('THEBE', utc)],
+        )
 
     def test_add_satellites_to_bodies_of_interest(self):
         self.body.other_bodies_of_interest.clear()
         with self.assertRaises(SpiceSPKINSUFFDATA):
             self.body.add_satellites_to_bodies_of_interest()
 
+        expected = [
+            Body('AMALTHEA', '2005-01-01T00:00:00.000000', 'HST'),
+            Body('THEBE', '2005-01-01T00:00:00.000000', 'HST'),
+            Body('ADRASTEA', '2005-01-01T00:00:00.000000', 'HST'),
+            Body('METIS', '2005-01-01T00:00:00.000000', 'HST'),
+        ]
         self.body.other_bodies_of_interest.clear()
         self.body.add_satellites_to_bodies_of_interest(skip_insufficient_data=True)
-        self.assertEqual(
-            self.body.other_bodies_of_interest,
-            [
-                Body('AMALTHEA', '2005-01-01T00:00:00.000000', 'HST'),
-                Body('THEBE', '2005-01-01T00:00:00.000000', 'HST'),
-                Body('ADRASTEA', '2005-01-01T00:00:00.000000', 'HST'),
-                Body('METIS', '2005-01-01T00:00:00.000000', 'HST'),
-            ],
-        )
+        self.assertEqual(self.body.other_bodies_of_interest, expected)
+
+        # Test duplicates aren't added
+        self.body.add_satellites_to_bodies_of_interest(skip_insufficient_data=True)
+        self.assertEqual(self.body.other_bodies_of_interest, expected)
+        self.body.other_bodies_of_interest.clear()
+        self.assertEqual(self.body.other_bodies_of_interest, [])
+        self.body.add_other_bodies_of_interest('amalthea', 'thebe')
+        self.assertEqual(self.body.other_bodies_of_interest, expected[:2])
+        self.body.add_satellites_to_bodies_of_interest(skip_insufficient_data=True)
+        self.assertEqual(self.body.other_bodies_of_interest, expected)
         self.body.other_bodies_of_interest.clear()
         self.assertEqual(self.body.other_bodies_of_interest, [])
 
@@ -445,6 +499,15 @@ class TestBody(unittest.TestCase):
                 equal_nan=True,
             )
         )
+        self.assertTrue(
+            np.allclose(
+                self.body.limb_radec(npts=3, close_loop=False),
+                (
+                    array([196.37390736, 196.37487476, 196.36707757]),
+                    array([-5.56152901, -5.56977427, -5.56629386]),
+                ),
+            )
+        )
 
     def test_limb_radec_by_illumination(self):
         self.assertTrue(
@@ -540,6 +603,13 @@ class TestBody(unittest.TestCase):
                 equal_nan=True,
             )
         )
+        self.assertTrue(
+            np.allclose(
+                self.body.terminator_radec(npts=3, close_loop=False),
+                (array([nan, nan, 196.36713568]), array([nan, nan, -5.56628042])),
+                equal_nan=True,
+            )
+        )
 
     def test_if_lonlat_illuminated(self):
         pairs: list[tuple[tuple[float, float], bool]] = [
@@ -555,9 +625,32 @@ class TestBody(unittest.TestCase):
     def test_ring_plane_coordinates(self):
         self.assertTrue(
             np.allclose(
+                self.body.ring_plane_coordinates(0, 0),
+                (nan, nan, nan),
+                equal_nan=True,
+            ),
+        )
+        self.assertTrue(
+            np.allclose(
                 self.body.ring_plane_coordinates(
                     196.37198562427025, -5.565793847134351
                 ),
+                (nan, nan, nan),
+                equal_nan=True,
+            ),
+        )
+        self.assertTrue(
+            np.allclose(
+                self.body.ring_plane_coordinates(
+                    196.37347182693253, -5.561472466522512
+                ),
+                (1377914.753652832, 152.91772706249577, 818261707.8278764),
+                equal_nan=True,
+            ),
+        )
+        self.assertTrue(
+            np.allclose(
+                self.body.ring_plane_coordinates(196.3696997398314, -5.569843641306982),
                 (nan, nan, nan),
                 equal_nan=True,
             ),
@@ -586,6 +679,16 @@ class TestBody(unittest.TestCase):
                 (
                     array([nan, 196.37142013, 196.37228744, nan, nan]),
                     array([nan, -5.5655251, -5.56589635, nan, nan]),
+                ),
+                equal_nan=True,
+            )
+        )
+        self.assertTrue(
+            np.allclose(
+                self.body.ring_radec(123456.789, npts=3, only_visible=False),
+                (
+                    array([196.36825958, 196.37571178, 196.36825958]),
+                    array([-5.56452821, -5.56705935, -5.56452821]),
                 ),
                 equal_nan=True,
             )
@@ -716,7 +819,11 @@ class TestBody(unittest.TestCase):
     def test_get_poles_to_plot(self):
         self.assertEqual(self.body.get_poles_to_plot(), [(0, -90, 'S')])
 
-    def test_plot_wireframe(self):
+        moon = Body('moon', utc='2000-01-08 03:00:00')
+        self.assertEqual(moon.get_poles_to_plot(), [(0, 90, '(N)'), (0, -90, '(S)')])
+
+    @patch('matplotlib.pyplot.show')
+    def test_plot_wireframe(self, mock_show: MagicMock):
         fig, ax = plt.subplots()
         self.body.plot_wireframe_radec(ax, color='red')
         plt.close(fig)
@@ -754,4 +861,62 @@ class TestBody(unittest.TestCase):
         jupiter.add_other_bodies_of_interest('thebe', 'metis', 'amalthea', 'adrastea')
         fig, ax = plt.subplots()
         jupiter.plot_wireframe_radec(ax)
+        plt.close(fig)
+
+        # Test show
+        fig, ax = plt.subplots()
+        jupiter.plot_wireframe_radec(ax, show=True)
+        plt.close(fig)
+        mock_show.assert_called_once()
+        mock_show.reset_mock()
+
+        fig, ax = plt.subplots()
+        jupiter.plot_wireframe_km(ax, show=True)
+        plt.close(fig)
+        mock_show.assert_called_once()
+        mock_show.reset_mock()
+
+    def test_matplotlib_transforms(self):
+        self.assertTrue(
+            np.allclose(
+                self.body.matplotlib_km2radec_transform().get_matrix(),
+                array(
+                    [
+                        [-6.40343479e-08, 2.88537788e-08, 1.96371986e02],
+                        [2.87177471e-08, 6.37324567e-08, -5.56579385e00],
+                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                    ]
+                ),
+            )
+        )
+
+        self.assertTrue(
+            np.allclose(
+                self.body.matplotlib_radec2km_transform().get_matrix(),
+                array(
+                    [
+                        [-1.29809749e07, 5.87691418e06, 2.58180951e09],
+                        [5.84920736e06, 1.30424639e07, -1.07602880e09],
+                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                    ]
+                ),
+            )
+        )
+
+        fig, axis = plt.subplots()
+        for ax in [None, axis]:
+            with self.subTest(ax=ax):
+                # Test caching works
+                self.body.matplotlib_radec2km_transform(ax)
+                t1 = self.body.matplotlib_radec2km_transform(ax)
+                self.body._mpl_transform_radec2km = None
+                t2 = self.body.matplotlib_radec2km_transform(ax)
+                self.assertEqual(t1, t2)
+
+                self.body.matplotlib_km2radec_transform(ax)
+                t1 = self.body.matplotlib_km2radec_transform(ax)
+                self.body._mpl_transform_km2radec = None
+                t2 = self.body.matplotlib_km2radec_transform(ax)
+                self.assertEqual(t1, t2)
+
         plt.close(fig)

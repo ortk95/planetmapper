@@ -1,7 +1,9 @@
 import datetime
+import glob
 import os
 import unittest
 from typing import Any, Callable, ParamSpec
+from unittest.mock import MagicMock, patch
 
 import common_testing
 import numpy as np
@@ -28,6 +30,12 @@ class TestSpiceBase(unittest.TestCase):
 
     def test_init(self):
         self.assertTrue(self.obj._optimize_speed)
+
+        obj = planetmapper.SpiceBase(optimize_speed=False)
+        self.assertFalse(obj._optimize_speed)
+
+        obj = planetmapper.SpiceBase(show_progress=True)
+        self.assertIsNotNone(obj._get_progress_hook())
 
     def test_repr(self):
         self.assertEqual(str(self.obj), 'SpiceBase()')
@@ -353,6 +361,16 @@ class TestKernelPath(unittest.TestCase):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
         planetmapper.base._clear_kernels()
 
+    def test_auto_load_kernels(self):
+        planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
+        planetmapper.base._clear_kernels()
+
+        self.assertFalse(planetmapper.base._KERNEL_DATA['kernels_loaded'])
+        planetmapper.SpiceBase(auto_load_kernels=False)
+        self.assertFalse(planetmapper.base._KERNEL_DATA['kernels_loaded'])
+        planetmapper.SpiceBase(auto_load_kernels=True)
+        self.assertTrue(planetmapper.base._KERNEL_DATA['kernels_loaded'])
+
     def test_kernel_path(self):
         path = os.path.join(
             common_testing.TEMP_PATH, 'test_kernel_path', 'set_kernel_path'
@@ -361,6 +379,7 @@ class TestKernelPath(unittest.TestCase):
         self.assertEqual(planetmapper.get_kernel_path(), path)
 
         self.assertEqual(planetmapper.base.load_kernels(), [])
+        self.assertEqual(planetmapper.base.load_kernels(clear_before=True), [])
 
         planetmapper.set_kernel_path(None)
         self.assertEqual(
@@ -522,7 +541,8 @@ class TestBodyBase(unittest.TestCase):
             ),
         )
 
-    def test_kernel_errors(self):
+    @patch('builtins.print')
+    def test_kernel_errors(self, mock_print: MagicMock):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
         planetmapper.base._clear_kernels()
 
@@ -553,6 +573,36 @@ class TestBodyBase(unittest.TestCase):
         except SpiceNOLEAPSECONDS as e:
             self.assertIn(planetmapper.base._SPICE_ERROR_HELP_TEXT, e.message)
             self.assertIn(planetmapper.base.get_kernel_path(), e.message)
+        mock_print.assert_called()
+
+        planetmapper.base._clear_kernels()
+
+        BodyBase(
+            target='jupiter',
+            utc='2000-01-01',
+            observer='earth',
+            aberration_correction='CN+S',
+            observer_frame='J2000',
+            kernel_path=common_testing.KERNEL_PATH,
+        )
+
+        planetmapper.base._clear_kernels()
+
+        manual_kernels = []
+        for pattern in planetmapper.base._KERNEL_DATA['kernel_patterns']:
+            manual_kernels.extend(
+                glob.glob(
+                    os.path.join(common_testing.KERNEL_PATH, pattern), recursive=True
+                )
+            )
+        BodyBase(
+            target='jupiter',
+            utc='2000-01-01',
+            observer='earth',
+            aberration_correction='CN+S',
+            observer_frame='J2000',
+            manual_kernels=manual_kernels,
+        )
 
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
         planetmapper.base._clear_kernels()
