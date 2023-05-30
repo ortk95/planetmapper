@@ -722,7 +722,7 @@ class TestBodyXY(unittest.TestCase):
             self.body.backplane_summary_string(),
             '\n'.join(lines),
         )
-    
+
     @patch('builtins.print')
     def test_print_backplanes(self, mock_print):
         self.body.print_backplanes()
