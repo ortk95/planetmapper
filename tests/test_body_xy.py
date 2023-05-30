@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import common_testing
 import matplotlib.pyplot as plt
@@ -479,7 +479,7 @@ class TestBodyXY(unittest.TestCase):
             )
         )
 
-    def test_termrinator_xy(self):
+    def test_terminator_xy(self):
         self.body.set_disc_params(5, 8, 10, 45)
         self.assertTrue(
             np.allclose(
@@ -531,14 +531,30 @@ class TestBodyXY(unittest.TestCase):
             )
         )
 
-    def test_plot_wireframe(self):
+    @patch('matplotlib.pyplot.show')
+    def test_plot_wireframe(self, mock_show: MagicMock):
         fig, ax = plt.subplots()
-        self.body.plot_wireframe_km(ax=ax)
+        self.body.plot_wireframe_xy(ax=ax)
         plt.close(fig)
 
         fig, ax = plt.subplots()
-        self.body.plot_map_wireframe(ax=ax)
+        self.body.plot_wireframe_xy(ax=ax, show=True)
         plt.close(fig)
+        mock_show.assert_called_once()
+        mock_show.reset_mock()
+
+        fig, ax = plt.subplots()
+        self.body_zero_size.plot_wireframe_xy(ax=ax)
+        plt.close(fig)
+
+        ax = self.body.plot_map_wireframe()
+        self.assertEqual(ax.get_xlim(), (360, 0))
+        plt.close('all')
+
+        uranus = BodyXY('uranus', utc='2000-01-01', sz=5)  # Uranus is +ve E
+        ax = uranus.plot_map_wireframe(ax=ax)
+        self.assertEqual(ax.get_xlim(), (0, 360))
+        plt.close('all')
 
         fig, ax = plt.subplots()
         self.body.plot_map_wireframe(ax=ax, projection='orthographic', lat=56)
@@ -546,6 +562,15 @@ class TestBodyXY(unittest.TestCase):
 
         fig, ax = plt.subplots()
         self.body.plot_map_wireframe(ax=ax, projection='azimuthal', lat=-90)
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
+        self.body.plot_map_wireframe(
+            ax=ax,
+            projection='manual',
+            lon_coords=np.linspace(-180, 180, 5),
+            lat_coords=np.linspace(0, 90, 3),
+        )
         plt.close(fig)
 
     def test_get_wireframe_overlay(self):
@@ -557,7 +582,13 @@ class TestBodyXY(unittest.TestCase):
         self.assertEqual(max(img.shape), 100)
         self.assertEqual(len(img.shape), 2)
 
-    def test_map_img(self):
+        img = self.body.get_wireframe_overlay_map(output_size=100, rgba=True)
+        self.assertEqual(max(img.shape), 100)
+        self.assertEqual(len(img.shape), 3)
+        self.assertEqual(img.shape[2], 4)
+
+    @patch('builtins.print')
+    def test_map_img(self, mock_print: MagicMock):
         self.body.set_img_size(4, 3)
         self.body.set_disc_params(2, 1, 1.5, 45.678)
 
@@ -566,15 +597,16 @@ class TestBodyXY(unittest.TestCase):
                 [-1.0, 2.2, 3.3, 4.4],
                 [999.0, nan, 1.0, 1.0],
                 [0.0, 3.0, 0.0, nan],
+                [0.0, 3.0, 0.1, nan],
             ]
         )
         expected = {
             'nearest': array(
                 [
-                    [nan, nan, nan, 2.31866428, 2.74706312, 3.19651992, nan, nan],
-                    [nan, nan, nan, nan, nan, 3.31150404, nan, nan],
-                    [nan, nan, nan, nan, nan, nan, nan, nan],
-                    [nan, nan, 0.28286675, nan, nan, nan, nan, nan],
+                    [nan, nan, 2.2, 2.2, 2.2, 3.3, nan, nan],
+                    [nan, nan, nan, nan, 1.0, 4.4, nan, nan],
+                    [nan, nan, 3.0, 3.0, 0.0, 1.0, nan, nan],
+                    [nan, nan, 0.0, 0.0, 0.0, nan, nan, nan],
                 ]
             ),
             'linear': array(
@@ -582,23 +614,23 @@ class TestBodyXY(unittest.TestCase):
                     [nan, nan, nan, 2.31866428, 2.74706312, 3.19651992, nan, nan],
                     [nan, nan, nan, nan, nan, 3.31150404, nan, nan],
                     [nan, nan, nan, nan, nan, nan, nan, nan],
-                    [nan, nan, 0.28286675, nan, nan, nan, nan, nan],
+                    [nan, nan, 0.32017562, nan, nan, nan, nan, nan],
                 ]
             ),
             'quadratic': array(
                 [
-                    [nan, nan, nan, 2.31866428, 2.74706312, 3.19651992, nan, nan],
-                    [nan, nan, nan, nan, nan, 3.31150404, nan, nan],
+                    [nan, nan, nan, 2.39880056, 2.87923885, 3.21453136, nan, nan],
+                    [nan, nan, nan, nan, nan, 11.73917107, nan, nan],
                     [nan, nan, nan, nan, nan, nan, nan, nan],
-                    [nan, nan, 0.28286675, nan, nan, nan, nan, nan],
+                    [nan, nan, 1.75206632, nan, nan, nan, nan, nan],
                 ]
             ),
             'cubic': array(
                 [
-                    [nan, nan, nan, 2.31866428, 2.74706312, 3.19651992, nan, nan],
-                    [nan, nan, nan, nan, nan, 3.31150404, nan, nan],
+                    [nan, nan, nan, 2.38239808, 2.87854299, 3.22915402, nan, nan],
+                    [nan, nan, nan, nan, nan, 38.97003701, nan, nan],
                     [nan, nan, nan, nan, nan, nan, nan, nan],
-                    [nan, nan, 0.28286675, nan, nan, nan, nan, nan],
+                    [nan, nan, 4.84799586, nan, nan, nan, nan, nan],
                 ]
             ),
         }
@@ -606,18 +638,37 @@ class TestBodyXY(unittest.TestCase):
             with self.subTest(interpolation=interpolation):
                 self.assertTrue(
                     np.allclose(
-                        self.body.map_img(image, degree_interval=45),
+                        self.body.map_img(
+                            image,
+                            degree_interval=45,
+                            interpolation=interpolation,  # type: ignore
+                        ),
                         expected_img,
                         equal_nan=True,
                     )
                 )
+
+        self.body.map_img(
+            image, interpolation='linear', degree_interval=45, warn_nan=True
+        )
+        mock_print.assert_called_once()
+        mock_print.reset_mock()
+
+        with self.assertRaises(ValueError):
+            self.body.map_img(image, interpolation='<<<test>>>')  # type: ignore
 
         with self.assertRaises(ValueError):
             self.body.map_img(image, projection='manual')
 
         lons = np.linspace(-180, 180, 5)
         lats = np.linspace(0, 90, 3)
-
+        image = np.array(
+            [
+                [-1.0, 2.2, 3.3, 4.4],
+                [999.0, nan, 1.0, 1.0],
+                [0.0, 3.0, 0.0, nan],
+            ]
+        )
         for attempt in range(2):
             with self.subTest(attempt=attempt):
                 # Test twice to check cache behaviour
@@ -656,6 +707,62 @@ class TestBodyXY(unittest.TestCase):
         )
 
         self.body.set_img_size(15, 10)
+
+    def test_generate_map_coordinates(self):
+        with self.assertRaises(ValueError):
+            self.body.generate_map_coordinates(projection='manual')
+        with self.assertRaises(ValueError):
+            self.body.generate_map_coordinates(
+                'manual',
+                lon_coords=np.array([1, 2, 3]),
+                lat_coords=np.array([[1, 2, 3], [4, 5, 6]]),
+            )
+        with self.assertRaises(ValueError):
+            self.body.generate_map_coordinates(
+                'manual',
+                lon_coords=np.array([[[1, 2, 3]]]),
+                lat_coords=np.array([[[1, 2, 3]]]),
+            )
+        with self.assertRaises(ValueError):
+            self.body.generate_map_coordinates(
+                'manual',
+                lon_coords=np.array([[1, 2, 3]]),
+                lat_coords=np.array([[1, 2, 3], [4, 5, 6]]),
+            )
+        with self.assertRaises(ValueError):
+            self.body.generate_map_coordinates('proj=ortho +R=1 +type=crs')
+        with self.assertRaises(ValueError):
+            self.body.generate_map_coordinates(
+                'proj=ortho +R=1 +type=crs',
+                projection_x_coords=np.array([1, 2, 3]),
+                projection_y_coords=np.array([[1, 2, 3], [4, 5, 6]]),
+            )
+        with self.assertRaises(ValueError):
+            self.body.generate_map_coordinates(
+                'proj=ortho +R=1 +type=crs',
+                projection_x_coords=np.array([[[1, 2, 3]]]),
+            )
+        with self.assertRaises(ValueError):
+            self.body.generate_map_coordinates(
+                'proj=ortho +R=1 +type=crs',
+                projection_x_coords=np.array([[1, 2, 3]]),
+                projection_y_coords=np.array([[1, 2, 3], [4, 5, 6]]),
+            )
+        output_a = self.body.generate_map_coordinates(
+            '+proj=ortho +R=1 +type=crs', projection_x_coords=np.array([0, 0.25, 0.5])
+        )
+        output_b = self.body.generate_map_coordinates(
+            '+proj=ortho +R=1 +type=crs',
+            projection_x_coords=np.array([0, 0.25, 0.5]),
+            projection_y_coords=np.array([0, 0.25, 0.5]),
+        )
+        for idx, (a, b) in enumerate(zip(output_a, output_b)):
+            with self.subTest(idx=idx):
+                self.assertEqual(type(a), type(b))
+                if isinstance(a, np.ndarray):
+                    self.assertTrue(np.array_equal(a, b))
+                else:
+                    self.assertEqual(a, b)
 
     def test_standardise_backplane_name(self):
         self.assertEqual(self.body.standardise_backplane_name('EMISSION'), 'EMISSION')
@@ -724,7 +831,7 @@ class TestBodyXY(unittest.TestCase):
         )
 
     @patch('builtins.print')
-    def test_print_backplanes(self, mock_print):
+    def test_print_backplanes(self, mock_print: MagicMock):
         self.body.print_backplanes()
         mock_print.assert_called_once_with(self.body.backplane_summary_string())
 
@@ -777,19 +884,34 @@ class TestBodyXY(unittest.TestCase):
         )
         self.body.set_img_size(15, 10)
 
-    def test_plot_backplane(self):
+    @patch('matplotlib.pyplot.show')
+    def test_plot_backplane(self, mock_show: MagicMock):
         fig, ax = plt.subplots()
         self.body.plot_backplane_img(' emission ', ax=ax)
         plt.close(fig)
 
         fig, ax = plt.subplots()
-        self.body.plot_backplane_map(' emission ', degree_interval=90, ax=ax)
+        self.body.plot_backplane_img(' EmissioN ', ax=ax, show=True)
         plt.close(fig)
+        mock_show.assert_called_once()
+        mock_show.reset_mock()
+
+        fig, ax = plt.subplots()
+        self.body.plot_backplane_map(' emission ', ax=ax, show=True)
+        plt.close(fig)
+        mock_show.assert_called_once()
+        mock_show.reset_mock()
+
+        self.body.plot_backplane_map(' emission ', degree_interval=90)
+        plt.close('all')
 
     def test_plot_map(self):
         fig, ax = plt.subplots()
         self.body.plot_map(np.ones((180, 360)), ax=ax)
         plt.close(fig)
+
+        self.body.imshow_map(np.ones((180, 360)))
+        plt.close('all')
 
     def test_matplotlib_transforms(self):
         self.body.set_disc_params(2, 1, 3.5, 45.678)

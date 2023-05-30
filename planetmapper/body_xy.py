@@ -879,7 +879,6 @@ class BodyXY(Body):
             )
         return self._mpl_transform_xy2radec_radians
 
-
     def matplotlib_xy2radec_transform(
         self, ax: Axes | None = None
     ) -> matplotlib.transforms.Transform:
@@ -920,7 +919,7 @@ class BodyXY(Body):
         if ax:
             transform = transform + ax.transData
         return transform
-    
+
     def matplotlib_radec2xy_transform(
         self, ax: Axes | None = None
     ) -> matplotlib.transforms.Transform:
@@ -933,7 +932,7 @@ class BodyXY(Body):
         if ax:
             transform = transform + ax.transData
         return transform
-    
+
     def matplotlib_xy2km_transform(
         self, ax: Axes | None = None
     ) -> matplotlib.transforms.Transform:
@@ -953,7 +952,7 @@ class BodyXY(Body):
     def update_transform(self) -> None:
         """
         Update the transformations returned by :func:`matplotlib_radec2xy_transform`
-        and :func:`matplotlib_xy2radec_transform` to use the latest disc parameter 
+        and :func:`matplotlib_xy2radec_transform` to use the latest disc parameter
         values `(x0, y0, r0, rotation)`.
         """
         self._get_matplotlib_radec2xy_transform_radians().set_matrix(
@@ -1125,7 +1124,7 @@ class BodyXY(Body):
         formatting: dict[_WireframeComponent, dict[str, Any]] | None = None,
         common_formatting: dict[str, Any] | None = None,
         **map_kwargs: Unpack[_MapKwargs],
-    ):
+    ) -> Axes:
         """
         Plot wireframe (e.g. gridlines) of the map projection of the observation. See
         :func:`Body.plot_wireframe_radec` for details of accepted arguments.
