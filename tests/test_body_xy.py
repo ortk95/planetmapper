@@ -333,7 +333,7 @@ class TestBodyXY(unittest.TestCase):
                     setter(np.array([1, 2, 3]))
 
         with self.assertRaises(ValueError):
-            self.set_r0(-1.23)
+            self.body.set_r0(-1.23)
 
         self.body.set_plate_scale_arcsec(1)
         self.assertAlmostEqual(self.body.get_plate_scale_arcsec(), 1)
