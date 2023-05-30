@@ -1,10 +1,12 @@
 import datetime
+import os
 import unittest
 from typing import Any, Callable, ParamSpec
 
 import common_testing
 import numpy as np
 import spiceypy as spice
+from spiceypy.utils.exceptions import SpiceNOLEAPSECONDS, SpiceSPKINSUFFDATA
 
 import planetmapper
 import planetmapper.base
@@ -223,6 +225,7 @@ class TestSpiceStringEncoding(unittest.TestCase):
     def setUp(self):
         planetmapper.SpiceBase.load_spice_kernels()
         self.obj = planetmapper.SpiceBase(optimize_speed=True)
+        self.obj_slow = planetmapper.SpiceBase(optimize_speed=False)
 
     def compare_function_outputs(
         self, fn: Callable[P, Any], *args: P.args, **kw: P.kwargs
@@ -231,6 +234,7 @@ class TestSpiceStringEncoding(unittest.TestCase):
         string_functions = [
             lambda x: x,
             self.obj._encode_str,
+            self.obj_slow._encode_str,
         ]
         outputs = []
         for f in string_functions:
@@ -240,12 +244,16 @@ class TestSpiceStringEncoding(unittest.TestCase):
                 )
             )
         self.assertEqual(len(outputs[0]), len(outputs[1]))
-        for a, b in zip(outputs[0], outputs[1]):
-            self.assertEqual(type(a), type(b))
-            if isinstance(a, np.ndarray):
-                self.assertTrue(np.array_equal(a, b))
+        self.assertEqual(len(outputs[0]), len(outputs[2]))
+        for identity, optimized, slow in zip(outputs[0], outputs[1], outputs[2]):
+            self.assertEqual(type(identity), type(optimized))
+            self.assertEqual(type(identity), type(slow))
+            if isinstance(identity, np.ndarray):
+                self.assertTrue(np.array_equal(identity, optimized))
+                self.assertTrue(np.array_equal(identity, slow))
             else:
-                self.assertEqual(a, b)
+                self.assertEqual(identity, optimized)
+                self.assertEqual(identity, slow)
 
     def test_spkezr(self):
         self.compare_function_outputs(
@@ -346,7 +354,9 @@ class TestKernelPath(unittest.TestCase):
         planetmapper.base._clear_kernels()
 
     def test_kernel_path(self):
-        path = 'abcdef/ghi/jkl'
+        path = os.path.join(
+            common_testing.TEMP_PATH, 'test_kernel_path', 'set_kernel_path'
+        )
         planetmapper.set_kernel_path(path)
         self.assertEqual(planetmapper.get_kernel_path(), path)
 
@@ -359,6 +369,52 @@ class TestKernelPath(unittest.TestCase):
 
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
         self.assertEqual(planetmapper.get_kernel_path(), common_testing.KERNEL_PATH)
+        self.assertEqual(
+            planetmapper.get_kernel_path(return_source=True),
+            (common_testing.KERNEL_PATH, 'set_kernel_path()'),
+        )
+
+        environment_variable_path = os.path.join(
+            common_testing.TEMP_PATH, 'test_kernel_path', 'environment_variable'
+        )
+        os.environ['PLANETMAPPER_KERNEL_PATH'] = environment_variable_path
+        self.assertEqual(planetmapper.get_kernel_path(), common_testing.KERNEL_PATH)
+        self.assertEqual(
+            planetmapper.get_kernel_path(return_source=True),
+            (common_testing.KERNEL_PATH, 'set_kernel_path()'),
+        )
+
+        planetmapper.set_kernel_path(None)
+        self.assertEqual(planetmapper.get_kernel_path(), environment_variable_path)
+        self.assertEqual(
+            planetmapper.get_kernel_path(return_source=True),
+            (environment_variable_path, 'PLANETMAPPER_KERNEL_PATH'),
+        )
+
+        os.environ['PLANETMAPPER_KERNEL_PATH'] = ''
+        self.assertEqual(
+            planetmapper.get_kernel_path(), planetmapper.base.DEFAULT_KERNEL_PATH
+        )
+        self.assertEqual(
+            planetmapper.get_kernel_path(return_source=True),
+            (planetmapper.base.DEFAULT_KERNEL_PATH, 'default'),
+        )
+
+        os.environ.pop('PLANETMAPPER_KERNEL_PATH')
+        self.assertEqual(
+            planetmapper.get_kernel_path(), planetmapper.base.DEFAULT_KERNEL_PATH
+        )
+        self.assertEqual(
+            planetmapper.get_kernel_path(return_source=True),
+            (planetmapper.base.DEFAULT_KERNEL_PATH, 'default'),
+        )
+
+        planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
+        self.assertEqual(planetmapper.get_kernel_path(), common_testing.KERNEL_PATH)
+        self.assertEqual(
+            planetmapper.get_kernel_path(return_source=True),
+            (common_testing.KERNEL_PATH, 'set_kernel_path()'),
+        )
 
 
 class TestBodyBase(unittest.TestCase):
@@ -465,6 +521,41 @@ class TestBodyBase(unittest.TestCase):
                 )
             ),
         )
+
+    def test_kernel_errors(self):
+        planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
+        planetmapper.base._clear_kernels()
+
+        try:
+            BodyBase(
+                target='mars',
+                utc='2000-01-01',
+                observer='earth',
+                aberration_correction='CN+S',
+                observer_frame='J2000',
+            )
+        except SpiceSPKINSUFFDATA as e:
+            self.assertIn(planetmapper.base._SPICE_ERROR_HELP_TEXT, e.message)
+            self.assertIn(planetmapper.base.get_kernel_path(), e.message)
+
+        kernel_path = os.path.join(common_testing.TEMP_PATH, 'empty_kernel_path')
+        planetmapper.base._clear_kernels()
+        planetmapper.set_kernel_path(kernel_path)
+
+        try:
+            BodyBase(
+                target='mars',
+                utc='2000-01-01',
+                observer='earth',
+                aberration_correction='CN+S',
+                observer_frame='J2000',
+            )
+        except SpiceNOLEAPSECONDS as e:
+            self.assertIn(planetmapper.base._SPICE_ERROR_HELP_TEXT, e.message)
+            self.assertIn(planetmapper.base.get_kernel_path(), e.message)
+
+        planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
+        planetmapper.base._clear_kernels()
 
 
 class TestCache(unittest.TestCase):

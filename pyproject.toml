@@ -4,6 +4,17 @@ exclude = ""
 # Manually set exclude="" to prevent black using .gitignore due
 # to black not parsing trailing slashes in .gitignore correctly
 # https://github.com/psf/black/issues/3694
+extend_exclude = "typings"
+
+[tool.isort]
+profile = "black"
+extend_skip = ["typings"]
+
+[tool.coverage.run]
+branch = true
+include = ["planetmapper/*.py"]
+omit = ["planetmapper/gui.py"]
+
 
 [tool.pylint.'MESSAGES CONTROL']
 disable = [
@@ -23,11 +34,16 @@ disable = [
     "too-many-ancestors",
     "too-many-return-statements",
     ]
+enable = [
+    "useless-suppression",
+    ]
 
-[tool.isort]
-profile = "black"
 
-[tool.coverage.run]
-branch = true
-include = ["planetmapper/*.py"]
-omit = ["planetmapper/gui.py"]
+[tool.pyright]
+include = ["planetmapper/*.py", "setup.py"]
+reportPropertyTypeMismatch = true
+reportConstantRedefinition = true
+reportIncompatibleMethodOverride = true
+reportIncompatibleVariableOverride = true
+reportUnnecessaryComparison = true
+reportUnnecessaryContains = true

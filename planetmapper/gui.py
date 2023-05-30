@@ -22,7 +22,8 @@ import spiceypy as spice
 from astropy.io import fits
 from matplotlib.artist import Artist
 from matplotlib.backend_bases import MouseButton, MouseEvent
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk  # type: ignore
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.text import Text
 
 from . import base, common, data_loader, progress, utils
@@ -1672,7 +1673,7 @@ class OpenObservation(Popup):
         kernels = [k.strip() for k in string.splitlines()]
         base.load_kernels(*kernels, clear_before=True)
 
-        kernel_help = 'Check for typos and make sure you have listed all the required SPICE kernels'
+        kernel_help = '\n' + base._SPICE_ERROR_HELP_TEXT
 
         sb = base.SpiceBase(auto_load_kernels=False)
         try:
