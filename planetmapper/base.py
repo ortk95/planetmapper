@@ -4,6 +4,7 @@ import glob
 import numbers
 import os
 from collections.abc import Iterable
+from pathlib import Path
 from typing import (
     Any,
     Callable,
@@ -175,8 +176,13 @@ class SpiceBase:
             so should generally be left enabled.
         auto_load_kernels: Toggle automatic kernel loading with
             :func:`load_spice_kernels`.
-        kernel_path: Passed to  :func:`load_spice_kernels` if `load_kernels` is True.
+        kernel_path: Passed to  :func:`load_spice_kernels` if `load_kernels` is True. It
+            is recommended to use :func:`set_kernel_path` instead of passing this
+            argument.
         manual_kernels: Passed to  :func:`load_spice_kernels` if `load_kernels` is True.
+            It is recommended to use
+            :func:`planetmapper.base.prevent_kernel_loading` then manually
+            load kernels yourself instead of passing this argument.
     """
 
     _DEFAULT_DTM_FORMAT_STRING = '%Y-%m-%dT%H:%M:%S.%f'
@@ -694,8 +700,8 @@ def sort_kernel_paths(kernels: Iterable[str]) -> list[str]:
         Although this function attempts to sort kernels in a sensible way, it is
         possible that it will not always do the right thing. If you have multiple
         kernels containing overlapping data (e.g. old predicted JWST ephemerides), it
-        is generally safer to delete the old kernels, or move them into a completely
-        separate directory.
+        is generally safer to delete the old kernels, move them into a completely
+        separate directory, or load them manually yourself using `spice.furnsh`.
 
     Args:
         kernels: Iterable of kernel paths.
@@ -703,14 +709,41 @@ def sort_kernel_paths(kernels: Iterable[str]) -> list[str]:
     Returns:
         Sorted list of kernel paths.
     """
-    kernels = sorted(os.path.normpath(kernel) for kernel in kernels)
-    kernels.sort(key=os.path.basename)
-    kernels.sort(key=os.path.dirname)
-    kernels.sort(key=lambda x: x.count(os.sep), reverse=True)
-    return kernels
+    paths = sorted(Path(kernel).resolve() for kernel in kernels)
+    paths.sort(key=os.path.basename)
+    paths.sort(key=os.path.dirname)
+    paths.sort(key=lambda p: len(p.parts), reverse=True)
+    return [str(path) for path in paths]
 
 
-def _clear_kernels() -> None:
+def prevent_kernel_loading() -> None:
+    """
+    Prevent PlanetMapper from automatically loading kernels.
+
+    This function can be used if want to load kernels manually using `spice.furnsh`.
+
+    ::
+
+        import spiceypy as spice
+        import planetmapper
+
+        # Call this function before creating any objects that inherit from SpiceBase,
+        # then load your desired kernels manually
+        planetmapper.base.prevent_kernel_loading()
+        kernels_to_load = [...]
+        for kernel in kernels_to_load:
+            spice.furnsh(kernel)
+
+        # After setting up the kernels, you can use PlanetMapper as normal
+        body = planetmapper.Body('mars', '2021-01-01T00:00:00')
+        body.plot_wireframe_km()
+
+    Calling :func:`clear_kernels` will re-enable automatic kernel loading.
+    """
+    _KERNEL_DATA['kernels_loaded'] = True
+
+
+def clear_kernels() -> None:
     """
     Clear spice kernel pool.
 

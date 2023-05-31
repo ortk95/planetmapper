@@ -50,9 +50,10 @@ Key features
    :caption: API Reference
 
    documentation
+   base
+   gui
    utils
    data_loader
-   gui
    kernel_downloader
 
 

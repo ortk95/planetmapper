@@ -8,7 +8,11 @@ from unittest.mock import MagicMock, patch
 import common_testing
 import numpy as np
 import spiceypy as spice
-from spiceypy.utils.exceptions import SpiceNOLEAPSECONDS, SpiceSPKINSUFFDATA
+from spiceypy.utils.exceptions import (
+    SpiceNOLEAPSECONDS,
+    SpiceSPKINSUFFDATA,
+    SpiceyPyError,
+)
 
 import planetmapper
 import planetmapper.base
@@ -355,21 +359,43 @@ class TestSpiceStringEncoding(unittest.TestCase):
 
 class TestKernelPath(unittest.TestCase):
     def setUp(self) -> None:
-        planetmapper.base._clear_kernels()
+        planetmapper.base.clear_kernels()
 
     def tearDown(self) -> None:
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
-        planetmapper.base._clear_kernels()
+        planetmapper.base.clear_kernels()
 
     def test_auto_load_kernels(self):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
-        planetmapper.base._clear_kernels()
+        planetmapper.base.clear_kernels()
 
         self.assertFalse(planetmapper.base._KERNEL_DATA['kernels_loaded'])
         planetmapper.SpiceBase(auto_load_kernels=False)
         self.assertFalse(planetmapper.base._KERNEL_DATA['kernels_loaded'])
         planetmapper.SpiceBase(auto_load_kernels=True)
         self.assertTrue(planetmapper.base._KERNEL_DATA['kernels_loaded'])
+
+    def test_clear_kernels(self):
+        planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
+        for attempt in [1, 2]:
+            with self.subTest(attempt=attempt):
+                planetmapper.base.clear_kernels()
+                self.assertFalse(planetmapper.base._KERNEL_DATA['kernels_loaded'])
+                with self.assertRaises(SpiceyPyError):
+                    planetmapper.Body('Jupiter', '2000-01-01', auto_load_kernels=False)
+                planetmapper.Body('Jupiter', '2000-01-01')
+                self.assertTrue(planetmapper.base._KERNEL_DATA['kernels_loaded'])
+
+    def test_prevent_kernel_loading(self):
+        planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
+        planetmapper.base.clear_kernels()
+        planetmapper.base.prevent_kernel_loading()
+        self.assertTrue(planetmapper.base._KERNEL_DATA['kernels_loaded'])
+        with self.assertRaises(SpiceyPyError):
+            planetmapper.Body('Jupiter', '2000-01-01')
+        planetmapper.base.clear_kernels()
+        self.assertFalse(planetmapper.base._KERNEL_DATA['kernels_loaded'])
+        planetmapper.Body('Jupiter', '2000-01-01')
 
     def test_kernel_path(self):
         path = os.path.join(
@@ -544,7 +570,7 @@ class TestBodyBase(unittest.TestCase):
     @patch('builtins.print')
     def test_kernel_errors(self, mock_print: MagicMock):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
-        planetmapper.base._clear_kernels()
+        planetmapper.base.clear_kernels()
 
         try:
             BodyBase(
@@ -559,7 +585,7 @@ class TestBodyBase(unittest.TestCase):
             self.assertIn(planetmapper.base.get_kernel_path(), e.message)
 
         kernel_path = os.path.join(common_testing.TEMP_PATH, 'empty_kernel_path')
-        planetmapper.base._clear_kernels()
+        planetmapper.base.clear_kernels()
         planetmapper.set_kernel_path(kernel_path)
 
         try:
@@ -575,7 +601,7 @@ class TestBodyBase(unittest.TestCase):
             self.assertIn(planetmapper.base.get_kernel_path(), e.message)
         mock_print.assert_called()
 
-        planetmapper.base._clear_kernels()
+        planetmapper.base.clear_kernels()
 
         BodyBase(
             target='jupiter',
@@ -586,7 +612,7 @@ class TestBodyBase(unittest.TestCase):
             kernel_path=common_testing.KERNEL_PATH,
         )
 
-        planetmapper.base._clear_kernels()
+        planetmapper.base.clear_kernels()
 
         manual_kernels = []
         for pattern in planetmapper.base._KERNEL_DATA['kernel_patterns']:
@@ -605,7 +631,7 @@ class TestBodyBase(unittest.TestCase):
         )
 
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
-        planetmapper.base._clear_kernels()
+        planetmapper.base.clear_kernels()
 
 
 class TestCache(unittest.TestCase):
@@ -691,7 +717,7 @@ class TestFunctions(unittest.TestCase):
                 self.assertEqual(_to_tuple(a), b)
 
     def test_sort_kernel_paths(self):
-        paths = [
+        input = [
             '000.txt',
             'zzz.txt',
             'a/b/c.txt',
@@ -718,4 +744,5 @@ class TestFunctions(unittest.TestCase):
             'zzz.txt',
         ]
         expected = [os.path.normpath(p) for p in expected]
-        self.assertEqual(planetmapper.base.sort_kernel_paths(paths), expected)
+        output = [os.path.normpath(p) for p in planetmapper.base.sort_kernel_paths(input)]
+        self.assertEqual(output, expected)
