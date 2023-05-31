@@ -16,3 +16,6 @@
    :show-inheritance:
    :members:
    :undoc-members:
+
+.. autofunction:: planetmapper.base.load_kernels
+.. autofunction:: planetmapper.base.sort_kernel_paths

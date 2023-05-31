@@ -74,7 +74,7 @@ for more information.
     suggestions can be 
     `reported on GitHub <https://github.com/ortk95/planetmapper/issues/new>`__.
 """
-from . import data_loader, gui, kernel_downloader, utils
+from . import base, data_loader, gui, kernel_downloader, utils
 from .base import SpiceBase, get_kernel_path, set_kernel_path
 from .basic_body import BasicBody
 from .body import DEFAULT_WIREFRAME_FORMATTING, Body
@@ -91,6 +91,7 @@ __all__ = [
     'BodyXY',
     'Observation',
     'BasicBody',
+    'base',
     'gui',
     'utils',
     'kernel_downloader',

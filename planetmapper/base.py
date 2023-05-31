@@ -3,6 +3,7 @@ import functools
 import glob
 import numbers
 import os
+from collections.abc import Iterable
 from typing import (
     Any,
     Callable,
@@ -374,7 +375,8 @@ class SpiceBase:
         only_if_needed: bool = True,
     ) -> None:
         """
-        Attempt to intelligently SPICE kernels using `spice.furnsh`.
+        Attempt to intelligently SPICE kernels using
+        :func:`planetmapper.base.load_kernels`.
 
         If `manual_kernels` is `None` (the default), then all kernels in the directory
         given by `kernel_path` which match the following patterns are loaded:
@@ -646,7 +648,18 @@ class BodyBase(SpiceBase):
 
 def load_kernels(*paths, clear_before: bool = False) -> list[str]:
     """
-    Load spice kernels defined by patterns
+    Load spice kernels defined by patterns.
+
+    This function calls `spice.furnsh` on all kernels matching the provided patterns.
+    The kernel paths returned by `glob.glob` are sorted by :func:`sort_kernel_paths`
+    before being passed to `spice.furnsh`.
+
+    .. hint::
+
+        You generally don't need to call this function directly - it is called
+        automatically the first time you create any object that inherits from
+        :class:`planetmapper.SpiceBase` (e.g. :class:`planetmapper.Body` or
+        :class:`planetmapper.Observation`).
 
     Args:
         *paths: Paths to spice kernels, evaluated using `glob.glob` with
@@ -658,9 +671,43 @@ def load_kernels(*paths, clear_before: bool = False) -> list[str]:
     kernels = set()
     for pattern in paths:
         kernels.update(glob.glob(os.path.expanduser(pattern), recursive=True))
-    for kernel in sorted(kernels):
+    for kernel in sort_kernel_paths(kernels):
         spice.furnsh(kernel)
     return list(kernels)
+
+
+def sort_kernel_paths(kernels: Iterable[str]) -> list[str]:
+    """
+    Sort kernel paths by path depth and alphabetically.
+
+    Kernels are sorted so that kernels in subdirectories are loaded before kernels in
+    parent directories, and kernels in the same directory are sorted alphabetically.
+    Kernels loaded later will take precedence over kernels loaded earlier, so this means
+    that when kernels contain overlapping data:
+
+    - `spk/kernel.bsp` should take precedence over `spk/old/kernel.bsp`
+    - `kernel_101.bsp` should take precedence over `kernel_100.bsp`
+    - `a/kernel.bsp` should take precedence over `x/y/z/kernel.bsp`
+
+    .. warning ::
+
+        Although this function attempts to sort kernels in a sensible way, it is
+        possible that it will not always do the right thing. If you have multiple
+        kernels containing overlapping data (e.g. old predicted JWST ephemerides), it
+        is generally safer to delete the old kernels, or move them into a completely
+        separate directory.
+
+    Args:
+        kernels: Iterable of kernel paths.
+
+    Returns:
+        Sorted list of kernel paths.
+    """
+    kernels = sorted(os.path.normpath(kernel) for kernel in kernels)
+    kernels.sort(key=os.path.basename)
+    kernels.sort(key=os.path.dirname)
+    kernels.sort(key=lambda x: x.count(os.sep), reverse=True)
+    return kernels
 
 
 def _clear_kernels() -> None:

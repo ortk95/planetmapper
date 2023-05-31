@@ -689,3 +689,32 @@ class TestFunctions(unittest.TestCase):
         for a, b in pairs:
             with self.subTest(a=a, b=b):
                 self.assertEqual(_to_tuple(a), b)
+
+    def test_sort_kernel_paths(self):
+        paths = [
+            '000.txt',
+            'zzz.txt',
+            'a/b/c.txt',
+            'a/b/file1.txt',
+            'a/b/c/file2.txt',
+            'x/y/z.txt',
+            'x/000.txt',
+            'a/kernel.txt',
+            'x/old/z/b/c.txt',
+            'x/z/b/c.txt',
+            'x/z/file1.txt',
+        ]
+        expected = [
+            'x/old/z/b/c.txt',
+            'a/b/c/file2.txt',
+            'x/z/b/c.txt',
+            'a/b/c.txt',
+            'a/b/file1.txt',
+            'x/y/z.txt',
+            'x/z/file1.txt',
+            'a/kernel.txt',
+            'x/000.txt',
+            '000.txt',
+            'zzz.txt',
+        ]
+        self.assertEqual(planetmapper.base.sort_kernel_paths(paths), expected)
