@@ -717,4 +717,5 @@ class TestFunctions(unittest.TestCase):
             '000.txt',
             'zzz.txt',
         ]
+        expected = [os.path.normpath(p) for p in expected]
         self.assertEqual(planetmapper.base.sort_kernel_paths(paths), expected)
