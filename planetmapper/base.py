@@ -709,11 +709,18 @@ def sort_kernel_paths(kernels: Iterable[str]) -> list[str]:
     Returns:
         Sorted list of kernel paths.
     """
-    paths = sorted(Path(kernel).resolve() for kernel in kernels)
-    paths.sort(key=os.path.basename)
-    paths.sort(key=os.path.dirname)
-    paths.sort(key=lambda p: len(p.parts), reverse=True)
-    return [str(path) for path in paths]
+    # Sort by depth, then dirname, then basename, then the path itself (as a tiebreaker
+    # to ensure sort is deterministic).
+    return sorted(
+        kernels,
+        key=lambda p: (
+            -len(Path(p).resolve().parts),  # -ve so deeper paths are sorted first
+            os.path.dirname(p),
+            os.path.basename(p),
+            os.path.normpath(p),
+            p,
+        ),
+    )
 
 
 def prevent_kernel_loading() -> None:
