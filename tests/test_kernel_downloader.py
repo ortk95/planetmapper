@@ -88,3 +88,19 @@ class TestKernelDownloader(unittest.TestCase):
                 'https://naif.jpl.nasa.gov/pub/naif/VIKING/kernels/spk/vo2_sedr.bsp',
             },
         )
+
+    def test_get_kernel_path(self):
+        self.assertEqual(
+            kernel_downloader._get_kernel_path(
+                'https://naif.jpl.nasa.gov/pub/abc/def/ghi.txt'
+            ),
+            kernel_downloader._standardise_path('abc/def/ghi.txt'),
+        )
+        with self.assertRaises(ValueError):
+            kernel_downloader._get_kernel_path('/abc/def/ghi')
+
+    def test_kernel_path_to_url(self):
+        self.assertEqual(
+            kernel_downloader._kernel_path_to_url('abc/def/ghi.txt'),
+            'https://naif.jpl.nasa.gov/pub/abc/def/ghi.txt',
+        )

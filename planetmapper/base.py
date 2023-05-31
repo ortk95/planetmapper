@@ -157,7 +157,7 @@ def _to_tuple(arr: np.ndarray):
     elif arr.ndim == 0:
         return float(arr)
     else:
-        raise ValueError(f'Error converting arr {arr!r} to tuple')
+        raise ValueError(f'Error converting arr {arr!r} to tuple')  # pragma: no cover
 
 
 class SpiceBase:

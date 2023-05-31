@@ -6,14 +6,22 @@ exclude = ""
 # https://github.com/psf/black/issues/3694
 extend_exclude = "typings"
 
+
 [tool.isort]
 profile = "black"
 extend_skip = ["typings"]
+
 
 [tool.coverage.run]
 branch = true
 include = ["planetmapper/*.py"]
 omit = ["planetmapper/gui.py"]
+
+[tool.coverage.report]
+exclude_also = [
+    "^\\s*\\.\\.\\.$", # "..." lines (typing overloads etc.)
+    "^if TYPE_CHECKING:$",
+    ]
 
 
 [tool.pylint.'MESSAGES CONTROL']

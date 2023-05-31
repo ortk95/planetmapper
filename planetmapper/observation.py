@@ -328,9 +328,13 @@ class Observation(BodyXY):
 
         if validate:
             if not all(u == 'deg' for u in wcs.world_axis_units):
-                raise ValueError('WCS coordinates are not in degrees')
+                raise ValueError(
+                    'WCS coordinates are not in degrees'
+                )  # pragma: no cover
             if not wcs.world_axis_physical_types == ['pos.eq.ra', 'pos.eq.dec']:
-                raise ValueError('WCS axes are not RA/Dec coordinates')
+                raise ValueError(
+                    'WCS axes are not RA/Dec coordinates'
+                )  # pragma: no cover
             if wcs.has_distortion:
                 raise ValueError('WCS conversion contains distortion terms')
 
