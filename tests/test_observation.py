@@ -1,10 +1,13 @@
 import fnmatch
 import os
 import unittest
+import warnings
+from unittest.mock import MagicMock, patch
 
 import common_testing
 import numpy as np
 from astropy.io import fits
+from astropy.utils.exceptions import AstropyWarning
 
 import planetmapper
 import planetmapper.base
@@ -229,6 +232,47 @@ class TestObservation(unittest.TestCase):
             self.assertEqual(obs.header, header)
             self.assertTrue(np.array_equal(obs.data, data))
 
+        with self.subTest('data+header (DATE-OBS + TIME-OBS)'):
+            data = np.ones((5, 6, 7))
+            header = fits.Header(
+                {
+                    'OBJECT': 'jupiter',
+                    'TELESCOP': 'HST',
+                    'DATE-OBS': '2005-01-01',
+                    'TIME-OBS': '12:34',
+                }
+            )
+            obs = Observation(
+                data=data,
+                header=header,
+            )
+            self.assertEqual(obs, obs)
+            self.assertNotEqual(obs, self.observation)
+            self.assertIsNone(obs.path)
+            self.assertEqual(obs.target, 'JUPITER')
+            self.assertEqual(obs.observer, 'HST')
+            self.assertEqual(obs.utc, '2005-01-01T12:34:00.000000')
+            self.assertEqual(obs.header, header)
+            self.assertTrue(np.array_equal(obs.data, data))
+
+        with self.subTest('empty.fits'):
+            path = os.path.join(common_testing.DATA_PATH, 'inputs', 'empty.fits')
+            with self.assertRaises(ValueError):
+                Observation(path)
+
+        with self.subTest('2d_image.fits (including MJD avg.)'):
+            path = os.path.join(common_testing.DATA_PATH, 'inputs', '2d_image.fits')
+            obs = Observation(path)
+            self.assertTrue(
+                np.array_equal(obs.data, np.array([[[1.0, 2.0], [3.0, 4.0]]]))
+            )
+            self.assertEqual(obs.utc, '2000-01-01T12:00:00.000000')
+
+        with self.subTest('2d_image.png'):
+            path = os.path.join(common_testing.DATA_PATH, 'inputs', '2d_image.png')
+            obs = Observation(path, target='JUPITER', utc='2000-01-01')
+            self.assertTrue(np.array_equal(obs.data, np.array([[[1, 2], [3, 4]]])))
+
     def test_attributes(self):
         self.assertEqual(self.observation.path, self.path)
         self.assertEqual(self.observation.target, 'JUPITER')
@@ -273,6 +317,40 @@ class TestObservation(unittest.TestCase):
         self.assertAlmostEqual(obs.get_y0(), 2.2)
         self.assertAlmostEqual(obs.get_r0(), 3.3)
         self.assertAlmostEqual(obs.get_rotation(), 4.4)
+
+        data = np.ones((5, 6, 7))
+        header = fits.Header(
+            {
+                'OBJECT': 'jupiter',
+                'DATE-OBS': '2005-01-01',
+                'PLANMAP DEGREE-INTERVAL': 1,
+            }
+        )
+        obs = Observation(data=data, header=header)
+        with self.assertRaises(ValueError):
+            obs.disc_from_header()
+
+        del header['PLANMAP DEGREE-INTERVAL']
+        header['PLANMAP MAP PROJECTION'] = 'rectangular'
+        obs = Observation(data=data, header=header)
+        with self.assertRaises(ValueError):
+            obs.disc_from_header()
+
+        header['PLANMAP DISC X0'] = 1
+        header['PLANMAP DISC Y0'] = 2
+        header['PLANMAP DISC R0'] = 3
+        header['PLANMAP DISC ROT'] = 4
+        obs = Observation(data=data, header=header)
+        with self.assertRaises(ValueError):
+            obs.disc_from_header()
+
+        del header['PLANMAP MAP PROJECTION']
+        obs = Observation(data=data, header=header)
+        obs.disc_from_header()
+        self.assertAlmostEqual(obs.get_x0(), 1)
+        self.assertAlmostEqual(obs.get_y0(), 2)
+        self.assertAlmostEqual(obs.get_r0(), 3)
+        self.assertAlmostEqual(obs.get_rotation(), 4)
 
     def test_stuff_from_wcs(self):
         with self.assertRaises(ValueError):
@@ -320,6 +398,53 @@ class TestObservation(unittest.TestCase):
         self.assertEqual(obs.get_disc_method(), 'wcs_plate_scale')
         self.assertAlmostEqual(obs.get_r0(), r0, delta=0.2)
 
+        data = np.ones((5, 6, 7))
+        header = fits.Header(
+            {
+                'OBJECT': 'jupiter',
+                'DATE-OBS': '2005-01-01',
+                'CRPIX1': 1,
+                'CRPIX2': 1,
+                'CRVAL1': 196.3,
+                'CRVAL2': -5.5,
+                'CDELT1': 1,
+                'CDELT2': 1,
+                'CTYPE1': 'RA---TAN',
+                'CTYPE2': 'DEC--TAN',
+                'CUNIT1': 'deg',
+                'CUNIT2': 'deg',
+            }
+        )
+        obs = Observation(data=data, header=header)
+        obs.disc_from_wcs(suppress_warnings=True)
+
+        h2 = header.copy()
+        h2['CTYPE1'] = 'DEC--TAN'
+        obs = Observation(data=data, header=h2)
+        with self.assertRaises(ValueError):
+            obs.disc_from_wcs(suppress_warnings=True)
+
+        h2 = header.copy()
+        h2['A_ORDER'] = 2
+        h2['B_ORDER'] = 2
+        for n in range(3):
+            for m in range(3):
+                h2[f'A_{n}_{m}'] = 0.1
+                h2[f'B_{n}_{m}'] = 0.2
+        obs = Observation(data=data, header=h2)
+        with self.assertRaises(ValueError):
+            obs.disc_from_wcs(suppress_warnings=True)
+        obs.disc_from_wcs(validate=False, suppress_warnings=True)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('always')
+            with self.assertWarns(AstropyWarning):
+                obs.disc_from_wcs(validate=False, suppress_warnings=False)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('error')
+            obs.position_from_wcs(validate=False, suppress_warnings=True)
+
     def test_fit_disc(self):
         data = np.ones((5, 10, 8))
         data[:, 3:5, 2:4] = 10
@@ -342,6 +467,23 @@ class TestObservation(unittest.TestCase):
 
         self.assertAlmostEqual(obs.get_rotation(), 99)
 
+        obs = Observation(
+            data=np.ones((300, 300)),
+            target='Jupiter',
+            observer='hst',
+            utc='2005-01-01T00:00:00',
+        )
+        obs.set_disc_params(x0=-1)
+        with self.assertRaises(ValueError):
+            obs.fit_disc_radius()
+
+        obs.set_disc_params(x0=1, y0=301)
+        with self.assertRaises(ValueError):
+            obs.fit_disc_radius()
+
+        obs.set_disc_params(x0=150, y0=150)
+        obs.fit_disc_radius()
+
     # get_mapped_data tested against output references
 
     def test_append_to_header(self):
@@ -362,6 +504,31 @@ class TestObservation(unittest.TestCase):
         obs.append_to_header('TESTING', 123, 'Testing comment', header=header)
         self.assertEqual(header['HIERARCH PLANMAP TESTING'], 123)
         self.assertEqual(header.comments['HIERARCH PLANMAP TESTING'], 'Testing comment')
+        self.assertNotIn('TESTING', header)
+
+        header = fits.Header()
+        obs.append_to_header(
+            'TESTING', 123, 'Testing comment', header=header, hierarch_keyword=False
+        )
+        self.assertEqual(header['TESTING'], 123)
+        self.assertEqual(header.comments['TESTING'], 'Testing comment')
+        self.assertNotIn('HIERARCH PLANMAP TESTING', header)
+
+        header = fits.Header()
+        obs.append_to_header('A', 0, header=header, hierarch_keyword=False)
+        obs.append_to_header('B', 1, header=header, hierarch_keyword=False)
+        obs.append_to_header('A', 1, header=header, hierarch_keyword=False)
+        self.assertEqual(header['A'], 1)
+        self.assertEqual(list(header.keys()), ['B', 'A'])
+
+        header = fits.Header()
+        obs.append_to_header('A', 0, header=header, hierarch_keyword=False)
+        obs.append_to_header('B', 1, header=header, hierarch_keyword=False)
+        obs.append_to_header(
+            'A', 1, header=header, hierarch_keyword=False, remove_existing=False
+        )
+        self.assertEqual(header['A'], 0)
+        self.assertEqual(list(header.keys()), ['A', 'B', 'A'])
 
         for n in range(100):
             with self.subTest(n=n):
@@ -375,7 +542,22 @@ class TestObservation(unittest.TestCase):
             obs.append_to_header('TESTING', 'x' * 100, truncate_strings=False)
             obs.header.tostring()
 
-    # add_header_metadata tested against output references
+    def test_add_header_metadata(self):
+        obs = planetmapper.Observation(
+            data=np.ones((5, 10, 8)),
+            target='Jupiter',
+            observer='hst',
+            utc='2005-01-01T00:00:00',
+        )
+        obs.add_header_metadata()
+        self.assertNotIn('HIERARCH PLANMAP INFILE', obs.header)
+
+        path = os.path.join(common_testing.DATA_PATH, 'inputs', 'test.fits')
+        obs = planetmapper.Observation(path)
+        obs.add_header_metadata()
+        self.assertEqual(obs.header['HIERARCH PLANMAP INFILE'], os.path.split(path)[1])
+
+        # add_header_metadata also tested against output references
 
     def test_make_filename(self):
         self.assertEqual(
@@ -395,6 +577,14 @@ class TestObservation(unittest.TestCase):
         self.observation.set_disc_method('<<<test>>>')
 
         path = os.path.join(common_testing.TEMP_PATH, 'test_nav.fits')
+
+        # test skip wireframe here
+        self.observation.save_observation(
+            path,
+            show_progress=True,
+            include_wireframe=False,
+        )
+        self.compare_fits_to_reference(path, skip_wireframe=True)
 
         # test print info here
         self.observation.save_observation(
@@ -473,10 +663,14 @@ class TestObservation(unittest.TestCase):
                 )
                 self.compare_fits_to_reference(path)
 
-    def compare_fits_to_reference(self, path: str):
+    def compare_fits_to_reference(self, path: str, skip_wireframe: bool = False):
         filename = os.path.basename(path)
         path_ref = os.path.join(common_testing.DATA_PATH, 'outputs', filename)
         with fits.open(path) as hdul, fits.open(path_ref) as hdul_ref:
+            if skip_wireframe:
+                hdul_ref = fits.HDUList(
+                    [hdu for hdu in hdul_ref if hdu.name != 'WIREFRAME']
+                )
             with self.subTest('Number of backplanes', filename=filename):
                 self.assertEqual(len(hdul), len(hdul_ref))
             for hdu, hdu_ref in zip(hdul, hdul_ref):
@@ -516,3 +710,9 @@ class TestObservation(unittest.TestCase):
                             self.assertAlmostEqual(value, value_ref)
                         else:
                             self.assertEqual(value, value_ref)
+
+    @patch('planetmapper.gui.GUI.run')
+    def test_run_gui(self, mock_run: MagicMock):
+        out = self.observation.run_gui()
+        self.assertEqual(out, [])
+        mock_run.assert_called_once()

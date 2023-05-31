@@ -1194,7 +1194,7 @@ class Body(BodyBase):
                 return 'part transit'
             case -2:
                 return 'transit'
-        raise ValueError(f'Unknown occultation code: {occultation}')
+        raise ValueError(f'Unknown occultation code: {occultation}')  # pragma: no cover
 
     def test_if_other_body_visible(self, other: 'str | int | Body | BasicBody') -> bool:
         """

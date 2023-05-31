@@ -3,7 +3,7 @@ import glob
 import os
 import unittest
 from typing import Any, Callable, ParamSpec
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import common_testing
 import numpy as np
@@ -515,6 +515,22 @@ class TestBodyBase(unittest.TestCase):
                 **kw,
             ),
         )
+
+        class CustomDateTime(datetime.datetime):
+            pass
+
+        with patch('planetmapper.base.datetime', new=datetime) as mock_datetime:
+            mock_datetime.datetime = CustomDateTime
+            mock_datetime.datetime.now = MagicMock()
+            mock_datetime.datetime.now.return_value = datetime.datetime(2005, 1, 1, 12)
+            obj = BodyBase(utc=None, **kw)
+            self.assertEqual(obj.utc, '2005-01-01T12:00:00.000000')
+
+            mock_datetime.datetime.now.return_value = datetime.datetime(
+                2005, 1, 1, 12, 30
+            )
+            obj = BodyBase(utc=None, **kw)
+            self.assertEqual(obj.utc, '2005-01-01T12:30:00.000000')
 
     def test_eq(self):
         obj = BodyBase(

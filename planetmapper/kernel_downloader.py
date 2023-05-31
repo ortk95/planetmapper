@@ -175,7 +175,7 @@ def _get_kernel_path(p: str) -> str:
 
 def _kernel_path_to_url(kp: str) -> str:
     """Create URL from a kernel path"""
-    return URL_ROOT + os.path.sep + kp
+    return URL_ROOT + kp
 
 
 def _kernel_path_to_local_path(kp: str) -> str:

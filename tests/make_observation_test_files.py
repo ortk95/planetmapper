@@ -6,6 +6,7 @@ import common_testing
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
+from PIL import Image
 
 import planetmapper
 
@@ -102,3 +103,33 @@ cube[9, -1] = np.nan
 cube[9, :, 0] = np.nan
 cube[9, :, -1] = np.nan
 fits.writeto(path, data=cube, header=header, overwrite=True)
+
+
+path = os.path.join(common_testing.DATA_PATH, 'inputs', 'empty.fits')
+hdul = fits.HDUList([fits.PrimaryHDU()])
+hdul.writeto(path, overwrite=True)
+
+
+path = os.path.join(common_testing.DATA_PATH, 'inputs', '2d_image.fits')
+hdul = fits.HDUList(
+    [
+        fits.PrimaryHDU(
+            data=np.array([[1, 2], [3, 4]], dtype=float),
+            header=fits.Header(
+                {
+                    'TARGET': 'jupiter',
+                    'TELESCOP': 'HST',
+                    'MJD-BEG': 51544,
+                    'MJD-END': 51545,
+                }
+            ),
+        ),
+    ]
+)
+hdul.writeto(path, overwrite=True)
+
+
+path = os.path.join(common_testing.DATA_PATH, 'inputs', '2d_image.png')
+image = np.array([[3, 4], [1, 2]], dtype=np.uint8)
+im = Image.fromarray(image)
+im.save(path)
