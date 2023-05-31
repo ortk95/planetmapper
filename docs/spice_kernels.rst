@@ -137,6 +137,6 @@ Automatic kernel loading
 ========================
 PlanetMapper will automatically load SPICE kernels the first time any object inheriting from :class:`planetmapper.SpiceBase` (e.g. :class:`planetmapper.Body`) is created. All kernels in the directory returned by :func:`planetmapper.get_kernel_path` which match any of the patterns `**/*.bsp`, `**/*.tpc` or `**/*.tls` are loaded by default. 
 
-If you would like finer control over kernel loading, you can manually specify a list of kernel paths to load by specifying `manual_kernels=[...]` when e.g. creating a new :class:`planetmapper.Body` object. Alternatively, you can manually load kernels yourself using `spiceypy.furnsh` and then set `load_kernels=False` which will disable automatic kernel loading completely. 
+If you would like finer control over kernel loading, you can call :func:`planetmapper.base.prevent_kernel_loading` immediately after importing PlanetMapper to disable automatic kernel loading, then manually load kernels yourself using `spiceypy.furnsh`.
 
 See :class:`planetmapper.SpiceBase` and :func:`planetmapper.SpiceBase.load_spice_kernels` for more detail about controlling automatic kernel loading.
