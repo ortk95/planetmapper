@@ -18,7 +18,8 @@ include = ["planetmapper/*.py"]
 omit = ["planetmapper/gui.py"]
 
 [tool.coverage.report]
-exclude_also = [
+exclude_lines = [
+    "pragma: no cover",
     "^\\s*\\.\\.\\.$", # "..." lines (typing overloads etc.)
     "^if TYPE_CHECKING:$",
     ]
