@@ -12,4 +12,7 @@ class TestCommon(unittest.TestCase):
         self.assertEqual(
             planetmapper.common.__url__, 'https://github.com/ortk95/planetmapper'
         )
+        self.assertEqual(planetmapper.common.__license__, 'MIT')
+        self.assertIsInstance(planetmapper.common.__version__, str)
+        self.assertIsInstance(planetmapper.common.__description__, str)
         # See also test_init
