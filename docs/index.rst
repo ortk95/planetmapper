@@ -8,7 +8,7 @@ PlanetMapper is a Python module for visualising, navigating and mapping Solar Sy
 
 Key features
 ============
-:ref:`Fit and map astronimical observations using a full featured user interface <gui examples>`
+:ref:`Fit and map astronomical observations using a full featured user interface <gui examples>`
 ------------------------------------------------------------------------------------------------
 .. image:: images/gui_fitting.png
     :width: 600
