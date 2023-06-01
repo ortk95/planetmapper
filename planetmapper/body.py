@@ -426,26 +426,30 @@ class Body(BodyBase):
             `other_target`.
         """
         try:
-            return Body(
-                target=other_target,
-                utc=self.utc,
-                observer=self.observer,
-                observer_frame=self.observer_frame,
-                illumination_source=self.illumination_source,
-                aberration_correction=self.aberration_correction,
-                subpoint_method=self.subpoint_method,
-                surface_method=self.surface_method,
-            )
-        except SpiceKERNELVARNOTFOUND:
-            if not fallback_to_basic_body:
-                raise
-            return BasicBody(
-                target=other_target,
-                utc=self.utc,
-                observer=self.observer,
-                observer_frame=self.observer_frame,
-                aberration_correction=self.aberration_correction,
-            )
+            try:
+                return Body(
+                    target=other_target,
+                    utc=self.utc,
+                    observer=self.observer,
+                    observer_frame=self.observer_frame,
+                    illumination_source=self.illumination_source,
+                    aberration_correction=self.aberration_correction,
+                    subpoint_method=self.subpoint_method,
+                    surface_method=self.surface_method,
+                )
+            except SpiceKERNELVARNOTFOUND:
+                if not fallback_to_basic_body:
+                    raise
+                return BasicBody(
+                    target=other_target,
+                    utc=self.utc,
+                    observer=self.observer,
+                    observer_frame=self.observer_frame,
+                    aberration_correction=self.aberration_correction,
+                )
+        except NotFoundError as e:
+            e.message += f'\n\nBody name: {other_target!r}'  #  type: ignore
+            raise e
 
     # Stuff to customise wireframe plots
     def add_other_bodies_of_interest(

@@ -4,7 +4,7 @@ Thanks for thinking of contributing to PlanetMapper!
 
 ## Reporting bugs & suggesting new features
 
-If you find a bug in PlanetMapper, please [open a new issue on GitHub](https://github.com/ortk95/planetmapper/issues/new). Please include as much detail as possible, including:
+If you find a bug in PlanetMapper, [open a new issue on GitHub](https://github.com/ortk95/planetmapper/issues/new). Please include as much detail as possible, including:
 - A clear description of the bug, including what you expected to happen and what actually happened
 - Any simple code that can reproduce the bug
 - Any error messages you received

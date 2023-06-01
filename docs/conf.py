@@ -57,7 +57,10 @@ autodoc_inherit_docstrings = False
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
-
+html_logo = 'images/logo_rtd_transparent.png'
+html_theme_options = {
+    'logo_only': True,
+}
 
 # Dynamically generate backplane documentation
 from planetmapper.body_xy import _make_backplane_documentation_str
