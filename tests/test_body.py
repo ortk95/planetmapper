@@ -214,6 +214,14 @@ class TestBody(unittest.TestCase):
         with self.assertRaises(SpiceKERNELVARNOTFOUND):
             self.body.create_other_body('daphnis', fallback_to_basic_body=False)
 
+        target = '<<< test >>>'
+        with self.assertRaises(NotFoundError):
+            self.body.create_other_body(target)
+        try:
+            self.body.create_other_body(target)
+        except NotFoundError as e:
+            self.assertIn(target, e.message)
+
     def test_add_other_bodies_of_interest(self):
         self.body.add_other_bodies_of_interest('amalthea')
         self.assertEqual(
