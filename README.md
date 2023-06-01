@@ -1,4 +1,4 @@
-# [![PlanetMapper logo](docs/images/logo_wide_transparent.png)](https://github.com/ortk95/planetmapper)
+# ![PlanetMapper logo](https://raw.githubusercontent.com/ortk95/planetmapper/main/docs/images/logo_wide_transparent.png)
 
 [![PyPI](https://img.shields.io/pypi/v/planetmapper?label=PyPi&logo=python&logoColor=silver)](https://pypi.org/project/planetmapper/)
 [![Publish](https://github.com/ortk95/planetmapper/actions/workflows/python-publish.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/python-publish.yml)

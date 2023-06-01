@@ -15,6 +15,7 @@ import planetmapper
 
 PLOT_DIRECTORY = '../docs/images'
 
+
 def main():
     pass
     # plot_saturn_wireframe()
@@ -23,6 +24,7 @@ def main():
     # plot_europa_backplane()
     # plot_jupiter_backplane()
     # plot_jupiter_mapped()
+
 
 def plot_saturn_wireframe():
     body = planetmapper.Body('saturn', '2020-01-01')
@@ -113,6 +115,7 @@ def plot_jupiter_backplane():
     fig.tight_layout()
     fig.savefig(os.path.join(PLOT_DIRECTORY, 'jupiter_backplane.png'))
     plt.close(fig)
+
 
 def plot_jupiter_mapped():
     observation = planetmapper.Observation(
