@@ -22,6 +22,7 @@ tests/temp
 
 # Allowed paths
 !requirements.txt
+!LICENSE.txt
 !.gitignore
 !.pylintrc
 

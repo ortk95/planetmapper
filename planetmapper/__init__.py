@@ -73,13 +73,36 @@ for more information.
     This code is in active development, so may contain bugs! Any issues, bugs and 
     suggestions can be 
     `reported on GitHub <https://github.com/ortk95/planetmapper/issues/new>`__.
+
+..
+    MIT License
+
+    Copyright (c) 2022 Oliver King
+
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
 """
 from . import base, data_loader, gui, kernel_downloader, utils
 from .base import SpiceBase, get_kernel_path, set_kernel_path
 from .basic_body import BasicBody
 from .body import DEFAULT_WIREFRAME_FORMATTING, Body
 from .body_xy import Backplane, BodyXY
-from .common import __author__, __url__, __version__
+from .common import __author__, __description__, __license__, __url__, __version__
 from .observation import Observation
 
 __all__ = [

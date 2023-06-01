@@ -11,6 +11,11 @@ class TestInit(unittest.TestCase):
     def test_init(self):
         self.assertEqual(planetmapper.__author__, 'Oliver King')
         self.assertEqual(planetmapper.__url__, 'https://github.com/ortk95/planetmapper')
+        self.assertEqual(planetmapper.__license__, 'MIT')
+        self.assertEqual(
+            planetmapper.__description__,
+            'A Python module for visualising, navigating and mapping Solar System observations',
+        )
 
     def test_version(self):
         self.assertEqual(planetmapper.__version__.strip(), planetmapper.__version__)

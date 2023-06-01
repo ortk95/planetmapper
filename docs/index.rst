@@ -63,4 +63,5 @@ Key features
 
    default_backplanes
    common_issues
+   license
    credits
