@@ -15,10 +15,16 @@ import planetmapper
 
 PLOT_DIRECTORY = '../docs/images'
 
-# Code for each plot is wrapped in an `if True` block for easy organisation and toggling
+def main():
+    pass
+    # plot_saturn_wireframe()
+    # plot_neptune_wireframe()
+    # plot_jupiter_wireframe()
+    # plot_europa_backplane()
+    # plot_jupiter_backplane()
+    # plot_jupiter_mapped()
 
-
-if False:
+def plot_saturn_wireframe():
     body = planetmapper.Body('saturn', '2020-01-01')
     fig, ax = plt.subplots(figsize=(6, 4), dpi=200)
     body.plot_wireframe_radec(ax)
@@ -27,7 +33,7 @@ if False:
     plt.close(fig)
 
 
-if False:
+def plot_neptune_wireframe():
     body = planetmapper.Body('neptune', '2020-01-01')
 
     # Add Triton to any wireframe plots
@@ -52,7 +58,7 @@ if False:
     plt.close(fig)
 
 
-if False:
+def plot_jupiter_wireframe():
     fig, [ax_radec, ax_km] = plt.subplots(nrows=2, figsize=(6, 8), dpi=200)
 
     dates = ['2020-01-01 00:00', '2020-01-01 01:00', '2020-01-01 02:00']
@@ -77,7 +83,7 @@ if False:
     plt.close(fig)
 
 
-if False:
+def plot_europa_backplane():
     observation = planetmapper.Observation('../data/europa.fits.gz')
 
     # Set the disc position
@@ -92,7 +98,7 @@ if False:
     plt.close(fig)
 
 
-if False:
+def plot_jupiter_backplane():
     # Create an object representing how Jupiter would appear in a 50x50 pixel image
     # taken by JWST at a specific time
     body = planetmapper.BodyXY('jupiter', utc='2024-01-01', observer='JWST', sz=50)
@@ -108,7 +114,7 @@ if False:
     fig.savefig(os.path.join(PLOT_DIRECTORY, 'jupiter_backplane.png'))
     plt.close(fig)
 
-if True:
+def plot_jupiter_mapped():
     observation = planetmapper.Observation(
         '../data/jupiter.jpg',
         target='jupiter',
@@ -168,3 +174,7 @@ if True:
 
     fig.savefig(os.path.join(PLOT_DIRECTORY, 'jupiter_mapped.png'))
     plt.close(fig)
+
+
+if __name__ == '__main__':
+    main()
