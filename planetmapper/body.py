@@ -165,6 +165,31 @@ class Body(BodyBase):
         )
 
         # Document instance variables
+        self.target: str
+        """
+        Name of the target body, as standardised by 
+        :func:`SpiceBase.standardise_body_name`.
+        """
+        self.utc: str
+        """
+        String representation of the time of the observation in the format
+        `'2000-01-01T00:00:00.000000'`. This time is in the UTC timezone.
+        """
+        self.observer: str
+        """
+        Name of the observer body, as standardised by 
+        :func:`SpiceBase.standardise_body_name`.
+        """
+        self.aberration_correction: str
+        """Aberration correction used to correct light travel time in SPICE."""
+        self.observer_frame: str
+        """Observer reference frame."""
+        self.illumination_source: str
+        """Illumination source."""
+        self.subpoint_method: str
+        """Method used to calculate the sub-observer point in SPICE."""
+        self.surface_method: str
+        """Method used to calculate surface intercepts in SPICE."""
         self.et: float
         """Ephemeris time of the observation corresponding to `utc`."""
         self.dtm: datetime.datetime

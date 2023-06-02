@@ -93,6 +93,8 @@ class Observation(BodyXY):
         self._header_arg = header
 
         # Add docstrings
+        self.path: str | None
+        """Path of input data file, or `None` if no file was provided."""
         self.data: np.ndarray
         """Observed data."""
         self.header: fits.Header
