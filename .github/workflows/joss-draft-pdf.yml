@@ -1,9 +1,10 @@
+name: JOSS
 on: [push]
 
 jobs:
   paper:
     runs-on: ubuntu-latest
-    name: JOSS Paper Draft
+    name: Paper Draft
     steps:
       - name: Checkout
         uses: actions/checkout@v3
