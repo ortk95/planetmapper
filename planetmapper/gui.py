@@ -9,7 +9,7 @@ import tkinter.scrolledtext
 import traceback
 from collections import defaultdict
 from tkinter import ttk
-from typing import Any, Callable, Literal, TypeVar
+from typing import Any, Callable, Literal, TypedDict, TypeVar
 
 import matplotlib as mpl
 import matplotlib.cm
@@ -1661,8 +1661,14 @@ class OpenObservation(Popup):
         self.apply_changes()
 
     def apply_changes(self) -> bool:
-        kwargs = {k: v.get() for k, v in self.stringvars.items()}
-        for k, v in kwargs.items():
+        ObservationKwargs = TypedDict(
+            'ObservationKwargs',
+            {'path': str, 'target': str, 'utc': str | float, 'observer': str},
+        )
+        observation_kwargs: ObservationKwargs = {
+            k: v.get() for k, v in self.stringvars.items()
+        }  #  type: ignore
+        for k, v in observation_kwargs.items():
             if isinstance(v, str) and len(v.strip()) == 0:
                 tkinter.messagebox.showwarning(
                     title=f'Error parsing {k}', message=f'{k!r} must not be empty'
@@ -1677,25 +1683,25 @@ class OpenObservation(Popup):
 
         sb = base.SpiceBase(auto_load_kernels=False)
         try:
-            target = sb.standardise_body_name(kwargs['target'])
+            target = sb.standardise_body_name(observation_kwargs['target'])
         # pylint: disable-next=bare-except
         except:
             tkinter.messagebox.showwarning(
                 title='Error parsing target',
                 message='Target name {!r} not recognised\n{}'.format(
-                    kwargs['target'], kernel_help
+                    observation_kwargs['target'], kernel_help
                 ),
             )
             return False
 
         try:
-            observer = sb.standardise_body_name(kwargs['observer'])
+            observer = sb.standardise_body_name(observation_kwargs['observer'])
         # pylint: disable-next=bare-except
         except:
             tkinter.messagebox.showwarning(
                 title='Error parsing observer',
                 message='Observer name {!r} not recognised\n{}'.format(
-                    kwargs['observer'], kernel_help
+                    observation_kwargs['observer'], kernel_help
                 ),
             )
             return False
@@ -1708,21 +1714,23 @@ class OpenObservation(Popup):
             return False
 
         try:
-            kwargs['utc'] = float(kwargs['utc'])  #  type: ignore
+            observation_kwargs['utc'] = float(
+                observation_kwargs['utc']
+            )  #  type: ignore
         except ValueError:
             try:
-                spice.utc2et(kwargs['utc'])
+                spice.utc2et(observation_kwargs['utc'])  #  type: ignore
             # pylint: disable-next=bare-except
             except:
                 tkinter.messagebox.showwarning(
                     title='Error parsing utc',
                     message='Could not parse {!r}\n{}'.format(
-                        kwargs['utc'], kernel_help
+                        observation_kwargs['utc'], kernel_help
                     ),
                 )
                 return False
         try:
-            observation = Observation(**kwargs, auto_load_kernels=False)
+            observation = Observation(**observation_kwargs, auto_load_kernels=False)
         # pylint: disable-next=broad-except
         except Exception as e:
             traceback.print_exc()
@@ -1873,14 +1881,16 @@ class SaveObservation(Popup):
         self.map_ortho_widgets: list[tk.Widget] = []
 
         self.grid_frame.grid_columnconfigure(1, weight=1)
-        label_kw = dict(sticky='w', pady=5)
+
+        LabelKwargs = TypedDict('LabelKwargs', {'sticky': str, 'pady': int})
+        label_kwargs = LabelKwargs(sticky='w', pady=5)
 
         # Navigated
         ttk.Checkbutton(
             self.grid_frame, text='Save navigated observation', variable=self.save_nav
         ).grid(row=0, column=1, columnspan=2, sticky='ew')
 
-        ttk.Label(self.grid_frame, text='Path: ').grid(row=1, column=0, **label_kw)
+        ttk.Label(self.grid_frame, text='Path: ').grid(row=1, column=0, **label_kwargs)
         w = ttk.Entry(self.grid_frame, textvariable=self.path_nav)
         w.grid(row=1, column=1, sticky='ew')
         self.nav_widgets.append(w)
@@ -1888,14 +1898,14 @@ class SaveObservation(Popup):
         w.grid(row=1, column=2)
         self.nav_widgets.append(w)
 
-        ttk.Label(self.grid_frame, text=' ').grid(row=2, column=0, **label_kw)
+        ttk.Label(self.grid_frame, text=' ').grid(row=2, column=0, **label_kwargs)
 
         # Mapped
         ttk.Checkbutton(
             self.grid_frame, text='Save mapped observation', variable=self.save_map
         ).grid(row=3, column=1, columnspan=2, sticky='ew')
 
-        ttk.Label(self.grid_frame, text='Path: ').grid(row=4, column=0, **label_kw)
+        ttk.Label(self.grid_frame, text='Path: ').grid(row=4, column=0, **label_kwargs)
         w = ttk.Entry(self.grid_frame, textvariable=self.path_map)
         w.grid(row=4, column=1, sticky='ew')
         self.map_widgets.append(w)
@@ -1909,10 +1919,10 @@ class SaveObservation(Popup):
         for col in [1, 3, 5]:
             self.map_option_grid.grid_columnconfigure(col, weight=1)
 
-        label_kw = dict(sticky='w', pady=2)
+        label_kwargs = LabelKwargs(sticky='w', pady=2)
 
         ttk.Label(self.map_option_grid, text='Interpolation: ').grid(
-            row=0, column=0, **label_kw
+            row=0, column=0, **label_kwargs
         )
         w = ttk.Combobox(
             self.map_option_grid,
@@ -1925,7 +1935,7 @@ class SaveObservation(Popup):
         self.map_widgets.append(w)
 
         ttk.Label(self.map_option_grid, text='Projection: ').grid(
-            row=1, column=0, **label_kw
+            row=1, column=0, **label_kwargs
         )
         w = ttk.Combobox(
             self.map_option_grid,
@@ -1940,7 +1950,7 @@ class SaveObservation(Popup):
         # Projection options
         width = 10
         ttk.Label(self.map_option_grid, text='Degree interval: ').grid(
-            row=2, column=0, **label_kw
+            row=2, column=0, **label_kwargs
         )
         w = ttk.Entry(
             self.map_option_grid, textvariable=self.map_degree_interval, width=width
@@ -1949,7 +1959,7 @@ class SaveObservation(Popup):
         self.map_rect_widgets.append(w)
 
         ttk.Label(self.map_option_grid, text='Output size: ').grid(
-            row=3, column=0, **label_kw
+            row=3, column=0, **label_kwargs
         )
         w = ttk.Entry(
             self.map_option_grid, textvariable=self.map_output_size, width=width
@@ -1958,14 +1968,14 @@ class SaveObservation(Popup):
         self.map_ortho_widgets.append(w)
 
         ttk.Label(self.map_option_grid, text='Longitude: ').grid(
-            row=3, column=2, **label_kw
+            row=3, column=2, **label_kwargs
         )
         w = ttk.Entry(self.map_option_grid, textvariable=self.map_lon, width=width)
         w.grid(row=3, column=3, sticky='w')
         self.map_ortho_widgets.append(w)
 
         ttk.Label(self.map_option_grid, text='Latitude: ').grid(
-            row=3, column=4, **label_kw
+            row=3, column=4, **label_kwargs
         )
         w = ttk.Entry(self.map_option_grid, textvariable=self.map_lat, width=width)
         w.grid(row=3, column=5, sticky='w')
@@ -2201,7 +2211,10 @@ class SavingProgress(Popup):
         return widgets
 
     def run_save(self) -> None:
-        save_kwargs = dict(show_progress=False, print_info=True)
+        SaveKwargs = TypedDict(
+            'SaveKwargs', {'show_progress': bool, 'print_info': bool}
+        )
+        save_kwargs = SaveKwargs(show_progress=False, print_info=True)
         observation = self.parent.gui.get_observation()
         if self.save_nav:
             observation._set_progress_hook(SaveNavProgressHookGUI(**self.nav_widgets))
