@@ -36,7 +36,7 @@ from .base import get_kernel_path
 URL_ROOT = 'https://naif.jpl.nasa.gov/pub/'
 
 
-def download_urls(*urls: str) -> None:
+def download_urls(*urls: str, **kwargs) -> None:
     """
     Download data from naif.jpl.nasa.gov and save locally.
 
@@ -50,17 +50,19 @@ def download_urls(*urls: str) -> None:
 
     Args:
         urls: kernel URL on naif.jpl.nasa.gov.
+        **kwargs: passed to :func:`download_kernel` and
+            :func:`download_kernels_from_webpage`.
     """
     for url in urls:
         # look for '.' in filename part of url to identify if a file/directory
         path = urllib.parse.urlsplit(url).path
         if '.' in os.path.split(path)[1]:
-            download_kernel(url)
+            download_kernel(url, **kwargs)
         else:
-            download_kernels_from_webpage(url)
+            download_kernels_from_webpage(url, **kwargs)
 
 
-def download_kernels_from_webpage(index_url: str) -> None:
+def download_kernels_from_webpage(index_url: str, **kwargs) -> None:
     """
     Download all first-level kernels listed in the page given by index_url.
 
@@ -74,11 +76,12 @@ def download_kernels_from_webpage(index_url: str) -> None:
 
     Args:
         index_url: URL of index page on naif.jpl.nasa.gov.
+        **kwargs: passed to :func:`download_kernel`.
     """
     urls = get_kernel_paths_from_webpage(index_url)
     print(f'{len(urls)} to download from {index_url}')
     for idx, url in enumerate(urls):
-        download_kernel(url, note=f'[{idx+1}/{len(urls)}] ')
+        download_kernel(url, note=f'[{idx+1}/{len(urls)}] ', **kwargs)
     print(f'All kernels downloaded from {index_url}')
     print()
 

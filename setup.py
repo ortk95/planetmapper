@@ -30,7 +30,10 @@ setuptools.setup(
         'Documentation': 'https://planetmapper.readthedocs.io/',
         'GitHub': common.__url__,
     },
-    entry_points={'console_scripts': ['planetmapper=planetmapper:main']},
+    entry_points={
+        # Copy any changes here to the conda-forge recipe (meta.yaml)
+        'console_scripts': ['planetmapper=planetmapper:main'],
+    },
     python_requires='>=3.10.0',
     install_requires=[
         'astropy',

@@ -1,5 +1,6 @@
 """
-A Python module for visualising, navigating and mapping Solar System observations.
+PlanetMapper: A Python module for visualising, navigating and mapping Solar System
+observations.
 
 ..
     See https://planetmapper.readthedocs.io for full documentation.

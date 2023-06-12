@@ -1,7 +1,7 @@
 PlanetMapper
 ************
 
-PlanetMapper is a Python module for visualising, navigating and mapping Solar System observations.
+PlanetMapper is an open source Python module for visualising, navigating and mapping Solar System observations.
 
 .. .. image:: images/logo_wide_transparent.png
 ..     :alt: PlanetMapper logo
