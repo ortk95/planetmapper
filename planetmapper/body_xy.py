@@ -1470,7 +1470,8 @@ class BodyXY(Body):
                 ax=ax,
                 add_axis_labels=False,
                 add_title=False,
-                **(plot_kwargs or {}) | dict(common_formatting=dict(color='k')),
+                **(plot_kwargs or {})
+                | dict(common_formatting=dict(color='k')),  # type:ignore
                 **map_kwargs,
             )
             # Add dx/dy to the limits to ensure the wireframe covers all of each pixel
