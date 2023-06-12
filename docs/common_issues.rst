@@ -14,7 +14,7 @@ Run `pip install planetmapper --upgrade` in a terminal to make sure you are runn
 
 Installation issues
 ===================
-PlanetMapper requires a minimim Python version of 3.10, so if you get `ERROR: No matching distribution found for planetmapper` when trying to :ref:`install PlanetMapper <installation>`, it is likely that your python version is too old. You can check your Python version by running `python3 --version` in a terminal.
+PlanetMapper requires a minimum Python version of 3.10, so if you get `ERROR: No matching distribution found for planetmapper` when trying to :ref:`install PlanetMapper <installation>`, it is likely that your python version is too old. You can check your Python version by running `python3 --version` in a terminal.
 
 
 SPICE Errors
