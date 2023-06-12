@@ -12,6 +12,11 @@ General solutions
 Run `pip install planetmapper --upgrade` in a terminal to make sure you are running the latest version of PlanetMapper. It is possible that your bug may have been fixed in a recent update (you can also check the release notes for each version `on GitHub <https://github.com/ortk95/planetmapper/releases>`__).
 
 
+Installation issues
+===================
+PlanetMapper requires a minimim Python version of 3.10, so if you get `ERROR: No matching distribution found for planetmapper` when trying to :ref:`install PlanetMapper <installation>`, it is likely that your python version is too old. You can check your Python version by running `python3 --version` in a terminal.
+
+
 SPICE Errors
 ============
 If you have any errors caused reported by the SPICE system, it is likely that it doesn't have the correct SPICE kernels loaded. Therefore, make sure you have the :ref:`appropriate SPICE kernels downloaded <SPICE kernels>` to your computer and that you have set :ref:`the kernel directory<kernel directory>` correctly.

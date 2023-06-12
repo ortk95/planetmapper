@@ -17,10 +17,10 @@ If you already have the appropriate SPICE kernels saved to your computer, you ca
 
 Downloading SPICE kernels
 =========================
-To aid in downloading appropriate SPICE kernels, PlanetMapper contains a series of useful functions such as :func:`planetmapper.kernel_downloader.download_urls` to download kernels from the `NAIF database <https://naif.jpl.nasa.gov/pub/naif/>`_. These functions will automatically download the SPICE kernels to your computer where they can be used by PlanetMapper, so you only need to worry about downloading the kernels once, then PlanetMapper will deal with everything.
+To aid in downloading appropriate SPICE kernels, PlanetMapper contains a series of useful functions such as :func:`planetmapper.kernel_downloader.download_urls` to download kernels from the `NAIF database <https://naif.jpl.nasa.gov/pub/naif/>`_. These functions will automatically download the SPICE kernels to your computer where they can be used by PlanetMapper, so you only need to worry about downloading the kernels once, then PlanetMapper will be able to automatically find and load them in the future.
 
 .. note::
-    By default, PlanetMapper will downloaded and search for kernels in a directory named `spice_kernels` within your user directory. If you would like to customise this location (e.g. if you already have kernels saved elsewhere), see the :ref:`section on customising the kernel directory<kernel directory>` below.
+    By default, PlanetMapper will downloaded and search for kernels in a directory named `spice_kernels` within your user directory. If you would like to customise this location (e.g. if you already have kernels saved elsewhere), follow the instructions in the :ref:`section on customising the kernel directory<kernel directory>` below before downloading any kernels.
 
 Required kernels
 ----------------
@@ -52,11 +52,7 @@ If you have enough disk space, you can easily download all the planet and moon k
 
 These `spk` kernels add up to ~30GB, so if you have limited disk space, you may want to instead download the specific kernels for the bodies you are interested in. Look at the `summaries` and `readme` text files at the top of the `planets <https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/>`_ and `satellites <https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/>`_ archive pages to see which specific files you want to download. 
 
-.. hint::
-    The kernels for the locations of planets are actually located in the `generic_kernels/spk/satellites <https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/>`_ directory, so even if you are only interested in the central planet, you will still need to download at least one kernel from the satellites directory. Search the 
-    `aa_summaries.txt <https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/aa_summaries.txt>`_ file for the planet(s) you are interested in to find the required kernel(s).
-
-For example, if you are only interested in Jupiter and its moons, you could instead use: ::
+For example, if you are only interested in Jupiter and its moons, you could use: ::
 
     # Note, the exact URLs in this example may not work if new kernel versions are published
     from planetmapper.kernel_downloader import download_urls
@@ -84,6 +80,10 @@ Similarly, if you are interested in Uranus, you could use: ::
     download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/ura115.bsp')
     download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/ura116.bsp')
 
+.. hint::
+    The kernels for the locations of planets are actually located in the `generic_kernels/spk/satellites <https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/>`_ directory, so even if you are only interested in the central planet, you will still need to download at least one kernel from the satellites directory. Search the 
+    `aa_summaries.txt <https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/aa_summaries.txt>`_ file for the planet(s) you are interested in to find the required kernel(s).
+
 
 Spacecraft kernels
 ------------------
@@ -96,7 +96,7 @@ The directory name for different missions can be found by searching the `NAIF ar
 
 Other kernels
 -------------
-In some cases, you may require other kernels in addition to those listed above. You should be able to identify the kernels required by searching the `NAIF archive <https://naif.jpl.nasa.gov/pub/naif/>`_. For example, if you are observing comets, you can download comet ephemerides using ::
+In some cases, you may require other kernels in addition to those listed above. You should be able to identify the kernels required by searching the `NAIF archive <https://naif.jpl.nasa.gov/pub/naif/>`_. For example, you can download comet ephemerides using ::
 
     from planetmapper.kernel_downloader import download_urls
     download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/comets/')
@@ -135,7 +135,7 @@ This path should also be set before downloading any SPICE kernels, otherwise the
 
 Automatic kernel loading
 ========================
-PlanetMapper will automatically load SPICE kernels the first time any object inheriting from :class:`planetmapper.SpiceBase` (e.g. :class:`planetmapper.Body`) is created. All kernels in the directory returned by :func:`planetmapper.get_kernel_path` which match any of the patterns `**/*.bsp`, `**/*.tpc` or `**/*.tls` are loaded by default. 
+PlanetMapper will automatically load SPICE kernels the first time any object inheriting from :class:`planetmapper.SpiceBase` (e.g. :class:`planetmapper.Body`) is created. All kernels in the directory returned by :func:`planetmapper.get_kernel_path` which `match any of the patterns <https://docs.python.org/3/library/glob.html>`__ `**/*.bsp`, `**/*.tpc` or `**/*.tls` are loaded by default. 
 
 If you would like finer control over kernel loading, you can call :func:`planetmapper.base.prevent_kernel_loading` immediately after importing PlanetMapper to disable automatic kernel loading, then manually load kernels yourself using `spiceypy.furnsh`.
 
