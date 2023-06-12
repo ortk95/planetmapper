@@ -10,6 +10,7 @@
 !*.yml
 !*.json
 !*.toml
+!*.bib
 !docs/images/*.png
 
 # Include testing data, but not temp testing outputs
