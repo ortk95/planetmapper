@@ -6,7 +6,7 @@ Installation
 Installing PlanetMapper
 =======================
 
-PlanetMapper can easily be `installed from PyPi <https://pypi.org/project/planetmapper/>`_ using pip by running: ::
+PlanetMapper can easily be `installed from PyPI <https://pypi.org/project/planetmapper/>`_ using pip by running: ::
     
     pip install planetmapper
 
