@@ -20,15 +20,11 @@ bibliography: paper.bib
 
 # Summary
 <!-- A summary describing the high-level functionality and purpose of the software for a diverse, non-specialist audience. -->
-`PlanetMapper` is an open source Python package which is used visualise, navigate and map astronomical observations of Solar System objects like planets and moons. Astronomers can use `PlanetMapper` to fit and navigate observations, 
-
-...
-
-
+`PlanetMapper` is an open source Python package which is used visualise, process and understand astronomical observations of Solar System objects, such as planets and moons. Astronomers can use `PlanetMapper` to 'navigate' observations by calculating coordinate values (such as latitude and longitude) for each pixel in an observed image, and can map observations by projecting the observed data onto a map of the target body. `PlanetMapper` can also be used to help generate publication quality figures, and has a Graphical User Interface to significantly simplify the processing of astronomical data.
 
 # Statement of need
 <!-- A Statement of need section that clearly illustrates the research purpose of the software and places it in the context of related work. -->
-In order to accurately interpret astronomical observations of objects in the solar system, it is crucial to understand the exact geometry of the observation. Some of the first questions in analysing a new dataset is working out exactly what you are looking at, for example:
+In order to accurately interpret astronomical observations of objects in the solar system, it is crucial to understand the exact geometry of the observation. Some of the first questions in analysing a new dataset are working out exactly what you are looking at, for example:
 
 - How is the planet oriented in the image? 
 - What are the latitude and longitude coordinates for each pixel? 
@@ -40,23 +36,25 @@ Without answering these kinds of questions, it is often impossible to accurately
 
 The NAIF SPICE Toolkit [@Acton2018] was developed by NASA to provide a standardised set of 'SPICE kernels', datasets containing the positions of solar system objects, and a set of tools to interface with these kernels. This toolkit provides low level functions which can be combined to solve the problem of calculating the appearance of a target body. `PlanetMapper` is designed to significantly simplify the use of SPICE for astronomers, effectively providing a high level interface to the toolkit. For example, the conversion between right ascension/declination coordinates (in the sky of the observer) to latitude/longitude coordinates (on the target body) requires calling ~10 SPICE functions, but can be done in a single function call with `PlanetMapper`. `PlanetMapper` makes use of the `SpiceyPy` package [@Annex2020] which provides a Python interface to the low level SPICE toolkit functions.  
 
+# Functionality
+
+Publication quality figures can be created with `PlanetMapper` and the `matplotlib` package [@Hunter2007] - for example, \autoref{fig:wireframe} shows a visualisation of the appearance of Saturn at a specific time. These plots can be used to help visualise and plan observing campaigns, and to help interpret observations by providing geometric context for data. Information about the observer-target geometry can also be generated, including data such as calculating the apparent size of the target and testing if a moon is in eclipse or occultation.
+
 Astronomers can use `PlanetMapper` to calculate the geometry of an astronomical observation, and generate a series of 'backplanes' which contain the coordinates (latitude/longitude, illumination angles, ring plane coordinates, velocities etc.) for each pixel in the observation. These backplanes can be saved to FITS data files for future use, or used directly in Python code. `PlanetMapper` contains functions to project observed data to a map (\autoref{fig:jupiter-mapped}), and to export FITS files containing this mapped data.
 
-Publication quality figures can be created with `PlanetMapper` and the `matplotlib` package [@Hunter2007] - for example, \autoref{fig:wireframe} shows a 'wireframe' plot of Saturn, visualising the appearance of Saturn. These plots can be used to help visualise and plan observing campaigns, and to help interpret observations by providing geometric context for the data.
+The `PlanetMapper` Graphical User Interface (GUI), shown in \autoref{fig:gui}, allows users to interactively fit, navigate and save observations with no coding required. This GUI can also be invoked from within Python code, allowing users to easily fit observations within their own data reduction and processing workflow.
 
-`PlanetMapper` also includes a graphical user interface (GUI), as shown in \autoref{fig:gui}, which allows users to interactively fit, navigate and save observations with no coding required. This GUI can also be invoked from within Python code, allowing users to easily fit observations within their own data reduction and processing workflow.
-
-... Current users ...
+`PlanetMapper` is actively used in the processing and  analysis of observations in JWST Giant Planets programmes [@King2023], and has been used to help create data visualisations and figures. It can be applied to a wide range of datasets, including those from ground and space based telescopes, spacecraft missions and amateur observations. The ability to generate generalised data and plots, such as \autoref{fig:wireframe}, means that `PlanetMapper` can also be useful for more general research purposes, even if the user is not specifically working with astronomical images.
 
 `PlanetMapper` is tested with both unit and integration tests which run automatically using GitHub's continuous integration service. The package is well documented, with all public methods and functions containing detailed docstrings, and documentation automatically built at [planetmapper.readthedocs.io](https://planetmapper.readthedocs.io). `PlanetMapper` is distributed on PyPi and the code is licensed under the MIT license. 
 
 # Figures
 
-![Saturn 'wireframe' plot generated with `PlanetMapper`, visualising the appearance of Saturn from the Earth on 1 January 2020. This plot was created with a single function call, and is fully customisable.\label{fig:wireframe}](../docs/images/saturn_wireframe_radec.png)
+![Saturn 'wireframe' plot generated with `PlanetMapper`, visualising the appearance of Saturn from the Earth on 1 January 2020. This plot was created with a single function call, and all elements are fully customisable.\label{fig:wireframe}](../docs/images/saturn_wireframe_radec.png)
 
 ![More complex example of `PlanetMapper`'s functionality. The navigated Jupiter observation (top left) was mapped (top right) using `PlanetMapper`. The emission angle backplanes generated with `PlanetMapper` are shown in the bottom panels. Jupiter image credit: NASA, ESA, STScI, A. Simon (Goddard Space Flight Center), and M.H. Wong (University of California, Berkeley) and the OPAL team.\label{fig:jupiter-mapped}](../docs/images/jupiter_mapped.png)
 
-![Screenshot of the `PlanetMapper` graphical user interface being used to fit an astronomical observation.\label{fig:gui}](../docs/images/gui_fitting.png)
+![Screenshot of the `PlanetMapper` graphical user interface being used to fit an astronomical observation. The user can adjust the location of Europa's fitted disc (the white circle) until it matches Europa's observed disc. If the observation has embedded WCS information (about the approximate telescope pointing), the disc position, rotation and size is initialised with the position derived from the WCS, so often only small manual adjustments to the disc position are needed.\label{fig:gui}](../docs/images/gui_fitting.png)
 
 
 # Acknowledgements
