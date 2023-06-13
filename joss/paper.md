@@ -46,7 +46,7 @@ The `PlanetMapper` Graphical User Interface (GUI), shown in \autoref{fig:gui}, a
 
 `PlanetMapper` is actively used in the processing and  analysis of observations in JWST Giant Planets programmes [@King2023], and has been used to help create data visualisations and figures. It can be applied to a wide range of datasets, including those from ground and space based telescopes, spacecraft missions and amateur observations. The ability to generate generalised data and plots, such as \autoref{fig:wireframe}, means that `PlanetMapper` can also be useful for more general research purposes, even if the user is not specifically working with astronomical images.
 
-`PlanetMapper` is tested with both unit and integration tests which run automatically using GitHub's continuous integration service. The package is well documented, with all public methods and functions containing detailed docstrings, and documentation automatically built at [planetmapper.readthedocs.io](https://planetmapper.readthedocs.io). `PlanetMapper` is distributed on PyPi and the code is licensed under the MIT license. 
+`PlanetMapper` is tested with both unit and integration tests which run automatically using GitHub's continuous integration service. The package is well documented, with all public methods and functions containing detailed docstrings, and documentation automatically built at [planetmapper.readthedocs.io](https://planetmapper.readthedocs.io). `PlanetMapper` is distributed on PyPI and the code is licensed under the MIT license. 
 
 # Figures
 
