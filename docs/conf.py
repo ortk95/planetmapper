@@ -2,6 +2,7 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
+import datetime
 import os
 import sys
 
@@ -15,7 +16,7 @@ from planetmapper.common import __version__
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'PlanetMapper'
-copyright = '2022, Oliver King'
+copyright = f'2022–{datetime.datetime.now():%Y}, Oliver King'
 author = 'Oliver King'
 version = __version__
 release = __version__
