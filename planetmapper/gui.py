@@ -63,7 +63,7 @@ DEFAULT_PLOT_SETTINGS: dict[PlotKey, dict] = {
     'coordinate_of_interest_radec': dict(zorder=3.7, marker='+', color='k', s=36),
     'other_body_of_interest_marker': dict(zorder=3.8, marker='+', color='w', s=36),
     'other_body_of_interest_label': dict(zorder=3.81, color='grey'),
-    'marked_coord': dict(zorder=4, color='cyan', linewidth=0.5, linestyle='dotted'),
+    'marked_coord': dict(zorder=4, color='cyan', linewidth=0.5, linestyle='solid'),
     'image': dict(zorder=0.9, cmap='inferno'),
     '_': dict(
         grid_interval=30,
