@@ -1257,6 +1257,7 @@ class BodyXY(Body):
         ax: Axes | None = None,
         *,
         wireframe_kwargs: dict[str, Any] | None = None,
+        add_wireframe: bool = True,
         **kwargs,
     ) -> QuadMesh:
         """
@@ -1269,6 +1270,7 @@ class BodyXY(Body):
                 a new figure and axis is created.
             wireframe_kwargs: Dictionary of arguments passed to
                 :func:`plot_map_wireframe`.
+            add_wireframe: Enable/disable plotting of wireframe.
             **kwargs: Additional arguments are passed to
                 :func:`generate_map_coordinates` to specify the map projection used, and
                 to Matplotlib's `pcolormesh` to customise the plot. For example, can be
@@ -1289,7 +1291,8 @@ class BodyXY(Body):
 
         _, _, xx, yy, _, _ = self.generate_map_coordinates(**map_kwargs)
         h = ax.pcolormesh(xx, yy, map_img, **kwargs)
-        self.plot_map_wireframe(ax=ax, **(wireframe_kwargs or {}), **map_kwargs)
+        if add_wireframe:
+            self.plot_map_wireframe(ax=ax, **(wireframe_kwargs or {}), **map_kwargs)
         return h
 
     def imshow_map(self, *args, **kwargs):
