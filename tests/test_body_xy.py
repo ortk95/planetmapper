@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import common_testing
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.collections import QuadMesh
 from numpy import array, nan
 
 import planetmapper
@@ -907,7 +908,12 @@ class TestBodyXY(unittest.TestCase):
 
     def test_plot_map(self):
         fig, ax = plt.subplots()
-        self.body.plot_map(np.ones((180, 360)), ax=ax)
+        h = self.body.plot_map(np.ones((180, 360)), ax=ax)
+        self.assertIsInstance(h, QuadMesh)
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
+        self.body.plot_map(np.ones((180, 360)), ax=ax, add_wireframe=False)
         plt.close(fig)
 
         self.body.imshow_map(np.ones((180, 360)))
