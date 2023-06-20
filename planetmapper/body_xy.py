@@ -1200,17 +1200,15 @@ class BodyXY(Body):
         # Formulae for boundaries based on Cartopy CRS boundaries
         if projection == 'orthographic':
             # Elipse boundary - https://math.stackexchange.com/questions/91132
-            x0 = self.r_eq
+            x0 = 1
+            b = self.r_polar / self.r_eq
             theta = np.radians(map_kw_used['lat'])
-            y0 = np.sqrt(
-                self.r_eq**2 * (np.sin(theta)) ** 2
-                + self.r_polar**2 * (np.cos(theta)) ** 2
-            )
+            y0 = np.sqrt((np.sin(theta)) ** 2 + b**2 * (np.cos(theta)) ** 2)
             t = np.linspace(0, -2 * np.pi, 100)
             boundary = (x0 * np.cos(t), y0 * np.sin(t))
         elif projection == 'azimuthal':
             # Circular boundary
-            x0 = y0 = self.r_eq * np.pi
+            x0 = y0 = 1
             t = np.linspace(0, -2 * np.pi, 100)
             boundary = (x0 * np.cos(t), y0 * np.sin(t))
 
@@ -1847,14 +1845,15 @@ class BodyXY(Body):
                 info,
             )
         elif projection == 'orthographic':
+            b = self.r_polar / self.r_eq
             proj = '+proj=ortho +a={a} +b={b} +lon_0={lon_0} +lat_0={lat_0} +y_0={y_0} +type=crs'.format(
-                a=self.r_eq,
-                b=self.r_polar,
+                a=1,
+                b=b,
                 lon_0=lon,
                 lat_0=lat,
-                y_0=(self.r_polar - self.r_eq) * np.sin(np.radians(lat * 2)),
+                y_0=(b - 1) * np.sin(np.radians(lat * 2)),
             )
-            lim = max(self.r_eq, self.r_polar) * 1.01
+            lim = max(1, b) * 1.01
             info = dict(projection=projection, lon=lon, lat=lat, size=size)
             return (
                 *self._get_pyproj_map_coords(proj, np.linspace(-lim, lim, size)),
@@ -1862,11 +1861,11 @@ class BodyXY(Body):
             )
         elif projection == 'azimuthal':
             proj = '+proj=aeqd +R={a} +lon_0={lon_0} +lat_0={lat_0} +type=crs'.format(
-                a=self.r_eq,
+                a=1 / np.pi,
                 lon_0=lon,
                 lat_0=lat,
             )
-            lim = max(self.r_eq, self.r_polar) * np.pi * 1.01
+            lim = 1.01
             info = dict(projection=projection, lon=lon, lat=lat, size=size)
             return (
                 *self._get_pyproj_map_coords(proj, np.linspace(-lim, lim, size)),
