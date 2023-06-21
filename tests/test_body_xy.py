@@ -536,6 +536,9 @@ class TestBodyXY(unittest.TestCase):
     def test_plot_wireframe(self, mock_show: MagicMock):
         fig, ax = plt.subplots()
         self.body.plot_wireframe_xy(ax=ax)
+        self.assertEqual(len(ax.get_lines()), 21)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 32)
         plt.close(fig)
 
         fig, ax = plt.subplots()
@@ -550,6 +553,9 @@ class TestBodyXY(unittest.TestCase):
 
         ax = self.body.plot_map_wireframe()
         self.assertEqual(ax.get_xlim(), (360, 0))
+        self.assertEqual(len(ax.get_lines()), 16)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 26)
         plt.close('all')
 
         uranus = BodyXY('uranus', utc='2000-01-01', sz=5)  # Uranus is +ve E
@@ -559,10 +565,18 @@ class TestBodyXY(unittest.TestCase):
 
         fig, ax = plt.subplots()
         self.body.plot_map_wireframe(ax=ax, projection='orthographic', lat=56)
+        self.assertEqual(len(ax.get_lines()), 18)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 29)
         plt.close(fig)
 
         fig, ax = plt.subplots()
-        self.body.plot_map_wireframe(ax=ax, projection='azimuthal', lat=-90)
+        self.body.plot_map_wireframe(
+            ax=ax, projection='azimuthal', lat=-90, label_poles=False, grid_interval=45
+        )
+        self.assertEqual(len(ax.get_lines()), 20)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 30)
         plt.close(fig)
 
         fig, ax = plt.subplots()
@@ -572,6 +586,9 @@ class TestBodyXY(unittest.TestCase):
             lon_coords=np.linspace(-180, 180, 5),
             lat_coords=np.linspace(0, 90, 3),
         )
+        self.assertEqual(len(ax.get_lines()), 17)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 29)
         plt.close(fig)
 
     def test_get_wireframe_overlay(self):
@@ -889,6 +906,9 @@ class TestBodyXY(unittest.TestCase):
     def test_plot_backplane(self, mock_show: MagicMock):
         fig, ax = plt.subplots()
         self.body.plot_backplane_img(' emission ', ax=ax)
+        self.assertEqual(len(ax.get_lines()), 21)
+        self.assertEqual(len(ax.get_images()), 1)
+        self.assertEqual(len(ax.get_children()), 33)
         plt.close(fig)
 
         fig, ax = plt.subplots()
@@ -903,17 +923,30 @@ class TestBodyXY(unittest.TestCase):
         mock_show.assert_called_once()
         mock_show.reset_mock()
 
-        self.body.plot_backplane_map(' emission ', degree_interval=90)
+        ax = self.body.plot_backplane_map(' emission ', degree_interval=90)
+        self.assertEqual(len(ax.get_lines()), 16)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 27)
         plt.close('all')
 
     def test_plot_map(self):
         fig, ax = plt.subplots()
         h = self.body.plot_map(np.ones((180, 360)), ax=ax)
         self.assertIsInstance(h, QuadMesh)
+        children = ax.get_children()
+        self.assertIn(h, ax.get_children())
+        self.assertEqual(len(ax.get_lines()), 16)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 27)
         plt.close(fig)
 
         fig, ax = plt.subplots()
-        self.body.plot_map(np.ones((180, 360)), ax=ax, add_wireframe=False)
+        h = self.body.plot_map(np.ones((180, 360)), ax=ax, add_wireframe=False)
+        children = ax.get_children()
+        self.assertIn(h, ax.get_children())
+        self.assertEqual(len(ax.get_lines()), 0)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 11)
         plt.close(fig)
 
         self.body.imshow_map(np.ones((180, 360)))

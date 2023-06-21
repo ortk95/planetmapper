@@ -832,11 +832,28 @@ class TestBody(unittest.TestCase):
 
     @patch('matplotlib.pyplot.show')
     def test_plot_wireframe(self, mock_show: MagicMock):
+        # TODO improve these tests by mocking the various matplotlib functions and
+        # checking that they are called with the correct arguments (also applies to
+        # other plotting tests elsewhere)
+
         fig, ax = plt.subplots()
         self.body.plot_wireframe_radec(ax, color='red')
+        self.assertEqual(len(ax.get_lines()), 21)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 32)
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
+        self.body.plot_wireframe_radec(ax, label_poles=False)
+        self.assertEqual(len(ax.get_lines()), 21)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 31)
         plt.close(fig)
 
         ax = self.body.plot_wireframe_km()
+        self.assertEqual(len(ax.get_lines()), 21)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 32)
         plt.close(ax.figure)
 
         self.body.add_named_rings()
@@ -854,10 +871,13 @@ class TestBody(unittest.TestCase):
             add_axis_labels=False,
             aspect_adjustable='box',
             add_title=False,
-            grid_interval=43,
+            grid_interval=45,
             indicate_equator=True,
             indicate_prime_meridian=True,
         )
+        self.assertEqual(len(ax.get_lines()), 21)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 36)
         plt.close(fig)
         self.body.ring_radii.clear()
         self.body.coordinates_of_interest_lonlat.clear()
@@ -869,6 +889,9 @@ class TestBody(unittest.TestCase):
         jupiter.add_other_bodies_of_interest('thebe', 'metis', 'amalthea', 'adrastea')
         fig, ax = plt.subplots()
         jupiter.plot_wireframe_radec(ax)
+        self.assertEqual(len(ax.get_lines()), 21)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 40)
         plt.close(fig)
 
         # Test show
