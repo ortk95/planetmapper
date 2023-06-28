@@ -8,8 +8,12 @@ from typing import Any
 
 import planetmapper
 
+IGNORE_NAMES: set[str] = {'BodyXY._iterate_image'}
+
 
 def main():
+    print('Adding trace for planetmapper functions')
+    print('Ignoring: ', IGNORE_NAMES)
     sys.setprofile(tracefunc)
 
     gui = planetmapper.gui.GUI()
@@ -20,8 +24,9 @@ def tracefunc(frame: FrameType, event: str, arg: Any):
     filename = frame.f_code.co_filename
     if 'planetmapper' not in filename:
         return
-
-    name = f'{frame.f_code.co_name} {os.path.basename(filename)}:{frame.f_lineno}'
+    if frame.f_code.co_qualname in IGNORE_NAMES:
+        return
+    name = f'{frame.f_code.co_qualname} {os.path.basename(filename)}:{frame.f_lineno}'
     indent = '-' * tracefunc.indent
     if event == 'call':
         print_message(indent + '>', name)
