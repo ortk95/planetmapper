@@ -354,7 +354,10 @@ class Observation(BodyXY):
         return x0, y0, r0, rotation
 
     def disc_from_wcs(
-        self, suppress_warnings: bool = False, validate: bool = True
+        self,
+        suppress_warnings: bool = False,
+        validate: bool = True,
+        use_header_offsets: bool = True,
     ) -> None:
         """
         Set disc parameters using WCS information in the observation's FITS header.
@@ -385,7 +388,7 @@ class Observation(BodyXY):
         self.set_rotation(rotation)
         self.set_disc_method('wcs')
 
-    def position_from_wcs(self, **kwargs) -> None:
+    def position_from_wcs(self, *args, **kwargs) -> None:
         """
         Set disc position `(x0, y0)` using WCS information in the observation's FITS
         header.
@@ -393,33 +396,33 @@ class Observation(BodyXY):
         See also :func:`disc_from_wcs`.
 
         Args:
-            **kwargs: See :func:`disc_from_wcs` for additional arguments.
+            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
         """
-        x0, y0, r0, rotation = self._get_disc_params_from_wcs(**kwargs)
+        x0, y0, r0, rotation = self._get_disc_params_from_wcs(*args, **kwargs)
         self.set_x0(x0)
         self.set_y0(y0)
         self.set_disc_method('wcs_position')
 
-    def rotation_from_wcs(self, **kwargs) -> None:
+    def rotation_from_wcs(self, *args, **kwargs) -> None:
         """
         Set disc rotation using WCS information in the observation's FITS header.
 
         See also :func:`disc_from_wcs`.
 
         Args:
-            **kwargs: See :func:`disc_from_wcs` for additional arguments.
+            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
         """
-        x0, y0, r0, rotation = self._get_disc_params_from_wcs(**kwargs)
+        x0, y0, r0, rotation = self._get_disc_params_from_wcs(*args, **kwargs)
         self.set_rotation(rotation)
         self.set_disc_method('wcs_rotation')
 
-    def plate_scale_from_wcs(self, **kwargs) -> None:
+    def plate_scale_from_wcs(self, *args, **kwargs) -> None:
         """
         Set plate scale (i.e. `r0`) using WCS information in the observation's FITS
         header.
@@ -427,12 +430,12 @@ class Observation(BodyXY):
         See also :func:`disc_from_wcs`.
 
         Args:
-            **kwargs: See :func:`disc_from_wcs` for additional arguments.
+            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
         """
-        x0, y0, r0, rotation = self._get_disc_params_from_wcs(**kwargs)
+        x0, y0, r0, rotation = self._get_disc_params_from_wcs(*args, **kwargs)
         self.set_r0(r0)
         self.set_disc_method('wcs_plate_scale')
 
