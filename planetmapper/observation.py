@@ -322,6 +322,7 @@ class Observation(BodyXY):
         self,
         suppress_warnings: bool = False,
         validate: bool = True,
+        use_header_offsets: bool = True,
     ) -> tuple[float, float, float, float]:
         wcs = self._get_wcs_from_header(suppress_warnings=suppress_warnings)
 
@@ -340,7 +341,16 @@ class Observation(BodyXY):
             if wcs.has_distortion:
                 raise ValueError('WCS conversion contains distortion terms')
 
-        x0, y0 = wcs.world_to_pixel_values(self.target_ra, self.target_dec)
+        if use_header_offsets:
+            dra_arcsec = float(self.header.get('HIERARCH NAV RA_OFFSET', 0.0))  # type: ignore
+            ddec_arcsec = float(self.header.get('HIERARCH NAV DEC_OFFSET', 0.0))  # type: ignore
+            dra = dra_arcsec / 3600
+            ddec = ddec_arcsec / 3600
+        else:
+            dra = 0.0
+            ddec = 0.0
+
+        x0, y0 = wcs.world_to_pixel_values(self.target_ra + dra, self.target_dec + ddec)
 
         b1, b2 = wcs.pixel_to_world_values(x0, y0 + 1)
         c1, c2 = wcs.pixel_to_world_values(x0, y0)
@@ -350,12 +360,14 @@ class Observation(BodyXY):
         s = self.angular_dist(b1, b2, c1, c2)
         arcsec_per_px = s * 60 * 60  # s = degrees/px
         r0 = self.target_diameter_arcsec / (2 * arcsec_per_px)
-        x0, y0 = wcs.world_to_pixel_values(self.target_ra, self.target_dec)
 
         return x0, y0, r0, rotation
 
     def disc_from_wcs(
-        self, suppress_warnings: bool = False, validate: bool = True
+        self,
+        suppress_warnings: bool = False,
+        validate: bool = True,
+        use_header_offsets: bool = True,
     ) -> None:
         """
         Set disc parameters using WCS information in the observation's FITS header.
@@ -373,12 +385,17 @@ class Observation(BodyXY):
                 conversions.
             validate: Run checks to ensure the WCS conversion has appropriate RA/Dec
                 coordinate dimensions.
+            use_header_offsets: If present, use the `HIERARCH NAV RA_OFFSET` and
+                `HIERARCH NAV DEC_OFFSET` values from the FITS headerr to adjust the
+                target's disc location by the specified arcsecond offsets. If these
+                keywords are not present or `use_header_offsets` is `False`, no
+                adjustment is made.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
         """
         x0, y0, r0, rotation = self._get_disc_params_from_wcs(
-            suppress_warnings, validate
+            suppress_warnings, validate, use_header_offsets
         )
         self.set_x0(x0)
         self.set_y0(y0)
@@ -386,9 +403,7 @@ class Observation(BodyXY):
         self.set_rotation(rotation)
         self.set_disc_method('wcs')
 
-    def position_from_wcs(
-        self, suppress_warnings: bool = False, validate: bool = True
-    ) -> None:
+    def position_from_wcs(self, *args, **kwargs) -> None:
         """
         Set disc position `(x0, y0)` using WCS information in the observation's FITS
         header.
@@ -396,47 +411,33 @@ class Observation(BodyXY):
         See also :func:`disc_from_wcs`.
 
         Args:
-            suppress_warnings: Hide warnings produced by astropy when calculating WCS
-                conversions.
-            validate: Run checks to ensure the WCS conversion has appropriate RA/Dec
-                coordinate dimensions.
+            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
         """
-        x0, y0, r0, rotation = self._get_disc_params_from_wcs(
-            suppress_warnings, validate
-        )
+        x0, y0, r0, rotation = self._get_disc_params_from_wcs(*args, **kwargs)
         self.set_x0(x0)
         self.set_y0(y0)
         self.set_disc_method('wcs_position')
 
-    def rotation_from_wcs(
-        self, suppress_warnings: bool = False, validate: bool = True
-    ) -> None:
+    def rotation_from_wcs(self, *args, **kwargs) -> None:
         """
         Set disc rotation using WCS information in the observation's FITS header.
 
         See also :func:`disc_from_wcs`.
 
         Args:
-            suppress_warnings: Hide warnings produced by astropy when calculating WCS
-                conversions.
-            validate: Run checks to ensure the WCS conversion has appropriate RA/Dec
-                coordinate dimensions.
+            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
         """
-        x0, y0, r0, rotation = self._get_disc_params_from_wcs(
-            suppress_warnings, validate
-        )
+        x0, y0, r0, rotation = self._get_disc_params_from_wcs(*args, **kwargs)
         self.set_rotation(rotation)
         self.set_disc_method('wcs_rotation')
 
-    def plate_scale_from_wcs(
-        self, suppress_warnings: bool = False, validate: bool = True
-    ) -> None:
+    def plate_scale_from_wcs(self, *args, **kwargs) -> None:
         """
         Set plate scale (i.e. `r0`) using WCS information in the observation's FITS
         header.
@@ -444,17 +445,12 @@ class Observation(BodyXY):
         See also :func:`disc_from_wcs`.
 
         Args:
-            suppress_warnings: Hide warnings produced by astropy when calculating WCS
-                conversions.
-            validate: Run checks to ensure the WCS conversion has appropriate RA/Dec
-                coordinate dimensions.
+            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
         """
-        x0, y0, r0, rotation = self._get_disc_params_from_wcs(
-            suppress_warnings, validate
-        )
+        x0, y0, r0, rotation = self._get_disc_params_from_wcs(*args, **kwargs)
         self.set_r0(r0)
         self.set_disc_method('wcs_plate_scale')
 

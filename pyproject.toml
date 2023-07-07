@@ -28,7 +28,6 @@ exclude_lines = [
 [tool.pylint.'MESSAGES CONTROL']
 disable = [
     "C",
-    "fixme",
     "unused-variable",
     "no-else-return",
     "use-dict-literal",
@@ -46,6 +45,9 @@ disable = [
 enable = [
     "useless-suppression",
     ]
+
+[tool.pylint.miscellaneous]
+notes=["FIXME", "XXX"] # Allow TODO comments, but not FIXME or XXX
 
 
 [tool.pyright]
