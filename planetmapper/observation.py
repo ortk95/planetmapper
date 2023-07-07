@@ -350,9 +350,7 @@ class Observation(BodyXY):
             dra = 0.0
             ddec = 0.0
 
-        # FIXME: check this is correct sign
-        # FIXME: add tests
-        x0, y0 = wcs.world_to_pixel_values(self.target_ra - dra, self.target_dec - ddec)
+        x0, y0 = wcs.world_to_pixel_values(self.target_ra + dra, self.target_dec + ddec)
 
         b1, b2 = wcs.pixel_to_world_values(x0, y0 + 1)
         c1, c2 = wcs.pixel_to_world_values(x0, y0)

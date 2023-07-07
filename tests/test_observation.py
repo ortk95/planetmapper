@@ -418,6 +418,30 @@ class TestObservation(unittest.TestCase):
         obs = Observation(data=data, header=header)
         obs.disc_from_wcs(suppress_warnings=True)
 
+        x0_before = obs.get_x0()
+        y0_before = obs.get_y0()
+
+        data = np.ones((5, 6, 7))
+        h2 = header.copy()
+        h2['HIERARCH NAV RA_OFFSET'] = 1
+        h2['HIERARCH NAV DEC_OFFSET'] = -2.5
+        obs = Observation(data=data, header=h2)
+        obs.disc_from_wcs(suppress_warnings=True)
+        self.assertNotEqual(obs.get_x0(), x0_before)
+        self.assertNotEqual(obs.get_y0(), y0_before)
+
+        obs.add_arcsec_offset(-1, 2.5)  # undo the header offsets
+        self.assertAlmostEqual(obs.get_x0(), x0_before, delta=0.2)
+        self.assertAlmostEqual(obs.get_y0(), y0_before, delta=0.2)
+
+        obs.disc_from_wcs(suppress_warnings=True)
+        self.assertNotEqual(obs.get_x0(), x0_before)
+        self.assertNotEqual(obs.get_y0(), y0_before)
+
+        obs.disc_from_wcs(suppress_warnings=True, use_header_offsets=False)
+        self.assertAlmostEqual(obs.get_x0(), x0_before, delta=0.2)
+        self.assertAlmostEqual(obs.get_y0(), y0_before, delta=0.2)
+
         h2 = header.copy()
         h2['CTYPE1'] = 'DEC--TAN'
         obs = Observation(data=data, header=h2)
