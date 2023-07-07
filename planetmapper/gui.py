@@ -228,22 +228,30 @@ class GUI:
             ],
             'Use WCS data from FITS header': [
                 (
-                    lambda: self.get_observation().disc_from_wcs(True, False),
+                    lambda: self.get_observation().disc_from_wcs(
+                        suppress_warnings=True, validate=False
+                    ),
                     'Use WCS position, rotation & scale',
                     'Set all disc parameters using approximate WCS information in the observation\'s FITS header',
                 ),
                 (
-                    lambda: self.get_observation().position_from_wcs(True, False),
+                    lambda: self.get_observation().position_from_wcs(
+                        suppress_warnings=True, validate=False
+                    ),
                     'Use WCS position',
                     'Set disc position using approximate WCS information in the observation\'s FITS header',
                 ),
                 (
-                    lambda: self.get_observation().rotation_from_wcs(True, False),
+                    lambda: self.get_observation().rotation_from_wcs(
+                        suppress_warnings=True, validate=False
+                    ),
                     'Use WCS rotation',
                     'Set disc rotation using approximate WCS information in the observation\'s FITS header',
                 ),
                 (
-                    lambda: self.get_observation().plate_scale_from_wcs(True, False),
+                    lambda: self.get_observation().plate_scale_from_wcs(
+                        suppress_warnings=True, validate=False
+                    ),
                     'Use WCS plate scale',
                     'Set plate scale using approximate WCS information in the observation\'s FITS header',
                 ),
