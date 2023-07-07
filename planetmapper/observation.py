@@ -322,6 +322,7 @@ class Observation(BodyXY):
         self,
         suppress_warnings: bool = False,
         validate: bool = True,
+        use_header_offsets: bool = True,
     ) -> tuple[float, float, float, float]:
         wcs = self._get_wcs_from_header(suppress_warnings=suppress_warnings)
 
@@ -340,7 +341,18 @@ class Observation(BodyXY):
             if wcs.has_distortion:
                 raise ValueError('WCS conversion contains distortion terms')
 
-        x0, y0 = wcs.world_to_pixel_values(self.target_ra, self.target_dec)
+        if use_header_offsets:
+            dra_arcsec = float(self.header.get('HIERARCH NAV RA_OFFSET', 0.0))  # type: ignore
+            ddec_arcsec = float(self.header.get('HIERARCH NAV DEC_OFFSET', 0.0))  # type: ignore
+            dra = dra_arcsec / 3600
+            ddec = ddec_arcsec / 3600
+        else:
+            dra = 0.0
+            ddec = 0.0
+
+        # FIXME: check this is correct sign
+        # FIXME: add tests
+        x0, y0 = wcs.world_to_pixel_values(self.target_ra - dra, self.target_dec - ddec)
 
         b1, b2 = wcs.pixel_to_world_values(x0, y0 + 1)
         c1, c2 = wcs.pixel_to_world_values(x0, y0)
@@ -375,12 +387,17 @@ class Observation(BodyXY):
                 conversions.
             validate: Run checks to ensure the WCS conversion has appropriate RA/Dec
                 coordinate dimensions.
+            use_header_offsets: If present, use the `HIERARCH NAV RA_OFFSET` and
+                `HIERARCH NAV DEC_OFFSET` values from the FITS headerr to adjust the
+                target's disc location by the specified arcsecond offsets. If these
+                keywords are not present or `use_header_offsets` is `False`, no
+                adjustment is made.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
         """
         x0, y0, r0, rotation = self._get_disc_params_from_wcs(
-            suppress_warnings, validate
+            suppress_warnings, validate, use_header_offsets
         )
         self.set_x0(x0)
         self.set_y0(y0)
