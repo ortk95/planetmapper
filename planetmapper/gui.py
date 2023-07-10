@@ -24,6 +24,7 @@ from matplotlib.artist import Artist
 from matplotlib.backend_bases import MouseButton, MouseEvent
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk  # type: ignore
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
 from matplotlib.text import Text
 
 from . import base, common, data_loader, progress, utils
@@ -1017,7 +1018,9 @@ class GUI:
         self.canvas.draw()
 
     def build_plot(self) -> None:
-        self.fig = plt.figure()
+        # Use Figure rather than plt.figure to avoid segmentation fault when running
+        # from tkinter GUI (issue #258)
+        self.fig = Figure()
         self.ax = self.fig.add_axes([0.06, 0.03, 0.93, 0.96])
         self.transform = (
             self.get_observation().matplotlib_radec2xy_transform() + self.ax.transData
@@ -2058,7 +2061,7 @@ class SaveObservation(Popup):
     def close_window(self, *_) -> None:
         self.window.destroy()
 
-    def try_run_save(self) -> bool:
+    def try_run_save(self) -> None:
         save_nav = bool(self.save_nav.get())
         save_map = bool(self.save_map.get())
         map_kw: _MapKwargs = {}
@@ -2075,7 +2078,7 @@ class SaveObservation(Popup):
                 title='Error saving file',
                 message='File paths must not be empty',
             )
-            return False
+            return
 
         try:
             if save_map:
@@ -2107,7 +2110,7 @@ class SaveObservation(Popup):
                         finite=True,
                     )
         except ValueError:
-            return False
+            return
 
         # If we get to this point, everything should (hopefully) be working
 
@@ -2130,7 +2133,7 @@ class SaveObservation(Popup):
                 title='Error saving files',
                 message=f'Error: {e}' + '\n\nSee terminal for more details',
             )
-            return False
+            return
         finally:
             self.gui.get_observation()._remove_progress_hook()
 
@@ -2138,10 +2141,6 @@ class SaveObservation(Popup):
             'File{s} saved successfully'.format(s='s' if save_nav and save_map else ''),
             color='green',
         )
-
-        if keep_open:
-            return False
-        return True
 
 
 class SavingProgress(Popup):

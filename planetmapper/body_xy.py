@@ -30,6 +30,7 @@ import pyproj
 import scipy.interpolate
 from matplotlib.axes import Axes
 from matplotlib.collections import QuadMesh
+from matplotlib.figure import Figure
 from spiceypy.utils.exceptions import NotFoundError
 
 from .base import _cache_clearable_result, _cache_stable_result
@@ -1322,7 +1323,9 @@ class BodyXY(Body):
         else:
             figsize = (s * nx / ny, s)
 
-        fig = plt.figure(figsize=figsize, dpi=dpi, facecolor='w')
+        # Use Figure rather than plt.figure to avoid segmentation fault when running
+        # from tkinter GUI (issue #258)
+        fig = Figure(figsize=figsize, dpi=dpi, facecolor='w')
         ax = fig.add_axes([0, 0, 1, 1], facecolor='w')
         plot_fn(ax)
         ax.axis('off')
