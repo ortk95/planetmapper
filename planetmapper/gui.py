@@ -24,6 +24,7 @@ from matplotlib.artist import Artist
 from matplotlib.backend_bases import MouseButton, MouseEvent
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk  # type: ignore
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
 from matplotlib.text import Text
 
 from . import base, common, data_loader, progress, utils
@@ -1017,7 +1018,9 @@ class GUI:
         self.canvas.draw()
 
     def build_plot(self) -> None:
-        self.fig = plt.figure()
+        # Use Figure rather than plt.figure to avoid segmentation fault when running
+        # from tkinter GUI (issue #258)
+        self.fig = Figure()
         self.ax = self.fig.add_axes([0.06, 0.03, 0.93, 0.96])
         self.transform = (
             self.get_observation().matplotlib_radec2xy_transform() + self.ax.transData
@@ -2050,7 +2053,7 @@ class SaveObservation(Popup):
             self.save_button['state'] = 'disable'
 
     def click_save(self) -> None:
-        close = self.try_run_save() # TODO close window?
+        close = self.try_run_save()  # TODO close window?
         if close:
             self.close_window()
 
