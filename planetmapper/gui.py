@@ -2050,7 +2050,9 @@ class SaveObservation(Popup):
             self.save_button['state'] = 'disable'
 
     def click_save(self) -> None:
-        self.try_run_save()
+        close = self.try_run_save() # TODO close window?
+        if close:
+            self.close_window()
 
     def click_cancel(self) -> None:
         self.close_window()
