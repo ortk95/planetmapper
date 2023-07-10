@@ -8,7 +8,9 @@ from typing import Any
 
 import planetmapper
 
-IGNORE_NAMES: set[str] = {'BodyXY._iterate_image'}
+_DO_QUALNAME = sys.version_info >= (3, 11)  # co_qualname was added in 3.11
+
+IGNORE_NAMES: set[str] = {'_iterate_image'}
 
 
 def main():
@@ -24,9 +26,10 @@ def tracefunc(frame: FrameType, event: str, arg: Any):
     filename = frame.f_code.co_filename
     if 'planetmapper' not in filename:
         return
-    if frame.f_code.co_qualname in IGNORE_NAMES:
+    if frame.f_code.co_name in IGNORE_NAMES:
         return
-    name = f'{frame.f_code.co_qualname} {os.path.basename(filename)}:{frame.f_lineno}'
+    n = frame.f_code.co_qualname if _DO_QUALNAME else frame.f_code.co_name
+    name = f'{n} {os.path.basename(filename)}:{frame.f_lineno}'
     indent = '-' * tracefunc.indent
     if event == 'call':
         print_message(indent + '>', name)
