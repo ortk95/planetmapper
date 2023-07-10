@@ -2053,9 +2053,7 @@ class SaveObservation(Popup):
             self.save_button['state'] = 'disable'
 
     def click_save(self) -> None:
-        close = self.try_run_save()  # TODO close window?
-        if close:
-            self.close_window()
+        self.try_run_save() 
 
     def click_cancel(self) -> None:
         self.close_window()
@@ -2063,7 +2061,7 @@ class SaveObservation(Popup):
     def close_window(self, *_) -> None:
         self.window.destroy()
 
-    def try_run_save(self) -> bool:
+    def try_run_save(self) -> None:
         save_nav = bool(self.save_nav.get())
         save_map = bool(self.save_map.get())
         map_kw: _MapKwargs = {}
@@ -2080,7 +2078,7 @@ class SaveObservation(Popup):
                 title='Error saving file',
                 message='File paths must not be empty',
             )
-            return False
+            return
 
         try:
             if save_map:
@@ -2112,7 +2110,7 @@ class SaveObservation(Popup):
                         finite=True,
                     )
         except ValueError:
-            return False
+            return
 
         # If we get to this point, everything should (hopefully) be working
 
@@ -2135,7 +2133,7 @@ class SaveObservation(Popup):
                 title='Error saving files',
                 message=f'Error: {e}' + '\n\nSee terminal for more details',
             )
-            return False
+            return
         finally:
             self.gui.get_observation()._remove_progress_hook()
 
@@ -2144,9 +2142,6 @@ class SaveObservation(Popup):
             color='green',
         )
 
-        if keep_open:
-            return False
-        return True
 
 
 class SavingProgress(Popup):
