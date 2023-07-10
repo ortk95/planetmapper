@@ -2053,7 +2053,7 @@ class SaveObservation(Popup):
             self.save_button['state'] = 'disable'
 
     def click_save(self) -> None:
-        self.try_run_save() 
+        self.try_run_save()
 
     def click_cancel(self) -> None:
         self.close_window()
@@ -2141,7 +2141,6 @@ class SaveObservation(Popup):
             'File{s} saved successfully'.format(s='s' if save_nav and save_map else ''),
             color='green',
         )
-
 
 
 class SavingProgress(Popup):
