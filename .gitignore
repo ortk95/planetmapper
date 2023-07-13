@@ -2,7 +2,6 @@
 *
 !*/
 !*.py
-!*.pyi
 !*.md
 !*.sh
 !*.rst
@@ -34,3 +33,4 @@ tools.py
 profile_code.py
 line_profile_code.py
 docs/default_backplanes.rst
+python-type-stubs
