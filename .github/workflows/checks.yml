@@ -29,6 +29,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyright
+      - name: Get type stubs
+        run: |
+          git clone https://github.com/microsoft/python-type-stubs python-type-stubs
       - name: Run Pyright
         run: |
           pyright

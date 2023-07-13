@@ -4,12 +4,12 @@ exclude = ""
 # Manually set exclude="" to prevent black using .gitignore due
 # to black not parsing trailing slashes in .gitignore correctly
 # https://github.com/psf/black/issues/3694
-extend_exclude = "typings"
+extend_exclude = "python-type-stubs"
 
 
 [tool.isort]
 profile = "black"
-extend_skip = ["typings"]
+extend_skip = ["python-type-stubs"]
 
 
 [tool.coverage.run]
@@ -52,6 +52,7 @@ notes=["FIXME", "XXX"] # Allow TODO comments, but not FIXME or XXX
 
 [tool.pyright]
 include = ["planetmapper/*.py", "setup.py"]
+stubPath = "python-type-stubs/stubs"
 reportPropertyTypeMismatch = true
 reportConstantRedefinition = true
 reportIncompatibleMethodOverride = true
