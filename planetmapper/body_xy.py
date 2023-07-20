@@ -1724,6 +1724,8 @@ class BodyXY(Body):
         lat_coords: np.ndarray | tuple | None = None,
         projection_x_coords: np.ndarray | tuple | None = None,
         projection_y_coords: np.ndarray | tuple | None = None,
+        xlim: tuple[float | None, float | None] = (None, None),
+        ylim: tuple[float | None, float | None] = (None, None),
     ) -> tuple[
         np.ndarray,
         np.ndarray,
@@ -1810,6 +1812,9 @@ class BodyXY(Body):
             for the default case this is
             `{'projection': 'rectangular', 'degree_interval': 1}`).
         """
+        # XXX xlim, ylim implementation
+        # XXX add tests
+        # XXX document xlim, ylim functionality
         info: dict[str, Any]  # Explicitly declare type of info to make pyright happy
         if projection == 'rectangular':
             lon_coords = np.arange(degree_interval / 2, 360, degree_interval)
