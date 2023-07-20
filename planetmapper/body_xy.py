@@ -1812,9 +1812,11 @@ class BodyXY(Body):
             object that can be used to transform between the two coordinate systems, and
             `info` is a dictionary containing the arguments used to build the map (e.g.
             for the default case this is
-            `{'projection': 'rectangular', 'degree_interval': 1}`).
+            `{'projection': 'rectangular', 'degree_interval': 1, 'xlim': (None, None),
+            'ylim': (None, None)}`).
         """
         # XXX add tests for xlim, ylim functionality
+        # XXX add test to ensure xx, yy are 2D with identical rows/columns
         # XXX document xlim, ylim functionality
         info: dict[str, Any]  # Explicitly declare type of info to make pyright happy
         if projection == 'rectangular':
@@ -1885,7 +1887,31 @@ class BodyXY(Body):
                 projection_y_coords=projection_y_coords,
             )
 
-        # XXX do xlim, ylim implementation here
+        # XXX add docs warning about assuming identical rows for projection_x_coords etc.
+        x_arr = xx[0]
+        x_to_keep = np.ones_like(x_arr, dtype=bool)
+        if xlim[0] is not None:
+            x_to_keep &= x_arr >= xlim[0]
+        if xlim[1] is not None:
+            x_to_keep &= x_arr <= xlim[1]
+        xx = xx[:, x_to_keep]
+        yy = yy[:, x_to_keep]
+        lons = lons[:, x_to_keep]
+        lats = lats[:, x_to_keep]
+
+        y_arr = yy[:, 0]
+        y_to_keep = np.ones_like(y_arr, dtype=bool)
+        if ylim[0] is not None:
+            y_to_keep &= y_arr >= ylim[0]
+        if ylim[1] is not None:
+            y_to_keep &= y_arr <= ylim[1]
+        xx = xx[y_to_keep, :]
+        yy = yy[y_to_keep, :]
+        lons = lons[y_to_keep, :]
+        lats = lats[y_to_keep, :]
+
+        info['xlim'] = xlim
+        info['ylim'] = ylim
         return lons, lats, xx, yy, transformer, info
 
     def _get_pyproj_map_coords(
