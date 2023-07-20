@@ -48,6 +48,8 @@ class _MapKwargs(TypedDict, total=False):
     lat_coords: np.ndarray
     projection_x_coords: np.ndarray
     projection_y_coords: np.ndarray | None
+    xlim: tuple[float | None, float | None]
+    ylim: tuple[float | None, float | None]
 
 
 class _BackplaneMapGetter(Protocol):
@@ -1812,49 +1814,40 @@ class BodyXY(Body):
             for the default case this is
             `{'projection': 'rectangular', 'degree_interval': 1}`).
         """
-        # XXX xlim, ylim implementation
-        # XXX add tests
+        # XXX add tests for xlim, ylim functionality
         # XXX document xlim, ylim functionality
         info: dict[str, Any]  # Explicitly declare type of info to make pyright happy
         if projection == 'rectangular':
-            lon_coords = np.arange(degree_interval / 2, 360, degree_interval)
+            lons = np.arange(degree_interval / 2, 360, degree_interval)
             if self.positive_longitude_direction == 'W':
-                lon_coords = lon_coords[::-1]
-            lat_coords = np.arange(-90 + degree_interval / 2, 90, degree_interval)
-            lon_coords, lat_coords = np.meshgrid(lon_coords, lat_coords)
+                lons = lons[::-1]
+            lats = np.arange(-90 + degree_interval / 2, 90, degree_interval)
+            lons, lats = np.meshgrid(lons, lats)
+            xx, yy = lons, lats
+            transformer = self._get_pyproj_transformer()
             info = dict(projection=projection, degree_interval=degree_interval)
-            return (
-                lon_coords,
-                lat_coords,
-                lon_coords,
-                lat_coords,
-                self._get_pyproj_transformer(),
-                info,
-            )
         elif projection == 'manual':
-            if lon_coords is None or lat_coords is None:
-                raise ValueError('lons and lats must be provided for manual projection')
-            lon_coords = np.asarray(lon_coords)
-            lat_coords = np.asarray(lat_coords)
-            if lon_coords.ndim != lat_coords.ndim:
+            lons = lon_coords
+            lats = lat_coords
+            if lons is None or lats is None:
+                raise ValueError(
+                    'lon_coords and lat_coords must be provided for manual projection'
+                )
+            lons = np.asarray(lons)
+            lats = np.asarray(lats)
+            if lons.ndim != lats.ndim:
                 raise ValueError(
                     'lon_coords and lat_coords must have the same number of dimensions'
                 )
-            if lon_coords.ndim == 1:
-                lon_coords, lat_coords = np.meshgrid(lon_coords, lat_coords)
-            if lon_coords.ndim != 2:
+            if lons.ndim == 1:
+                lons, lats = np.meshgrid(lons, lats)
+            if lons.ndim != 2:
                 raise ValueError('lon_coords and lat_coords must be 1D or 2D arrays')
-            if lon_coords.shape != lat_coords.shape:
+            if lons.shape != lats.shape:
                 raise ValueError('lon_coords and lat_coords must have the same shape')
+            xx, yy = lons, lats
+            transformer = self._get_pyproj_transformer()
             info = dict(projection=projection)
-            return (
-                lon_coords,
-                lat_coords,
-                lon_coords,
-                lat_coords,
-                self._get_pyproj_transformer(),
-                info,
-            )
         elif projection == 'orthographic':
             b = self.r_polar / self.r_eq
             proj = '+proj=ortho +a={a} +b={b} +lon_0={lon_0} +lat_0={lat_0} +y_0={y_0} +type=crs'.format(
@@ -1865,11 +1858,10 @@ class BodyXY(Body):
                 y_0=(b - 1) * np.sin(np.radians(lat * 2)),
             )
             lim = max(1, b) * 1.01
-            info = dict(projection=projection, lon=lon, lat=lat, size=size)
-            return (
-                *self._get_pyproj_map_coords(proj, np.linspace(-lim, lim, size)),
-                info,
+            lons, lats, xx, yy, transformer = self._get_pyproj_map_coords(
+                proj, np.linspace(-lim, lim, size)
             )
+            info = dict(projection=projection, lon=lon, lat=lat, size=size)
         elif projection == 'azimuthal':
             proj = '+proj=aeqd +R={a} +lon_0={lon_0} +lat_0={lat_0} +type=crs'.format(
                 a=1 / np.pi,
@@ -1877,21 +1869,24 @@ class BodyXY(Body):
                 lat_0=lat,
             )
             lim = 1.01
-            info = dict(projection=projection, lon=lon, lat=lat, size=size)
-            return (
-                *self._get_pyproj_map_coords(proj, np.linspace(-lim, lim, size)),
-                info,
+            lons, lats, xx, yy, transformer = self._get_pyproj_map_coords(
+                proj, np.linspace(-lim, lim, size)
             )
+            info = dict(projection=projection, lon=lon, lat=lat, size=size)
         else:
             if projection_x_coords is None:
                 raise ValueError('x coords must be provided')
-            info = dict(projection=projection)
-            return (
-                *self._get_pyproj_map_coords(
-                    projection, projection_x_coords, projection_y_coords
-                ),
-                info,
+            lons, lats, xx, yy, transformer = self._get_pyproj_map_coords(
+                projection, projection_x_coords, projection_y_coords
             )
+            info = dict(
+                projection=projection,
+                projection_x_coords=projection_x_coords,
+                projection_y_coords=projection_y_coords,
+            )
+
+        # XXX do xlim, ylim implementation here
+        return lons, lats, xx, yy, transformer, info
 
     def _get_pyproj_map_coords(
         self,
