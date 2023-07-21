@@ -1823,7 +1823,7 @@ class BodyXY(Body):
                 unexpected results if a custom projection is used.
             ylim: Tuple of `(y_min, y_max)` limits in the projected y coordinates of
                 the map. If `None`, the default, then the no limits are applied. See
-                `xlim` for more detils.
+                `xlim` for more details.
 
         Returns:
             `(lons, lats, xx, yy, transformer, info)` tuple where `lons` and `lats` are
