@@ -1804,6 +1804,24 @@ class BodyXY(Body):
                 string. This must be a tuple.
             projection_y_coords: Projected x coordinates to use with a pyproj projection
                 string. This must be a tuple.
+            xlim: Tuple of `(x_min, x_max)` limits in the projected x coordinates of
+                the map. If `None`, the default, then the no limits are applied (i.e.
+                the entire globe will be mapped). If `xlim` is provided, it should be a
+                tuple of two floats specifying the minimum and maximum x coordinates to
+                project the map to. For example, to only plot the western hemisphere,
+                you can use use `xlim=(0, 180)` in a rectangular projection. Note that
+                these limits are expressed in the projected coordinates of the map.
+                Setting the limits can be useful to speed up the performance of mapping
+                when only a subset of the map is needed (such as for observations with
+                limited spatial extent). If you only want to set one limit, then you can
+                pass infinity e.g. `xlim=(315, np.inf)` to only set the minimum limit.
+                The limits are implemented using
+                `x_to_keep = (x >= min(xlim)) & (x <= max(xlim))`, so the ordering of
+                the limits does not matter. Note that the limit calculations assume that
+                the data is on a regular rectangular grid.
+            ylim: Tuple of `(y_min, y_max)` limits in the projected y coordinates of
+                the map. If `None`, the default, then the no limits are applied. See
+                `xlim` for more detils.
 
         Returns:
             `(lons, lats, xx, yy, transformer, info)` tuple where `lons` and `lats` are
@@ -1811,13 +1829,9 @@ class BodyXY(Body):
             projected coordinates of the map, `transformer` is a `pyproj.Transformer`
             object that can be used to transform between the two coordinate systems, and
             `info` is a dictionary containing the arguments used to build the map (e.g.
-            for the default case this is
-            `{'projection': 'rectangular', 'degree_interval': 1, 'xlim': (None, None),
-            'ylim': (None, None)}`).
+            for the default case this would be `{'projection': 'rectangular',
+            'degree_interval': 1, 'xlim': None, 'ylim': None}`).
         """
-        # XXX document xlim, ylim functionality
-        # XXX add docs warning about assuming identical rows for projection_x_coords etc.
-
         info: dict[str, Any]  # Explicitly declare type of info to make pyright happy
         if projection == 'rectangular':
             lons = np.arange(degree_interval / 2, 360, degree_interval)
