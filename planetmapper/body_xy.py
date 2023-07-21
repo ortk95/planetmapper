@@ -48,8 +48,8 @@ class _MapKwargs(TypedDict, total=False):
     lat_coords: np.ndarray
     projection_x_coords: np.ndarray
     projection_y_coords: np.ndarray | None
-    xlim: tuple[float | None, float | None]
-    ylim: tuple[float | None, float | None]
+    xlim: tuple[float, float] | None
+    ylim: tuple[float, float] | None
 
 
 class _BackplaneMapGetter(Protocol):
@@ -1818,7 +1818,9 @@ class BodyXY(Body):
                 The limits are implemented using
                 `x_to_keep = (x >= min(xlim)) & (x <= max(xlim))`, so the ordering of
                 the limits does not matter. Note that the limit calculations assume that
-                the data is on a regular rectangular grid.
+                the data is on a rectangular grid (i.e. all rows have the same x
+                coordinates and all columns have the same y coordinates), so may produce
+                unexpected results if a custom projection is used.
             ylim: Tuple of `(y_min, y_max)` limits in the projected y coordinates of
                 the map. If `None`, the default, then the no limits are applied. See
                 `xlim` for more detils.

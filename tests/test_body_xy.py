@@ -782,7 +782,7 @@ class TestBodyXY(unittest.TestCase):
             with self.subTest(idx=idx):
                 self.assertEqual(type(a), type(b))
                 if isinstance(a, np.ndarray):
-                    self.assertTrue(np.array_equal(a, b))
+                    self.assertTrue(np.array_equal(a, b))  # type: ignore
                 else:
                     self.assertEqual(a, b)
 
@@ -850,7 +850,10 @@ class TestBodyXY(unittest.TestCase):
                 ) = self.body.generate_map_coordinates(
                     degree_interval=90, xlim=xlim, ylim=ylim
                 )
-                self.assertTrue(np.array_equal(lons, lons_expected), msg=f'{lons} <> {lons_expected}')
+                self.assertTrue(
+                    np.array_equal(lons, lons_expected),
+                    msg=f'{lons} <> {lons_expected}',
+                )
                 self.assertTrue(np.array_equal(lats, lats_expected))
                 self.assertTrue(np.array_equal(xx, lons_expected))
                 self.assertTrue(np.array_equal(yy, lats_expected))
