@@ -1726,8 +1726,8 @@ class BodyXY(Body):
         lat_coords: np.ndarray | tuple | None = None,
         projection_x_coords: np.ndarray | tuple | None = None,
         projection_y_coords: np.ndarray | tuple | None = None,
-        xlim: tuple[float | None, float | None] = (None, None),
-        ylim: tuple[float | None, float | None] = (None, None),
+        xlim: tuple[float, float] | None = None,
+        ylim: tuple[float, float] | None = None,
     ) -> tuple[
         np.ndarray,
         np.ndarray,
@@ -1815,9 +1815,9 @@ class BodyXY(Body):
             `{'projection': 'rectangular', 'degree_interval': 1, 'xlim': (None, None),
             'ylim': (None, None)}`).
         """
-        # XXX add tests for xlim, ylim functionality
-        # XXX add test to ensure xx, yy are 2D with identical rows/columns
         # XXX document xlim, ylim functionality
+        # XXX add docs warning about assuming identical rows for projection_x_coords etc.
+
         info: dict[str, Any]  # Explicitly declare type of info to make pyright happy
         if projection == 'rectangular':
             lons = np.arange(degree_interval / 2, 360, degree_interval)
@@ -1887,31 +1887,23 @@ class BodyXY(Body):
                 projection_y_coords=projection_y_coords,
             )
 
-        # XXX add docs warning about assuming identical rows for projection_x_coords etc.
-        x_arr = xx[0]
-        x_to_keep = np.ones_like(x_arr, dtype=bool)
-        if xlim[0] is not None:
-            x_to_keep &= x_arr >= xlim[0]
-        if xlim[1] is not None:
-            x_to_keep &= x_arr <= xlim[1]
-        xx = xx[:, x_to_keep]
-        yy = yy[:, x_to_keep]
-        lons = lons[:, x_to_keep]
-        lats = lats[:, x_to_keep]
-
-        y_arr = yy[:, 0]
-        y_to_keep = np.ones_like(y_arr, dtype=bool)
-        if ylim[0] is not None:
-            y_to_keep &= y_arr >= ylim[0]
-        if ylim[1] is not None:
-            y_to_keep &= y_arr <= ylim[1]
-        xx = xx[y_to_keep, :]
-        yy = yy[y_to_keep, :]
-        lons = lons[y_to_keep, :]
-        lats = lats[y_to_keep, :]
-
         info['xlim'] = xlim
         info['ylim'] = ylim
+        if xlim is not None:
+            x_arr = xx[0]
+            x_to_keep = (x_arr >= min(xlim)) & (x_arr <= max(xlim))
+            xx = xx[:, x_to_keep]
+            yy = yy[:, x_to_keep]
+            lons = lons[:, x_to_keep]
+            lats = lats[:, x_to_keep]
+        if ylim is not None:
+            y_arr = yy[:, 0]
+            y_to_keep = (y_arr >= min(ylim)) & (y_arr <= max(ylim))
+            xx = xx[y_to_keep, :]
+            yy = yy[y_to_keep, :]
+            lons = lons[y_to_keep, :]
+            lats = lats[y_to_keep, :]
+
         return lons, lats, xx, yy, transformer, info
 
     def _get_pyproj_map_coords(

@@ -775,12 +775,87 @@ class TestBodyXY(unittest.TestCase):
             projection_y_coords=np.array([0, 0.25, 0.5]),
         )
         for idx, (a, b) in enumerate(zip(output_a, output_b)):
+            if idx == 5:
+                # info dict with projection_y_coords = None
+                self.assertEqual(a['projection_y_coords'], None)  # type: ignore
+                a['projection_y_coords'] = b['projection_y_coords']  # type: ignore
             with self.subTest(idx=idx):
                 self.assertEqual(type(a), type(b))
                 if isinstance(a, np.ndarray):
                     self.assertTrue(np.array_equal(a, b))
                 else:
                     self.assertEqual(a, b)
+
+        # Test limits
+        output_a = self.body.generate_map_coordinates(degree_interval=30)
+        output_b = self.body.generate_map_coordinates(
+            degree_interval=30, xlim=None, ylim=None
+        )
+        for idx, (a, b) in enumerate(zip(output_a, output_b)):
+            with self.subTest(idx=idx):
+                self.assertEqual(type(a), type(b))
+                if isinstance(a, np.ndarray):
+                    self.assertTrue(np.array_equal(a, b))
+                else:
+                    self.assertEqual(a, b)
+
+        args: list[
+            tuple[
+                tuple[float, float] | None,
+                tuple[float, float] | None,
+                np.ndarray,
+                np.ndarray,
+            ]
+        ] = [
+            (
+                None,
+                None,
+                array([[315.0, 225.0, 135.0, 45.0], [315.0, 225.0, 135.0, 45.0]]),
+                array([[-45.0, -45.0, -45.0, -45.0], [45.0, 45.0, 45.0, 45.0]]),
+            ),
+            (
+                (-np.inf, np.inf),
+                (-np.inf, np.inf),
+                array([[315.0, 225.0, 135.0, 45.0], [315.0, 225.0, 135.0, 45.0]]),
+                array([[-45.0, -45.0, -45.0, -45.0], [45.0, 45.0, 45.0, 45.0]]),
+            ),
+            (
+                (135, -np.inf),
+                (45, np.inf),
+                array([[135.0, 45.0]]),
+                array([[45.0, 45.0]]),
+            ),
+            (
+                (100, 300),
+                (-50, 50),
+                array([[225.0, 135.0], [225.0, 135.0]]),
+                array([[-45.0, -45.0], [45.0, 45.0]]),
+            ),
+            (
+                (300, 100),
+                (50, -50),
+                array([[225.0, 135.0], [225.0, 135.0]]),
+                array([[-45.0, -45.0], [45.0, 45.0]]),
+            ),
+        ]
+        for xlim, ylim, lons_expected, lats_expected in args:
+            with self.subTest(xlim=xlim, ylim=ylim):
+                (
+                    lons,
+                    lats,
+                    xx,
+                    yy,
+                    transformer,
+                    info,
+                ) = self.body.generate_map_coordinates(
+                    degree_interval=90, xlim=xlim, ylim=ylim
+                )
+                self.assertTrue(np.array_equal(lons, lons_expected), msg=f'{lons} <> {lons_expected}')
+                self.assertTrue(np.array_equal(lats, lats_expected))
+                self.assertTrue(np.array_equal(xx, lons_expected))
+                self.assertTrue(np.array_equal(yy, lats_expected))
+                self.assertEqual(info['xlim'], xlim)
+                self.assertEqual(info['ylim'], ylim)
 
     def test_standardise_backplane_name(self):
         self.assertEqual(self.body.standardise_backplane_name('EMISSION'), 'EMISSION')
