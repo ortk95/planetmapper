@@ -1773,8 +1773,9 @@ class BodyXY(Body):
             # Generate default rectangular map for emission backplane
             body.get_backplane_map('EMISSION')
 
-            # Generate default rectangular map at lower resolution
-            body.get_backplane_map('EMISSION', degree_interval=10)
+            # Generate default rectangular map at lower resolution and only covering
+            # the northern hemisphere
+            body.get_backplane_map('EMISSION', degree_interval=10, ylim=(0, np.inf))
 
             # Generate orthographic map of northern hemisphere
             body.get_backplane_map('EMISSION', projection='orthographic', lat=90)
