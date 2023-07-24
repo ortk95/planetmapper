@@ -5,13 +5,14 @@ import common_testing
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.collections import QuadMesh
-from numpy import array, nan
+from numpy import array, inf, nan
 
 import planetmapper
 import planetmapper.base
 import planetmapper.progress
 from planetmapper import BodyXY
 from planetmapper.body_xy import Backplane, BackplaneNotFoundError
+from planetmapper.body_xy import _MapKwargs as MapKwargs
 
 
 class TestFunctions(unittest.TestCase):
@@ -582,6 +583,19 @@ class TestBodyXY(unittest.TestCase):
         fig, ax = plt.subplots()
         self.body.plot_map_wireframe(
             ax=ax,
+            projection='azimuthal equal area',
+            lat=-90,
+            label_poles=False,
+            grid_interval=45,
+        )
+        self.assertEqual(len(ax.get_lines()), 20)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 30)
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
+        self.body.plot_map_wireframe(
+            ax=ax,
             projection='manual',
             lon_coords=np.linspace(-180, 180, 5),
             lat_coords=np.linspace(0, 90, 3),
@@ -859,6 +873,193 @@ class TestBodyXY(unittest.TestCase):
                 self.assertTrue(np.array_equal(yy, lats_expected))
                 self.assertEqual(info['xlim'], xlim)
                 self.assertEqual(info['ylim'], ylim)
+
+        # Test reference
+        args: list[tuple[MapKwargs, np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = [
+            (
+                MapKwargs(degree_interval=123),
+                array([[307.5, 184.5, 61.5]]),
+                array([[-28.5, -28.5, -28.5]]),
+                array([[307.5, 184.5, 61.5]]),
+                array([[-28.5, -28.5, -28.5]]),
+            ),
+            (
+                MapKwargs(projection='orthographic', size=3),
+                array([[inf, inf, inf], [inf, 0.0, inf], [inf, inf, inf]]),
+                array([[inf, inf, inf], [inf, 0.0, inf], [inf, inf, inf]]),
+                array([[-1.01, 0.0, 1.01], [-1.01, 0.0, 1.01], [-1.01, 0.0, 1.01]]),
+                array([[-1.01, -1.01, -1.01], [0.0, 0.0, 0.0], [1.01, 1.01, 1.01]]),
+            ),
+            (
+                MapKwargs(projection='orthographic', size=3, lon=123.456, lat=-2),
+                array([[inf, inf, inf], [inf, 123.456, inf], [inf, inf, inf]]),
+                array([[inf, inf, inf], [inf, -2.29643357, inf], [inf, inf, inf]]),
+                array([[-1.01, 0.0, 1.01], [-1.01, 0.0, 1.01], [-1.01, 0.0, 1.01]]),
+                array([[-1.01, -1.01, -1.01], [0.0, 0.0, 0.0], [1.01, 1.01, 1.01]]),
+            ),
+            (
+                MapKwargs(projection='azimuthal', size=4),
+                array(
+                    [
+                        [inf, inf, inf, inf],
+                        [inf, -83.93213465, 83.93213465, inf],
+                        [inf, -83.93213465, 83.93213465, inf],
+                        [inf, inf, inf, inf],
+                    ]
+                ),
+                array(
+                    [
+                        [inf, inf, inf, inf],
+                        [inf, -44.83904649, -44.83904649, inf],
+                        [inf, 44.83904649, 44.83904649, inf],
+                        [inf, inf, inf, inf],
+                    ]
+                ),
+                array(
+                    [
+                        [-1.01, -0.33666667, 0.33666667, 1.01],
+                        [-1.01, -0.33666667, 0.33666667, 1.01],
+                        [-1.01, -0.33666667, 0.33666667, 1.01],
+                        [-1.01, -0.33666667, 0.33666667, 1.01],
+                    ]
+                ),
+                array(
+                    [
+                        [-1.01, -1.01, -1.01, -1.01],
+                        [-0.33666667, -0.33666667, -0.33666667, -0.33666667],
+                        [0.33666667, 0.33666667, 0.33666667, 0.33666667],
+                        [1.01, 1.01, 1.01, 1.01],
+                    ]
+                ),
+            ),
+            (
+                MapKwargs(projection='azimuthal', size=4, lat=90, lon=123.456),
+                array(
+                    [
+                        [inf, inf, inf, inf],
+                        [inf, 78.456, 168.456, inf],
+                        [inf, -11.544, -101.544, inf],
+                        [inf, inf, inf, inf],
+                    ]
+                ),
+                array(
+                    [
+                        [inf, inf, inf, inf],
+                        [inf, 4.29865812, 4.29865812, inf],
+                        [inf, 4.29865812, 4.29865812, inf],
+                        [inf, inf, inf, inf],
+                    ]
+                ),
+                array(
+                    [
+                        [-1.01, -0.33666667, 0.33666667, 1.01],
+                        [-1.01, -0.33666667, 0.33666667, 1.01],
+                        [-1.01, -0.33666667, 0.33666667, 1.01],
+                        [-1.01, -0.33666667, 0.33666667, 1.01],
+                    ]
+                ),
+                array(
+                    [
+                        [-1.01, -1.01, -1.01, -1.01],
+                        [-0.33666667, -0.33666667, -0.33666667, -0.33666667],
+                        [0.33666667, 0.33666667, 0.33666667, 0.33666667],
+                        [1.01, 1.01, 1.01, 1.01],
+                    ]
+                ),
+            ),
+            (
+                MapKwargs(projection='azimuthal equal area', size=5),
+                array(
+                    [
+                        [inf, inf, inf, inf, inf],
+                        [inf, -91.6285626, 0.0, 91.6285626, inf],
+                        [inf, -60.66270473, 0.0, 60.66270473, inf],
+                        [inf, -91.6285626, 0.0, 91.6285626, inf],
+                        [inf, inf, inf, inf, inf],
+                    ]
+                ),
+                array(
+                    [
+                        [inf, inf, inf, inf, inf],
+                        [inf, -44.98842597, -60.66270473, -44.98842597, inf],
+                        [inf, 0.0, 0.0, 0.0, inf],
+                        [inf, 44.98842597, 60.66270473, 44.98842597, inf],
+                        [inf, inf, inf, inf, inf],
+                    ]
+                ),
+                array(
+                    [
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                    ]
+                ),
+                array(
+                    [
+                        [-1.01, -1.01, -1.01, -1.01, -1.01],
+                        [-0.505, -0.505, -0.505, -0.505, -0.505],
+                        [0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.505, 0.505, 0.505, 0.505, 0.505],
+                        [1.01, 1.01, 1.01, 1.01, 1.01],
+                    ]
+                ),
+            ),
+            (
+                MapKwargs(projection='azimuthal equal area', size=5, lat=-12, lon=34),
+                array(
+                    [
+                        [inf, inf, inf, inf, inf],
+                        [inf, -69.26373836, 34.0, 137.26373836, inf],
+                        [inf, -27.20027738, 34.0, 95.20027738, inf],
+                        [inf, -45.79039062, 34.0, 113.79039062, inf],
+                        [inf, inf, inf, inf, inf],
+                    ]
+                ),
+                array(
+                    [
+                        [inf, inf, inf, inf, inf],
+                        [inf, -43.4196019, -72.66270473, -43.4196019, inf],
+                        [inf, -5.84665238, -12.0, -5.84665238, inf],
+                        [inf, 44.08255341, 48.66270473, 44.08255341, inf],
+                        [inf, inf, inf, inf, inf],
+                    ]
+                ),
+                array(
+                    [
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                    ]
+                ),
+                array(
+                    [
+                        [-1.01, -1.01, -1.01, -1.01, -1.01],
+                        [-0.505, -0.505, -0.505, -0.505, -0.505],
+                        [0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.505, 0.505, 0.505, 0.505, 0.505],
+                        [1.01, 1.01, 1.01, 1.01, 1.01],
+                    ]
+                ),
+            ),
+        ]
+        for kwargs, lons_expected, lats_expected, xx_expected, yy_expected in args:
+            with self.subTest(kwargs=kwargs):
+                (
+                    lons,
+                    lats,
+                    xx,
+                    yy,
+                    transformer,
+                    info,
+                ) = self.body.generate_map_coordinates(**kwargs)
+                self.assertTrue(np.allclose(lons, lons_expected))
+                self.assertTrue(np.allclose(lats, lats_expected))
+                self.assertTrue(np.allclose(xx, xx_expected))
+                self.assertTrue(np.allclose(yy, yy_expected))
 
     def test_standardise_backplane_name(self):
         self.assertEqual(self.body.standardise_backplane_name('EMISSION'), 'EMISSION')

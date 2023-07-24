@@ -1752,7 +1752,7 @@ class BodyXY(Body):
           and latitude can be customized with the `lon` and `lat` arguments. The size of
           the map can be controlled with the `size` argument.
         - `'azimuthal equal area'`: Lambert azimuthal equal area projection where the
-          central longitude and latitude can be customized with the `lon` and `lat` 
+          central longitude and latitude can be customized with the `lon` and `lat`
           arguments. The size of the map can be controlled with the `size` argument.
         - `'manual'`: manually specify the longitude and latitude coordinates to use
           for each point on the map with the `lon_coords` and `lat_coords` arguments.
@@ -1795,11 +1795,11 @@ class BodyXY(Body):
             projection: String describing map projection to use (see list of supported
                 projections above).
             degree_interval: Degree interval for `'rectangular` projection.
-            lon: Central longitude of `'orthographic'`, `'azimuthal'` and `'azimuthal 
+            lon: Central longitude of `'orthographic'`, `'azimuthal'` and `'azimuthal
                 equal area'` projections.
-            lat: Central latitude of `'orthographic'`, `'azimuthal'` and `'azimuthal 
+            lat: Central latitude of `'orthographic'`, `'azimuthal'` and `'azimuthal
                 equal area'` projections.
-            size: Pixel size (width and height) of generated `'orthographic'`, 
+            size: Pixel size (width and height) of generated `'orthographic'`,
                 `'azimuthal'` and `'azimuthal equal area'` projections.
             lon_coords: Longitude coordinates to use for `'manual'` projection. This
                 must be a tuple (e.g. use `lon_coords=tuple(np.linspace(0, 360, 100))`)
@@ -1908,7 +1908,6 @@ class BodyXY(Body):
                 proj, np.linspace(-lim, lim, size)
             )
             info = dict(projection=projection, lon=lon, lat=lat, size=size)
-            # XXX add tests
             # XXX add GUI option
         else:
             if projection_x_coords is None:
