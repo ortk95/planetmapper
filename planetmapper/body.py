@@ -1332,7 +1332,8 @@ class Body(BodyBase):
 
     def local_solar_time_from_lon(self, lon: float) -> float:
         """
-        Calculate the numerical local solar time for a longitude on the target body.
+        Calculate the numerical local solar time for a longitude on the target body. For
+        example, `0.0` corresponds to midnight and `12.5` corresponds to 12:30pm.
 
         See also :func:`local_solar_time_string_from_lon`.
 
@@ -1348,15 +1349,16 @@ class Body(BodyBase):
             lon: Longitude of point on target body.
 
         Returns:
-            Numerical local solar time in 'local hours'. For example, `0.0` would
-            correspond to midnight and `12.5` would correspond to 12:30pm.
+            Numerical local solar time in 'local hours'.
         """
         hr, mn, sc, time, ampm = self._lst_from_lon(lon)
         return hr + mn / 60 + sc / 3600
 
     def local_solar_time_string_from_lon(self, lon: float) -> str:
         """
-        Local solar time string representation for a longitude on the target body.
+        Local solar time string representation for a longitude on the target body. For
+        example, `'00:00:00'` corresponds to midnight and `'12:30:00'` corresponds to
+        12:30pm.
 
         See :func:`local_solar_time_from_lon` for more details.
 
@@ -1364,8 +1366,7 @@ class Body(BodyBase):
             lon: Longitude of point on target body.
 
         Returns:
-            String representation of local solar time. For example, `'00:00:00'` would
-            correspond to midnight and `'12:30:00'` would correspond to 12:30pm.
+            String representation of local solar time.
         """
         hr, mn, sc, time, ampm = self._lst_from_lon(lon)
         return time
