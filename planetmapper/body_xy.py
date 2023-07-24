@@ -1476,8 +1476,7 @@ class BodyXY(Body):
                 ax=ax,
                 add_axis_labels=False,
                 add_title=False,
-                **(plot_kwargs or {})
-                | dict(common_formatting=dict(color='k')),  # type:ignore
+                **(plot_kwargs or {}) | dict(common_formatting=dict(color='k')),
                 **map_kwargs,
             )
             # Add dx/dy to the limits to ensure the wireframe covers all of each pixel
@@ -1785,7 +1784,8 @@ class BodyXY(Body):
                 'EMISSION', projection='orthographic', lat=-90, size=500
                 )
 
-            # Get azimuthal map projection of image, centred on specific coordinate
+            # Get azimuthal equidistant map projection of image, centred on specific
+            # coordinate
             body.map_img(img, projection='azimuthal', lon=45, lat=30)
 
         Args:
@@ -1892,6 +1892,20 @@ class BodyXY(Body):
                 proj, np.linspace(-lim, lim, size)
             )
             info = dict(projection=projection, lon=lon, lat=lat, size=size)
+        elif projection == 'azimuthal equal area':
+            proj = '+proj=laea +R={a} +lon_0={lon_0} +lat_0={lat_0} +type=crs'.format(
+                a=1 / 2,
+                lon_0=lon,
+                lat_0=lat,
+            )
+            lim = 1.01
+            lons, lats, xx, yy, transformer = self._get_pyproj_map_coords(
+                proj, np.linspace(-lim, lim, size)
+            )
+            info = dict(projection=projection, lon=lon, lat=lat, size=size)
+            # XXX document
+            # XXX add tests
+            # XXX add border to wireframe
         else:
             if projection_x_coords is None:
                 raise ValueError('x coords must be provided')
