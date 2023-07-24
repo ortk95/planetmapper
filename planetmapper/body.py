@@ -351,6 +351,19 @@ class Body(BodyBase):
             *self._obsvec2radec_radians(self._subpoint_obsvec)
         )
 
+        # Find sub solar point
+        # XXX test
+        # XXX document
+        self._subsol_targvec, self._subsol_et, self._subsol_rayvec = spice.subslr(
+            self._subpoint_method_encoded,  # type: ignore
+            self._target_encoded,  # type: ignore
+            self.et,
+            self._target_frame_encoded,  # type: ignore
+            self._aberration_correction_encoded,  # type: ignore
+            self._observer_encoded,  # type: ignore
+        )
+        self.subsol_lon, self.subsol_lat = self.targvec2lonlat(self._subsol_targvec)
+
         # Set up equatorial plane (for ring calculations)
         targvec_north_pole = self.lonlat2targvec(0, 90)
         obsvec_north_pole = self._targvec2obsvec(targvec_north_pole)
