@@ -88,7 +88,7 @@ CMAPS = ('gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis')
 LIMIT_TYPES = ('absolute', 'percentile')
 
 MAP_INTERPOLATIONS = ('nearest', 'linear', 'quadratic', 'cubic')
-MAP_PROJECTIONS = ('rectangular', 'orthographic', 'azimuthal')
+MAP_PROJECTIONS = ('rectangular', 'orthographic', 'azimuthal', 'azimuthal equal area')
 
 DEFAULT_HINT = ''
 
@@ -2034,7 +2034,9 @@ class SaveObservation(Popup):
             map_enabled and projection_type in {'rectangular'}, self.map_rect_widgets
         )
         self.toggle(
-            map_enabled and projection_type in {'orthographic', 'azimuthal'},
+            map_enabled
+            and projection_type
+            in {'orthographic', 'azimuthal', 'azimuthal equal area'},
             self.map_ortho_widgets,
         )
 

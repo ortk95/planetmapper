@@ -1160,7 +1160,7 @@ class BodyXY(Body):
         lon_ticks = np.arange(0, 360.0001, grid_interval)
         lat_ticks = np.arange(-90, 90.0001, grid_interval)
 
-        if projection == 'azimuthal':
+        if projection in {'azimuthal', 'azimuthal equal area'}:
             # Run separately for either side of equator to reduce issues for azimuthal
             # where the grid lines overplot each other. We still can get issues for e.g.
             # lat=45, but this fixes the most common cases of lat=0,90,-90 and it's a
@@ -1209,7 +1209,7 @@ class BodyXY(Body):
             y0 = np.sqrt((np.sin(theta)) ** 2 + b**2 * (np.cos(theta)) ** 2)
             t = np.linspace(0, -2 * np.pi, 100)
             boundary = (x0 * np.cos(t), y0 * np.sin(t))
-        elif projection == 'azimuthal':
+        elif projection in {'azimuthal', 'azimuthal equal area'}:
             # Circular boundary
             x0 = y0 = 1
             t = np.linspace(0, -2 * np.pi, 100)
@@ -1246,7 +1246,7 @@ class BodyXY(Body):
                 ax.set_yticklabels(
                     [f'{y:.0f}°' if y % 90 == 0 else '' for y in lat_ticks]
                 )
-            elif projection in {'orthographic', 'azimuthal'}:
+            elif projection in {'orthographic', 'azimuthal', 'azimuthal equal area'}:
                 ax.set_xticks([])
                 ax.set_yticks([])
 
@@ -1476,8 +1476,7 @@ class BodyXY(Body):
                 ax=ax,
                 add_axis_labels=False,
                 add_title=False,
-                **(plot_kwargs or {})
-                | dict(common_formatting=dict(color='k')),  # type:ignore
+                **(plot_kwargs or {}) | dict(common_formatting=dict(color='k')),
                 **map_kwargs,
             )
             # Add dx/dy to the limits to ensure the wireframe covers all of each pixel
@@ -1752,6 +1751,9 @@ class BodyXY(Body):
         - `'azimuthal'`: azimuthal equidistant projection where the central longitude
           and latitude can be customized with the `lon` and `lat` arguments. The size of
           the map can be controlled with the `size` argument.
+        - `'azimuthal equal area'`: Lambert azimuthal equal area projection where the
+          central longitude and latitude can be customized with the `lon` and `lat`
+          arguments. The size of the map can be controlled with the `size` argument.
         - `'manual'`: manually specify the longitude and latitude coordinates to use
           for each point on the map with the `lon_coords` and `lat_coords` arguments.
 
@@ -1785,17 +1787,20 @@ class BodyXY(Body):
                 'EMISSION', projection='orthographic', lat=-90, size=500
                 )
 
-            # Get azimuthal map projection of image, centred on specific coordinate
+            # Get azimuthal equidistant map projection of image, centred on specific
+            # coordinate
             body.map_img(img, projection='azimuthal', lon=45, lat=30)
 
         Args:
             projection: String describing map projection to use (see list of supported
                 projections above).
             degree_interval: Degree interval for `'rectangular` projection.
-            lon: Central longitude of `'orthographic'` and `'azimuthal'` projections.
-            lat: Central latitude of `'orthographic'` and `'azimuthal'` projections.
-            size: Pixel size (width and height) of generated `'orthographic'` and
-                `'azimuthal'` projections.
+            lon: Central longitude of `'orthographic'`, `'azimuthal'` and `'azimuthal
+                equal area'` projections.
+            lat: Central latitude of `'orthographic'`, `'azimuthal'` and `'azimuthal
+                equal area'` projections.
+            size: Pixel size (width and height) of generated `'orthographic'`,
+                `'azimuthal'` and `'azimuthal equal area'` projections.
             lon_coords: Longitude coordinates to use for `'manual'` projection. This
                 must be a tuple (e.g. use `lon_coords=tuple(np.linspace(0, 360, 100))`)
                 - this allows mapping arguments and outputs to be cached).
@@ -1884,6 +1889,17 @@ class BodyXY(Body):
         elif projection == 'azimuthal':
             proj = '+proj=aeqd +R={a} +lon_0={lon_0} +lat_0={lat_0} +type=crs'.format(
                 a=1 / np.pi,
+                lon_0=lon,
+                lat_0=lat,
+            )
+            lim = 1.01
+            lons, lats, xx, yy, transformer = self._get_pyproj_map_coords(
+                proj, np.linspace(-lim, lim, size)
+            )
+            info = dict(projection=projection, lon=lon, lat=lat, size=size)
+        elif projection == 'azimuthal equal area':
+            proj = '+proj=laea +R={a} +lon_0={lon_0} +lat_0={lat_0} +type=crs'.format(
+                a=1 / 2,
                 lon_0=lon,
                 lat_0=lat,
             )
