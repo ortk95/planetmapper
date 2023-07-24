@@ -1304,6 +1304,49 @@ class Body(BodyBase):
         )
         return np.rad2deg(azimuth_radians)
 
+    def _lst_from_lon(self, lon: float) -> tuple[int, int, int, str, str]:
+        # XXX test
+        # TODO add backplane functions
+        return spice.et2lst(
+            self.et - self.target_light_time,
+            self.target_body_id,
+            np.deg2rad(lon),
+            'planetographic',
+        )
+
+    def local_solar_time_from_lon(self, lon: float) -> float:
+        """
+        Calculate the numerical local solar time for a longitude on the target body.
+
+        See also :func:`local_solar_time_string_from_lon`.
+
+        Args:
+            lon: Longitude of point on target body.
+
+        Returns:
+            Numerical local solar time in hours. For example, `0.0` would correspond to
+            midnight and `12.5` would correspond to 12:30pm.
+        """
+        hr, mn, sc, time, ampm = self._lst_from_lon(lon)
+        return hr + mn / 60 + sc / 3600
+
+    def local_solar_time_string_from_lon(self, lon: float) -> str:
+        """
+        Calculate the local solar time string representation for a longitude on the
+        target body.
+
+        See also :func:`local_solar_time_from_lon`.
+
+        Args:
+            lon: Longitude of point on target body.
+
+        Returns:
+            String representation of local solar time. For example, `'00:00:00'` would
+            correspond to midnight and `'12:30:00'` would correspond to 12:30pm.
+        """
+        hr, mn, sc, time, ampm = self._lst_from_lon(lon)
+        return time
+
     def terminator_radec(
         self,
         npts: int = 360,
