@@ -1160,7 +1160,7 @@ class BodyXY(Body):
         lon_ticks = np.arange(0, 360.0001, grid_interval)
         lat_ticks = np.arange(-90, 90.0001, grid_interval)
 
-        if projection == 'azimuthal':
+        if projection in {'azimuthal', 'azimuthal equal area'}:
             # Run separately for either side of equator to reduce issues for azimuthal
             # where the grid lines overplot each other. We still can get issues for e.g.
             # lat=45, but this fixes the most common cases of lat=0,90,-90 and it's a
@@ -1209,7 +1209,7 @@ class BodyXY(Body):
             y0 = np.sqrt((np.sin(theta)) ** 2 + b**2 * (np.cos(theta)) ** 2)
             t = np.linspace(0, -2 * np.pi, 100)
             boundary = (x0 * np.cos(t), y0 * np.sin(t))
-        elif projection == 'azimuthal':
+        elif projection in {'azimuthal', 'azimuthal equal area'}:
             # Circular boundary
             x0 = y0 = 1
             t = np.linspace(0, -2 * np.pi, 100)
@@ -1246,7 +1246,7 @@ class BodyXY(Body):
                 ax.set_yticklabels(
                     [f'{y:.0f}°' if y % 90 == 0 else '' for y in lat_ticks]
                 )
-            elif projection in {'orthographic', 'azimuthal'}:
+            elif projection in {'orthographic', 'azimuthal', 'azimuthal equal area'}:
                 ax.set_xticks([])
                 ax.set_yticks([])
 
@@ -1905,7 +1905,6 @@ class BodyXY(Body):
             info = dict(projection=projection, lon=lon, lat=lat, size=size)
             # XXX document
             # XXX add tests
-            # XXX add border to wireframe
         else:
             if projection_x_coords is None:
                 raise ValueError('x coords must be provided')
