@@ -1908,7 +1908,6 @@ class BodyXY(Body):
                 proj, np.linspace(-lim, lim, size)
             )
             info = dict(projection=projection, lon=lon, lat=lat, size=size)
-            # XXX add GUI option
         else:
             if projection_x_coords is None:
                 raise ValueError('x coords must be provided')
