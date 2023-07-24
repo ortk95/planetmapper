@@ -233,6 +233,10 @@ class Body(BodyBase):
         """Longitude of the sub-observer point on the target."""
         self.subpoint_lat: float
         """Latitude of the sub-observer point on the target."""
+        self.subsol_lon: float
+        """Longitude of the sub-solar point on the target."""
+        self.subsol_lat: float
+        """Latitude of the sub-solar point on the target."""
         self.named_ring_data: dict[str, list[float]]
         """
         Dictionary of ring radii for the target from :func:`data_loader.get_ring_radii`.
@@ -353,7 +357,6 @@ class Body(BodyBase):
 
         # Find sub solar point
         # XXX test
-        # XXX document
         self._subsol_targvec, self._subsol_et, self._subsol_rayvec = spice.subslr(
             self._subpoint_method_encoded,  # type: ignore
             self._target_encoded,  # type: ignore
@@ -1333,22 +1336,29 @@ class Body(BodyBase):
 
         See also :func:`local_solar_time_string_from_lon`.
 
+        .. note::
+
+            A 'local hour' of solar time is a defined as 1/24th of the solar day on the
+            target body, so will not correspond to a 'normal' hour as measured by a
+            clock. See
+            `the SPICE documentation <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/et2lst_c.html>`__
+            for more details.
+
         Args:
             lon: Longitude of point on target body.
 
         Returns:
-            Numerical local solar time in hours. For example, `0.0` would correspond to
-            midnight and `12.5` would correspond to 12:30pm.
+            Numerical local solar time in 'local hours'. For example, `0.0` would
+            correspond to midnight and `12.5` would correspond to 12:30pm.
         """
         hr, mn, sc, time, ampm = self._lst_from_lon(lon)
         return hr + mn / 60 + sc / 3600
 
     def local_solar_time_string_from_lon(self, lon: float) -> str:
         """
-        Calculate the local solar time string representation for a longitude on the
-        target body.
+        Local solar time string representation for a longitude on the target body.
 
-        See also :func:`local_solar_time_from_lon`.
+        See :func:`local_solar_time_from_lon` for more details.
 
         Args:
             lon: Longitude of point on target body.
