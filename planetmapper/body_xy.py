@@ -2645,7 +2645,7 @@ class BodyXY(Body):
         return self.calculate_doppler_factor(self.get_radial_velocity_map(**map_kwargs))
 
     @_cache_clearable_result
-    @progress_decorator  # XXX add benchmarks
+    @progress_decorator  
     def _get_limb_coordinate_imgs(self) -> np.ndarray:
         out = self._make_empty_img(3)
         obsvec_img = self._get_obsvec_img()
@@ -2657,7 +2657,7 @@ class BodyXY(Body):
         return out
 
     @_cache_stable_result
-    @progress_decorator  # XXX add benchmarks
+    @progress_decorator 
     def _get_limb_coordinate_maps(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(3, **map_kwargs)
         visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
