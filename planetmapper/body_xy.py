@@ -2663,8 +2663,6 @@ class BodyXY(Body):
         obsvec_img = self._get_obsvec_norm_img()
         for y, x in self._iterate_image(out.shape, progress=True):
             obsvec = obsvec_img[y, x]
-            if math.isnan(obsvec[0]):
-                continue
             out[y, x] = self._limb_coordinates_from_obsvec(obsvec)
         return out
 
