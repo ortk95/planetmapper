@@ -2999,7 +2999,7 @@ class BodyXY(Body):
             'LIMB-LAT-GRAPHIC',
             'Planetographic latitude of closest point on the limb [deg]',
             self.get_limb_lat_img,
-            self.get_limb_lon_map,
+            self.get_limb_lat_map,
         )
         self.register_backplane(
             'RING-RADIUS',
