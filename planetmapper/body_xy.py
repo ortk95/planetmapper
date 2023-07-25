@@ -2512,8 +2512,8 @@ class BodyXY(Body):
 
         Returns:
             Array containing the local solar time value of each pixel in the image, as
-            calculated by :func:`local_solar_time_from_lon`. Points off the disc have a
-            value of NaN.
+            calculated by :func:`Body.local_solar_time_from_lon`. Points off the disc
+            have a value of NaN.
         """
         lon_img = self.get_lon_img()
         out = self._make_empty_img()
@@ -2532,7 +2532,7 @@ class BodyXY(Body):
 
         Returns:
             Array containing map of the local solar time at each point on the target's
-            surface, as calculated by :func:`local_solar_time_from_lon`.
+            surface, as calculated by :func:`Body.local_solar_time_from_lon`.
         """
         lon_map = self.get_lon_map(**map_kwargs)
         out = self._make_empty_map(**map_kwargs)
@@ -2685,8 +2685,8 @@ class BodyXY(Body):
 
         Returns:
             Array containing the planetographic longitude of the point on the target's
-            limb that is closest to each pixel. See :func:`limb_coordinates_from_radec`
-            for more detail.
+            limb that is closest to each pixel. See
+            :func:`Body.limb_coordinates_from_radec` for more detail.
         """
         return self._get_limb_coordinate_imgs()[:, :, 0]
 
@@ -2698,7 +2698,7 @@ class BodyXY(Body):
         Returns:
             Array containing map of the planetographic longitude of the point on the
             target's limb that is closest to each point on the target's surface (for the
-            observer). See :func:`limb_coordinates_from_radec` for more detail.
+            observer). See :func:`Body.limb_coordinates_from_radec` for more detail.
         """
         return self._get_limb_coordinate_maps(**map_kwargs)[:, :, 0]
 
@@ -2708,8 +2708,8 @@ class BodyXY(Body):
 
         Returns:
             Array containing the planetographic latitude of the point on the target's
-            limb that is closest to each pixel. See :func:`limb_coordinates_from_radec`
-            for more detail.
+            limb that is closest to each pixel. See
+            :func:`Body.limb_coordinates_from_radec` for more detail.
         """
         return self._get_limb_coordinate_imgs()[:, :, 1]
 
@@ -2721,7 +2721,7 @@ class BodyXY(Body):
         Returns:
             Array containing map of the planetographic latitude of the point on the
             target's limb that is closest to each point on the target's surface (for the
-            observer). See :func:`limb_coordinates_from_radec` for more detail.
+            observer). See :func:`Body.limb_coordinates_from_radec` for more detail.
         """
         return self._get_limb_coordinate_maps(**map_kwargs)[:, :, 1]
 
@@ -2731,7 +2731,7 @@ class BodyXY(Body):
 
         Returns:
             Array containing the distance in km above the target's limb for each pixel.
-            See :func:`limb_coordinates_from_radec` for more detail.
+            See :func:`Body.limb_coordinates_from_radec` for more detail.
         """
         return self._get_limb_coordinate_imgs()[:, :, 2]
 
@@ -2743,7 +2743,7 @@ class BodyXY(Body):
         Returns:
             Array containing map of the distance in km above the target's limb for each
             point on the target's surface (for the observer). See
-            :func:`limb_coordinates_from_radec` for more detail.
+            :func:`Body.limb_coordinates_from_radec` for more detail.
         """
         return self._get_limb_coordinate_maps(**map_kwargs)[:, :, 2]
 
