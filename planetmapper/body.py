@@ -11,6 +11,8 @@ try:
 except ImportError:
     from typing_extensions import Self
 
+import math
+
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import matplotlib.transforms
@@ -1320,9 +1322,12 @@ class Body(BodyBase):
         )
         return np.rad2deg(azimuth_radians)
 
-    def _lst_from_lon(self, lon: float) -> tuple[int, int, int, str, str]:
+    def _lst_from_lon(
+        self, lon: float
+    ) -> tuple[int | float, int | float, int | float, str, str]:
         # XXX test
-        # TODO add backplane functions
+        if not math.isfinite(lon):
+            return np.nan, np.nan, np.nan, '', ''
         return spice.et2lst(
             self.et - self.target_light_time,
             self.target_body_id,

@@ -2490,6 +2490,32 @@ class BodyXY(Body):
 
     @_cache_clearable_result
     @progress_decorator
+    def get_local_solar_time_img(self) -> np.ndarray:
+        # XXX document
+        # XXX test
+        lon_img = self.get_lon_img()
+        out = self._make_empty_img()
+        for y, x in self._iterate_image(out.shape, progress=True):
+            lon = lon_img[y, x]
+            if not math.isnan(lon):
+                out[y, x] = self.local_solar_time_from_lon(lon)
+        return out
+
+    @_cache_stable_result
+    @progress_decorator
+    def get_local_solar_time_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+        # XXX document
+        # XXX test
+        lon_map = self.get_lon_map(**map_kwargs)
+        out = self._make_empty_map(**map_kwargs)
+        for a, b in self._iterate_image(out.shape, progress=True):
+            lon = lon_map[a, b]
+            if math.isfinite(lon):
+                out[a, b] = self.local_solar_time_from_lon(lon)
+        return out
+
+    @_cache_clearable_result
+    @progress_decorator
     def _get_state_imgs(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         position_img = self._make_empty_img(3)
         velocity_img = self._make_empty_img(3)
@@ -2818,6 +2844,12 @@ class BodyXY(Body):
             'Azimuth angle [deg]',
             self.get_azimuth_angle_img,
             self.get_azimuth_angle_map,
+        )
+        self.register_backplane(
+            'LOCAL-SOLAR-TIME',
+            'Local solar time [local hours]',
+            self.get_local_solar_time_img,
+            self.get_local_solar_time_map,
         )
         self.register_backplane(
             'DISTANCE',
