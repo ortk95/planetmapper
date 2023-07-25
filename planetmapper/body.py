@@ -315,7 +315,7 @@ class Body(BodyBase):
         self.target_frame = 'IAU_' + self.target
         self._target_frame_encoded = self._encode_str(self.target_frame)
 
-        self.radii = spice.bodvar(self.target_body_id, 'RADII', 3)
+        self.radii = spice.bodvar(self.target_body_id, 'RADII', 3)  # TODO document
         self.r_eq = self.radii[0]
         self.r_polar = self.radii[2]
         self.flattening = (self.r_eq - self.r_polar) / self.r_eq
@@ -1141,6 +1141,58 @@ class Body(BodyBase):
                 ra_day[idx] = np.nan
                 dec_day[idx] = np.nan
         return ra_day, dec_day, ra_night, dec_night
+
+    def limb_coordinates_from_radec(self, ra: float, dec: float):
+        """
+        Calculate the coordinates relative to the target body's limb for a point in the
+        sky.
+
+        The coordinates are calculated for the point on the ray (as defined by RA/Dec)
+        which is closest to the target body's limb.
+
+        Args:
+            ra: Right ascension of point in the sky of the observer.
+            dec: Declination of point in the sky of the observer.
+
+        Returns:
+            `(lon, lat, dist)` tuple of coordinates relative to the target body's limb.
+            `lon` and `lat` give the planetographic longitude and latitude of the point
+            on the limb closest to the point defined by `ra` and `dec`. `dist` gives the
+            distance from the point defined by `ra` and `dec` to the target's limb.
+            Positive values of `dist` mean that the point is above the limb and negative
+            values mean that the point is below the limb (i.e. on the target body's
+            disc).
+        """
+        # XXX test
+        # TODO add backplanes
+        coords = self._limb_coordinates_from_obsvec(
+            self._radec2obsvec_norm_radians(*self._degree_pair2radians(ra, dec))
+        )
+        return coords
+
+    def _limb_coordinates_from_obsvec(
+        self, obsvec_norm: np.ndarray
+    ) -> tuple[float, float, float]:
+        # Get the point on the RA/Dec ray (defined be obsvec_norm) that is closest to
+        # the centre of the target body.
+        nearpoint_obsvec, nearpoint_dist = spice.nplnpt(
+            np.array([0, 0, 0]),  # centre of observer
+            obsvec_norm,  # direction vector from observer to POI
+            self._target_obsvec,  # reference point at centre of target body
+        )
+
+        # Get the point on the surface of the target body that is closest to the
+        # nearpoint.
+        surface_targvec = spice.surfpt(
+            np.array([0, 0, 0]),
+            self._obsvec2targvec(nearpoint_obsvec),
+            self.radii[0],
+            self.radii[1],
+            self.radii[2],
+        )
+        lon, lat = self.targvec2lonlat(surface_targvec)
+        dist = nearpoint_dist - self.vector_magnitude(surface_targvec)
+        return lon, lat, dist
 
     # Visibility
     def _test_if_targvec_visible(self, targvec: np.ndarray) -> bool:
