@@ -85,6 +85,8 @@ class TestBody(unittest.TestCase):
         self.assertAlmostEqual(self.body.subpoint_distance, 819566594.28005)
         self.assertAlmostEqual(self.body.subpoint_lon, 153.12585514751467)
         self.assertAlmostEqual(self.body.subpoint_lat, -3.0886644594385193)
+        self.assertAlmostEqual(self.body.subsol_lon, 163.44768812575543)
+        self.assertAlmostEqual(self.body.subsol_lat, -2.7185371707509427)
         self.assertEqual(
             self.body.named_ring_data,
             {
@@ -103,6 +105,12 @@ class TestBody(unittest.TestCase):
         moon = Body('moon', '2005-01-01')
         self.assertEqual(moon.positive_longitude_direction, 'E')
         self.assertTrue(moon.prograde)
+
+        sun = Body('sun', '2005-01-01')
+        self.assertEqual(sun.positive_longitude_direction, 'E')
+        self.assertTrue(sun.prograde)
+        self.assertTrue(np.isnan(sun.subsol_lon))
+        self.assertTrue(np.isnan(sun.subsol_lat))
 
     def test_repr(self):
         self.assertEqual(
@@ -542,6 +550,26 @@ class TestBody(unittest.TestCase):
             )
         )
 
+    def test_limb_coordinates_from_radec(self):
+        args: list[tuple[tuple[float, float], tuple[float, float, float]]] = [
+            ((0, 0), (82.72145635455739, -7.331180721378409, 243226446.365406)),
+            (
+                (196.3719829300016, -5.565779946690757),
+                (67.23274105785333, 58.34599234749429, -68089.8880967631),
+            ),
+            (
+                (196.372, -5.566),
+                (248.13985326986065, -64.83923990338549, -64857.80811442864),
+            ),
+            ((196.3, -5.5), (64.1290135632679, 20.79992677586983, 1320579.9259661217)),
+        ]
+        for (ra, dec), (lon_expected, lat_expected, dist_expected) in args:
+            with self.subTest(ra=ra, dec=dec):
+                lon, lat, dist = self.body.limb_coordinates_from_radec(ra, dec)
+                self.assertAlmostEqual(lon, lon_expected, places=5)
+                self.assertAlmostEqual(lat, lat_expected, places=5)
+                self.assertAlmostEqual(dist, dist_expected, places=5)
+
     def test_other_body_los_intercept(self):
         utc = '2005-01-01 04:00:00'
         jupiter = planetmapper.Body('Jupiter', utc)
@@ -599,6 +627,21 @@ class TestBody(unittest.TestCase):
         self.assertAlmostEqual(
             self.body.azimuth_angle_from_lonlat(123.456, -78.9), 169.57651996164563
         )
+
+    def test_local_solar_time(self):
+        args: list[tuple[float, float, str]] = [
+            (0, 22.89638888888889, '22:53:47'),
+            (-90, 4.896388888888889, '04:53:47'),
+            (123.456, 14.666111111111112, '14:39:58'),
+            (999.999, 4.229722222222223, '04:13:47'),
+            (nan, nan, ''),
+        ]
+        for lon, lst_expected, s_expected in args:
+            with self.subTest(lon=lon):
+                lst = self.body.local_solar_time_from_lon(lon)
+                s = self.body.local_solar_time_string_from_lon(lon)
+                self.assertTrue(np.isclose(lst, lst_expected, equal_nan=True))
+                self.assertEqual(s, s_expected)
 
     def test_terminator_radec(self):
         self.assertTrue(

@@ -697,10 +697,17 @@ class TestObservation(unittest.TestCase):
                 )
             with self.subTest('Number of backplanes', filename=filename):
                 self.assertEqual(len(hdul), len(hdul_ref))
-            for hdu, hdu_ref in zip(hdul, hdul_ref):
-                self.assertEqual(hdu.name, hdu_ref.name)
-                extname = hdu.name
-                with self.subTest(filename=filename, extname=extname):
+
+            with self.subTest('Backplane names', filename=filename):
+                self.assertEqual(
+                    set(hdu.name for hdu in hdul),
+                    set(hdu.name for hdu in hdul_ref),
+                )
+
+            for hdu_ref in hdul_ref:
+                extname = hdu_ref.name
+                hdu = hdul[extname]
+                with self.subTest('HDU data', filename=filename, extname=extname):
                     data = hdu.data
                     data_ref = hdu_ref.data
                     self.assertEqual(data.shape, data_ref.shape)
@@ -717,7 +724,7 @@ class TestObservation(unittest.TestCase):
 
                 header = hdu.header
                 header_ref = hdu_ref.header
-                with self.subTest(filename=filename, extname=extname):
+                with self.subTest('HDU header', filename=filename, extname=extname):
                     self.assertEqual(set(header.keys()), set(header_ref.keys()))
 
                 keys_to_skip = {'*DATE*', '*VERSION*'}
@@ -729,7 +736,9 @@ class TestObservation(unittest.TestCase):
                         continue
                     value = header[key]
                     value_ref = header_ref[key]
-                    with self.subTest(filename=filename, extname=extname, key=key):
+                    with self.subTest(
+                        'HDU keader key', filename=filename, extname=extname, key=key
+                    ):
                         if isinstance(value, float):
                             self.assertAlmostEqual(value, value_ref)
                         else:

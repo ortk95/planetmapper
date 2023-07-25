@@ -715,6 +715,18 @@ class Observation(BodyXY):
             header=header,
         )
         self.append_to_header(
+            'SUBSOL LAT',
+            self.subsol_lat,
+            '[degrees] Sub-solar pgr latitude.',
+            header=header,
+        )
+        self.append_to_header(
+            'SUBSOL LON',
+            self.subsol_lon,
+            '[degrees] Sub-solar pgr longitude.',
+            header=header,
+        )
+        self.append_to_header(
             'LON-DIRECTION',
             self.positive_longitude_direction,
             'Positive pgr longitude direction.',
