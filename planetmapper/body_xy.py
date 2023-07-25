@@ -2072,10 +2072,14 @@ class BodyXY(Body):
             yield a, b, targvec_map[a, b]
 
     @_cache_clearable_result
-    def _get_obsvec_img(self) -> np.ndarray:
+    def _get_obsvec_norm_img(self) -> np.ndarray:
         out = self._make_empty_img(3)
-        for y, x, targvec in self._enumerate_targvec_img():
-            out[y, x] = self._targvec2obsvec(targvec)
+        ra_img = self.get_ra_img()
+        dec_img = self.get_dec_img()
+        for y, x in self._iterate_image(out.shape):
+            out[y, x] = self._radec2obsvec_norm_radians(
+                *self._degree_pair2radians(ra_img[y, x], dec_img[y, x])
+            )
         return out
 
     @_cache_stable_result
@@ -2657,7 +2661,7 @@ class BodyXY(Body):
     @progress_decorator
     def _get_limb_coordinate_imgs(self) -> np.ndarray:
         out = self._make_empty_img(3)
-        obsvec_img = self._get_obsvec_img()
+        obsvec_img = self._get_obsvec_norm_img()
         for y, x in self._iterate_image(out.shape, progress=True):
             obsvec = obsvec_img[y, x]
             if math.isnan(obsvec[0]):
@@ -2753,7 +2757,7 @@ class BodyXY(Body):
         long_img = self._make_empty_img()
         dist_img = self._make_empty_img()
 
-        obsvec_img = self._get_obsvec_img()
+        obsvec_img = self._get_obsvec_norm_img()
         for y, x in self._iterate_image(radius_img.shape, progress=True):
             radius, long, dist = self._ring_coordinates_from_obsvec(
                 obsvec_img[y, x], only_visible=False
