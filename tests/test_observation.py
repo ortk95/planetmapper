@@ -722,28 +722,27 @@ class TestObservation(unittest.TestCase):
                         np.allclose(data, data_ref, atol=atol, equal_nan=True)
                     )
 
-                # XXX
-                # header = hdu.header
-                # header_ref = hdu_ref.header
-                # with self.subTest('HDU header', filename=filename, extname=extname):
-                #     self.assertEqual(set(header.keys()), set(header_ref.keys()))
+                header = hdu.header
+                header_ref = hdu_ref.header
+                with self.subTest('HDU header', filename=filename, extname=extname):
+                    self.assertEqual(set(header.keys()), set(header_ref.keys()))
 
-                # keys_to_skip = {'*DATE*', '*VERSION*'}
-                # for key in header.keys():
-                #     if any(
-                #         fnmatch.fnmatch(key.casefold(), pattern.casefold())
-                #         for pattern in keys_to_skip
-                #     ):
-                #         continue
-                #     value = header[key]
-                #     value_ref = header_ref[key]
-                #     with self.subTest(
-                #         'HDU keader key', filename=filename, extname=extname, key=key
-                #     ):
-                #         if isinstance(value, float):
-                #             self.assertAlmostEqual(value, value_ref)
-                #         else:
-                #             self.assertEqual(value, value_ref)
+                keys_to_skip = {'*DATE*', '*VERSION*'}
+                for key in header.keys():
+                    if any(
+                        fnmatch.fnmatch(key.casefold(), pattern.casefold())
+                        for pattern in keys_to_skip
+                    ):
+                        continue
+                    value = header[key]
+                    value_ref = header_ref[key]
+                    with self.subTest(
+                        'HDU keader key', filename=filename, extname=extname, key=key
+                    ):
+                        if isinstance(value, float):
+                            self.assertAlmostEqual(value, value_ref)
+                        else:
+                            self.assertEqual(value, value_ref)
 
     @patch('planetmapper.gui.GUI.run')
     def test_run_gui(self, mock_run: MagicMock):
