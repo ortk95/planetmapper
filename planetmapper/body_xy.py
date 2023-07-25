@@ -2074,6 +2074,20 @@ class BodyXY(Body):
             yield a, b, targvec_map[a, b]
 
     @_cache_clearable_result
+    def _get_obsvec_img(self) -> np.ndarray:
+        out = self._make_empty_img(3)
+        for y, x, targvec in self._enumerate_targvec_img():
+            out[y, x] = self._targvec2obsvec(targvec)
+        return out
+
+    @_cache_stable_result
+    def _get_obsvec_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+        out = self._make_empty_map(3, **map_kwargs)
+        for a, b, targvec in self._enumerate_targvec_map(**map_kwargs):
+            out[a, b] = self._targvec2obsvec(targvec)
+        return out
+
+    @_cache_clearable_result
     @progress_decorator
     def _get_lonlat_img(self) -> np.ndarray:
         out = self._make_empty_img(2)
@@ -2200,9 +2214,10 @@ class BodyXY(Body):
     def _get_radec_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
         visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
-        for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
+        obsvec_map = self._get_obsvec_map(**map_kwargs)
+        for a, b in self._iterate_image(out.shape, progress=True):
             if visible[a, b]:
-                out[a, b] = self._obsvec2radec_radians(self._targvec2obsvec(targvec))
+                out[a, b] = self._obsvec2radec_radians(obsvec_map[a, b])
         return np.rad2deg(out)
 
     def get_ra_img(self) -> np.ndarray:
@@ -2638,11 +2653,10 @@ class BodyXY(Body):
         long_img = self._make_empty_img()
         dist_img = self._make_empty_img()
 
-        ra_img = self.get_ra_img()
-        dec_img = self.get_dec_img()
+        obsvec_img = self._get_obsvec_img()
         for y, x in self._iterate_image(radius_img.shape, progress=True):
-            radius, long, dist = self.ring_plane_coordinates(
-                ra_img[y, x], dec_img[y, x], only_visible=False
+            radius, long, dist = self._ring_coordinates_from_obsvec(
+                obsvec_img[y, x], only_visible=False
             )
             radius_img[y, x] = radius
             long_img[y, x] = long
@@ -2664,12 +2678,11 @@ class BodyXY(Body):
         dist_map = self._make_empty_map(**map_kwargs)
 
         visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
-        ra_map = self.get_ra_map(**map_kwargs)
-        dec_map = self.get_dec_map(**map_kwargs)
+        obsvec_map = self._get_obsvec_map(**map_kwargs)
         for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
             if visible[a, b]:
-                radius, long, dist = self.ring_plane_coordinates(
-                    ra_map[a, b], dec_map[a, b], only_visible=False
+                radius, long, dist = self._ring_coordinates_from_obsvec(
+                    obsvec_map[a, b], only_visible=False
                 )
                 radius_map[a, b] = radius
                 long_map[a, b] = long
