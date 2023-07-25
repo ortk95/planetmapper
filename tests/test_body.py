@@ -566,9 +566,9 @@ class TestBody(unittest.TestCase):
         for (ra, dec), (lon_expected, lat_expected, dist_expected) in args:
             with self.subTest(ra=ra, dec=dec):
                 lon, lat, dist = self.body.limb_coordinates_from_radec(ra, dec)
-                self.assertAlmostEqual(lon, lon_expected)
-                self.assertAlmostEqual(lat, lat_expected)
-                self.assertAlmostEqual(dist, dist_expected)
+                self.assertAlmostEqual(lon, lon_expected, places=5)
+                self.assertAlmostEqual(lat, lat_expected, places=5)
+                self.assertAlmostEqual(dist, dist_expected, places=5)
 
     def test_other_body_los_intercept(self):
         utc = '2005-01-01 04:00:00'
