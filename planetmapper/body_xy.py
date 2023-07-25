@@ -2645,6 +2645,94 @@ class BodyXY(Body):
         return self.calculate_doppler_factor(self.get_radial_velocity_map(**map_kwargs))
 
     @_cache_clearable_result
+    @progress_decorator  # XXX add benchmarks
+    def _get_limb_coordinate_imgs(self) -> np.ndarray:
+        out = self._make_empty_img(3)
+        obsvec_img = self._get_obsvec_img()
+        for y, x in self._iterate_image(out.shape, progress=True):
+            obsvec = obsvec_img[y, x]
+            if math.isnan(obsvec[0]):
+                continue
+            out[y, x] = self._limb_coordinates_from_obsvec(obsvec)
+        return out
+
+    @_cache_stable_result
+    @progress_decorator  # XXX add benchmarks
+    def _get_limb_coordinate_maps(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+        out = self._make_empty_map(3, **map_kwargs)
+        visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
+        obsvec_map = self._get_obsvec_map(**map_kwargs)
+        for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
+            if visible[a, b]:
+                out[a, b] = self._limb_coordinates_from_obsvec(obsvec_map[a, b])
+        return out
+
+    def get_limb_lon_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the planetographic longitude of the point on the target's
+            limb that is closest to each pixel. See :func:`limb_coordinates_from_radec`
+            for more detail.
+        """
+        return self._get_limb_coordinate_imgs()[:, :, 0]
+
+    def get_limb_lon_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Returns:
+            Array containing map of the planetographic longitude of the point on the
+            target's limb that is closest to each point on the target's surface (for the
+            observer). See :func:`limb_coordinates_from_radec` for more detail.
+        """
+        return self._get_limb_coordinate_maps(**map_kwargs)[:, :, 0]
+
+    def get_limb_lat_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the planetographic latitude of the point on the target's
+            limb that is closest to each pixel. See :func:`limb_coordinates_from_radec`
+            for more detail.
+        """
+        return self._get_limb_coordinate_imgs()[:, :, 1]
+
+    def get_limb_lat_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Returns:
+            Array containing map of the planetographic latitude of the point on the
+            target's limb that is closest to each point on the target's surface (for the
+            observer). See :func:`limb_coordinates_from_radec` for more detail.
+        """
+        return self._get_limb_coordinate_maps(**map_kwargs)[:, :, 1]
+
+    def get_limb_distance_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the distance in km above the target's limb for each pixel.
+            See :func:`limb_coordinates_from_radec` for more detail.
+        """
+        return self._get_limb_coordinate_imgs()[:, :, 2]
+
+    def get_limb_distance_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+        """
+        See also :func:`get_backplane_map`.
+
+        Returns:
+            Array containing map of the distance in km above the target's limb for each
+            point on the target's surface (for the observer). See
+            :func:`limb_coordinates_from_radec` for more detail.
+        """
+        return self._get_limb_coordinate_maps(**map_kwargs)[:, :, 2]
+
+    @_cache_clearable_result
     @progress_decorator
     def _get_ring_plane_coordinate_imgs(
         self,
@@ -2881,6 +2969,24 @@ class BodyXY(Body):
             'Doppler factor, sqrt((1 + v/c)/(1 - v/c)) where v is radial velocity',
             self.get_doppler_img,
             self.get_doppler_map,
+        )
+        self.register_backplane(
+            'LIMB-DISTANCE',
+            'Distance above limb [km]',
+            self.get_limb_distance_img,
+            self.get_limb_distance_map,
+        )
+        self.register_backplane(
+            'LIMB-LON-GRAPHIC',
+            'Planetographic longitude of closest point on the limb [deg]',
+            self.get_limb_lon_img,
+            self.get_limb_lon_map,
+        )
+        self.register_backplane(
+            'LIMB-LAT-GRAPHIC',
+            'Planetographic latitude of closest point on the limb [deg]',
+            self.get_limb_lat_img,
+            self.get_limb_lon_map,
         )
         self.register_backplane(
             'RING-RADIUS',
