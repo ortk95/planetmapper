@@ -2502,7 +2502,14 @@ class BodyXY(Body):
     @_cache_clearable_result
     @progress_decorator
     def get_local_solar_time_img(self) -> np.ndarray:
-        # XXX document
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the local solar time value of each pixel in the image, as
+            calculated by :func:`local_solar_time_from_lon`. Points off the disc have a
+            value of NaN.
+        """
         # XXX test
         lon_img = self.get_lon_img()
         out = self._make_empty_img()
@@ -2515,7 +2522,14 @@ class BodyXY(Body):
     @_cache_stable_result
     @progress_decorator
     def get_local_solar_time_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
-        # XXX document
+        """
+        See :func:`generate_map_coordinates` for accepted arguments. See also
+        :func:`get_backplane_map`.
+
+        Returns:
+            Array containing map of the local solar time at each point on the target's
+            surface, as calculated by :func:`local_solar_time_from_lon`.
+        """
         # XXX test
         lon_map = self.get_lon_map(**map_kwargs)
         out = self._make_empty_map(**map_kwargs)
@@ -2675,7 +2689,8 @@ class BodyXY(Body):
 
     def get_limb_lon_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing map of the planetographic longitude of the point on the
@@ -2697,7 +2712,8 @@ class BodyXY(Body):
 
     def get_limb_lat_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing map of the planetographic latitude of the point on the
@@ -2718,7 +2734,8 @@ class BodyXY(Body):
 
     def get_limb_distance_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         """
-        See also :func:`get_backplane_map`.
+        See :func:`generate_map_coordinates` for accepted arguments. See also
+        :func:`get_backplane_map`.
 
         Returns:
             Array containing map of the distance in km above the target's limb for each
