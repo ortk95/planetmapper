@@ -1149,7 +1149,9 @@ class Body(BodyBase):
                 dec_day[idx] = np.nan
         return ra_day, dec_day, ra_night, dec_night
 
-    def limb_coordinates_from_radec(self, ra: float, dec: float):
+    def limb_coordinates_from_radec(
+        self, ra: float, dec: float
+    ) -> tuple[float, float, float]:
         """
         Calculate the coordinates relative to the target body's limb for a point in the
         sky.
@@ -1170,8 +1172,6 @@ class Body(BodyBase):
             values mean that the point is below the limb (i.e. on the target body's
             disc).
         """
-        # XXX test
-        # TODO add backplanes
         coords = self._limb_coordinates_from_obsvec(
             self._radec2obsvec_norm_radians(*self._degree_pair2radians(ra, dec))
         )
@@ -1384,7 +1384,6 @@ class Body(BodyBase):
     def _lst_from_lon(
         self, lon: float
     ) -> tuple[int | float, int | float, int | float, str, str]:
-        # XXX test
         if not math.isfinite(lon):
             return np.nan, np.nan, np.nan, '', ''
         return spice.et2lst(
