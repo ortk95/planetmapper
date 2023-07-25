@@ -76,12 +76,10 @@ class Backplane(NamedTuple):
         get_img: Function which takes no arguments returns a numpy array containing a
             backplane image when called. This should generally be a method such as
             :func:`BodyXY.get_lon_img`.
-        get_map: Function returns a numpy array containing a cylindrical map of
-            backplane values when called. This should take a single `float` argument,
-            `degree_interval` which defines the interval in degrees between the
-            longitude/latitude points in the mapped output. `degree_interval` should be
-            optional with a default value of 1. This function should generally be a
-            method such as :func:`BodyXY.get_lon_map`.
+        get_map: Function returns a numpy array containing a map of backplane values
+            when called. This should take map projection keyword arguments, as described
+            in :func:`BodyXY.generate_map_coordinates`. This function should generally
+            be a method such as :func:`BodyXY.get_lon_map`.
     """
 
     name: str
@@ -2121,7 +2119,7 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of planetographic longitude values.
+            Array containing map of planetographic longitude values.
         """
         return self._get_lonlat_map(**map_kwargs)[:, :, 0]
 
@@ -2141,7 +2139,7 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of planetographic latitude values.
+            Array containing map of planetographic latitude values.
         """
         return self._get_lonlat_map(**map_kwargs)[:, :, 1]
 
@@ -2177,7 +2175,7 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of planetocentric longitude values.
+            Array containing map of planetocentric longitude values.
         """
         return self._get_lonlat_centric_map(**map_kwargs)[:, :, 0]
 
@@ -2197,7 +2195,7 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of planetocentric latitude values.
+            Array containing map of planetocentric latitude values.
         """
         return self._get_lonlat_centric_map(**map_kwargs)[:, :, 1]
 
@@ -2235,8 +2233,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of right ascension values as viewed by the
-            observer. Locations which are not visible have a value of NaN.
+            Array containing map of right ascension values as viewed by the observer.
+            Locations which are not visible have a value of NaN.
         """
         return self._get_radec_map(**map_kwargs)[:, :, 0]
 
@@ -2255,8 +2253,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of declination values as viewed by the
-            observer. Locations which are not visible have a value of NaN.
+            Array containing map of declination values as viewed by the observer.
+            Locations which are not visible have a value of NaN.
         """
         return self._get_radec_map(**map_kwargs)[:, :, 1]
 
@@ -2291,9 +2289,9 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the x pixel coordinates each location
-            corresponds to in the observation. Locations which are not visible or are
-            not in the image frame have a value of NaN.
+            Array containing map of the x pixel coordinates each location corresponds to
+            in the observation. Locations which are not visible or are not in the image
+            frame have a value of NaN.
         """
         return self._get_xy_map(**map_kwargs)[:, :, 0]
 
@@ -2315,9 +2313,9 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the y pixel coordinates each location
-            corresponds to in the observation. Locations which are not visible or are
-            not in the image frame have a value of NaN.
+            Array containing map of the y pixel coordinates each location corresponds to
+            in the observation. Locations which are not visible or are not in the image
+            frame have a value of NaN.
         """
         return self._get_xy_map(**map_kwargs)[:, :, 1]
 
@@ -2355,9 +2353,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the distance in target plane in km in
-            the East-West direction. Locations which are not visible have a value of
-            NaN.
+            Array containing map of the distance in target plane in km in the East-West
+            direction. Locations which are not visible have a value of NaN.
         """
         return self._get_km_xy_map(**map_kwargs)[:, :, 0]
 
@@ -2377,9 +2374,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the distance in target plane in km in
-            the North-South direction. Locations which are not visible have a value of
-            NaN.
+            Array containing map of the distance in target plane in km in the
+            North-South direction. Locations which are not visible have a value of NaN.
         """
         return self._get_km_xy_map(**map_kwargs)[:, :, 1]
 
@@ -2415,8 +2411,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the phase angle value at each point on
-            the target's surface.
+            Array containing map of the phase angle value at each point on the target's
+            surface.
         """
         return self._get_illumf_map(**map_kwargs)[:, :, 0]
 
@@ -2436,8 +2432,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the incidence angle value at each point
-            on the target's surface.
+            Array containing map of the incidence angle value at each point on the
+            target's surface.
         """
         return self._get_illumf_map(**map_kwargs)[:, :, 1]
 
@@ -2457,8 +2453,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the emission angle value at each point
-            on the target's surface.
+            Array containing map of the emission angle value at each point on the
+            target's surface.
         """
         return self._get_illumf_map(**map_kwargs)[:, :, 2]
 
@@ -2489,8 +2485,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the azimuth angle value at each point
-            on the target's surface.
+            Array containing map of the azimuth angle value at each point on the
+            target's surface.
         """
         phase_radians = np.deg2rad(self._get_illumf_map(**map_kwargs)[:, :, 0])
         incidence_radians = np.deg2rad(self._get_illumf_map(**map_kwargs)[:, :, 1])
@@ -2576,8 +2572,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the observer-target distance in km of
-            each point on the target's surface.
+            Array containing map of the observer-target distance in km of each point on
+            the target's surface.
         """
         position_map, velocity_map, lt_map = self._get_state_maps(**map_kwargs)
         return lt_map * self.speed_of_light()
@@ -2609,8 +2605,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the observer-target radial velocity in
-            km/s of each point on the target's surface.
+            Array containing map of the observer-target radial velocity in km/s of each
+            point on the target's surface.
         """
         out = self._make_empty_map(**map_kwargs)
         position_map, velocity_map, lt_map = self._get_state_maps(**map_kwargs)
@@ -2637,15 +2633,14 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the doppler factor of each point on the
-            target's surface. This is calculated using
-            :func:`SpiceBase.calculate_doppler_factor` on velocities from
-            :func:`get_radial_velocity_map`.
+            Array containing map of the doppler factor of each point on the target's
+            surface. This is calculated using :func:`SpiceBase.calculate_doppler_factor`
+            on velocities from :func:`get_radial_velocity_map`.
         """
         return self.calculate_doppler_factor(self.get_radial_velocity_map(**map_kwargs))
 
     @_cache_clearable_result
-    @progress_decorator  
+    @progress_decorator
     def _get_limb_coordinate_imgs(self) -> np.ndarray:
         out = self._make_empty_img(3)
         obsvec_img = self._get_obsvec_img()
@@ -2657,7 +2652,7 @@ class BodyXY(Body):
         return out
 
     @_cache_stable_result
-    @progress_decorator 
+    @progress_decorator
     def _get_limb_coordinate_maps(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(3, **map_kwargs)
         visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
@@ -2799,10 +2794,10 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the ring plane radius in km obscuring
-            each point on the target's surface, calculated using
-            :func:`Body.ring_plane_coordinates`. Points where the target body is
-            unobscured by the ring plane have a value of NaN.
+            Array containing map of the ring plane radius in km obscuring each point on
+            the target's surface, calculated using :func:`Body.ring_plane_coordinates`.
+            Points where the target body is unobscured by the ring plane have a value of
+            NaN.
         """
         return self._get_ring_plane_coordinate_maps(**map_kwargs)[0]
 
@@ -2825,8 +2820,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the ring plane planetographic longitude
-            in degrees obscuring each point on the target's surface, calculated using
+            Array containing map of the ring plane planetographic longitude in degrees
+            obscuring each point on the target's surface, calculated using
             :func:`Body.ring_plane_coordinates`. Points where the target body is
             unobscured by the ring plane have a value of NaN.
         """
@@ -2851,9 +2846,9 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the ring plane distance from the
-            observer in km obscuring each point on the target's surface, calculated
-            using  :func:`Body.ring_plane_coordinates`. Points where the target body is
+            Array containing map of the ring plane distance from the observer in km
+            obscuring each point on the target's surface, calculated using
+            :func:`Body.ring_plane_coordinates`. Points where the target body is
             unobscured by the ring plane have a value of NaN.
         """
         return self._get_ring_plane_coordinate_maps(**map_kwargs)[2]
