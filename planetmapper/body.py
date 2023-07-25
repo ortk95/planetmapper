@@ -198,6 +198,8 @@ class Body(BodyBase):
         """Python timezone aware datetime of the observation corresponding to `utc`."""
         self.target_body_id: int
         """SPICE numeric ID of the target body."""
+        self.radii: np.ndarray
+        """Array of radii of the target body along the x, y and z axes in km."""
         self.r_eq: float
         """Equatorial radius of the target body in km."""
         self.r_polar: float
@@ -315,7 +317,7 @@ class Body(BodyBase):
         self.target_frame = 'IAU_' + self.target
         self._target_frame_encoded = self._encode_str(self.target_frame)
 
-        self.radii = spice.bodvar(self.target_body_id, 'RADII', 3)  # TODO document
+        self.radii = spice.bodvar(self.target_body_id, 'RADII', 3)
         self.r_eq = self.radii[0]
         self.r_polar = self.radii[2]
         self.flattening = (self.r_eq - self.r_polar) / self.r_eq
