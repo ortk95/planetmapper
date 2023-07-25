@@ -22,6 +22,7 @@ from matplotlib.axes import Axes
 from spiceypy.utils.exceptions import (
     NotFoundError,
     SpiceBODIESNOTDISTINCT,
+    SpiceINVALIDTARGET,
     SpiceKERNELVARNOTFOUND,
     SpiceSPKINSUFFDATA,
 )
@@ -360,16 +361,20 @@ class Body(BodyBase):
         )
 
         # Find sub solar point
-        # XXX test
-        self._subsol_targvec, self._subsol_et, self._subsol_rayvec = spice.subslr(
-            self._subpoint_method_encoded,  # type: ignore
-            self._target_encoded,  # type: ignore
-            self.et,
-            self._target_frame_encoded,  # type: ignore
-            self._aberration_correction_encoded,  # type: ignore
-            self._observer_encoded,  # type: ignore
-        )
-        self.subsol_lon, self.subsol_lat = self.targvec2lonlat(self._subsol_targvec)
+        try:
+            self._subsol_targvec, self._subsol_et, self._subsol_rayvec = spice.subslr(
+                self._subpoint_method_encoded,  # type: ignore
+                self._target_encoded,  # type: ignore
+                self.et,
+                self._target_frame_encoded,  # type: ignore
+                self._aberration_correction_encoded,  # type: ignore
+                self._observer_encoded,  # type: ignore
+            )
+            self.subsol_lon, self.subsol_lat = self.targvec2lonlat(self._subsol_targvec)
+        except SpiceINVALIDTARGET:
+            # If the target is the sun, then there is no sub-solar point
+            self.subsol_lon = np.nan
+            self.subsol_lat = np.nan
 
         # Set up equatorial plane (for ring calculations)
         targvec_north_pole = self.lonlat2targvec(0, 90)

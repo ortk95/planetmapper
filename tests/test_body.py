@@ -85,6 +85,8 @@ class TestBody(unittest.TestCase):
         self.assertAlmostEqual(self.body.subpoint_distance, 819566594.28005)
         self.assertAlmostEqual(self.body.subpoint_lon, 153.12585514751467)
         self.assertAlmostEqual(self.body.subpoint_lat, -3.0886644594385193)
+        self.assertAlmostEqual(self.body.subsol_lon, 163.44768812575543)
+        self.assertAlmostEqual(self.body.subsol_lat, -2.7185371707509427)
         self.assertEqual(
             self.body.named_ring_data,
             {
@@ -103,6 +105,12 @@ class TestBody(unittest.TestCase):
         moon = Body('moon', '2005-01-01')
         self.assertEqual(moon.positive_longitude_direction, 'E')
         self.assertTrue(moon.prograde)
+
+        sun = Body('sun', '2005-01-01')
+        self.assertEqual(sun.positive_longitude_direction, 'E')
+        self.assertTrue(sun.prograde)
+        self.assertTrue(np.isnan(sun.subsol_lon))
+        self.assertTrue(np.isnan(sun.subsol_lat))
 
     def test_repr(self):
         self.assertEqual(
