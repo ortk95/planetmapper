@@ -2217,7 +2217,8 @@ class BodyXY(Body):
         out = self._make_empty_map(2, **map_kwargs)
         visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
         obsvec_map = self._get_obsvec_map(**map_kwargs)
-        for a, b in self._iterate_image(out.shape, progress=True):
+        for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
+            # use targvec iterator to ensure don't have NaNs
             if visible[a, b]:
                 out[a, b] = self._obsvec2radec_radians(obsvec_map[a, b])
         return np.rad2deg(out)
@@ -2514,7 +2515,6 @@ class BodyXY(Body):
             calculated by :func:`local_solar_time_from_lon`. Points off the disc have a
             value of NaN.
         """
-        # XXX test
         lon_img = self.get_lon_img()
         out = self._make_empty_img()
         for y, x in self._iterate_image(out.shape, progress=True):
@@ -2534,7 +2534,6 @@ class BodyXY(Body):
             Array containing map of the local solar time at each point on the target's
             surface, as calculated by :func:`local_solar_time_from_lon`.
         """
-        # XXX test
         lon_map = self.get_lon_map(**map_kwargs)
         out = self._make_empty_map(**map_kwargs)
         for a, b in self._iterate_image(out.shape, progress=True):

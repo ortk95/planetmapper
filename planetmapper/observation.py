@@ -714,7 +714,6 @@ class Observation(BodyXY):
             '[degrees] Sub-observer pgr longitude.',
             header=header,
         )
-        # XXX test
         self.append_to_header(
             'SUBSOL LAT',
             self.subsol_lat,
