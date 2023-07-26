@@ -491,7 +491,7 @@ class Observation(BodyXY):
         Returns:
             `(dx, dy, dr, drotation)` tuple containing the differences in disc
             parameters between the current disc parameters (i.e. those returned by
-            :func:`BodyXY.get_disc_parameters`) and the disc parameters calculated from
+            :func:`BodyXY.get_disc_params`) and the disc parameters calculated from
             the WCS information in the observation's FITS header. `dx` and `dy` give the
             difference in the disc centre position in pixels, `dr` gives the difference
             in the disc radius in pixels, and `drotation` gives the difference in the
@@ -561,7 +561,7 @@ class Observation(BodyXY):
         Returns:
             `(dra_arcsec, ddec_arcsec)` tuple containing the offsets in arcseconds in
             the RA and Dec celestial coordinates between the current disc location (i.e.
-            those returned by :func:`BodyXY.get_disc_parameters`) and the disc location
+            those returned by :func:`BodyXY.get_disc_params`) and the disc location
             calculated from the WCS information in the observation's FITS header.
 
         Raises:
