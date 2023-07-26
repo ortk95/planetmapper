@@ -380,10 +380,16 @@ class TestBody(unittest.TestCase):
             [(0, 90), (196.37390490466322, -5.561534444253404)],
             [(0, 0), (196.36982789576643, -5.565060944053696)],
             [(123.456, -56.789), (196.3691609381441, -5.5685956879058764)],
+            [(np.nan, np.nan), (np.nan, np.nan)],
+            [(np.nan, 0), (np.nan, np.nan)],
+            [(0, np.nan), (np.nan, np.nan)],
+            [(np.inf, np.inf), (np.nan, np.nan)],
         ]
         for lonlat, radec in pairs:
             with self.subTest(lonlat):
-                self.assertTrue(np.allclose(self.body.lonlat2radec(*lonlat), radec))
+                self.assertTrue(
+                    np.allclose(self.body.lonlat2radec(*lonlat), radec, equal_nan=True)
+                )
 
     def test_radec2lonlat(self):
         self.assertTrue(
@@ -404,6 +410,10 @@ class TestBody(unittest.TestCase):
                 (196.3742715121965, -5.561743939677709),
                 (180.00086055026196, 80.00042229835671),
             ],
+            [(np.nan, np.nan), (np.nan, np.nan)],
+            [(np.nan, 0), (np.nan, np.nan)],
+            [(0, np.nan), (np.nan, np.nan)],
+            [(np.inf, np.inf), (np.nan, np.nan)],
         ]
         for radec, lonlat in pairs:
             with self.subTest(radec):
@@ -411,14 +421,15 @@ class TestBody(unittest.TestCase):
                     np.allclose(
                         self.body.radec2lonlat(*radec),
                         lonlat,
+                        equal_nan=True,
                     )
                 )
-                self.assertTrue(
-                    np.allclose(
-                        self.body.lonlat2radec(*lonlat),
-                        radec,
+                if all(np.isfinite(x) for x in radec):
+                    self.assertTrue(
+                        np.allclose(
+                            self.body.lonlat2radec(*lonlat), radec, equal_nan=True
+                        )
                     )
-                )
 
     def test_lonlat2targvec(self):
         pairs = [
@@ -429,11 +440,17 @@ class TestBody(unittest.TestCase):
                 (-80, -12.3456789),
                 np.array([[12162.32647743, 68975.98103572, -13405.21131042]]),
             ),
+            [(np.nan, np.nan), np.array([np.nan, np.nan, np.nan])],
+            [(np.nan, 0), np.array([np.nan, np.nan, np.nan])],
+            [(0, np.nan), np.array([np.nan, np.nan, np.nan])],
+            [(np.inf, np.inf), np.array([np.nan, np.nan, np.nan])],
         ]
         for (lon, lat), targvec in pairs:
             with self.subTest((lon, lat)):
                 self.assertTrue(
-                    np.allclose(self.body.lonlat2targvec(lon, lat), targvec)
+                    np.allclose(
+                        self.body.lonlat2targvec(lon, lat), targvec, equal_nan=True
+                    )
                 )
 
     def test_targvec2lonlat(self):
@@ -441,10 +458,19 @@ class TestBody(unittest.TestCase):
             (np.array([0, 0, 0]), (0.0, 90.0)),
             (np.array([1, 2, 3]), (296.565051177078, 89.98665551067639)),
             (np.array([-9876, 543210, 0]), (268.9584308375042, 0.0)),
+            (np.array([np.nan, np.nan, np.nan]), (np.nan, np.nan)),
+            (np.array([np.nan, 0, 0]), (np.nan, np.nan)),
+            (np.array([0, np.nan, 0]), (np.nan, np.nan)),
+            (np.array([0, 0, np.nan]), (np.nan, np.nan)),
+            (np.array([np.inf, np.inf, np.inf]), (np.nan, np.nan)),
         ]
         for targvec, lonlat in pairs:
             with self.subTest(targvec):
-                self.assertTrue(np.allclose(self.body.targvec2lonlat(targvec), lonlat))
+                self.assertTrue(
+                    np.allclose(
+                        self.body.targvec2lonlat(targvec), lonlat, equal_nan=True
+                    )
+                )
 
     def test_km_radec(self):
         pairs = [
@@ -455,6 +481,17 @@ class TestBody(unittest.TestCase):
             with self.subTest(km):
                 self.assertTrue(np.allclose(self.body.km2radec(*km), radec))
                 self.assertTrue(np.allclose(self.body.radec2km(*radec), km, atol=1e-3))
+
+        inputs = [
+            (np.nan, np.nan),
+            (np.nan, 0),
+            (0, np.nan),
+            (np.inf, np.inf),
+        ]
+        for a in inputs:
+            with self.subTest(a):
+                self.assertTrue(all(not np.isfinite(x) for x in self.body.km2radec(*a)))
+                self.assertTrue(all(not np.isfinite(x) for x in self.body.radec2km(*a)))
 
     def test_km_lonlat(self):
         pairs = [
@@ -475,6 +512,21 @@ class TestBody(unittest.TestCase):
                 self.body.km2lonlat(100000000, 0), (np.nan, np.nan), equal_nan=True
             )
         )
+
+        inputs = [
+            (np.nan, np.nan),
+            (np.nan, 0),
+            (0, np.nan),
+            (np.inf, np.inf),
+        ]
+        for a in inputs:
+            with self.subTest(a):
+                self.assertTrue(
+                    all(not np.isfinite(x) for x in self.body.km2lonlat(*a))
+                )
+                self.assertTrue(
+                    all(not np.isfinite(x) for x in self.body.lonlat2km(*a))
+                )
 
     def test_limbradec(self):
         self.assertTrue(
@@ -562,13 +614,39 @@ class TestBody(unittest.TestCase):
                 (248.13985326986065, -64.83923990338549, -64857.80811442864),
             ),
             ((196.3, -5.5), (64.1290135632679, 20.79992677586983, 1320579.9259661217)),
+            ((np.nan, np.nan), (np.nan, np.nan, np.nan)),
+            ((np.nan, 0), (np.nan, np.nan, np.nan)),
+            ((0, np.nan), (np.nan, np.nan, np.nan)),
+            ((np.inf, np.inf), (np.nan, np.nan, np.nan)),
         ]
         for (ra, dec), (lon_expected, lat_expected, dist_expected) in args:
             with self.subTest(ra=ra, dec=dec):
                 lon, lat, dist = self.body.limb_coordinates_from_radec(ra, dec)
-                self.assertAlmostEqual(lon, lon_expected, places=5)
-                self.assertAlmostEqual(lat, lat_expected, places=5)
-                self.assertAlmostEqual(dist, dist_expected, places=5)
+                self.assertTrue(
+                    np.allclose(lon, lon_expected, rtol=1e-5, equal_nan=True)
+                )
+                self.assertTrue(
+                    np.allclose(lat, lat_expected, rtol=1e-5, equal_nan=True)
+                )
+                self.assertTrue(
+                    np.allclose(dist, dist_expected, rtol=1e-5, equal_nan=True)
+                )
+
+    def test_if_lonlat_visible(self):
+        pairs: list[tuple[tuple[float, float], bool]] = [
+            ((0, 0), False),
+            ((180, 12), True),
+            ((50, -80), True),
+            ((np.nan, np.nan), False),
+            ((np.nan, 0), False),
+            ((0, np.nan), False),
+            ((np.inf, np.inf), False),
+        ]
+        for lonlat, visible in pairs:
+            with self.subTest(lonlat=lonlat):
+                self.assertEqual(
+                    self.body.test_if_lonlat_visible(*lonlat), visible, lonlat
+                )
 
     def test_other_body_los_intercept(self):
         utc = '2005-01-01 04:00:00'
@@ -607,26 +685,46 @@ class TestBody(unittest.TestCase):
         self.assertEqual(body.test_if_other_body_visible('amalthea'), True)
 
     def test_illimination_angles_from_lonlat(self):
-        self.assertTrue(
-            np.allclose(
-                self.body.illumination_angles_from_lonlat(0, 0),
-                (10.31594976458697, 163.2795134457034, 152.99822832991876),
-            )
-        )
-        self.assertTrue(
-            np.allclose(
-                self.body.illumination_angles_from_lonlat(123.456, -78.9),
+        args: list[tuple[tuple[float, float], tuple[float, float, float]]] = [
+            ((0, 0), (10.31594976458697, 163.2795134457034, 152.99822832991876)),
+            (
+                (123.456, -78.9),
                 (10.316968817304499, 79.16351827229181, 77.68583738495468),
-            )
-        )
+            ),
+            ((np.nan, np.nan), (np.nan, np.nan, np.nan)),
+            ((np.nan, 0), (np.nan, np.nan, np.nan)),
+            ((0, np.nan), (np.nan, np.nan, np.nan)),
+            ((np.inf, np.inf), (np.nan, np.nan, np.nan)),
+        ]
+
+        for lonlat, angles in args:
+            with self.subTest(lonlat=lonlat):
+                self.assertTrue(
+                    np.allclose(
+                        self.body.illumination_angles_from_lonlat(*lonlat),
+                        angles,
+                        equal_nan=True,
+                    )
+                )
 
     def test_azimuth_angle_from_lonlat(self):
-        self.assertAlmostEqual(
-            self.body.azimuth_angle_from_lonlat(0, 0), 177.66817822757469
-        )
-        self.assertAlmostEqual(
-            self.body.azimuth_angle_from_lonlat(123.456, -78.9), 169.57651996164563
-        )
+        args: list[tuple[tuple[float, float], float]] = [
+            ((0, 0), 177.66817822757469),
+            ((123.456, -78.9), 169.57651996164563),
+            ((np.nan, np.nan), np.nan),
+            ((np.nan, 0), np.nan),
+            ((0, np.nan), np.nan),
+            ((np.inf, np.inf), np.nan),
+        ]
+        for lonlat, angle in args:
+            with self.subTest(lonlat=lonlat):
+                self.assertTrue(
+                    np.allclose(
+                        self.body.azimuth_angle_from_lonlat(*lonlat),
+                        angle,
+                        equal_nan=True,
+                    )
+                )
 
     def test_local_solar_time(self):
         args: list[tuple[float, float, str]] = [
@@ -634,7 +732,8 @@ class TestBody(unittest.TestCase):
             (-90, 4.896388888888889, '04:53:47'),
             (123.456, 14.666111111111112, '14:39:58'),
             (999.999, 4.229722222222223, '04:13:47'),
-            (nan, nan, ''),
+            (np.nan, np.nan, ''),
+            (np.inf, np.nan, ''),
         ]
         for lon, lst_expected, s_expected in args:
             with self.subTest(lon=lon):
@@ -666,6 +765,11 @@ class TestBody(unittest.TestCase):
         pairs: list[tuple[tuple[float, float], bool]] = [
             ((0, 0), False),
             ((180, 12), True),
+            ((50, -80), False),
+            ((np.nan, np.nan), False),
+            ((np.nan, 0), False),
+            ((0, np.nan), False),
+            ((np.inf, np.inf), False),
         ]
         for (lon, lat), illuminated in pairs:
             with self.subTest(lon=lon, lat=lat):
@@ -674,47 +778,40 @@ class TestBody(unittest.TestCase):
                 )
 
     def test_ring_plane_coordinates(self):
-        self.assertTrue(
-            np.allclose(
-                self.body.ring_plane_coordinates(0, 0),
-                (nan, nan, nan),
-                equal_nan=True,
-            ),
-        )
-        self.assertTrue(
-            np.allclose(
-                self.body.ring_plane_coordinates(
-                    196.37198562427025, -5.565793847134351
-                ),
-                (nan, nan, nan),
-                equal_nan=True,
-            ),
-        )
-        self.assertTrue(
-            np.allclose(
-                self.body.ring_plane_coordinates(
-                    196.37347182693253, -5.561472466522512
-                ),
+        args: list[tuple[tuple[float, float, bool], tuple[float, float, float]]] = [
+            ((0, 0, True), (nan, nan, nan)),
+            ((196.37198562427025, -5.565793847134351, True), (nan, nan, nan)),
+            (
+                (196.37347182693253, -5.561472466522512, True),
                 (1377914.753652832, 152.91772706249577, 818261707.8278764),
-                equal_nan=True,
             ),
-        )
-        self.assertTrue(
-            np.allclose(
-                self.body.ring_plane_coordinates(196.3696997398314, -5.569843641306982),
-                (nan, nan, nan),
-                equal_nan=True,
-            ),
-        )
-        self.assertTrue(
-            np.allclose(
-                self.body.ring_plane_coordinates(
-                    196.37198562427025, -5.565793847134351, only_visible=False
-                ),
+            ((196.3696997398314, -5.569843641306982, True), (nan, nan, nan)),
+            (
+                (196.37198562427025, -5.565793847134351, False),
                 (4638.105239104683, 156.0690984698183, 819638074.3312378),
-                equal_nan=True,
             ),
-        )
+            (
+                (196.3, -5.5, True),
+                (9305877.091704229, 145.3644753085151, 810435703.2382222),
+            ),
+            ((np.nan, np.nan, True), (np.nan, np.nan, np.nan)),
+            ((np.nan, 0, True), (np.nan, np.nan, np.nan)),
+            ((0, np.nan, True), (np.nan, np.nan, np.nan)),
+            ((np.inf, np.inf, True), (np.nan, np.nan, np.nan)),
+        ]
+        for (lon, lat, only_visible), coords in args:
+            with self.subTest(lon=lon, lat=lat, only_visible=only_visible):
+                self.assertTrue(
+                    np.allclose(
+                        self.body.ring_plane_coordinates(
+                            lon, lat, only_visible=only_visible
+                        ),
+                        coords,
+                        equal_nan=True,
+                    ),
+                )
+
+        # test default args
         self.assertTrue(
             np.allclose(
                 self.body.ring_plane_coordinates(196.3, -5.5),
@@ -741,6 +838,13 @@ class TestBody(unittest.TestCase):
                     array([196.36825958, 196.37571178, 196.36825958]),
                     array([-5.56452821, -5.56705935, -5.56452821]),
                 ),
+                equal_nan=True,
+            )
+        )
+        self.assertTrue(
+            np.allclose(
+                self.body.ring_radec(np.nan, npts=2, only_visible=False),
+                (array([nan, nan]), array([nan, nan])),
                 equal_nan=True,
             )
         )
@@ -834,12 +938,38 @@ class TestBody(unittest.TestCase):
         )
 
     def test_radial_velocity_from_lonlat(self):
-        self.assertAlmostEqual(
-            self.body.radial_velocity_from_lonlat(0, 0), -20.796924908179438
-        )
+        args: list[tuple[tuple[float, float], float]] = [
+            ((0, 0), -20.796924908179438),
+            ((np.nan, np.nan), np.nan),
+            ((np.nan, 0), np.nan),
+            ((0, np.nan), np.nan),
+            ((np.inf, np.inf), np.nan),
+        ]
+        for lonlat, x in args:
+            with self.subTest(lonlat=lonlat):
+                self.assertTrue(
+                    np.allclose(
+                        self.body.radial_velocity_from_lonlat(*lonlat),
+                        x,
+                        equal_nan=True,
+                    )
+                )
 
     def test_distance_from_lonalt(self):
-        self.assertAlmostEqual(self.body.distance_from_lonlat(0, 0), 819701772.0279644)
+        args: list[tuple[tuple[float, float], float]] = [
+            ((0, 0), 819701772.0279644),
+            ((np.nan, np.nan), np.nan),
+            ((np.nan, 0), np.nan),
+            ((0, np.nan), np.nan),
+            ((np.inf, np.inf), np.nan),
+        ]
+        for lonlat, x in args:
+            with self.subTest(lonlat=lonlat):
+                self.assertTrue(
+                    np.allclose(
+                        self.body.distance_from_lonlat(*lonlat), x, equal_nan=True
+                    )
+                )
 
     def test_graphic_centric_lonlat(self):
         pairs = [
@@ -856,6 +986,21 @@ class TestBody(unittest.TestCase):
                 )
                 self.assertTrue(
                     np.allclose(self.body.centric2graphic_lonlat(*centric), graphic)
+                )
+
+        pairs = [
+            ((np.nan, np.nan), (np.nan, np.nan)),
+            ((np.nan, 0), (np.nan, np.nan)),
+            ((0, np.nan), (np.nan, np.nan)),
+            ((np.inf, np.inf), (np.nan, np.nan)),
+        ]
+        for a, b in pairs:
+            with self.subTest(a):
+                self.assertTrue(
+                    np.allclose(self.body.graphic2centric_lonlat(*a), b, equal_nan=True)
+                )
+                self.assertTrue(
+                    np.allclose(self.body.centric2graphic_lonlat(*a), b, equal_nan=True)
                 )
 
     def test_north_pole_angle(self):

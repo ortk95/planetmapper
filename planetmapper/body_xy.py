@@ -1935,6 +1935,10 @@ class BodyXY(Body):
             lons = lons[y_to_keep, :]
             lats = lats[y_to_keep, :]
 
+        # Standardise invalid lon/lat points (e.g. inf -> nan)
+        lons[~np.isfinite(lons)] = np.nan
+        lats[~np.isfinite(lats)] = np.nan
+
         return lons, lats, xx, yy, transformer, info
 
     def _get_pyproj_map_coords(
