@@ -469,6 +469,68 @@ class TestObservation(unittest.TestCase):
             warnings.simplefilter('error')
             obs.position_from_wcs(validate=False, suppress_warnings=True)
 
+    def test_wcs_offset(self):
+        with self.assertRaises(ValueError):
+            self.observation.get_wcs_offset(suppress_warnings=True)
+        with self.assertRaises(ValueError):
+            self.observation.get_wcs_arcsec_offset(suppress_warnings=True)
+
+        x0 = 198.87871682168858
+        y0 = -31.89770255438151
+        r0 = 164.4473594677842
+        rotation = 260.32237572846986
+
+        path = os.path.join(common_testing.DATA_PATH, 'inputs', 'wcs.fits')
+        obs = Observation(path)
+
+        obs.disc_from_wcs(suppress_warnings=True)
+        self.assertTrue(
+            np.allclose(obs.get_disc_params(), (x0, y0, r0, rotation), atol=0.2)
+        )
+
+        adjustment = (1.23, -4.56, 7.89, 10.11)
+        obs.adjust_disc_params(*adjustment)
+        self.assertTrue(
+            np.allclose(obs.get_wcs_offset(suppress_warnings=True), adjustment),
+            msg=f'{obs.get_wcs_offset(suppress_warnings=True)} != {adjustment}',
+        )
+        obs.adjust_disc_params(dx=10)
+        adjustment = (1.23 + 10, -4.56, 7.89, 10.11)
+        self.assertTrue(
+            np.allclose(obs.get_wcs_offset(suppress_warnings=True), adjustment)
+        )
+
+        obs.disc_from_wcs(suppress_warnings=True)
+        obs.add_arcsec_offset(1, 2.5)
+        self.assertTrue(
+            np.allclose(obs.get_wcs_arcsec_offset(suppress_warnings=True), (1, 2.5))
+        )
+        obs.add_arcsec_offset(10)
+        self.assertTrue(
+            np.allclose(obs.get_wcs_arcsec_offset(suppress_warnings=True), (11, 2.5))
+        )
+
+        obs.disc_from_wcs(suppress_warnings=True)
+        obs.adjust_disc_params(dr=10)
+        with self.assertRaises(ValueError):
+            obs.get_wcs_arcsec_offset(suppress_warnings=True)
+        obs.get_wcs_arcsec_offset(
+            suppress_warnings=True, check_is_position_offset_only=False
+        )
+
+        obs.disc_from_wcs(suppress_warnings=True)
+        obs.adjust_disc_params(drotation=123)
+        with self.assertRaises(ValueError):
+            obs.get_wcs_arcsec_offset(suppress_warnings=True)
+        obs.get_wcs_arcsec_offset(
+            suppress_warnings=True, check_is_position_offset_only=False
+        )
+
+        # check don't get wraparound errors for small -ve drotation
+        obs.disc_from_wcs(suppress_warnings=True)
+        obs.adjust_disc_params(drotation=-1e-6)
+        obs.get_wcs_arcsec_offset(suppress_warnings=True)
+
     def test_fit_disc(self):
         data = np.ones((5, 10, 8))
         data[:, 3:5, 2:4] = 10
