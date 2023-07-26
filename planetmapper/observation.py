@@ -501,14 +501,13 @@ class Observation(BodyXY):
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
         """
-        # XXX test
         x0_wcs, y0_wcs, r0_wcs, rotation_wcs = self._get_disc_params_from_wcs(
             *args, **kwargs
         )
         dx = self.get_x0() - x0_wcs
         dy = self.get_y0() - y0_wcs
         dr = self.get_r0() - r0_wcs
-        drotation = self.get_rotation() - rotation_wcs
+        drotation = (self.get_rotation() - rotation_wcs) % 360
         return dx, dy, dr, drotation
 
     def get_wcs_arcsec_offset(
@@ -571,7 +570,6 @@ class Observation(BodyXY):
                 is `True` and the `dr` or `drotation` values returned by
                 :func:`get_wcs_offset` are not sufficiently small.
         """
-        # XXX test
         dx, dy, dr, drotation = self.get_wcs_offset(*args, **kwargs)
         if check_is_position_offset_only:
             if abs(dr) > 1e-3:
