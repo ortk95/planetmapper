@@ -685,7 +685,7 @@ class BodyXY(Body):
         """
         return (self._nx, self._ny)
 
-    def set_disc_method(self, method: str):
+    def set_disc_method(self, method: str) -> None:
         """
         Record the method used to find the coordinates of the target body's disc. This
         recorded method can then be used when metadata is saved, such as in
