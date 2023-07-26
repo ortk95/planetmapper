@@ -48,6 +48,8 @@ class _MapKwargs(TypedDict, total=False):
     lat_coords: np.ndarray
     projection_x_coords: np.ndarray
     projection_y_coords: np.ndarray | None
+    xlim: tuple[float, float] | None
+    ylim: tuple[float, float] | None
 
 
 class _BackplaneMapGetter(Protocol):
@@ -74,12 +76,10 @@ class Backplane(NamedTuple):
         get_img: Function which takes no arguments returns a numpy array containing a
             backplane image when called. This should generally be a method such as
             :func:`BodyXY.get_lon_img`.
-        get_map: Function returns a numpy array containing a cylindrical map of
-            backplane values when called. This should take a single `float` argument,
-            `degree_interval` which defines the interval in degrees between the
-            longitude/latitude points in the mapped output. `degree_interval` should be
-            optional with a default value of 1. This function should generally be a
-            method such as :func:`BodyXY.get_lon_map`.
+        get_map: Function returns a numpy array containing a map of backplane values
+            when called. This should take map projection keyword arguments, as described
+            in :func:`BodyXY.generate_map_coordinates`. This function should generally
+            be a method such as :func:`BodyXY.get_lon_map`.
     """
 
     name: str
@@ -685,7 +685,7 @@ class BodyXY(Body):
         """
         return (self._nx, self._ny)
 
-    def set_disc_method(self, method: str):
+    def set_disc_method(self, method: str) -> None:
         """
         Record the method used to find the coordinates of the target body's disc. This
         recorded method can then be used when metadata is saved, such as in
@@ -1158,7 +1158,7 @@ class BodyXY(Body):
         lon_ticks = np.arange(0, 360.0001, grid_interval)
         lat_ticks = np.arange(-90, 90.0001, grid_interval)
 
-        if projection == 'azimuthal':
+        if projection in {'azimuthal', 'azimuthal equal area'}:
             # Run separately for either side of equator to reduce issues for azimuthal
             # where the grid lines overplot each other. We still can get issues for e.g.
             # lat=45, but this fixes the most common cases of lat=0,90,-90 and it's a
@@ -1207,7 +1207,7 @@ class BodyXY(Body):
             y0 = np.sqrt((np.sin(theta)) ** 2 + b**2 * (np.cos(theta)) ** 2)
             t = np.linspace(0, -2 * np.pi, 100)
             boundary = (x0 * np.cos(t), y0 * np.sin(t))
-        elif projection == 'azimuthal':
+        elif projection in {'azimuthal', 'azimuthal equal area'}:
             # Circular boundary
             x0 = y0 = 1
             t = np.linspace(0, -2 * np.pi, 100)
@@ -1244,7 +1244,7 @@ class BodyXY(Body):
                 ax.set_yticklabels(
                     [f'{y:.0f}°' if y % 90 == 0 else '' for y in lat_ticks]
                 )
-            elif projection in {'orthographic', 'azimuthal'}:
+            elif projection in {'orthographic', 'azimuthal', 'azimuthal equal area'}:
                 ax.set_xticks([])
                 ax.set_yticks([])
 
@@ -1474,8 +1474,7 @@ class BodyXY(Body):
                 ax=ax,
                 add_axis_labels=False,
                 add_title=False,
-                **(plot_kwargs or {})
-                | dict(common_formatting=dict(color='k')),  # type:ignore
+                **(plot_kwargs or {}) | dict(common_formatting=dict(color='k')),
                 **map_kwargs,
             )
             # Add dx/dy to the limits to ensure the wireframe covers all of each pixel
@@ -1724,6 +1723,8 @@ class BodyXY(Body):
         lat_coords: np.ndarray | tuple | None = None,
         projection_x_coords: np.ndarray | tuple | None = None,
         projection_y_coords: np.ndarray | tuple | None = None,
+        xlim: tuple[float, float] | None = None,
+        ylim: tuple[float, float] | None = None,
     ) -> tuple[
         np.ndarray,
         np.ndarray,
@@ -1748,6 +1749,9 @@ class BodyXY(Body):
         - `'azimuthal'`: azimuthal equidistant projection where the central longitude
           and latitude can be customized with the `lon` and `lat` arguments. The size of
           the map can be controlled with the `size` argument.
+        - `'azimuthal equal area'`: Lambert azimuthal equal area projection where the
+          central longitude and latitude can be customized with the `lon` and `lat`
+          arguments. The size of the map can be controlled with the `size` argument.
         - `'manual'`: manually specify the longitude and latitude coordinates to use
           for each point on the map with the `lon_coords` and `lat_coords` arguments.
 
@@ -1769,8 +1773,9 @@ class BodyXY(Body):
             # Generate default rectangular map for emission backplane
             body.get_backplane_map('EMISSION')
 
-            # Generate default rectangular map at lower resolution
-            body.get_backplane_map('EMISSION', degree_interval=10)
+            # Generate default rectangular map at lower resolution and only covering
+            # the northern hemisphere
+            body.get_backplane_map('EMISSION', degree_interval=10, ylim=(0, np.inf))
 
             # Generate orthographic map of northern hemisphere
             body.get_backplane_map('EMISSION', projection='orthographic', lat=90)
@@ -1780,17 +1785,20 @@ class BodyXY(Body):
                 'EMISSION', projection='orthographic', lat=-90, size=500
                 )
 
-            # Get azimuthal map projection of image, centred on specific coordinate
+            # Get azimuthal equidistant map projection of image, centred on specific
+            # coordinate
             body.map_img(img, projection='azimuthal', lon=45, lat=30)
 
         Args:
             projection: String describing map projection to use (see list of supported
                 projections above).
             degree_interval: Degree interval for `'rectangular` projection.
-            lon: Central longitude of `'orthographic'` and `'azimuthal'` projections.
-            lat: Central latitude of `'orthographic'` and `'azimuthal'` projections.
-            size: Pixel size (width and height) of generated `'orthographic'` and
-                `'azimuthal'` projections.
+            lon: Central longitude of `'orthographic'`, `'azimuthal'` and `'azimuthal
+                equal area'` projections.
+            lat: Central latitude of `'orthographic'`, `'azimuthal'` and `'azimuthal
+                equal area'` projections.
+            size: Pixel size (width and height) of generated `'orthographic'`,
+                `'azimuthal'` and `'azimuthal equal area'` projections.
             lon_coords: Longitude coordinates to use for `'manual'` projection. This
                 must be a tuple (e.g. use `lon_coords=tuple(np.linspace(0, 360, 100))`)
                 - this allows mapping arguments and outputs to be cached).
@@ -1800,6 +1808,26 @@ class BodyXY(Body):
                 string. This must be a tuple.
             projection_y_coords: Projected x coordinates to use with a pyproj projection
                 string. This must be a tuple.
+            xlim: Tuple of `(x_min, x_max)` limits in the projected x coordinates of
+                the map. If `None`, the default, then the no limits are applied (i.e.
+                the entire globe will be mapped). If `xlim` is provided, it should be a
+                tuple of two floats specifying the minimum and maximum x coordinates to
+                project the map to. For example, to only plot the western hemisphere,
+                you can use use `xlim=(0, 180)` in a rectangular projection. Note that
+                these limits are expressed in the projected coordinates of the map.
+                Setting the limits can be useful to speed up the performance of mapping
+                when only a subset of the map is needed (such as for observations with
+                limited spatial extent). If you only want to set one limit, then you can
+                pass infinity e.g. `xlim=(315, np.inf)` to only set the minimum limit.
+                The limits are implemented using
+                `x_to_keep = (x >= min(xlim)) & (x <= max(xlim))`, so the ordering of
+                the limits does not matter. Note that the limit calculations assume that
+                the data is on a rectangular grid (i.e. all rows have the same x
+                coordinates and all columns have the same y coordinates), so may produce
+                unexpected results if a custom projection is used.
+            ylim: Tuple of `(y_min, y_max)` limits in the projected y coordinates of
+                the map. If `None`, the default, then the no limits are applied. See
+                `xlim` for more details.
 
         Returns:
             `(lons, lats, xx, yy, transformer, info)` tuple where `lons` and `lats` are
@@ -1807,49 +1835,41 @@ class BodyXY(Body):
             projected coordinates of the map, `transformer` is a `pyproj.Transformer`
             object that can be used to transform between the two coordinate systems, and
             `info` is a dictionary containing the arguments used to build the map (e.g.
-            for the default case this is
-            `{'projection': 'rectangular', 'degree_interval': 1}`).
+            for the default case this would be `{'projection': 'rectangular',
+            'degree_interval': 1, 'xlim': None, 'ylim': None}`).
         """
         info: dict[str, Any]  # Explicitly declare type of info to make pyright happy
         if projection == 'rectangular':
-            lon_coords = np.arange(degree_interval / 2, 360, degree_interval)
+            lons = np.arange(degree_interval / 2, 360, degree_interval)
             if self.positive_longitude_direction == 'W':
-                lon_coords = lon_coords[::-1]
-            lat_coords = np.arange(-90 + degree_interval / 2, 90, degree_interval)
-            lon_coords, lat_coords = np.meshgrid(lon_coords, lat_coords)
+                lons = lons[::-1]
+            lats = np.arange(-90 + degree_interval / 2, 90, degree_interval)
+            lons, lats = np.meshgrid(lons, lats)
+            xx, yy = lons, lats
+            transformer = self._get_pyproj_transformer()
             info = dict(projection=projection, degree_interval=degree_interval)
-            return (
-                lon_coords,
-                lat_coords,
-                lon_coords,
-                lat_coords,
-                self._get_pyproj_transformer(),
-                info,
-            )
         elif projection == 'manual':
-            if lon_coords is None or lat_coords is None:
-                raise ValueError('lons and lats must be provided for manual projection')
-            lon_coords = np.asarray(lon_coords)
-            lat_coords = np.asarray(lat_coords)
-            if lon_coords.ndim != lat_coords.ndim:
+            lons = lon_coords
+            lats = lat_coords
+            if lons is None or lats is None:
+                raise ValueError(
+                    'lon_coords and lat_coords must be provided for manual projection'
+                )
+            lons = np.asarray(lons)
+            lats = np.asarray(lats)
+            if lons.ndim != lats.ndim:
                 raise ValueError(
                     'lon_coords and lat_coords must have the same number of dimensions'
                 )
-            if lon_coords.ndim == 1:
-                lon_coords, lat_coords = np.meshgrid(lon_coords, lat_coords)
-            if lon_coords.ndim != 2:
+            if lons.ndim == 1:
+                lons, lats = np.meshgrid(lons, lats)
+            if lons.ndim != 2:
                 raise ValueError('lon_coords and lat_coords must be 1D or 2D arrays')
-            if lon_coords.shape != lat_coords.shape:
+            if lons.shape != lats.shape:
                 raise ValueError('lon_coords and lat_coords must have the same shape')
+            xx, yy = lons, lats
+            transformer = self._get_pyproj_transformer()
             info = dict(projection=projection)
-            return (
-                lon_coords,
-                lat_coords,
-                lon_coords,
-                lat_coords,
-                self._get_pyproj_transformer(),
-                info,
-            )
         elif projection == 'orthographic':
             b = self.r_polar / self.r_eq
             proj = '+proj=ortho +a={a} +b={b} +lon_0={lon_0} +lat_0={lat_0} +y_0={y_0} +type=crs'.format(
@@ -1860,11 +1880,10 @@ class BodyXY(Body):
                 y_0=(b - 1) * np.sin(np.radians(lat * 2)),
             )
             lim = max(1, b) * 1.01
-            info = dict(projection=projection, lon=lon, lat=lat, size=size)
-            return (
-                *self._get_pyproj_map_coords(proj, np.linspace(-lim, lim, size)),
-                info,
+            lons, lats, xx, yy, transformer = self._get_pyproj_map_coords(
+                proj, np.linspace(-lim, lim, size)
             )
+            info = dict(projection=projection, lon=lon, lat=lat, size=size)
         elif projection == 'azimuthal':
             proj = '+proj=aeqd +R={a} +lon_0={lon_0} +lat_0={lat_0} +type=crs'.format(
                 a=1 / np.pi,
@@ -1872,21 +1891,55 @@ class BodyXY(Body):
                 lat_0=lat,
             )
             lim = 1.01
-            info = dict(projection=projection, lon=lon, lat=lat, size=size)
-            return (
-                *self._get_pyproj_map_coords(proj, np.linspace(-lim, lim, size)),
-                info,
+            lons, lats, xx, yy, transformer = self._get_pyproj_map_coords(
+                proj, np.linspace(-lim, lim, size)
             )
+            info = dict(projection=projection, lon=lon, lat=lat, size=size)
+        elif projection == 'azimuthal equal area':
+            proj = '+proj=laea +R={a} +lon_0={lon_0} +lat_0={lat_0} +type=crs'.format(
+                a=1 / 2,
+                lon_0=lon,
+                lat_0=lat,
+            )
+            lim = 1.01
+            lons, lats, xx, yy, transformer = self._get_pyproj_map_coords(
+                proj, np.linspace(-lim, lim, size)
+            )
+            info = dict(projection=projection, lon=lon, lat=lat, size=size)
         else:
             if projection_x_coords is None:
                 raise ValueError('x coords must be provided')
-            info = dict(projection=projection)
-            return (
-                *self._get_pyproj_map_coords(
-                    projection, projection_x_coords, projection_y_coords
-                ),
-                info,
+            lons, lats, xx, yy, transformer = self._get_pyproj_map_coords(
+                projection, projection_x_coords, projection_y_coords
             )
+            info = dict(
+                projection=projection,
+                projection_x_coords=projection_x_coords,
+                projection_y_coords=projection_y_coords,
+            )
+
+        info['xlim'] = xlim
+        info['ylim'] = ylim
+        if xlim is not None:
+            x_arr = xx[0]
+            x_to_keep = (x_arr >= min(xlim)) & (x_arr <= max(xlim))
+            xx = xx[:, x_to_keep]
+            yy = yy[:, x_to_keep]
+            lons = lons[:, x_to_keep]
+            lats = lats[:, x_to_keep]
+        if ylim is not None:
+            y_arr = yy[:, 0]
+            y_to_keep = (y_arr >= min(ylim)) & (y_arr <= max(ylim))
+            xx = xx[y_to_keep, :]
+            yy = yy[y_to_keep, :]
+            lons = lons[y_to_keep, :]
+            lats = lats[y_to_keep, :]
+
+        # Standardise invalid lon/lat points (e.g. inf -> nan)
+        lons[~np.isfinite(lons)] = np.nan
+        lats[~np.isfinite(lats)] = np.nan
+
+        return lons, lats, xx, yy, transformer, info
 
     def _get_pyproj_map_coords(
         self,
@@ -2039,6 +2092,24 @@ class BodyXY(Body):
             yield a, b, targvec_map[a, b]
 
     @_cache_clearable_result
+    def _get_obsvec_norm_img(self) -> np.ndarray:
+        out = self._make_empty_img(3)
+        ra_img = self.get_ra_img()
+        dec_img = self.get_dec_img()
+        for y, x in self._iterate_image(out.shape):
+            out[y, x] = self._radec2obsvec_norm_radians(
+                *self._degree_pair2radians(ra_img[y, x], dec_img[y, x])
+            )
+        return out
+
+    @_cache_stable_result
+    def _get_obsvec_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+        out = self._make_empty_map(3, **map_kwargs)
+        for a, b, targvec in self._enumerate_targvec_map(**map_kwargs):
+            out[a, b] = self._targvec2obsvec(targvec)
+        return out
+
+    @_cache_clearable_result
     @progress_decorator
     def _get_lonlat_img(self) -> np.ndarray:
         out = self._make_empty_img(2)
@@ -2072,7 +2143,7 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of planetographic longitude values.
+            Array containing map of planetographic longitude values.
         """
         return self._get_lonlat_map(**map_kwargs)[:, :, 0]
 
@@ -2092,7 +2163,7 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of planetographic latitude values.
+            Array containing map of planetographic latitude values.
         """
         return self._get_lonlat_map(**map_kwargs)[:, :, 1]
 
@@ -2128,7 +2199,7 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of planetocentric longitude values.
+            Array containing map of planetocentric longitude values.
         """
         return self._get_lonlat_centric_map(**map_kwargs)[:, :, 0]
 
@@ -2148,7 +2219,7 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of planetocentric latitude values.
+            Array containing map of planetocentric latitude values.
         """
         return self._get_lonlat_centric_map(**map_kwargs)[:, :, 1]
 
@@ -2165,9 +2236,11 @@ class BodyXY(Body):
     def _get_radec_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
         visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
+        obsvec_map = self._get_obsvec_map(**map_kwargs)
         for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
+            # use targvec iterator to ensure don't have NaNs
             if visible[a, b]:
-                out[a, b] = self._obsvec2radec_radians(self._targvec2obsvec(targvec))
+                out[a, b] = self._obsvec2radec_radians(obsvec_map[a, b])
         return np.rad2deg(out)
 
     def get_ra_img(self) -> np.ndarray:
@@ -2185,8 +2258,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of right ascension values as viewed by the
-            observer. Locations which are not visible have a value of NaN.
+            Array containing map of right ascension values as viewed by the observer.
+            Locations which are not visible have a value of NaN.
         """
         return self._get_radec_map(**map_kwargs)[:, :, 0]
 
@@ -2205,8 +2278,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of declination values as viewed by the
-            observer. Locations which are not visible have a value of NaN.
+            Array containing map of declination values as viewed by the observer.
+            Locations which are not visible have a value of NaN.
         """
         return self._get_radec_map(**map_kwargs)[:, :, 1]
 
@@ -2241,9 +2314,9 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the x pixel coordinates each location
-            corresponds to in the observation. Locations which are not visible or are
-            not in the image frame have a value of NaN.
+            Array containing map of the x pixel coordinates each location corresponds to
+            in the observation. Locations which are not visible or are not in the image
+            frame have a value of NaN.
         """
         return self._get_xy_map(**map_kwargs)[:, :, 0]
 
@@ -2265,9 +2338,9 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the y pixel coordinates each location
-            corresponds to in the observation. Locations which are not visible or are
-            not in the image frame have a value of NaN.
+            Array containing map of the y pixel coordinates each location corresponds to
+            in the observation. Locations which are not visible or are not in the image
+            frame have a value of NaN.
         """
         return self._get_xy_map(**map_kwargs)[:, :, 1]
 
@@ -2305,9 +2378,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the distance in target plane in km in
-            the East-West direction. Locations which are not visible have a value of
-            NaN.
+            Array containing map of the distance in target plane in km in the East-West
+            direction. Locations which are not visible have a value of NaN.
         """
         return self._get_km_xy_map(**map_kwargs)[:, :, 0]
 
@@ -2327,9 +2399,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the distance in target plane in km in
-            the North-South direction. Locations which are not visible have a value of
-            NaN.
+            Array containing map of the distance in target plane in km in the
+            North-South direction. Locations which are not visible have a value of NaN.
         """
         return self._get_km_xy_map(**map_kwargs)[:, :, 1]
 
@@ -2365,8 +2436,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the phase angle value at each point on
-            the target's surface.
+            Array containing map of the phase angle value at each point on the target's
+            surface.
         """
         return self._get_illumf_map(**map_kwargs)[:, :, 0]
 
@@ -2386,8 +2457,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the incidence angle value at each point
-            on the target's surface.
+            Array containing map of the incidence angle value at each point on the
+            target's surface.
         """
         return self._get_illumf_map(**map_kwargs)[:, :, 1]
 
@@ -2407,8 +2478,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the emission angle value at each point
-            on the target's surface.
+            Array containing map of the emission angle value at each point on the
+            target's surface.
         """
         return self._get_illumf_map(**map_kwargs)[:, :, 2]
 
@@ -2439,8 +2510,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the azimuth angle value at each point
-            on the target's surface.
+            Array containing map of the azimuth angle value at each point on the
+            target's surface.
         """
         phase_radians = np.deg2rad(self._get_illumf_map(**map_kwargs)[:, :, 0])
         incidence_radians = np.deg2rad(self._get_illumf_map(**map_kwargs)[:, :, 1])
@@ -2452,6 +2523,44 @@ class BodyXY(Body):
                 phase_radians, incidence_radians, emission_radians
             )
         return np.rad2deg(azimuth_radians)
+
+    @_cache_clearable_result
+    @progress_decorator
+    def get_local_solar_time_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the local solar time value of each pixel in the image, as
+            calculated by :func:`Body.local_solar_time_from_lon`. Points off the disc
+            have a value of NaN.
+        """
+        lon_img = self.get_lon_img()
+        out = self._make_empty_img()
+        for y, x in self._iterate_image(out.shape, progress=True):
+            lon = lon_img[y, x]
+            if not math.isnan(lon):
+                out[y, x] = self.local_solar_time_from_lon(lon)
+        return out
+
+    @_cache_stable_result
+    @progress_decorator
+    def get_local_solar_time_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+        """
+        See :func:`generate_map_coordinates` for accepted arguments. See also
+        :func:`get_backplane_map`.
+
+        Returns:
+            Array containing map of the local solar time at each point on the target's
+            surface, as calculated by :func:`Body.local_solar_time_from_lon`.
+        """
+        lon_map = self.get_lon_map(**map_kwargs)
+        out = self._make_empty_map(**map_kwargs)
+        for a, b in self._iterate_image(out.shape, progress=True):
+            lon = lon_map[a, b]
+            if math.isfinite(lon):
+                out[a, b] = self.local_solar_time_from_lon(lon)
+        return out
 
     @_cache_clearable_result
     @progress_decorator
@@ -2500,8 +2609,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the observer-target distance in km of
-            each point on the target's surface.
+            Array containing map of the observer-target distance in km of each point on
+            the target's surface.
         """
         position_map, velocity_map, lt_map = self._get_state_maps(**map_kwargs)
         return lt_map * self.speed_of_light()
@@ -2533,8 +2642,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the observer-target radial velocity in
-            km/s of each point on the target's surface.
+            Array containing map of the observer-target radial velocity in km/s of each
+            point on the target's surface.
         """
         out = self._make_empty_map(**map_kwargs)
         position_map, velocity_map, lt_map = self._get_state_maps(**map_kwargs)
@@ -2561,12 +2670,100 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the doppler factor of each point on the
-            target's surface. This is calculated using
-            :func:`SpiceBase.calculate_doppler_factor` on velocities from
-            :func:`get_radial_velocity_map`.
+            Array containing map of the doppler factor of each point on the target's
+            surface. This is calculated using :func:`SpiceBase.calculate_doppler_factor`
+            on velocities from :func:`get_radial_velocity_map`.
         """
         return self.calculate_doppler_factor(self.get_radial_velocity_map(**map_kwargs))
+
+    @_cache_clearable_result
+    @progress_decorator
+    def _get_limb_coordinate_imgs(self) -> np.ndarray:
+        out = self._make_empty_img(3)
+        obsvec_img = self._get_obsvec_norm_img()
+        for y, x in self._iterate_image(out.shape, progress=True):
+            obsvec = obsvec_img[y, x]
+            out[y, x] = self._limb_coordinates_from_obsvec(obsvec)
+        return out
+
+    @_cache_stable_result
+    @progress_decorator
+    def _get_limb_coordinate_maps(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+        out = self._make_empty_map(3, **map_kwargs)
+        visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
+        obsvec_map = self._get_obsvec_map(**map_kwargs)
+        for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
+            if visible[a, b]:
+                out[a, b] = self._limb_coordinates_from_obsvec(obsvec_map[a, b])
+        return out
+
+    def get_limb_lon_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the planetographic longitude of the point on the target's
+            limb that is closest to each pixel. See
+            :func:`Body.limb_coordinates_from_radec` for more detail.
+        """
+        return self._get_limb_coordinate_imgs()[:, :, 0]
+
+    def get_limb_lon_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+        """
+        See :func:`generate_map_coordinates` for accepted arguments. See also
+        :func:`get_backplane_map`.
+
+        Returns:
+            Array containing map of the planetographic longitude of the point on the
+            target's limb that is closest to each point on the target's surface (for the
+            observer). See :func:`Body.limb_coordinates_from_radec` for more detail.
+        """
+        return self._get_limb_coordinate_maps(**map_kwargs)[:, :, 0]
+
+    def get_limb_lat_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the planetographic latitude of the point on the target's
+            limb that is closest to each pixel. See
+            :func:`Body.limb_coordinates_from_radec` for more detail.
+        """
+        return self._get_limb_coordinate_imgs()[:, :, 1]
+
+    def get_limb_lat_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+        """
+        See :func:`generate_map_coordinates` for accepted arguments. See also
+        :func:`get_backplane_map`.
+
+        Returns:
+            Array containing map of the planetographic latitude of the point on the
+            target's limb that is closest to each point on the target's surface (for the
+            observer). See :func:`Body.limb_coordinates_from_radec` for more detail.
+        """
+        return self._get_limb_coordinate_maps(**map_kwargs)[:, :, 1]
+
+    def get_limb_distance_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            Array containing the distance in km above the target's limb for each pixel.
+            See :func:`Body.limb_coordinates_from_radec` for more detail.
+        """
+        return self._get_limb_coordinate_imgs()[:, :, 2]
+
+    def get_limb_distance_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+        """
+        See :func:`generate_map_coordinates` for accepted arguments. See also
+        :func:`get_backplane_map`.
+
+        Returns:
+            Array containing map of the distance in km above the target's limb for each
+            point on the target's surface (for the observer). See
+            :func:`Body.limb_coordinates_from_radec` for more detail.
+        """
+        return self._get_limb_coordinate_maps(**map_kwargs)[:, :, 2]
 
     @_cache_clearable_result
     @progress_decorator
@@ -2577,11 +2774,10 @@ class BodyXY(Body):
         long_img = self._make_empty_img()
         dist_img = self._make_empty_img()
 
-        ra_img = self.get_ra_img()
-        dec_img = self.get_dec_img()
+        obsvec_img = self._get_obsvec_norm_img()
         for y, x in self._iterate_image(radius_img.shape, progress=True):
-            radius, long, dist = self.ring_plane_coordinates(
-                ra_img[y, x], dec_img[y, x], only_visible=False
+            radius, long, dist = self._ring_coordinates_from_obsvec(
+                obsvec_img[y, x], only_visible=False
             )
             radius_img[y, x] = radius
             long_img[y, x] = long
@@ -2603,12 +2799,11 @@ class BodyXY(Body):
         dist_map = self._make_empty_map(**map_kwargs)
 
         visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
-        ra_map = self.get_ra_map(**map_kwargs)
-        dec_map = self.get_dec_map(**map_kwargs)
+        obsvec_map = self._get_obsvec_map(**map_kwargs)
         for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
             if visible[a, b]:
-                radius, long, dist = self.ring_plane_coordinates(
-                    ra_map[a, b], dec_map[a, b], only_visible=False
+                radius, long, dist = self._ring_coordinates_from_obsvec(
+                    obsvec_map[a, b], only_visible=False
                 )
                 radius_map[a, b] = radius
                 long_map[a, b] = long
@@ -2637,10 +2832,10 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the ring plane radius in km obscuring
-            each point on the target's surface, calculated using
-            :func:`Body.ring_plane_coordinates`. Points where the target body is
-            unobscured by the ring plane have a value of NaN.
+            Array containing map of the ring plane radius in km obscuring each point on
+            the target's surface, calculated using :func:`Body.ring_plane_coordinates`.
+            Points where the target body is unobscured by the ring plane have a value of
+            NaN.
         """
         return self._get_ring_plane_coordinate_maps(**map_kwargs)[0]
 
@@ -2663,8 +2858,8 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the ring plane planetographic longitude
-            in degrees obscuring each point on the target's surface, calculated using
+            Array containing map of the ring plane planetographic longitude in degrees
+            obscuring each point on the target's surface, calculated using
             :func:`Body.ring_plane_coordinates`. Points where the target body is
             unobscured by the ring plane have a value of NaN.
         """
@@ -2689,9 +2884,9 @@ class BodyXY(Body):
         :func:`get_backplane_map`.
 
         Returns:
-            Array containing cylindrical map of the ring plane distance from the
-            observer in km obscuring each point on the target's surface, calculated
-            using  :func:`Body.ring_plane_coordinates`. Points where the target body is
+            Array containing map of the ring plane distance from the observer in km
+            obscuring each point on the target's surface, calculated using
+            :func:`Body.ring_plane_coordinates`. Points where the target body is
             unobscured by the ring plane have a value of NaN.
         """
         return self._get_ring_plane_coordinate_maps(**map_kwargs)[2]
@@ -2785,6 +2980,12 @@ class BodyXY(Body):
             self.get_azimuth_angle_map,
         )
         self.register_backplane(
+            'LOCAL-SOLAR-TIME',
+            'Local solar time [local hours]',
+            self.get_local_solar_time_img,
+            self.get_local_solar_time_map,
+        )
+        self.register_backplane(
             'DISTANCE',
             'Distance to observer [km]',
             self.get_distance_img,
@@ -2801,6 +3002,24 @@ class BodyXY(Body):
             'Doppler factor, sqrt((1 + v/c)/(1 - v/c)) where v is radial velocity',
             self.get_doppler_img,
             self.get_doppler_map,
+        )
+        self.register_backplane(
+            'LIMB-DISTANCE',
+            'Distance above limb [km]',
+            self.get_limb_distance_img,
+            self.get_limb_distance_map,
+        )
+        self.register_backplane(
+            'LIMB-LON-GRAPHIC',
+            'Planetographic longitude of closest point on the limb [deg]',
+            self.get_limb_lon_img,
+            self.get_limb_lon_map,
+        )
+        self.register_backplane(
+            'LIMB-LAT-GRAPHIC',
+            'Planetographic latitude of closest point on the limb [deg]',
+            self.get_limb_lat_img,
+            self.get_limb_lat_map,
         )
         self.register_backplane(
             'RING-RADIUS',

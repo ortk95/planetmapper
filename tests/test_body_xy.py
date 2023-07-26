@@ -5,13 +5,14 @@ import common_testing
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.collections import QuadMesh
-from numpy import array, nan
+from numpy import array, inf, nan
 
 import planetmapper
 import planetmapper.base
 import planetmapper.progress
 from planetmapper import BodyXY
 from planetmapper.body_xy import Backplane, BackplaneNotFoundError
+from planetmapper.body_xy import _MapKwargs as MapKwargs
 
 
 class TestFunctions(unittest.TestCase):
@@ -273,6 +274,21 @@ class TestBodyXY(unittest.TestCase):
                             np.allclose(body.lonlat2xy(*lonlat), xy, equal_nan=True)
                         )
                     self.assertTrue(np.allclose(body.km2xy(*km), xy, equal_nan=True))
+
+        args = [
+            (np.nan, np.nan),
+            (np.nan, 0),
+            (0, np.nan),
+            (np.inf, np.inf),
+        ]
+        for a in args:
+            with self.subTest(a):
+                self.assertTrue(not all(np.isfinite(self.body.xy2radec(*a))))
+                self.assertTrue(not all(np.isfinite(self.body.xy2lonlat(*a))))
+                self.assertTrue(not all(np.isfinite(self.body.xy2km(*a))))
+                self.assertTrue(not all(np.isfinite(self.body.radec2xy(*a))))
+                self.assertTrue(not all(np.isfinite(self.body.lonlat2xy(*a))))
+                self.assertTrue(not all(np.isfinite(self.body.km2xy(*a))))
 
     def test_set_disc_params(self):
         x0, y0, r0, rotation = [1.1, 2.2, 3.3, 4.4]
@@ -582,6 +598,19 @@ class TestBodyXY(unittest.TestCase):
         fig, ax = plt.subplots()
         self.body.plot_map_wireframe(
             ax=ax,
+            projection='azimuthal equal area',
+            lat=-90,
+            label_poles=False,
+            grid_interval=45,
+        )
+        self.assertEqual(len(ax.get_lines()), 20)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 30)
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
+        self.body.plot_map_wireframe(
+            ax=ax,
             projection='manual',
             lon_coords=np.linspace(-180, 180, 5),
             lat_coords=np.linspace(0, 90, 3),
@@ -775,12 +804,277 @@ class TestBodyXY(unittest.TestCase):
             projection_y_coords=np.array([0, 0.25, 0.5]),
         )
         for idx, (a, b) in enumerate(zip(output_a, output_b)):
+            if idx == 5:
+                # info dict with projection_y_coords = None
+                self.assertEqual(a['projection_y_coords'], None)  # type: ignore
+                a['projection_y_coords'] = b['projection_y_coords']  # type: ignore
+            with self.subTest(idx=idx):
+                self.assertEqual(type(a), type(b))
+                if isinstance(a, np.ndarray):
+                    self.assertTrue(np.array_equal(a, b))  # type: ignore
+                else:
+                    self.assertEqual(a, b)
+
+        # Test limits
+        output_a = self.body.generate_map_coordinates(degree_interval=30)
+        output_b = self.body.generate_map_coordinates(
+            degree_interval=30, xlim=None, ylim=None
+        )
+        for idx, (a, b) in enumerate(zip(output_a, output_b)):
             with self.subTest(idx=idx):
                 self.assertEqual(type(a), type(b))
                 if isinstance(a, np.ndarray):
                     self.assertTrue(np.array_equal(a, b))
                 else:
                     self.assertEqual(a, b)
+
+        args: list[
+            tuple[
+                tuple[float, float] | None,
+                tuple[float, float] | None,
+                np.ndarray,
+                np.ndarray,
+            ]
+        ] = [
+            (
+                None,
+                None,
+                array([[315.0, 225.0, 135.0, 45.0], [315.0, 225.0, 135.0, 45.0]]),
+                array([[-45.0, -45.0, -45.0, -45.0], [45.0, 45.0, 45.0, 45.0]]),
+            ),
+            (
+                (-np.inf, np.inf),
+                (-np.inf, np.inf),
+                array([[315.0, 225.0, 135.0, 45.0], [315.0, 225.0, 135.0, 45.0]]),
+                array([[-45.0, -45.0, -45.0, -45.0], [45.0, 45.0, 45.0, 45.0]]),
+            ),
+            (
+                (135, -np.inf),
+                (45, np.inf),
+                array([[135.0, 45.0]]),
+                array([[45.0, 45.0]]),
+            ),
+            (
+                (100, 300),
+                (-50, 50),
+                array([[225.0, 135.0], [225.0, 135.0]]),
+                array([[-45.0, -45.0], [45.0, 45.0]]),
+            ),
+            (
+                (300, 100),
+                (50, -50),
+                array([[225.0, 135.0], [225.0, 135.0]]),
+                array([[-45.0, -45.0], [45.0, 45.0]]),
+            ),
+        ]
+        for xlim, ylim, lons_expected, lats_expected in args:
+            with self.subTest(xlim=xlim, ylim=ylim):
+                (
+                    lons,
+                    lats,
+                    xx,
+                    yy,
+                    transformer,
+                    info,
+                ) = self.body.generate_map_coordinates(
+                    degree_interval=90, xlim=xlim, ylim=ylim
+                )
+                self.assertTrue(
+                    np.array_equal(lons, lons_expected),
+                    msg=f'{lons} <> {lons_expected}',
+                )
+                self.assertTrue(np.array_equal(lats, lats_expected))
+                self.assertTrue(np.array_equal(xx, lons_expected))
+                self.assertTrue(np.array_equal(yy, lats_expected))
+                self.assertEqual(info['xlim'], xlim)
+                self.assertEqual(info['ylim'], ylim)
+
+        # Test reference
+        args: list[tuple[MapKwargs, np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = [
+            (
+                MapKwargs(degree_interval=123),
+                array([[307.5, 184.5, 61.5]]),
+                array([[-28.5, -28.5, -28.5]]),
+                array([[307.5, 184.5, 61.5]]),
+                array([[-28.5, -28.5, -28.5]]),
+            ),
+            (
+                MapKwargs(projection='orthographic', size=3),
+                array([[nan, nan, nan], [nan, 0.0, nan], [nan, nan, nan]]),
+                array([[nan, nan, nan], [nan, 0.0, nan], [nan, nan, nan]]),
+                array([[-1.01, 0.0, 1.01], [-1.01, 0.0, 1.01], [-1.01, 0.0, 1.01]]),
+                array([[-1.01, -1.01, -1.01], [0.0, 0.0, 0.0], [1.01, 1.01, 1.01]]),
+            ),
+            (
+                MapKwargs(projection='orthographic', size=3, lon=123.456, lat=-2),
+                array([[nan, nan, nan], [nan, 123.456, nan], [nan, nan, nan]]),
+                array([[nan, nan, nan], [nan, -2.29643357, nan], [nan, nan, nan]]),
+                array([[-1.01, 0.0, 1.01], [-1.01, 0.0, 1.01], [-1.01, 0.0, 1.01]]),
+                array([[-1.01, -1.01, -1.01], [0.0, 0.0, 0.0], [1.01, 1.01, 1.01]]),
+            ),
+            (
+                MapKwargs(projection='azimuthal', size=4),
+                array(
+                    [
+                        [nan, nan, nan, nan],
+                        [nan, -83.93213465, 83.93213465, nan],
+                        [nan, -83.93213465, 83.93213465, nan],
+                        [nan, nan, nan, nan],
+                    ]
+                ),
+                array(
+                    [
+                        [nan, nan, nan, nan],
+                        [nan, -44.83904649, -44.83904649, nan],
+                        [nan, 44.83904649, 44.83904649, nan],
+                        [nan, nan, nan, nan],
+                    ]
+                ),
+                array(
+                    [
+                        [-1.01, -0.33666667, 0.33666667, 1.01],
+                        [-1.01, -0.33666667, 0.33666667, 1.01],
+                        [-1.01, -0.33666667, 0.33666667, 1.01],
+                        [-1.01, -0.33666667, 0.33666667, 1.01],
+                    ]
+                ),
+                array(
+                    [
+                        [-1.01, -1.01, -1.01, -1.01],
+                        [-0.33666667, -0.33666667, -0.33666667, -0.33666667],
+                        [0.33666667, 0.33666667, 0.33666667, 0.33666667],
+                        [1.01, 1.01, 1.01, 1.01],
+                    ]
+                ),
+            ),
+            (
+                MapKwargs(projection='azimuthal', size=4, lat=90, lon=123.456),
+                array(
+                    [
+                        [nan, nan, nan, nan],
+                        [nan, 78.456, 168.456, nan],
+                        [nan, -11.544, -101.544, nan],
+                        [nan, nan, nan, nan],
+                    ]
+                ),
+                array(
+                    [
+                        [nan, nan, nan, nan],
+                        [nan, 4.29865812, 4.29865812, nan],
+                        [nan, 4.29865812, 4.29865812, nan],
+                        [nan, nan, nan, nan],
+                    ]
+                ),
+                array(
+                    [
+                        [-1.01, -0.33666667, 0.33666667, 1.01],
+                        [-1.01, -0.33666667, 0.33666667, 1.01],
+                        [-1.01, -0.33666667, 0.33666667, 1.01],
+                        [-1.01, -0.33666667, 0.33666667, 1.01],
+                    ]
+                ),
+                array(
+                    [
+                        [-1.01, -1.01, -1.01, -1.01],
+                        [-0.33666667, -0.33666667, -0.33666667, -0.33666667],
+                        [0.33666667, 0.33666667, 0.33666667, 0.33666667],
+                        [1.01, 1.01, 1.01, 1.01],
+                    ]
+                ),
+            ),
+            (
+                MapKwargs(projection='azimuthal equal area', size=5),
+                array(
+                    [
+                        [nan, nan, nan, nan, nan],
+                        [nan, -91.6285626, 0.0, 91.6285626, nan],
+                        [nan, -60.66270473, 0.0, 60.66270473, nan],
+                        [nan, -91.6285626, 0.0, 91.6285626, nan],
+                        [nan, nan, nan, nan, nan],
+                    ]
+                ),
+                array(
+                    [
+                        [nan, nan, nan, nan, nan],
+                        [nan, -44.98842597, -60.66270473, -44.98842597, nan],
+                        [nan, 0.0, 0.0, 0.0, nan],
+                        [nan, 44.98842597, 60.66270473, 44.98842597, nan],
+                        [nan, nan, nan, nan, nan],
+                    ]
+                ),
+                array(
+                    [
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                    ]
+                ),
+                array(
+                    [
+                        [-1.01, -1.01, -1.01, -1.01, -1.01],
+                        [-0.505, -0.505, -0.505, -0.505, -0.505],
+                        [0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.505, 0.505, 0.505, 0.505, 0.505],
+                        [1.01, 1.01, 1.01, 1.01, 1.01],
+                    ]
+                ),
+            ),
+            (
+                MapKwargs(projection='azimuthal equal area', size=5, lat=-12, lon=34),
+                array(
+                    [
+                        [nan, nan, nan, nan, nan],
+                        [nan, -69.26373836, 34.0, 137.26373836, nan],
+                        [nan, -27.20027738, 34.0, 95.20027738, nan],
+                        [nan, -45.79039062, 34.0, 113.79039062, nan],
+                        [nan, nan, nan, nan, nan],
+                    ]
+                ),
+                array(
+                    [
+                        [nan, nan, nan, nan, nan],
+                        [nan, -43.4196019, -72.66270473, -43.4196019, nan],
+                        [nan, -5.84665238, -12.0, -5.84665238, nan],
+                        [nan, 44.08255341, 48.66270473, 44.08255341, nan],
+                        [nan, nan, nan, nan, nan],
+                    ]
+                ),
+                array(
+                    [
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                        [-1.01, -0.505, 0.0, 0.505, 1.01],
+                    ]
+                ),
+                array(
+                    [
+                        [-1.01, -1.01, -1.01, -1.01, -1.01],
+                        [-0.505, -0.505, -0.505, -0.505, -0.505],
+                        [0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.505, 0.505, 0.505, 0.505, 0.505],
+                        [1.01, 1.01, 1.01, 1.01, 1.01],
+                    ]
+                ),
+            ),
+        ]
+        for kwargs, lons_expected, lats_expected, xx_expected, yy_expected in args:
+            with self.subTest(kwargs=kwargs):
+                (
+                    lons,
+                    lats,
+                    xx,
+                    yy,
+                    transformer,
+                    info,
+                ) = self.body.generate_map_coordinates(**kwargs)
+                self.assertTrue(np.allclose(lons, lons_expected, equal_nan=True))
+                self.assertTrue(np.allclose(lats, lats_expected, equal_nan=True))
+                self.assertTrue(np.allclose(xx, xx_expected))
+                self.assertTrue(np.allclose(yy, yy_expected))
 
     def test_standardise_backplane_name(self):
         self.assertEqual(self.body.standardise_backplane_name('EMISSION'), 'EMISSION')
@@ -836,9 +1130,13 @@ class TestBodyXY(unittest.TestCase):
             'INCIDENCE: Incidence angle [deg]',
             'EMISSION: Emission angle [deg]',
             'AZIMUTH: Azimuth angle [deg]',
+            'LOCAL-SOLAR-TIME: Local solar time [local hours]',
             'DISTANCE: Distance to observer [km]',
             'RADIAL-VELOCITY: Radial velocity away from observer [km/s]',
             'DOPPLER: Doppler factor, sqrt((1 + v/c)/(1 - v/c)) where v is radial velocity',
+            'LIMB-DISTANCE: Distance above limb [km]',
+            'LIMB-LON-GRAPHIC: Planetographic longitude of closest point on the limb [deg]',
+            'LIMB-LAT-GRAPHIC: Planetographic latitude of closest point on the limb [deg]',
             'RING-RADIUS: Equatorial (ring) plane radius [km]',
             'RING-LON-GRAPHIC: Equatorial (ring) plane planetographic longitude [deg]',
             'RING-DISTANCE: Equatorial (ring) plane distance to observer [km]',

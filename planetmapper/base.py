@@ -1,6 +1,7 @@
 import datetime
 import functools
 import glob
+import math
 import numbers
 import os
 from collections.abc import Iterable
@@ -648,6 +649,13 @@ class BodyBase(SpiceBase):
         """
         Transform rectangular vector in observer frame to observer ra/dec coordinates.
         """
+        if not (
+            math.isfinite(obsvec[0])
+            and math.isfinite(obsvec[1])
+            and math.isfinite(obsvec[2])
+        ):
+            # ^ profiling suggests this is the fastest NaN check
+            return np.nan, np.nan
         _, ra, dec = spice.recrad(obsvec)
         return ra, dec
 
