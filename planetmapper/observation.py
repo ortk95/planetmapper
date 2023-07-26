@@ -12,7 +12,7 @@ from astropy.io import fits
 from astropy.utils.exceptions import AstropyWarning
 
 from . import common, utils
-from .base import _cache_clearable_result
+from .base import _cache_clearable_result, _cache_stable_result
 from .body_xy import BodyXY, Unpack, _MapKwargs
 from .progress import SaveMapProgressHookCLI, SaveNavProgressHookCLI, progress_decorator
 
@@ -318,6 +318,7 @@ class Observation(BodyXY):
                 warnings.simplefilter('ignore', category=AstropyWarning)
             return astropy.wcs.WCS(self.header).celestial
 
+    @_cache_stable_result
     def _get_disc_params_from_wcs(
         self,
         suppress_warnings: bool = False,
