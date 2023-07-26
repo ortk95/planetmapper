@@ -82,7 +82,6 @@ jobs:
       run: |
         python -m coverage report 
     - name: Upload coverage to Coveralls
-      if: github.event_name == 'push'
       env: 
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         COVERALLS_FLAG_NAME: ${{ matrix.python-version }}, ${{ matrix.os }}
@@ -94,7 +93,6 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     container: python:3-slim
-    if: github.event_name == 'push'
     steps:
     - name: Indicate completion to coveralls.io
       run: |
