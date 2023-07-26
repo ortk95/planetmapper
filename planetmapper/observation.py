@@ -454,6 +454,40 @@ class Observation(BodyXY):
         self.set_r0(r0)
         self.set_disc_method('wcs_plate_scale')
 
+    def get_wcs_offset(self, *args, **kwargs) -> tuple[float, float, float, float]:
+        # XXX test
+        # XXX document (include beta warning)
+        x0_wcs, y0_wcs, r0_wcs, rotation_wcs = self._get_disc_params_from_wcs(
+            *args, **kwargs
+        )
+        dx = self.get_x0() - x0_wcs
+        dy = self.get_y0() - y0_wcs
+        dr = self.get_r0() - r0_wcs
+        drotation = self.get_rotation() - rotation_wcs
+        return dx, dy, dr, drotation
+
+    def get_wcs_arcsec_offset(
+        self, *args, check_is_position_offset_only: bool = True, **kwargs
+    ) -> tuple[float, float]:
+        # XXX test
+        # XXX document (include beta warning)
+        dx, dy, dr, drotation = self.get_wcs_offset(*args, **kwargs)
+        if check_is_position_offset_only:
+            if abs(dr) > 1e-3:
+                raise ValueError(
+                    f'r0 is different between WCS and observation (dr={dr})'
+                )
+            if abs((drotation + 180) % 360 - 180) > 1e-3:
+                # ^ modulo operation makes 359 -> -1 so -ve drotation works properly
+                raise ValueError(
+                    f'rotation is different between WCS and observation (drotation={drotation})'
+                )
+        ra0, dec0 = self.xy2radec(0, 0)
+        ra1, dec1 = self.xy2radec(dx, dy)
+        dra = (ra1 - ra0) * 3600
+        ddec = (dec1 - dec0) * 3600
+        return dra, ddec
+
     def _get_img_for_fitting(self) -> np.ndarray:
         img = np.nansum(self.data, axis=0)
         mask_img = np.isnan(img)
