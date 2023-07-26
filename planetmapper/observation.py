@@ -377,8 +377,8 @@ class Observation(BodyXY):
         .. note::
 
             There may be very slight differences between the coordinates converted
-            directly from the WCS information, and the coordinates converted by
-            PlanetMapper
+            directly from the WCS information and the coordinates converted by
+            PlanetMapper.
 
         Args:
             suppress_warnings: Hide warnings produced by astropy when calculating WCS
@@ -455,8 +455,52 @@ class Observation(BodyXY):
         self.set_disc_method('wcs_plate_scale')
 
     def get_wcs_offset(self, *args, **kwargs) -> tuple[float, float, float, float]:
+        """
+        .. warning ::
+
+            This is a beta feature and the API may change in future.
+
+        Get the difference between the current disc parameters and the disc parameters
+        calculated from the WCS information in the observation's FITS header.
+
+        For example, this function can be used to retrieve the cumulative offset after
+        adjusting the disc position: ::
+
+            # Initialise disc with parameters from WCS
+            observation.disc_from_wcs()
+
+            # Adjust the disc position
+            observation.adjust_disc_params(1, 2, 3, 4)
+            observation.adjust_disc_params(dx=0.1)
+
+            # Retrieve the cumulative offset
+            print(observation.get_wcs_offset())  # (1.1, 2.0, 3.0, 4.0)
+
+        Similarly, this function can be used to retrieve the offset after running the
+        GUI to fit the disc: ::
+
+            observation.run_gui()
+            print(observation.get_wcs_offset())
+
+        See also :func:`get_wcs_arcsec_offset`.
+
+        Args:
+            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
+
+        Returns:
+            `(dx, dy, dr, drotation)` tuple containing the differences in disc
+            parameters between the current disc parameters (i.e. those returned by
+            :func:`BodyXY.get_disc_parameters`) and the disc parameters calculated from
+            the WCS information in the observation's FITS header. `dx` and `dy` give the
+            difference in the disc centre position in pixels, `dr` gives the difference
+            in the disc radius in pixels, and `drotation` gives the difference in the
+            rotation angle in degrees.
+
+        Raises:
+            ValueError: if no WCS information is found in the FITS header, or validation
+                fails.
+        """
         # XXX test
-        # XXX document (include beta warning)
         x0_wcs, y0_wcs, r0_wcs, rotation_wcs = self._get_disc_params_from_wcs(
             *args, **kwargs
         )
@@ -469,8 +513,64 @@ class Observation(BodyXY):
     def get_wcs_arcsec_offset(
         self, *args, check_is_position_offset_only: bool = True, **kwargs
     ) -> tuple[float, float]:
+        """
+        .. warning ::
+
+            This is a beta feature and the API may change in future.
+
+        Get the offset in RA/Dec celestial coordinates between the current disc location
+        and the disc location calculated from the WCS information in the observation's
+        FITS header.
+
+        For example, this function can be used to retrieve the cumulative offset after
+        adjusting the disc position: ::
+
+            # Initialise disc with parameters from WCS
+            observation.disc_from_wcs()
+
+            # Adjust the disc position
+            observation.add_arcsec_offset(10, 10)
+            observation.add_arcsec_offset(dra_arcsec=1.23)
+
+            # Retrieve the cumulative offset
+            print(observation.get_wcs_arcsec_offset())  # (11.23, 10.0)
+
+        Similarly, this function can be used to retrieve the offset after running the
+        GUI to fit the disc: ::
+
+            observation.run_gui()
+            print(observation.get_wcs_arcsec_offset())
+
+        The RA/Dec offsets returned by this function are generally only meaningful if
+        the disc location `(x0, y0)` is the only difference between the current disc
+        parameters and those derived from the WCS. Therefore, by default this function
+        checks that the `dr` and `drotation` values returned by :func:`get_wcs_offset`
+        are sufficiently small to be considered a position offset only, and raises a
+        `ValueError` if this is not the case. This check can be disabled by setting
+        `check_is_position_offset_only` to `False`.
+
+        See also :func:`get_wcs_offset`.
+
+        Args:
+            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
+            check_is_position_offset_only: If `True` (the default), check that the
+                `dr` and `drotation` values returned by :func:`get_wcs_offset` are
+                sufficiently small to be considered a position offset only. If this is
+                `False`, then the `dr` and `drotation` values are not checked.
+
+        Returns:
+            `(dra_arcsec, ddec_arcsec)` tuple containing the offsets in arcseconds in
+            the RA and Dec celestial coordinates between the current disc location (i.e.
+            those returned by :func:`BodyXY.get_disc_parameters`) and the disc location
+            calculated from the WCS information in the observation's FITS header.
+
+        Raises:
+            ValueError: if no WCS information is found in the FITS header, or validation
+                fails. A ValueError is also raised if `check_is_position_offset_only`
+                is `True` and the `dr` or `drotation` values returned by
+                :func:`get_wcs_offset` are not sufficiently small.
+        """
         # XXX test
-        # XXX document (include beta warning)
         dx, dy, dr, drotation = self.get_wcs_offset(*args, **kwargs)
         if check_is_position_offset_only:
             if abs(dr) > 1e-3:
@@ -484,9 +584,9 @@ class Observation(BodyXY):
                 )
         ra0, dec0 = self.xy2radec(0, 0)
         ra1, dec1 = self.xy2radec(dx, dy)
-        dra = (ra1 - ra0) * 3600
-        ddec = (dec1 - dec0) * 3600
-        return dra, ddec
+        dra_arcsec = (ra1 - ra0) * 3600
+        ddec_arcsec = (dec1 - dec0) * 3600
+        return dra_arcsec, ddec_arcsec
 
     def _get_img_for_fitting(self) -> np.ndarray:
         img = np.nansum(self.data, axis=0)
