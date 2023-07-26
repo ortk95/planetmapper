@@ -275,6 +275,21 @@ class TestBodyXY(unittest.TestCase):
                         )
                     self.assertTrue(np.allclose(body.km2xy(*km), xy, equal_nan=True))
 
+        pairs = [
+            ((np.nan, np.nan), (np.nan, np.nan)),
+            ((np.nan, 0), (np.nan, np.nan)),
+            ((0, np.nan), (np.nan, np.nan)),
+            ((np.inf, np.inf), (np.nan, np.nan)),
+        ]
+        for a, b in pairs:
+            with self.subTest(a):
+                self.assertTrue(np.allclose(self.body.xy2radec(*a), b, equal_nan=True))
+                self.assertTrue(np.allclose(self.body.xy2lonlat(*a), b, equal_nan=True))
+                self.assertTrue(np.allclose(self.body.xy2km(*a), b, equal_nan=True))
+                self.assertTrue(np.allclose(self.body.radec2xy(*a), b, equal_nan=True))
+                self.assertTrue(np.allclose(self.body.lonlat2xy(*a), b, equal_nan=True))
+                self.assertTrue(np.allclose(self.body.km2xy(*a), b, equal_nan=True))
+
     def test_set_disc_params(self):
         x0, y0, r0, rotation = [1.1, 2.2, 3.3, 4.4]
         self.body.set_disc_params(x0, y0, r0, rotation)
