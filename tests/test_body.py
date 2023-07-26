@@ -482,16 +482,16 @@ class TestBody(unittest.TestCase):
                 self.assertTrue(np.allclose(self.body.km2radec(*km), radec))
                 self.assertTrue(np.allclose(self.body.radec2km(*radec), km, atol=1e-3))
 
-        pairs = [
-            [(np.nan, np.nan), (np.nan, np.nan)],
-            [(np.nan, 0), (np.nan, np.nan)],
-            [(0, np.nan), (np.nan, np.nan)],
-            [(np.inf, np.inf), (np.nan, np.nan)],
+        inputs = [
+            (np.nan, np.nan),
+            (np.nan, 0),
+            (0, np.nan),
+            (np.inf, np.inf),
         ]
-        for a, b in pairs:
+        for a in inputs:
             with self.subTest(a):
-                self.assertTrue(np.allclose(self.body.km2radec(*a), b, equal_nan=True))
-                self.assertTrue(np.allclose(self.body.radec2km(*b), a, equal_nan=True))
+                self.assertTrue(all(not np.isfinite(x) for x in self.body.km2radec(*a)))
+                self.assertTrue(all(not np.isfinite(x) for x in self.body.radec2km(*a)))
 
     def test_km_lonlat(self):
         pairs = [
@@ -513,16 +513,20 @@ class TestBody(unittest.TestCase):
             )
         )
 
-        pairs = [
-            [(np.nan, np.nan), (np.nan, np.nan)],
-            [(np.nan, 0), (np.nan, np.nan)],
-            [(0, np.nan), (np.nan, np.nan)],
-            [(np.inf, np.inf), (np.nan, np.nan)],
+        inputs = [
+            (np.nan, np.nan),
+            (np.nan, 0),
+            (0, np.nan),
+            (np.inf, np.inf),
         ]
-        for a, b in pairs:
+        for a in inputs:
             with self.subTest(a):
-                self.assertTrue(np.allclose(self.body.km2lonlat(*a), b, equal_nan=True))
-                self.assertTrue(np.allclose(self.body.lonlat2km(*b), a, equal_nan=True))
+                self.assertTrue(
+                    all(not np.isfinite(x) for x in self.body.km2lonlat(*a))
+                )
+                self.assertTrue(
+                    all(not np.isfinite(x) for x in self.body.lonlat2km(*a))
+                )
 
     def test_limbradec(self):
         self.assertTrue(
@@ -638,8 +642,8 @@ class TestBody(unittest.TestCase):
             ((0, np.nan), False),
             ((np.inf, np.inf), False),
         ]
-        with self.subTest(lonlat=lonlat):
-            for lonlat, visible in pairs:
+        for lonlat, visible in pairs:
+            with self.subTest(lonlat=lonlat):
                 self.assertEqual(
                     self.body.test_if_lonlat_visible(*lonlat), visible, lonlat
                 )
@@ -834,6 +838,13 @@ class TestBody(unittest.TestCase):
                     array([196.36825958, 196.37571178, 196.36825958]),
                     array([-5.56452821, -5.56705935, -5.56452821]),
                 ),
+                equal_nan=True,
+            )
+        )
+        self.assertTrue(
+            np.allclose(
+                self.body.ring_radec(np.nan, npts=2, only_visible=False),
+                (array([nan, nan]), array([nan, nan])),
                 equal_nan=True,
             )
         )

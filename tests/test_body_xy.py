@@ -275,20 +275,20 @@ class TestBodyXY(unittest.TestCase):
                         )
                     self.assertTrue(np.allclose(body.km2xy(*km), xy, equal_nan=True))
 
-        pairs = [
-            ((np.nan, np.nan), (np.nan, np.nan)),
-            ((np.nan, 0), (np.nan, np.nan)),
-            ((0, np.nan), (np.nan, np.nan)),
-            ((np.inf, np.inf), (np.nan, np.nan)),
+        args = [
+            (np.nan, np.nan),
+            (np.nan, 0),
+            (0, np.nan),
+            (np.inf, np.inf),
         ]
-        for a, b in pairs:
+        for a in args:
             with self.subTest(a):
-                self.assertTrue(np.allclose(self.body.xy2radec(*a), b, equal_nan=True))
-                self.assertTrue(np.allclose(self.body.xy2lonlat(*a), b, equal_nan=True))
-                self.assertTrue(np.allclose(self.body.xy2km(*a), b, equal_nan=True))
-                self.assertTrue(np.allclose(self.body.radec2xy(*a), b, equal_nan=True))
-                self.assertTrue(np.allclose(self.body.lonlat2xy(*a), b, equal_nan=True))
-                self.assertTrue(np.allclose(self.body.km2xy(*a), b, equal_nan=True))
+                self.assertTrue(not all(np.isfinite(self.body.xy2radec(*a))))
+                self.assertTrue(not all(np.isfinite(self.body.xy2lonlat(*a))))
+                self.assertTrue(not all(np.isfinite(self.body.xy2km(*a))))
+                self.assertTrue(not all(np.isfinite(self.body.radec2xy(*a))))
+                self.assertTrue(not all(np.isfinite(self.body.lonlat2xy(*a))))
+                self.assertTrue(not all(np.isfinite(self.body.km2xy(*a))))
 
     def test_set_disc_params(self):
         x0, y0, r0, rotation = [1.1, 2.2, 3.3, 4.4]

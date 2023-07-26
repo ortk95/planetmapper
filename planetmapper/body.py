@@ -646,6 +646,8 @@ class Body(BodyBase):
         """
         Transform lon/lat coordinates on body to rectangular vector in target frame.
         """
+        if not (math.isfinite(lon) and math.isfinite(lat) and math.isfinite(alt)):
+            return np.array([np.nan, np.nan, np.nan])
         return spice.pgrrec(
             self._target_encoded,  # type: ignore
             lon,
@@ -703,6 +705,8 @@ class Body(BodyBase):
 
     # Coordinate transformations observer -> target direction
     def _radec2obsvec_norm_radians(self, ra: float, dec: float) -> np.ndarray:
+        if not (math.isfinite(ra) and math.isfinite(dec)):
+            return np.array([np.nan, np.nan, np.nan])
         return spice.radrec(1, ra, dec)
 
     def _obsvec2targvec(self, obsvec: np.ndarray) -> np.ndarray:
@@ -756,6 +760,13 @@ class Body(BodyBase):
         return spoint
 
     def _targvec2lonlat_radians(self, targvec: np.ndarray) -> tuple[float, float]:
+        if not (
+            math.isfinite(targvec[0])
+            and math.isfinite(targvec[1])
+            and math.isfinite(targvec[2])
+        ):
+            # ^ profiling suggests this is the fastest NaN check
+            return np.nan, np.nan
         lon, lat, alt = spice.recpgr(
             self._target_encoded,  # type: ignore
             targvec,
@@ -1065,6 +1076,13 @@ class Body(BodyBase):
     def _illumf_from_targvec_radians(
         self, targvec: np.ndarray
     ) -> tuple[float, float, float, bool, bool]:
+        if not (
+            math.isfinite(targvec[0])
+            and math.isfinite(targvec[1])
+            and math.isfinite(targvec[2])
+        ):
+            # ^ profiling suggests this is the fastest NaN check
+            return np.nan, np.nan, np.nan, False, False
         trgepc, srfvec, phase, incdnc, emissn, visibl, lit = spice.illumf(
             self._surface_method_encoded,  # type: ignore
             self._target_encoded,  # type: ignore
@@ -1180,6 +1198,13 @@ class Body(BodyBase):
     def _limb_coordinates_from_obsvec(
         self, obsvec_norm: np.ndarray
     ) -> tuple[float, float, float]:
+        if not (
+            math.isfinite(obsvec_norm[0])
+            and math.isfinite(obsvec_norm[1])
+            and math.isfinite(obsvec_norm[2])
+        ):
+            return np.nan, np.nan, np.nan
+
         # Get the point on the RA/Dec ray (defined be obsvec_norm) that is closest to
         # the centre of the target body.
         nearpoint_obsvec, nearpoint_dist = spice.nplnpt(
@@ -1504,6 +1529,12 @@ class Body(BodyBase):
     def _ring_coordinates_from_obsvec(
         self, obsvec: np.ndarray, only_visible: bool = True
     ) -> tuple[float, float, float]:
+        if not (
+            math.isfinite(obsvec[0])
+            and math.isfinite(obsvec[1])
+            and math.isfinite(obsvec[2])
+        ):
+            return np.nan, np.nan, np.nan
         nxpts, intercept_obsvec = spice.inrypl(
             np.array([0, 0, 0]), obsvec, self._ring_plane
         )
@@ -1787,6 +1818,12 @@ class Body(BodyBase):
 
     # Planetographic <-> planetocentric
     def _targvec2lonlat_centric(self, targvec: np.ndarray) -> tuple[float, float]:
+        if not (
+            math.isfinite(targvec[0])
+            and math.isfinite(targvec[1])
+            and math.isfinite(targvec[2])
+        ):
+            return np.nan, np.nan
         radius, lon_centric, lat_centric = spice.reclat(targvec)
         return self._radian_pair2degrees(lon_centric, lat_centric)
 
@@ -1816,14 +1853,16 @@ class Body(BodyBase):
         Returns:
             `(lon, lat)` tuple of planetographic coordinates.
         """
-        targvec = spice.latsrf(
+        if not (math.isfinite(lon_centric) and math.isfinite(lat_centric)):
+            return np.nan, np.nan
+        targvecs = spice.latsrf(
             self._surface_method_encoded,  # type: ignore
             self._target_encoded,  # type: ignore
             self.et,
             self._target_frame_encoded,  # type: ignore
             [[np.deg2rad(lon_centric), np.deg2rad(lat_centric)]],
         )
-        return self.targvec2lonlat(targvec[0])
+        return self.targvec2lonlat(targvecs[0])
 
     # Other
     def north_pole_angle(self) -> float:
