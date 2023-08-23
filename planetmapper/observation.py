@@ -1156,7 +1156,8 @@ class Observation(BodyXY):
                 if print_info:
                     print(' Creating wireframe...')
                 wireframe = self.get_wireframe_overlay_map(
-                    **wireframe_kwargs or {}, **map_kwargs
+                    **wireframe_kwargs or {},  #  type: ignore
+                    **map_kwargs,
                 )
                 header = fits.Header([('ABOUT', 'Wireframe map overlay')])
                 header.add_comment(
