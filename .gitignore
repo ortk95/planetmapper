@@ -10,6 +10,7 @@
 !*.json
 !*.toml
 !docs/images/*.png
+!examples/**/*.fits
 
 # Include testing data, but not temp testing outputs
 !tests/data/**/*.bsp

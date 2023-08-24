@@ -1405,7 +1405,7 @@ class BodyXY(Body):
                 color='k',
                 add_axis_labels=False,
                 add_title=False,
-                **plot_kwargs or {},
+                **plot_kwargs or {},  # type: ignore
             ),
         )
 
@@ -1929,7 +1929,7 @@ class BodyXY(Body):
             lats = lats[:, x_to_keep]
         if ylim is not None:
             y_arr = yy[:, 0]
-            y_to_keep = (y_arr >= min(ylim)) & (y_arr <= max(ylim))
+            y_to_keep = (y_arr >= min(ylim)) & (y_arr <= max(ylim))  # type: ignore
             xx = xx[y_to_keep, :]
             yy = yy[y_to_keep, :]
             lons = lons[y_to_keep, :]
