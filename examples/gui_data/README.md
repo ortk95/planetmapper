@@ -1,8 +1,12 @@
-# Example datasets for use with the PlanetMapper GUI
+# Example dataset for use with the PlanetMapper GUI
+
+This directory contains an example dataset which can be used to test the PlanetMapper GUI. The file [`europa.fits`](europa.fits) contains an observation of Europa taken by the VLT/SPHERE IRDIS instrument ([King et al., 2022](https://doi.org/10.3847/PSJ/ac596d)).
+
+For more details about the PlanetMapper GUI, see the [documentation page](https://planetmapper.readthedocs.io/en/latest/user_interface.html).
 
 ## Required kernels
 
-These example data files require general SPICE kernels to be downloaded (`lsk` and `pck`), along with the `de430.bsp` and `jup365.bsp` kernels. The following code snippet can be used to download these kernels:
+This example Europa observation requires general SPICE kernels to be downloaded (`lsk` and `pck`), along with the `de430.bsp` and `jup365.bsp` kernels. The following code snippet can be used to download these kernels:
 
 ```python
 from planetmapper.kernel_downloader import download_urls
