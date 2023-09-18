@@ -297,6 +297,11 @@ class Observation(BodyXY):
             kw, header, 'surface_method', [cls._make_fits_kw('SURFACE-METHOD')]
         )
 
+    # API overrides
+    def set_img_size(self, nx: int | None = None, ny: int | None = None) -> None:
+        """:meta private:"""
+        raise TypeError('Cannot set image size for Observation objects')
+
     # Auto disc id
     def disc_from_header(self) -> None:
         """

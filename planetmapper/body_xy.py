@@ -668,6 +668,9 @@ class BodyXY(Body):
         Args:
             nx: If specified, set the number of pixels in the x dimension.
             ny: If specified, set the number of pixels in the y dimension.
+        
+        Raises:
+            TypeError if `set_img_size` is called on an :class:`Observation` instance.
         """
         if nx is not None:
             self._nx = nx
