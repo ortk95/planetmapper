@@ -341,6 +341,7 @@ class TestObservation(unittest.TestCase):
         self.assertEqual(copy.path, self.observation.path)
         self.assertEqual(repr(copy), repr(self.observation))
         self.assertEqual(copy, self.observation)
+        self.assertEqual(copy.get_img_size(), self.observation.get_img_size())
 
     def test_set_img_size(self):
         with self.assertRaises(TypeError):
