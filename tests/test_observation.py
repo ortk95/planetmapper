@@ -284,6 +284,46 @@ class TestObservation(unittest.TestCase):
     def test_repr(self):
         self.assertEqual(repr(self.observation), f'Observation({self.path!r})')
 
+    def test_to_body_xy(self):
+        observation = Observation(
+            data=np.ones((6, 5)),
+            target='Jupiter',
+            observer='HST',
+            utc='2005-01-01T00:00:00',
+        )
+        observation.add_other_bodies_of_interest('amalthea')
+        observation.coordinates_of_interest_lonlat.append((0, 0))
+        observation.coordinates_of_interest_radec.extend([(0, 0), (1, 1)])
+
+        body_xy = observation.to_body_xy()
+        self.assertEqual(
+            body_xy,
+            planetmapper.BodyXY(
+                'Jupiter', observer='HST', utc='2005-01-01T00:00:00', nx=5, ny=6
+            ),
+        )
+
+        self.assertEqual(observation.target, body_xy.target)
+        self.assertEqual(observation.utc, body_xy.utc)
+        self.assertEqual(observation.observer, body_xy.observer)
+        self.assertEqual(observation.get_img_size(), body_xy.get_img_size())
+
+        self.assertEqual(
+            observation.coordinates_of_interest_lonlat,
+            body_xy.coordinates_of_interest_lonlat,
+        )
+        self.assertEqual(
+            observation.coordinates_of_interest_radec,
+            body_xy.coordinates_of_interest_radec,
+        )
+        self.assertEqual(observation.ring_radii, body_xy.ring_radii)
+
+        observation.coordinates_of_interest_radec.clear()
+        self.assertNotEqual(
+            observation.coordinates_of_interest_radec,
+            body_xy.coordinates_of_interest_radec,
+        )
+
     def test_hash(self):
         with self.assertRaises(TypeError):
             hash(self.observation)
