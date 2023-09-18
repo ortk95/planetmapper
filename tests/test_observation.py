@@ -338,6 +338,14 @@ class TestObservation(unittest.TestCase):
         self.assertEqual(repr(copy), repr(self.observation))
         self.assertEqual(copy, self.observation)
 
+    def test_set_img_size(self):
+        with self.assertRaises(TypeError):
+            self.observation.set_img_size()
+        with self.assertRaises(TypeError):
+            self.observation.set_img_size(1)
+        with self.assertRaises(TypeError):
+            self.observation.set_img_size(2, 3)
+
     def test_disc_from_header(self):
         with self.assertRaises(ValueError):
             self.observation.disc_from_header()
