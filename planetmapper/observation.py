@@ -154,7 +154,7 @@ class Observation(BodyXY):
     def __repr__(self) -> str:
         return f'Observation({self.path!r})'
 
-    def to_bodyxy(self) -> BodyXY:
+    def to_body_xy(self) -> BodyXY:
         """
         Create a :class:`BodyXY` object with the same parameters and data as this
         observation.
