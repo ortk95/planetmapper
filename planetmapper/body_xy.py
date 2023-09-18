@@ -281,10 +281,10 @@ class BodyXY(Body):
 
     def to_body(self) -> Body:
         """
-        Create a :class:`Body` instance from a :class:`BodyXY` instance.
+        Create a :class:`Body` instance from this :class:`BodyXY` instance.
 
         Returns:
-            :class:`Body` instance with the same parameters as the input :class:`BodyXY`
+            :class:`Body` instance with the same parameters as this :class:`BodyXY`
             instance.
         """
         new = Body(**Body._get_kwargs(self))

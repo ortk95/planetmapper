@@ -154,6 +154,19 @@ class Observation(BodyXY):
     def __repr__(self) -> str:
         return f'Observation({self.path!r})'
 
+    def to_bodyxy(self) -> BodyXY:
+        """
+        Create a :class:`BodyXY` object with the same parameters and data as this
+        observation.
+
+        Returns:
+            :class:`BodyXY` object with the same disc parameters as this
+            :class:`Observation` instance.
+        """
+        new = BodyXY(**BodyXY._get_kwargs(self))
+        BodyXY._copy_options_to_other(self, new)
+        return new
+
     def _get_equality_tuple(self) -> tuple:
         # Use nan_to_num to convert NaNs to zeros, so that NaNs in the data don't
         # cause the equality check to fail. Then use isnan to compare the NaN masks
