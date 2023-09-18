@@ -69,7 +69,9 @@ class Observation(BodyXY):
         utc: Time of observation, passed to :class:`Body`. If this is unspecified, then
             the time will be derived from the values in the FITS header.
         **kwargs: Additional parameters are passed to :class:`BodyXY`. These can be used
-            to specify additional parameters such as`observer`.
+            to specify additional parameters such as`observer`. The image size is
+            automatically determined from the data, so passing `nx`, `ny` or `sz` as
+            arguments when creating an `Observation` object will raise a `TypeError`.
     """
 
     FITS_FILE_EXTENSIONS = ('.fits', '.fits.gz')
@@ -88,6 +90,10 @@ class Observation(BodyXY):
         header: fits.Header | None = None,
         **kwargs,
     ) -> None:
+        for k in ('nx', 'ny', 'sz'):
+            if k in kwargs:
+                raise TypeError(f'Cannot set {k} for Observation objects')
+
         self._path_arg = path
         self._data_arg = data
         self._header_arg = header
