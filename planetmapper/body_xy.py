@@ -315,13 +315,9 @@ class BodyXY(Body):
 
     def _copy_options_to_other(self, other: Self) -> None:
         super()._copy_options_to_other(other)
-        if other.get_img_size() != self.get_img_size():
-            # Only call set_img_size if sizes are different so that Observation
-            # objects can be copied safely (as calling set_img_size on an Observation
-            # will raise a TypeError).
-            other.set_img_size(*self.get_img_size())
         other.set_disc_params(*self.get_disc_params())
         other.set_disc_method(self.get_disc_method())
+        # set_img_size is covered by nx, ny in _get_kwargs, so would be redundant here
 
     # Coordinate transformations
     @_cache_clearable_result
