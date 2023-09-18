@@ -315,9 +315,9 @@ class BodyXY(Body):
 
     def _copy_options_to_other(self, other: Self) -> None:
         super()._copy_options_to_other(other)
-        other.set_img_size(*self.get_img_size())
         other.set_disc_params(*self.get_disc_params())
         other.set_disc_method(self.get_disc_method())
+        # set_img_size is covered by nx, ny in _get_kwargs, so would be redundant here
 
     # Coordinate transformations
     @_cache_clearable_result
@@ -668,6 +668,9 @@ class BodyXY(Body):
         Args:
             nx: If specified, set the number of pixels in the x dimension.
             ny: If specified, set the number of pixels in the y dimension.
+
+        Raises:
+            TypeError: if `set_img_size` is called on an :class:`Observation` instance.
         """
         if nx is not None:
             self._nx = nx

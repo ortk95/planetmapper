@@ -24,17 +24,21 @@ class TestObservation(unittest.TestCase):
     def test_init(self) -> None:
         with self.assertRaises(ValueError):
             Observation()
-
         with self.assertRaises(ValueError):
             Observation('some/path', data=np.ones((5, 5)))
-
         with self.assertRaises(ValueError):
             Observation('some/path', header=fits.Header({'key': 'value'}))
-
         with self.assertRaises(ValueError):
             Observation(
                 'some/path', data=np.ones((5, 5)), header=fits.Header({'key': 'value'})
             )
+
+        with self.assertRaises(TypeError):
+            Observation(self.path, nx=1)
+        with self.assertRaises(TypeError):
+            Observation(self.path, ny=1)
+        with self.assertRaises(TypeError):
+            Observation(self.path, sz=1)
 
         with self.subTest('image.png+target+observer+utc'):
             path = os.path.join(common_testing.DATA_PATH, 'inputs', 'image.png')
@@ -337,6 +341,15 @@ class TestObservation(unittest.TestCase):
         self.assertEqual(copy.path, self.observation.path)
         self.assertEqual(repr(copy), repr(self.observation))
         self.assertEqual(copy, self.observation)
+        self.assertEqual(copy.get_img_size(), self.observation.get_img_size())
+
+    def test_set_img_size(self):
+        with self.assertRaises(TypeError):
+            self.observation.set_img_size()
+        with self.assertRaises(TypeError):
+            self.observation.set_img_size(1)
+        with self.assertRaises(TypeError):
+            self.observation.set_img_size(2, 3)
 
     def test_disc_from_header(self):
         with self.assertRaises(ValueError):
