@@ -762,7 +762,8 @@ class BodyXY(Body):
             maximum RA and Dec coordinates of the pixels in the image respectively.
         """
         xlim, ylim = self._get_img_limits(self.xy2radec)
-        return xlim[::-1], ylim  # flip xlim because RA increases to the left
+        xlim = (xlim[1], xlim[0])  # flip xlim because RA increases to the left
+        return xlim, ylim
 
     def get_img_limits_km(self) -> tuple[tuple[float, float], tuple[float, float]]:
         """

@@ -3035,7 +3035,7 @@ class PlotCoordinatesSetting(PlotScatterSetting):
             for line in string.splitlines():
                 line = line.strip().lstrip('(').rstrip(')')
                 if line:
-                    coordinates = line.split(',')
+                    coordinates = tuple(line.split(','))
                     if len(coordinates) != 2:
                         tkinter.messagebox.showwarning(
                             title='Error parsing coordinates',
