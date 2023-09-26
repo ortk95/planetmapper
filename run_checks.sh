@@ -4,12 +4,6 @@
 
 echo -e "RUNNING CHECKS (`date`)"
 
-# Collect python type stubs so that pyright works with matplotlib
-if [ ! -d "python-type-stubs" ]; then
-    echo -e "\nCloning python-type-stubs for use with pyright..."
-    git clone https://github.com/microsoft/python-type-stubs python-type-stubs
-fi
-
 echo -e "\nRunning black..." && black . --check && \
 echo -e "\nRunning isort..." && isort . --check && \
 echo -e "\nRunning pyright..." && pyright && \
