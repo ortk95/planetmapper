@@ -1925,7 +1925,7 @@ class BodyXY(Body):
             lats = lats[:, x_to_keep]
         if ylim is not None:
             y_arr = yy[:, 0]
-            y_to_keep = (y_arr >= min(ylim)) & (y_arr <= max(ylim)) 
+            y_to_keep = (y_arr >= min(ylim)) & (y_arr <= max(ylim))
             xx = xx[y_to_keep, :]
             yy = yy[y_to_keep, :]
             lons = lons[y_to_keep, :]
