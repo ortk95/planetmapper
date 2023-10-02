@@ -2,16 +2,8 @@ import datetime
 import io
 import math
 import warnings
-from typing import (
-    Any,
-    Callable,
-    Iterable,
-    Literal,
-    NamedTuple,
-    Protocol,
-    TypedDict,
-    cast,
-)
+from collections.abc import Iterator
+from typing import Any, Callable, Literal, NamedTuple, Protocol, TypedDict, cast
 
 try:
     from typing import Unpack
@@ -1933,7 +1925,7 @@ class BodyXY(Body):
             lats = lats[:, x_to_keep]
         if ylim is not None:
             y_arr = yy[:, 0]
-            y_to_keep = (y_arr >= min(ylim)) & (y_arr <= max(ylim))  # type: ignore
+            y_to_keep = (y_arr >= min(ylim)) & (y_arr <= max(ylim)) 
             xx = xx[y_to_keep, :]
             yy = yy[y_to_keep, :]
             lons = lons[y_to_keep, :]
@@ -1991,7 +1983,7 @@ class BodyXY(Body):
 
     def _iterate_image(
         self, shape: tuple[int, ...], progress: bool = False
-    ) -> Iterable[tuple[int, int]]:
+    ) -> Iterator[tuple[int, int]]:
         ny = shape[0]
         nx = shape[1]
         for y in range(ny):
@@ -2075,7 +2067,7 @@ class BodyXY(Body):
 
     def _enumerate_targvec_img(
         self, progress: bool = False
-    ) -> Iterable[tuple[int, int, np.ndarray]]:
+    ) -> Iterator[tuple[int, int, np.ndarray]]:
         targvec_img = self._get_targvec_img()
         for y, x in self._iterate_image(targvec_img.shape, progress=progress):
             targvec = targvec_img[y, x]
@@ -2086,7 +2078,7 @@ class BodyXY(Body):
 
     def _enumerate_targvec_map(
         self, progress: bool = False, **map_kwargs: Unpack[_MapKwargs]
-    ) -> Iterable[tuple[int, int, np.ndarray]]:
+    ) -> Iterator[tuple[int, int, np.ndarray]]:
         targvec_map = self._get_targvec_map(**map_kwargs)
         for a, b in self._iterate_image(targvec_map.shape, progress=progress):
             targvec = targvec_map[a, b]
