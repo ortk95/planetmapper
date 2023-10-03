@@ -1168,7 +1168,6 @@ class BodyXY(Body):
             if lon == 360 or (lon == 0 and projection == 'rectangular'):
                 continue
             for lats in lats_to_plot:
-                # pylint: disable-next=unpacking-non-sequence
                 x, y = transformer.transform(lon * np.ones(npts), lats)
                 ax.plot(
                     x,
@@ -1184,7 +1183,6 @@ class BodyXY(Body):
         for lat in lat_ticks:
             if lat in {-90, 90}:
                 continue
-            # pylint: disable-next=unpacking-non-sequence
             x, y = transformer.transform(np.linspace(0, 360, npts), lat * np.ones(npts))
             ax.plot(
                 x,
@@ -1214,7 +1212,6 @@ class BodyXY(Body):
 
         if label_poles and projection != 'rectangular':
             for lat, s in ((90, 'N'), (-90, 'S')):
-                # pylint: disable-next=unpacking-non-sequence
                 x, y = transformer.transform(0, lat)
                 if math.isfinite(x) and math.isfinite(y):
                     ax.text(x, y, s, **kwargs['pole'])
