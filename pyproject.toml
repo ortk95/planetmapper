@@ -20,9 +20,9 @@ omit = ["planetmapper/gui.py"]
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",
-    "^\\s*\\.\\.\\.$", # "..." lines (typing overloads etc.)
+    "^\\s*\\.\\.\\.$",     # "..." lines (typing overloads etc.)
     "^if TYPE_CHECKING:$",
-    ]
+]
 
 
 [tool.pylint.'MESSAGES CONTROL']
@@ -41,13 +41,14 @@ disable = [
     "too-few-public-methods",
     "too-many-ancestors",
     "too-many-return-statements",
-    ]
-enable = [
-    "useless-suppression",
-    ]
+]
+enable = ["useless-suppression"]
+
+[tool.pylint.TYPECHECK]
+generated-members = ["typing.ParamSpec.args", "typing.ParamSpec.kwargs"]
 
 [tool.pylint.miscellaneous]
-notes=["FIXME", "XXX"] # Allow TODO comments, but not FIXME or XXX
+notes = ["FIXME", "XXX"] # Allow TODO comments, but not FIXME or XXX
 
 
 [tool.pyright]
