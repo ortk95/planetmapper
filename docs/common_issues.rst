@@ -4,12 +4,17 @@ Common issues & solutions
 *************************
 
 .. note::
-    If you find any bugs/errors that you cannot solve, please `open an issue at on GitHub <https://github.com/ortk95/planetmapper/issues/new>`__
+    If you find any bugs/errors that you cannot solve, please `open an issue on GitHub <https://github.com/ortk95/planetmapper/issues/new>`__
 
 
 General solutions
 =================
 Run `pip install planetmapper --upgrade` in a terminal to make sure you are running the latest version of PlanetMapper. It is possible that your bug may have been fixed in a recent update (you can also check the release notes for each version `on GitHub <https://github.com/ortk95/planetmapper/releases>`__).
+
+
+Installation issues
+===================
+PlanetMapper requires a minimum Python version of 3.10, so if you get `ERROR: No matching distribution found for planetmapper` when trying to :ref:`install PlanetMapper <installation>`, it is likely that your python version is too old. You can check your Python version by running `python3 --version` in a terminal.
 
 
 SPICE Errors

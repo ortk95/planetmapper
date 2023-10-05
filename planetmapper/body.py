@@ -11,6 +11,8 @@ try:
 except ImportError:
     from typing_extensions import Self
 
+import math
+
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import matplotlib.transforms
@@ -20,6 +22,7 @@ from matplotlib.axes import Axes
 from spiceypy.utils.exceptions import (
     NotFoundError,
     SpiceBODIESNOTDISTINCT,
+    SpiceINVALIDTARGET,
     SpiceKERNELVARNOTFOUND,
     SpiceSPKINSUFFDATA,
 )
@@ -196,6 +199,8 @@ class Body(BodyBase):
         """Python timezone aware datetime of the observation corresponding to `utc`."""
         self.target_body_id: int
         """SPICE numeric ID of the target body."""
+        self.radii: np.ndarray
+        """Array of radii of the target body along the x, y and z axes in km."""
         self.r_eq: float
         """Equatorial radius of the target body in km."""
         self.r_polar: float
@@ -233,6 +238,10 @@ class Body(BodyBase):
         """Longitude of the sub-observer point on the target."""
         self.subpoint_lat: float
         """Latitude of the sub-observer point on the target."""
+        self.subsol_lon: float
+        """Longitude of the sub-solar point on the target."""
+        self.subsol_lat: float
+        """Latitude of the sub-solar point on the target."""
         self.named_ring_data: dict[str, list[float]]
         """
         Dictionary of ring radii for the target from :func:`data_loader.get_ring_radii`.
@@ -350,6 +359,22 @@ class Body(BodyBase):
         self._subpoint_ra, self._subpoint_dec = self._radian_pair2degrees(
             *self._obsvec2radec_radians(self._subpoint_obsvec)
         )
+
+        # Find sub solar point
+        try:
+            self._subsol_targvec, self._subsol_et, self._subsol_rayvec = spice.subslr(
+                self._subpoint_method_encoded,  # type: ignore
+                self._target_encoded,  # type: ignore
+                self.et,
+                self._target_frame_encoded,  # type: ignore
+                self._aberration_correction_encoded,  # type: ignore
+                self._observer_encoded,  # type: ignore
+            )
+            self.subsol_lon, self.subsol_lat = self.targvec2lonlat(self._subsol_targvec)
+        except SpiceINVALIDTARGET:
+            # If the target is the sun, then there is no sub-solar point
+            self.subsol_lon = np.nan
+            self.subsol_lat = np.nan
 
         # Set up equatorial plane (for ring calculations)
         targvec_north_pole = self.lonlat2targvec(0, 90)
@@ -621,6 +646,8 @@ class Body(BodyBase):
         """
         Transform lon/lat coordinates on body to rectangular vector in target frame.
         """
+        if not (math.isfinite(lon) and math.isfinite(lat) and math.isfinite(alt)):
+            return np.array([np.nan, np.nan, np.nan])
         return spice.pgrrec(
             self._target_encoded,  # type: ignore
             lon,
@@ -678,6 +705,8 @@ class Body(BodyBase):
 
     # Coordinate transformations observer -> target direction
     def _radec2obsvec_norm_radians(self, ra: float, dec: float) -> np.ndarray:
+        if not (math.isfinite(ra) and math.isfinite(dec)):
+            return np.array([np.nan, np.nan, np.nan])
         return spice.radrec(1, ra, dec)
 
     def _obsvec2targvec(self, obsvec: np.ndarray) -> np.ndarray:
@@ -731,6 +760,13 @@ class Body(BodyBase):
         return spoint
 
     def _targvec2lonlat_radians(self, targvec: np.ndarray) -> tuple[float, float]:
+        if not (
+            math.isfinite(targvec[0])
+            and math.isfinite(targvec[1])
+            and math.isfinite(targvec[2])
+        ):
+            # ^ profiling suggests this is the fastest NaN check
+            return np.nan, np.nan
         lon, lat, alt = spice.recpgr(
             self._target_encoded,  # type: ignore
             targvec,
@@ -1040,6 +1076,13 @@ class Body(BodyBase):
     def _illumf_from_targvec_radians(
         self, targvec: np.ndarray
     ) -> tuple[float, float, float, bool, bool]:
+        if not (
+            math.isfinite(targvec[0])
+            and math.isfinite(targvec[1])
+            and math.isfinite(targvec[2])
+        ):
+            # ^ profiling suggests this is the fastest NaN check
+            return np.nan, np.nan, np.nan, False, False
         trgepc, srfvec, phase, incdnc, emissn, visibl, lit = spice.illumf(
             self._surface_method_encoded,  # type: ignore
             self._target_encoded,  # type: ignore
@@ -1123,6 +1166,65 @@ class Body(BodyBase):
                 ra_day[idx] = np.nan
                 dec_day[idx] = np.nan
         return ra_day, dec_day, ra_night, dec_night
+
+    def limb_coordinates_from_radec(
+        self, ra: float, dec: float
+    ) -> tuple[float, float, float]:
+        """
+        Calculate the coordinates relative to the target body's limb for a point in the
+        sky.
+
+        The coordinates are calculated for the point on the ray (as defined by RA/Dec)
+        which is closest to the target body's limb.
+
+        Args:
+            ra: Right ascension of point in the sky of the observer.
+            dec: Declination of point in the sky of the observer.
+
+        Returns:
+            `(lon, lat, dist)` tuple of coordinates relative to the target body's limb.
+            `lon` and `lat` give the planetographic longitude and latitude of the point
+            on the limb closest to the point defined by `ra` and `dec`. `dist` gives the
+            distance from the point defined by `ra` and `dec` to the target's limb.
+            Positive values of `dist` mean that the point is above the limb and negative
+            values mean that the point is below the limb (i.e. on the target body's
+            disc).
+        """
+        coords = self._limb_coordinates_from_obsvec(
+            self._radec2obsvec_norm_radians(*self._degree_pair2radians(ra, dec))
+        )
+        return coords
+
+    def _limb_coordinates_from_obsvec(
+        self, obsvec_norm: np.ndarray
+    ) -> tuple[float, float, float]:
+        if not (
+            math.isfinite(obsvec_norm[0])
+            and math.isfinite(obsvec_norm[1])
+            and math.isfinite(obsvec_norm[2])
+        ):
+            return np.nan, np.nan, np.nan
+
+        # Get the point on the RA/Dec ray (defined be obsvec_norm) that is closest to
+        # the centre of the target body.
+        nearpoint_obsvec, nearpoint_dist = spice.nplnpt(
+            np.array([0, 0, 0]),  # centre of observer
+            obsvec_norm,  # direction vector from observer to POI
+            self._target_obsvec,  # reference point at centre of target body
+        )
+
+        # Get the point on the surface of the target body that is closest to the
+        # nearpoint.
+        surface_targvec = spice.surfpt(
+            np.array([0, 0, 0]),
+            self._obsvec2targvec(nearpoint_obsvec),
+            self.radii[0],
+            self.radii[1],
+            self.radii[2],
+        )
+        lon, lat = self.targvec2lonlat(surface_targvec)
+        dist = nearpoint_dist - self.vector_magnitude(surface_targvec)
+        return lon, lat, dist
 
     # Visibility
     def _test_if_targvec_visible(self, targvec: np.ndarray) -> bool:
@@ -1304,6 +1406,59 @@ class Body(BodyBase):
         )
         return np.rad2deg(azimuth_radians)
 
+    def _lst_from_lon(
+        self, lon: float
+    ) -> tuple[int | float, int | float, int | float, str, str]:
+        if not math.isfinite(lon):
+            return np.nan, np.nan, np.nan, '', ''
+        return spice.et2lst(
+            self.et - self.target_light_time,
+            self.target_body_id,
+            np.deg2rad(lon),
+            'planetographic',
+        )
+
+    def local_solar_time_from_lon(self, lon: float) -> float:
+        """
+        Calculate the numerical local solar time for a longitude on the target body. For
+        example, `0.0` corresponds to midnight and `12.5` corresponds to 12:30pm.
+
+        See also :func:`local_solar_time_string_from_lon`.
+
+        .. note::
+
+            A 'local hour' of solar time is a defined as 1/24th of the solar day on the
+            target body, so will not correspond to a 'normal' hour as measured by a
+            clock. See
+            `the SPICE documentation <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/et2lst_c.html>`__
+            for more details.
+
+        Args:
+            lon: Longitude of point on target body.
+
+        Returns:
+            Numerical local solar time in 'local hours'.
+        """
+        hr, mn, sc, time, ampm = self._lst_from_lon(lon)
+        return hr + mn / 60 + sc / 3600
+
+    def local_solar_time_string_from_lon(self, lon: float) -> str:
+        """
+        Local solar time string representation for a longitude on the target body. For
+        example, `'00:00:00'` corresponds to midnight and `'12:30:00'` corresponds to
+        12:30pm.
+
+        See :func:`local_solar_time_from_lon` for more details.
+
+        Args:
+            lon: Longitude of point on target body.
+
+        Returns:
+            String representation of local solar time.
+        """
+        hr, mn, sc, time, ampm = self._lst_from_lon(lon)
+        return time
+
     def terminator_radec(
         self,
         npts: int = 360,
@@ -1374,6 +1529,12 @@ class Body(BodyBase):
     def _ring_coordinates_from_obsvec(
         self, obsvec: np.ndarray, only_visible: bool = True
     ) -> tuple[float, float, float]:
+        if not (
+            math.isfinite(obsvec[0])
+            and math.isfinite(obsvec[1])
+            and math.isfinite(obsvec[2])
+        ):
+            return np.nan, np.nan, np.nan
         nxpts, intercept_obsvec = spice.inrypl(
             np.array([0, 0, 0]), obsvec, self._ring_plane
         )
@@ -1657,6 +1818,12 @@ class Body(BodyBase):
 
     # Planetographic <-> planetocentric
     def _targvec2lonlat_centric(self, targvec: np.ndarray) -> tuple[float, float]:
+        if not (
+            math.isfinite(targvec[0])
+            and math.isfinite(targvec[1])
+            and math.isfinite(targvec[2])
+        ):
+            return np.nan, np.nan
         radius, lon_centric, lat_centric = spice.reclat(targvec)
         return self._radian_pair2degrees(lon_centric, lat_centric)
 
@@ -1686,14 +1853,16 @@ class Body(BodyBase):
         Returns:
             `(lon, lat)` tuple of planetographic coordinates.
         """
-        targvec = spice.latsrf(
+        if not (math.isfinite(lon_centric) and math.isfinite(lat_centric)):
+            return np.nan, np.nan
+        targvecs = spice.latsrf(
             self._surface_method_encoded,  # type: ignore
             self._target_encoded,  # type: ignore
             self.et,
             self._target_frame_encoded,  # type: ignore
             [[np.deg2rad(lon_centric), np.deg2rad(lat_centric)]],
         )
-        return self.targvec2lonlat(targvec[0])
+        return self.targvec2lonlat(targvecs[0])
 
     # Other
     def north_pole_angle(self) -> float:

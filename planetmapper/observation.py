@@ -12,7 +12,7 @@ from astropy.io import fits
 from astropy.utils.exceptions import AstropyWarning
 
 from . import common, utils
-from .base import _cache_clearable_result
+from .base import _cache_clearable_result, _cache_stable_result
 from .body_xy import BodyXY, Unpack, _MapKwargs
 from .progress import SaveMapProgressHookCLI, SaveNavProgressHookCLI, progress_decorator
 
@@ -318,10 +318,12 @@ class Observation(BodyXY):
                 warnings.simplefilter('ignore', category=AstropyWarning)
             return astropy.wcs.WCS(self.header).celestial
 
+    @_cache_stable_result
     def _get_disc_params_from_wcs(
         self,
         suppress_warnings: bool = False,
         validate: bool = True,
+        use_header_offsets: bool = True,
     ) -> tuple[float, float, float, float]:
         wcs = self._get_wcs_from_header(suppress_warnings=suppress_warnings)
 
@@ -340,7 +342,16 @@ class Observation(BodyXY):
             if wcs.has_distortion:
                 raise ValueError('WCS conversion contains distortion terms')
 
-        x0, y0 = wcs.world_to_pixel_values(self.target_ra, self.target_dec)
+        if use_header_offsets:
+            dra_arcsec = float(self.header.get('HIERARCH NAV RA_OFFSET', 0.0))  # type: ignore
+            ddec_arcsec = float(self.header.get('HIERARCH NAV DEC_OFFSET', 0.0))  # type: ignore
+            dra = dra_arcsec / 3600
+            ddec = ddec_arcsec / 3600
+        else:
+            dra = 0.0
+            ddec = 0.0
+
+        x0, y0 = wcs.world_to_pixel_values(self.target_ra + dra, self.target_dec + ddec)
 
         b1, b2 = wcs.pixel_to_world_values(x0, y0 + 1)
         c1, c2 = wcs.pixel_to_world_values(x0, y0)
@@ -350,12 +361,14 @@ class Observation(BodyXY):
         s = self.angular_dist(b1, b2, c1, c2)
         arcsec_per_px = s * 60 * 60  # s = degrees/px
         r0 = self.target_diameter_arcsec / (2 * arcsec_per_px)
-        x0, y0 = wcs.world_to_pixel_values(self.target_ra, self.target_dec)
 
         return x0, y0, r0, rotation
 
     def disc_from_wcs(
-        self, suppress_warnings: bool = False, validate: bool = True
+        self,
+        suppress_warnings: bool = False,
+        validate: bool = True,
+        use_header_offsets: bool = True,
     ) -> None:
         """
         Set disc parameters using WCS information in the observation's FITS header.
@@ -365,20 +378,25 @@ class Observation(BodyXY):
         .. note::
 
             There may be very slight differences between the coordinates converted
-            directly from the WCS information, and the coordinates converted by
-            PlanetMapper
+            directly from the WCS information and the coordinates converted by
+            PlanetMapper.
 
         Args:
             suppress_warnings: Hide warnings produced by astropy when calculating WCS
                 conversions.
             validate: Run checks to ensure the WCS conversion has appropriate RA/Dec
                 coordinate dimensions.
+            use_header_offsets: If present, use the `HIERARCH NAV RA_OFFSET` and
+                `HIERARCH NAV DEC_OFFSET` values from the FITS headerr to adjust the
+                target's disc location by the specified arcsecond offsets. If these
+                keywords are not present or `use_header_offsets` is `False`, no
+                adjustment is made.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
         """
         x0, y0, r0, rotation = self._get_disc_params_from_wcs(
-            suppress_warnings, validate
+            suppress_warnings, validate, use_header_offsets
         )
         self.set_x0(x0)
         self.set_y0(y0)
@@ -386,9 +404,7 @@ class Observation(BodyXY):
         self.set_rotation(rotation)
         self.set_disc_method('wcs')
 
-    def position_from_wcs(
-        self, suppress_warnings: bool = False, validate: bool = True
-    ) -> None:
+    def position_from_wcs(self, *args, **kwargs) -> None:
         """
         Set disc position `(x0, y0)` using WCS information in the observation's FITS
         header.
@@ -396,47 +412,33 @@ class Observation(BodyXY):
         See also :func:`disc_from_wcs`.
 
         Args:
-            suppress_warnings: Hide warnings produced by astropy when calculating WCS
-                conversions.
-            validate: Run checks to ensure the WCS conversion has appropriate RA/Dec
-                coordinate dimensions.
+            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
         """
-        x0, y0, r0, rotation = self._get_disc_params_from_wcs(
-            suppress_warnings, validate
-        )
+        x0, y0, r0, rotation = self._get_disc_params_from_wcs(*args, **kwargs)
         self.set_x0(x0)
         self.set_y0(y0)
         self.set_disc_method('wcs_position')
 
-    def rotation_from_wcs(
-        self, suppress_warnings: bool = False, validate: bool = True
-    ) -> None:
+    def rotation_from_wcs(self, *args, **kwargs) -> None:
         """
         Set disc rotation using WCS information in the observation's FITS header.
 
         See also :func:`disc_from_wcs`.
 
         Args:
-            suppress_warnings: Hide warnings produced by astropy when calculating WCS
-                conversions.
-            validate: Run checks to ensure the WCS conversion has appropriate RA/Dec
-                coordinate dimensions.
+            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
         """
-        x0, y0, r0, rotation = self._get_disc_params_from_wcs(
-            suppress_warnings, validate
-        )
+        x0, y0, r0, rotation = self._get_disc_params_from_wcs(*args, **kwargs)
         self.set_rotation(rotation)
         self.set_disc_method('wcs_rotation')
 
-    def plate_scale_from_wcs(
-        self, suppress_warnings: bool = False, validate: bool = True
-    ) -> None:
+    def plate_scale_from_wcs(self, *args, **kwargs) -> None:
         """
         Set plate scale (i.e. `r0`) using WCS information in the observation's FITS
         header.
@@ -444,19 +446,146 @@ class Observation(BodyXY):
         See also :func:`disc_from_wcs`.
 
         Args:
-            suppress_warnings: Hide warnings produced by astropy when calculating WCS
-                conversions.
-            validate: Run checks to ensure the WCS conversion has appropriate RA/Dec
-                coordinate dimensions.
+            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
         """
-        x0, y0, r0, rotation = self._get_disc_params_from_wcs(
-            suppress_warnings, validate
-        )
+        x0, y0, r0, rotation = self._get_disc_params_from_wcs(*args, **kwargs)
         self.set_r0(r0)
         self.set_disc_method('wcs_plate_scale')
+
+    def get_wcs_offset(self, *args, **kwargs) -> tuple[float, float, float, float]:
+        """
+        .. warning ::
+
+            This is a beta feature and the API may change in future.
+
+        Get the difference between the current disc parameters and the disc parameters
+        calculated from the WCS information in the observation's FITS header.
+
+        For example, this function can be used to retrieve the cumulative offset after
+        adjusting the disc position: ::
+
+            # Initialise disc with parameters from WCS
+            observation.disc_from_wcs()
+
+            # Adjust the disc position
+            observation.adjust_disc_params(1, 2, 3, 4)
+            observation.adjust_disc_params(dx=0.1)
+
+            # Retrieve the cumulative offset
+            print(observation.get_wcs_offset())  # (1.1, 2.0, 3.0, 4.0)
+
+        Similarly, this function can be used to retrieve the offset after running the
+        GUI to fit the disc: ::
+
+            observation.run_gui()
+            print(observation.get_wcs_offset())
+
+        See also :func:`get_wcs_arcsec_offset`.
+
+        Args:
+            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
+
+        Returns:
+            `(dx, dy, dr, drotation)` tuple containing the differences in disc
+            parameters between the current disc parameters (i.e. those returned by
+            :func:`BodyXY.get_disc_params`) and the disc parameters calculated from
+            the WCS information in the observation's FITS header. `dx` and `dy` give the
+            difference in the disc centre position in pixels, `dr` gives the difference
+            in the disc radius in pixels, and `drotation` gives the difference in the
+            rotation angle in degrees.
+
+        Raises:
+            ValueError: if no WCS information is found in the FITS header, or validation
+                fails.
+        """
+        x0_wcs, y0_wcs, r0_wcs, rotation_wcs = self._get_disc_params_from_wcs(
+            *args, **kwargs
+        )
+        dx = self.get_x0() - x0_wcs
+        dy = self.get_y0() - y0_wcs
+        dr = self.get_r0() - r0_wcs
+        drotation = (self.get_rotation() - rotation_wcs) % 360
+        return dx, dy, dr, drotation
+
+    def get_wcs_arcsec_offset(
+        self, *args, check_is_position_offset_only: bool = True, **kwargs
+    ) -> tuple[float, float]:
+        """
+        .. warning ::
+
+            This is a beta feature and the API may change in future.
+
+        Get the offset in RA/Dec celestial coordinates between the current disc location
+        and the disc location calculated from the WCS information in the observation's
+        FITS header.
+
+        For example, this function can be used to retrieve the cumulative offset after
+        adjusting the disc position: ::
+
+            # Initialise disc with parameters from WCS
+            observation.disc_from_wcs()
+
+            # Adjust the disc position
+            observation.add_arcsec_offset(10, 10)
+            observation.add_arcsec_offset(dra_arcsec=1.23)
+
+            # Retrieve the cumulative offset
+            print(observation.get_wcs_arcsec_offset())  # (11.23, 10.0)
+
+        Similarly, this function can be used to retrieve the offset after running the
+        GUI to fit the disc: ::
+
+            observation.run_gui()
+            print(observation.get_wcs_arcsec_offset())
+
+        The RA/Dec offsets returned by this function are generally only meaningful if
+        the disc location `(x0, y0)` is the only difference between the current disc
+        parameters and those derived from the WCS. Therefore, by default this function
+        checks that the `dr` and `drotation` values returned by :func:`get_wcs_offset`
+        are sufficiently small to be considered a position offset only, and raises a
+        `ValueError` if this is not the case. This check can be disabled by setting
+        `check_is_position_offset_only` to `False`.
+
+        See also :func:`get_wcs_offset`.
+
+        Args:
+            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
+            check_is_position_offset_only: If `True` (the default), check that the
+                `dr` and `drotation` values returned by :func:`get_wcs_offset` are
+                sufficiently small to be considered a position offset only. If this is
+                `False`, then the `dr` and `drotation` values are not checked.
+
+        Returns:
+            `(dra_arcsec, ddec_arcsec)` tuple containing the offsets in arcseconds in
+            the RA and Dec celestial coordinates between the current disc location (i.e.
+            those returned by :func:`BodyXY.get_disc_params`) and the disc location
+            calculated from the WCS information in the observation's FITS header.
+
+        Raises:
+            ValueError: if no WCS information is found in the FITS header, or validation
+                fails. A ValueError is also raised if `check_is_position_offset_only`
+                is `True` and the `dr` or `drotation` values returned by
+                :func:`get_wcs_offset` are not sufficiently small.
+        """
+        dx, dy, dr, drotation = self.get_wcs_offset(*args, **kwargs)
+        if check_is_position_offset_only:
+            if abs(dr) > 1e-3:
+                raise ValueError(
+                    f'r0 is different between WCS and observation (dr={dr})'
+                )
+            if abs((drotation + 180) % 360 - 180) > 1e-3:
+                # ^ modulo operation makes 359 -> -1 so -ve drotation works properly
+                raise ValueError(
+                    f'rotation is different between WCS and observation (drotation={drotation})'
+                )
+        ra0, dec0 = self.xy2radec(0, 0)
+        ra1, dec1 = self.xy2radec(dx, dy)
+        dra_arcsec = (ra1 - ra0) * 3600
+        ddec_arcsec = (dec1 - dec0) * 3600
+        return dra_arcsec, ddec_arcsec
 
     def _get_img_for_fitting(self) -> np.ndarray:
         img = np.nansum(self.data, axis=0)
@@ -716,6 +845,18 @@ class Observation(BodyXY):
             'SUBPOINT LON',
             self.subpoint_lon,
             '[degrees] Sub-observer pgr longitude.',
+            header=header,
+        )
+        self.append_to_header(
+            'SUBSOL LAT',
+            self.subsol_lat,
+            '[degrees] Sub-solar pgr latitude.',
+            header=header,
+        )
+        self.append_to_header(
+            'SUBSOL LON',
+            self.subsol_lon,
+            '[degrees] Sub-solar pgr longitude.',
             header=header,
         )
         self.append_to_header(
@@ -1015,7 +1156,8 @@ class Observation(BodyXY):
                 if print_info:
                     print(' Creating wireframe...')
                 wireframe = self.get_wireframe_overlay_map(
-                    **wireframe_kwargs or {}, **map_kwargs
+                    **wireframe_kwargs or {},  #  type: ignore
+                    **map_kwargs,
                 )
                 header = fits.Header([('ABOUT', 'Wireframe map overlay')])
                 header.add_comment(

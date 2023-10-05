@@ -2,7 +2,6 @@
 *
 !*/
 !*.py
-!*.pyi
 !*.md
 !*.sh
 !*.rst
@@ -12,6 +11,7 @@
 !*.toml
 !*.bib
 !docs/images/*.png
+!examples/**/*.fits
 
 # Include testing data, but not temp testing outputs
 !tests/data/**/*.bsp
@@ -35,3 +35,4 @@ tools.py
 profile_code.py
 line_profile_code.py
 docs/default_backplanes.rst
+python-type-stubs

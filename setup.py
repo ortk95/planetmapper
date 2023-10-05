@@ -11,6 +11,13 @@ import common  # type: ignore
 with open(os.path.join(root, 'README.md'), encoding='utf-8') as f:
     long_description = f.read()
 
+# Replace relative image links with absolute links to GitHub hosted images so that
+# images display properly on PyPI
+long_description = long_description.replace(
+    '](docs/images/',
+    '](https://raw.githubusercontent.com/ortk95/planetmapper/main/docs/images/',
+)
+
 setuptools.setup(
     name='planetmapper',
     version=common.__version__,

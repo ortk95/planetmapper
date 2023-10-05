@@ -1,6 +1,7 @@
 import datetime
 import functools
 import glob
+import math
 import numbers
 import os
 from collections.abc import Iterable
@@ -332,7 +333,7 @@ class SpiceBase:
             Python datetime object corresponding to `mjd`. This datetime is timezone
             aware and set to the UTC timezone.
         """
-        dtm: datetime.datetime = astropy.time.Time(mjd, format='mjd').datetime
+        dtm = cast(datetime.datetime, astropy.time.Time(mjd, format='mjd').datetime)
         return dtm.replace(tzinfo=datetime.timezone.utc)
 
     def speed_of_light(self) -> float:
@@ -648,6 +649,13 @@ class BodyBase(SpiceBase):
         """
         Transform rectangular vector in observer frame to observer ra/dec coordinates.
         """
+        if not (
+            math.isfinite(obsvec[0])
+            and math.isfinite(obsvec[1])
+            and math.isfinite(obsvec[2])
+        ):
+            # ^ profiling suggests this is the fastest NaN check
+            return np.nan, np.nan
         _, ra, dec = spice.recrad(obsvec)
         return ra, dec
 

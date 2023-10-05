@@ -260,7 +260,7 @@ def normalise(
 
     # Put into 0 to 1 range
     if vmax != vmin:
-        values = (values - vmin) / (vmax - vmin)
+        values = (values - vmin) / (vmax - vmin)  #  type: ignore
     else:
         values = values - vmin
     return values * (top - bottom) + bottom  #  type: ignore

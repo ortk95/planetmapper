@@ -24,6 +24,7 @@ from matplotlib.artist import Artist
 from matplotlib.backend_bases import MouseButton, MouseEvent
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk  # type: ignore
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
 from matplotlib.text import Text
 
 from . import base, common, data_loader, progress, utils
@@ -63,7 +64,7 @@ DEFAULT_PLOT_SETTINGS: dict[PlotKey, dict] = {
     'coordinate_of_interest_radec': dict(zorder=3.7, marker='+', color='k', s=36),
     'other_body_of_interest_marker': dict(zorder=3.8, marker='+', color='w', s=36),
     'other_body_of_interest_label': dict(zorder=3.81, color='grey'),
-    'marked_coord': dict(zorder=4, color='cyan', linewidth=0.5, linestyle='dotted'),
+    'marked_coord': dict(zorder=4, color='cyan', linewidth=0.5, linestyle='solid'),
     'image': dict(zorder=0.9, cmap='inferno'),
     '_': dict(
         grid_interval=30,
@@ -87,7 +88,7 @@ CMAPS = ('gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis')
 LIMIT_TYPES = ('absolute', 'percentile')
 
 MAP_INTERPOLATIONS = ('nearest', 'linear', 'quadratic', 'cubic')
-MAP_PROJECTIONS = ('rectangular', 'orthographic', 'azimuthal')
+MAP_PROJECTIONS = ('rectangular', 'orthographic', 'azimuthal', 'azimuthal equal area')
 
 DEFAULT_HINT = ''
 
@@ -228,22 +229,30 @@ class GUI:
             ],
             'Use WCS data from FITS header': [
                 (
-                    lambda: self.get_observation().disc_from_wcs(True, False),
+                    lambda: self.get_observation().disc_from_wcs(
+                        suppress_warnings=True, validate=False
+                    ),
                     'Use WCS position, rotation & scale',
                     'Set all disc parameters using approximate WCS information in the observation\'s FITS header',
                 ),
                 (
-                    lambda: self.get_observation().position_from_wcs(True, False),
+                    lambda: self.get_observation().position_from_wcs(
+                        suppress_warnings=True, validate=False
+                    ),
                     'Use WCS position',
                     'Set disc position using approximate WCS information in the observation\'s FITS header',
                 ),
                 (
-                    lambda: self.get_observation().rotation_from_wcs(True, False),
+                    lambda: self.get_observation().rotation_from_wcs(
+                        suppress_warnings=True, validate=False
+                    ),
                     'Use WCS rotation',
                     'Set disc rotation using approximate WCS information in the observation\'s FITS header',
                 ),
                 (
-                    lambda: self.get_observation().plate_scale_from_wcs(True, False),
+                    lambda: self.get_observation().plate_scale_from_wcs(
+                        suppress_warnings=True, validate=False
+                    ),
                     'Use WCS plate scale',
                     'Set plate scale using approximate WCS information in the observation\'s FITS header',
                 ),
@@ -1009,7 +1018,9 @@ class GUI:
         self.canvas.draw()
 
     def build_plot(self) -> None:
-        self.fig = plt.figure()
+        # Use Figure rather than plt.figure to avoid segmentation fault when running
+        # from tkinter GUI (issue #258)
+        self.fig = Figure()
         self.ax = self.fig.add_axes([0.06, 0.03, 0.93, 0.96])
         self.transform = (
             self.get_observation().matplotlib_radec2xy_transform() + self.ax.transData
@@ -2023,7 +2034,9 @@ class SaveObservation(Popup):
             map_enabled and projection_type in {'rectangular'}, self.map_rect_widgets
         )
         self.toggle(
-            map_enabled and projection_type in {'orthographic', 'azimuthal'},
+            map_enabled
+            and projection_type
+            in {'orthographic', 'azimuthal', 'azimuthal equal area'},
             self.map_ortho_widgets,
         )
 
@@ -2050,7 +2063,7 @@ class SaveObservation(Popup):
     def close_window(self, *_) -> None:
         self.window.destroy()
 
-    def try_run_save(self) -> bool:
+    def try_run_save(self) -> None:
         save_nav = bool(self.save_nav.get())
         save_map = bool(self.save_map.get())
         map_kw: _MapKwargs = {}
@@ -2067,7 +2080,7 @@ class SaveObservation(Popup):
                 title='Error saving file',
                 message='File paths must not be empty',
             )
-            return False
+            return
 
         try:
             if save_map:
@@ -2099,7 +2112,7 @@ class SaveObservation(Popup):
                         finite=True,
                     )
         except ValueError:
-            return False
+            return
 
         # If we get to this point, everything should (hopefully) be working
 
@@ -2122,7 +2135,7 @@ class SaveObservation(Popup):
                 title='Error saving files',
                 message=f'Error: {e}' + '\n\nSee terminal for more details',
             )
-            return False
+            return
         finally:
             self.gui.get_observation()._remove_progress_hook()
 
@@ -2130,10 +2143,6 @@ class SaveObservation(Popup):
             'File{s} saved successfully'.format(s='s' if save_nav and save_map else ''),
             color='green',
         )
-
-        if keep_open:
-            return False
-        return True
 
 
 class SavingProgress(Popup):

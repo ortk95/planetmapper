@@ -16,7 +16,10 @@ It is also possible to start a user interface directly using :func:`planetmapper
 
 Fitting an observation
 ======================
-To start, type `planetmapper` into a command line and press enter. This will open a window where you can choose a file to open:
+.. note::
+    You can download the Europa data file used in these examples from the `PlanetMapper GitHub repository <https://github.com/ortk95/planetmapper/tree/main/examples/gui_data>`_.
+
+To start, type `planetmapper` into a command line and press enter. This will open a window where you can choose a file to open:[#king2022]_
  
 .. image:: images/gui_open.png
     :width: 600
@@ -96,3 +99,6 @@ This simple example shows how you could use :func:`planetmapper.Observation.run_
         if coords:
             x, y = coords[-1]
             print(observation.xy2lonlat(x, y))
+
+
+.. [#king2022] The example Europa dataset is from King et al. (2022). *Compositional Mapping of Europa using MCMC Modelling of Near-IR VLT/SPHERE and Galileo/NIMS Observations.* DOI: `10.3847/PSJ/ac596d <https://doi.org/10.3847/PSJ/ac596d>`_.
