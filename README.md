@@ -1,8 +1,8 @@
 # ![PlanetMapper logo](docs/images/logo_wide_transparent.png)
 
 [![PyPI](https://img.shields.io/pypi/v/planetmapper?label=PyPI&logo=python&logoColor=silver)](https://pypi.org/project/planetmapper/)
-[![Publish](https://github.com/ortk95/planetmapper/actions/workflows/python-publish.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/python-publish.yml)
-[![Checks](https://github.com/ortk95/planetmapper/actions/workflows/checks.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/checks.yml)
+[![Publish Workflow Status](https://github.com/ortk95/planetmapper/actions/workflows/python-publish.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/python-publish.yml)
+[![Checks Workflow Status](https://github.com/ortk95/planetmapper/actions/workflows/checks.yml/badge.svg?branch=main)](https://github.com/ortk95/planetmapper/actions/workflows/checks.yml)
 [![Coverage Status](https://img.shields.io/coverallsCoverage/github/ortk95/planetmapper)](https://coveralls.io/github/ortk95/planetmapper)
 [![Documentation Status](https://readthedocs.org/projects/planetmapper/badge/?version=latest)](https://planetmapper.readthedocs.io/en/latest/?badge=latest)
 
