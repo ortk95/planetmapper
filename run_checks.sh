@@ -2,6 +2,9 @@
 # This isn't a 1:1 copy of the GitHub workflow (e.g. only runs on one OS & Python 
 # version) but it's generally close enough to catch most issues before pushing.
 
+# The dependencies for these checks can be installed by running:
+# pip install -r dev_requirements.txt
+
 echo -e "RUNNING CHECKS (`date`)"
 
 # Collect python type stubs so that pyright works with matplotlib
