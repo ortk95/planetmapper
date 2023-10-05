@@ -24,17 +24,21 @@ class TestObservation(unittest.TestCase):
     def test_init(self) -> None:
         with self.assertRaises(ValueError):
             Observation()
-
         with self.assertRaises(ValueError):
             Observation('some/path', data=np.ones((5, 5)))
-
         with self.assertRaises(ValueError):
             Observation('some/path', header=fits.Header({'key': 'value'}))
-
         with self.assertRaises(ValueError):
             Observation(
                 'some/path', data=np.ones((5, 5)), header=fits.Header({'key': 'value'})
             )
+
+        with self.assertRaises(TypeError):
+            Observation(self.path, nx=1)
+        with self.assertRaises(TypeError):
+            Observation(self.path, ny=1)
+        with self.assertRaises(TypeError):
+            Observation(self.path, sz=1)
 
         with self.subTest('image.png+target+observer+utc'):
             path = os.path.join(common_testing.DATA_PATH, 'inputs', 'image.png')
@@ -284,6 +288,46 @@ class TestObservation(unittest.TestCase):
     def test_repr(self):
         self.assertEqual(repr(self.observation), f'Observation({self.path!r})')
 
+    def test_to_body_xy(self):
+        observation = Observation(
+            data=np.ones((6, 5)),
+            target='Jupiter',
+            observer='HST',
+            utc='2005-01-01T00:00:00',
+        )
+        observation.add_other_bodies_of_interest('amalthea')
+        observation.coordinates_of_interest_lonlat.append((0, 0))
+        observation.coordinates_of_interest_radec.extend([(0, 0), (1, 1)])
+
+        body_xy = observation.to_body_xy()
+        self.assertEqual(
+            body_xy,
+            planetmapper.BodyXY(
+                'Jupiter', observer='HST', utc='2005-01-01T00:00:00', nx=5, ny=6
+            ),
+        )
+
+        self.assertEqual(observation.target, body_xy.target)
+        self.assertEqual(observation.utc, body_xy.utc)
+        self.assertEqual(observation.observer, body_xy.observer)
+        self.assertEqual(observation.get_img_size(), body_xy.get_img_size())
+
+        self.assertEqual(
+            observation.coordinates_of_interest_lonlat,
+            body_xy.coordinates_of_interest_lonlat,
+        )
+        self.assertEqual(
+            observation.coordinates_of_interest_radec,
+            body_xy.coordinates_of_interest_radec,
+        )
+        self.assertEqual(observation.ring_radii, body_xy.ring_radii)
+
+        observation.coordinates_of_interest_radec.clear()
+        self.assertNotEqual(
+            observation.coordinates_of_interest_radec,
+            body_xy.coordinates_of_interest_radec,
+        )
+
     def test_hash(self):
         with self.assertRaises(TypeError):
             hash(self.observation)
@@ -297,6 +341,15 @@ class TestObservation(unittest.TestCase):
         self.assertEqual(copy.path, self.observation.path)
         self.assertEqual(repr(copy), repr(self.observation))
         self.assertEqual(copy, self.observation)
+        self.assertEqual(copy.get_img_size(), self.observation.get_img_size())
+
+    def test_set_img_size(self):
+        with self.assertRaises(TypeError):
+            self.observation.set_img_size()
+        with self.assertRaises(TypeError):
+            self.observation.set_img_size(1)
+        with self.assertRaises(TypeError):
+            self.observation.set_img_size(2, 3)
 
     def test_disc_from_header(self):
         with self.assertRaises(ValueError):

@@ -2,16 +2,8 @@ import datetime
 import io
 import math
 import warnings
-from typing import (
-    Any,
-    Callable,
-    Iterable,
-    Literal,
-    NamedTuple,
-    Protocol,
-    TypedDict,
-    cast,
-)
+from collections.abc import Iterator
+from typing import Any, Callable, Literal, NamedTuple, Protocol, TypedDict, cast
 
 try:
     from typing import Unpack
@@ -281,10 +273,10 @@ class BodyXY(Body):
 
     def to_body(self) -> Body:
         """
-        Create a :class:`Body` instance from a :class:`BodyXY` instance.
+        Create a :class:`Body` instance from this :class:`BodyXY` instance.
 
         Returns:
-            :class:`Body` instance with the same parameters as the input :class:`BodyXY`
+            :class:`Body` instance with the same parameters as this :class:`BodyXY`
             instance.
         """
         new = Body(**Body._get_kwargs(self))
@@ -315,9 +307,9 @@ class BodyXY(Body):
 
     def _copy_options_to_other(self, other: Self) -> None:
         super()._copy_options_to_other(other)
-        other.set_img_size(*self.get_img_size())
         other.set_disc_params(*self.get_disc_params())
         other.set_disc_method(self.get_disc_method())
+        # set_img_size is covered by nx, ny in _get_kwargs, so would be redundant here
 
     # Coordinate transformations
     @_cache_clearable_result
@@ -668,6 +660,9 @@ class BodyXY(Body):
         Args:
             nx: If specified, set the number of pixels in the x dimension.
             ny: If specified, set the number of pixels in the y dimension.
+
+        Raises:
+            TypeError: if `set_img_size` is called on an :class:`Observation` instance.
         """
         if nx is not None:
             self._nx = nx
@@ -762,7 +757,8 @@ class BodyXY(Body):
             maximum RA and Dec coordinates of the pixels in the image respectively.
         """
         xlim, ylim = self._get_img_limits(self.xy2radec)
-        return xlim[::-1], ylim  # flip xlim because RA increases to the left
+        xlim = (xlim[1], xlim[0])  # flip xlim because RA increases to the left
+        return xlim, ylim
 
     def get_img_limits_km(self) -> tuple[tuple[float, float], tuple[float, float]]:
         """
@@ -1172,7 +1168,6 @@ class BodyXY(Body):
             if lon == 360 or (lon == 0 and projection == 'rectangular'):
                 continue
             for lats in lats_to_plot:
-                # pylint: disable-next=unpacking-non-sequence
                 x, y = transformer.transform(lon * np.ones(npts), lats)
                 ax.plot(
                     x,
@@ -1188,7 +1183,6 @@ class BodyXY(Body):
         for lat in lat_ticks:
             if lat in {-90, 90}:
                 continue
-            # pylint: disable-next=unpacking-non-sequence
             x, y = transformer.transform(np.linspace(0, 360, npts), lat * np.ones(npts))
             ax.plot(
                 x,
@@ -1218,7 +1212,6 @@ class BodyXY(Body):
 
         if label_poles and projection != 'rectangular':
             for lat, s in ((90, 'N'), (-90, 'S')):
-                # pylint: disable-next=unpacking-non-sequence
                 x, y = transformer.transform(0, lat)
                 if math.isfinite(x) and math.isfinite(y):
                     ax.text(x, y, s, **kwargs['pole'])
@@ -1929,7 +1922,7 @@ class BodyXY(Body):
             lats = lats[:, x_to_keep]
         if ylim is not None:
             y_arr = yy[:, 0]
-            y_to_keep = (y_arr >= min(ylim)) & (y_arr <= max(ylim))  # type: ignore
+            y_to_keep = (y_arr >= min(ylim)) & (y_arr <= max(ylim))
             xx = xx[y_to_keep, :]
             yy = yy[y_to_keep, :]
             lons = lons[y_to_keep, :]
@@ -1987,7 +1980,7 @@ class BodyXY(Body):
 
     def _iterate_image(
         self, shape: tuple[int, ...], progress: bool = False
-    ) -> Iterable[tuple[int, int]]:
+    ) -> Iterator[tuple[int, int]]:
         ny = shape[0]
         nx = shape[1]
         for y in range(ny):
@@ -2071,7 +2064,7 @@ class BodyXY(Body):
 
     def _enumerate_targvec_img(
         self, progress: bool = False
-    ) -> Iterable[tuple[int, int, np.ndarray]]:
+    ) -> Iterator[tuple[int, int, np.ndarray]]:
         targvec_img = self._get_targvec_img()
         for y, x in self._iterate_image(targvec_img.shape, progress=progress):
             targvec = targvec_img[y, x]
@@ -2082,7 +2075,7 @@ class BodyXY(Body):
 
     def _enumerate_targvec_map(
         self, progress: bool = False, **map_kwargs: Unpack[_MapKwargs]
-    ) -> Iterable[tuple[int, int, np.ndarray]]:
+    ) -> Iterator[tuple[int, int, np.ndarray]]:
         targvec_map = self._get_targvec_map(**map_kwargs)
         for a, b in self._iterate_image(targvec_map.shape, progress=progress):
             targvec = targvec_map[a, b]

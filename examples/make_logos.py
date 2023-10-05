@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Create various logos
+Create various logos for PlanetMapper
+
+Run download_spice_kernels() to download the kernels required to generate the logos.
 """
 import os
 import sys
@@ -12,15 +14,27 @@ from general_python_api import PLOT_DIRECTORY
 
 sys.path.insert(0, '..')  # Use local dev version of planetmapper
 import planetmapper
+from planetmapper.kernel_downloader import download_urls
 
 BG_COLOR = 'dodgerblue'
 OUTLINE_COLOR = 'royalblue'
 
 
 def main():
+    download_spice_kernels()
     plot_gitub_social_preview()
     plot_logo_wide()
     plot_readthedocs_logo()
+
+
+def download_spice_kernels():
+    download_urls(
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk/',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de430.bsp',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/sat415.bsp',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/sat441.bsp',
+    )
 
 
 def plot_gitub_social_preview():

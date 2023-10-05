@@ -1,0 +1,7 @@
+# Developemnt requirements (e.g. for run_checks.sh)
+black
+isort
+pyright
+pylint
+coverage
+-r docs/requirements.txt
