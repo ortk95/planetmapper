@@ -130,7 +130,7 @@ Observations, backplanes and mapping
     import planetmapper
     import matplotlib.pyplot as plt
 
-    observation = planetmapper.Observation('../data/europa.fits')
+    observation = planetmapper.Observation('europa.fits')
 
     # Set the disc position
     observation.set_plate_scale_arcsec(12.25e-3)
@@ -147,7 +147,7 @@ A range of backplane images can be generated - see :ref:`default backplanes` for
 
     import planetmapper
 
-    observation = planetmapper.Observation('../data/europa.fits')
+    observation = planetmapper.Observation('europa.fits')
 
     # Set the disc position
     observation.set_plate_scale_arcsec(12.25e-3)
@@ -165,7 +165,7 @@ Mapped data can also be manipulated and plotted directly. In the example below, 
 
     # This uses a JPG image, so we need to manually specify details (e.g. target)
     observation = planetmapper.Observation(
-        '../data/jupiter.jpg',
+        'jupiter.jpg',
         target='jupiter',
         utc='2020-08-25 02:30:40',
         observer='HST',
