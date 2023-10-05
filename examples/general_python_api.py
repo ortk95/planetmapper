@@ -86,7 +86,7 @@ def plot_jupiter_wireframe():
 
 
 def plot_europa_backplane():
-    observation = planetmapper.Observation('../data/europa.fits.gz')
+    observation = planetmapper.Observation('../gui_data/europa.fits')
 
     # Set the disc position
     observation.set_plate_scale_arcsec(12.25e-3)
