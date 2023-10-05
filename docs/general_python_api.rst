@@ -117,9 +117,12 @@ A number of different wireframe plotting options are available:
 
 Observations, backplanes and mapping
 ====================================
+.. note::
+    You can download an example Europa data file from the `PlanetMapper GitHub repository <https://github.com/ortk95/planetmapper/tree/main/examples/gui_data>`_.
+
 :class:`planetmapper.Observation` objects can be created to calculate information about a specific observation. If the observed data is saved in a FITS file with appropriate header information, a :class:`planetmapper.Observation` object can be created using only the path to that file - target, date and observer information can all be derived automatically from the header. The example below creates an Observation object, and uses it to plot an image containing showing the longitude value of each pixel: ::
 
-    observation = planetmapper.Observation('../data/europa.fits.gz')
+    observation = planetmapper.Observation('../data/europa.fits')
 
     # Set the disc position
     observation.set_plate_scale_arcsec(12.25e-3)
@@ -134,7 +137,7 @@ Observations, backplanes and mapping
 
 A range of backplane images can be generated - see :ref:`default backplanes` for a list of the backplanes available by default. These backplanes can be saved to a FITS file for future use using :func:`planetmapper.Observation.save_observation`. A mapped version of the image and backplanes can likewise be saved using :func:`planetmapper.Observation.save_mapped_observation`: ::
 
-    observation = planetmapper.Observation('../data/europa.fits.gz')
+    observation = planetmapper.Observation('../data/europa.fits')
 
     # Set the disc position
     observation.set_plate_scale_arcsec(12.25e-3)
