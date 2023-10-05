@@ -24,3 +24,4 @@ Contributions must pass all checks before they will be merged, and conform to th
 - The code passes `pylint` and `pyright` checks
 - The code passes all tests (on your OS & Python version)
 
+The dependencies for these checks can be installed using `pip install -r dev_requirements.txt`, and the requirements for PlanetMapper itself can be installed with `pip install -r requirements.txt`.
