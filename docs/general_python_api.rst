@@ -4,19 +4,34 @@ Python module
 *************
 This page shows some simple examples of using the `planetmapper` module in Python code. For more details, see the full :ref:`API documentation <api>`.
 
+For PlanetMapper to function, you will need to download a series of :ref:`SPICE kernels <SPICE kernels>` containing the positions and orientations of the solar system bodies you are interested in. The code snippet below will download all the appropriate kernels needed for the examples on this page. For more details about SPICE kernels, including how to choose, download, and use them, see the :ref:`SPICE kernel documentation page <SPICE kernels>`.
+
+::
+
+    from planetmapper.kernel_downloader import download_urls
+    # This command will download ~2GB of data
+    # Note, the exact URLs in this example may not work if new kernel versions are published
+    download_urls(
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk/',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de430.bsp',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/jup365.bsp',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/sat441.bsp',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/nep097.bsp',
+        'https://naif.jpl.nasa.gov/pub/naif/HST/kernels/spk/',
+    )
+
+
 
 Coordinate conversions
 ======================
 Coordinate conversions can easily be performed using functions such as :func:`planetmapper.Body.lonlat2radec` to calculate the sky coordinates corresponding to a planetographic longitude/latitude coordinate on the surface of the target. 
 
-This code shows an example of using some of the functions in :class:`planetmapper.Body` to calculate information about observations of Jupiter from Mars: ::
+This code shows an example of using some of the functions in :class:`planetmapper.Body` to calculate information about observations of Jupiter from Venus: ::
 
     import planetmapper
-    import numpy as np
-    import matplotlib.pyplot as plt
 
-
-    body = planetmapper.Body('jupiter', '2020-01-01', observer='mars')
+    body = planetmapper.Body('jupiter', '2020-01-01', observer='venus')
 
     coordinates = [(42, 0), (123, 45)]
     for lon, lat in coordinates:
@@ -44,9 +59,10 @@ Wireframe plots
 ===============
 'Wireframe' plots showing the geometry of target bodies can be created quickly and easily using the :func:`planetmapper.Body.plot_wireframe_radec` command: ::
 
+    import planetmapper
+
     body = planetmapper.Body('saturn', '2020-01-01')
-    body.plot_wireframe_radec()
-    plt.show()
+    body.plot_wireframe_radec(show=True)
 
 .. image:: images/saturn_wireframe_radec.png
     :width: 600
@@ -54,6 +70,9 @@ Wireframe plots
 
 More complex plots can also be created using the functionality in :class:`planetmapper.Body` and manually adding elements to the plot: ::
     
+    import planetmapper
+    import matplotlib.pyplot as plt
+
     body = planetmapper.Body('neptune', '2020-01-01')
 
     # Add Triton to any wireframe plots
@@ -88,6 +107,10 @@ A number of different wireframe plotting options are available:
 
 `plot_wireframe_km` is particularly useful for comparing observations taken at different times, as it standardises the position, orientation and size of the target body. The example below shows multiple observations of Jupiter and Io taken over the space of a few hours. Jupiter moves across the the RA/Dec plot (top), but stays fixed in the km plot (bottom), making it easier to see the relative motion of Io: ::
 
+    import planetmapper
+    import matplotlib.pyplot as plt
+    import numpy as np
+
     fig, [ax_radec, ax_km] = plt.subplots(nrows=2, figsize=(6, 8), dpi=200)
 
     dates = ['2020-01-01 00:00', '2020-01-01 01:00', '2020-01-01 02:00']
@@ -117,9 +140,15 @@ A number of different wireframe plotting options are available:
 
 Observations, backplanes and mapping
 ====================================
+.. note::
+    You can download an example Europa data file from the `PlanetMapper GitHub repository <https://github.com/ortk95/planetmapper/tree/main/examples/gui_data>`_.
+
 :class:`planetmapper.Observation` objects can be created to calculate information about a specific observation. If the observed data is saved in a FITS file with appropriate header information, a :class:`planetmapper.Observation` object can be created using only the path to that file - target, date and observer information can all be derived automatically from the header. The example below creates an Observation object, and uses it to plot an image containing showing the longitude value of each pixel: ::
 
-    observation = planetmapper.Observation('../data/europa.fits.gz')
+    import planetmapper
+    import matplotlib.pyplot as plt
+
+    observation = planetmapper.Observation('europa.fits')
 
     # Set the disc position
     observation.set_plate_scale_arcsec(12.25e-3)
@@ -134,7 +163,9 @@ Observations, backplanes and mapping
 
 A range of backplane images can be generated - see :ref:`default backplanes` for a list of the backplanes available by default. These backplanes can be saved to a FITS file for future use using :func:`planetmapper.Observation.save_observation`. A mapped version of the image and backplanes can likewise be saved using :func:`planetmapper.Observation.save_mapped_observation`: ::
 
-    observation = planetmapper.Observation('../data/europa.fits.gz')
+    import planetmapper
+
+    observation = planetmapper.Observation('europa.fits')
 
     # Set the disc position
     observation.set_plate_scale_arcsec(12.25e-3)
@@ -145,10 +176,14 @@ A range of backplane images can be generated - see :ref:`default backplanes` for
 
 
 Mapped data can also be manipulated and plotted directly. In the example below, we use :func:`planetmapper.Observation.get_mapped_data` and :func:`planetmapper.BodyXY.get_backplane_map` to directly access, manipulate and plot the mapped data and backplanes:[#jupiterhst]_ ::
+    
+    import planetmapper
+    import matplotlib.pyplot as plt
+    import numpy as np
 
     # This uses a JPG image, so we need to manually specify details (e.g. target)
     observation = planetmapper.Observation(
-        '../data/jupiter.jpg',
+        'jupiter.jpg',
         target='jupiter',
         utc='2020-08-25 02:30:40',
         observer='HST',
@@ -215,21 +250,25 @@ Mapped data can also be manipulated and plotted directly. In the example below, 
 
 Backplanes can also be generated for observations which do not exist using :class:`planetmapper.BodyXY`: ::
     
+    import planetmapper
+    import matplotlib.pyplot as plt
+    import numpy as np
+
     # Create an object representing how Jupiter would appear in a 50x50 pixel image
-    # taken by JWST at a specific time
-    body = planetmapper.BodyXY('jupiter', utc='2024-01-01', observer='JWST', sz=50)
+    # taken from Earth at a specific time
+    body = planetmapper.BodyXY('jupiter', utc='2030-01-01', observer='Earth', sz=50)
     body.set_disc_params(x0=25, y0=25, r0=20)
 
     fig, ax = plt.subplots(figsize=(6, 5), dpi=200)
-    body.plot_backplane_img('RADIAL-VELOCITY',ax=ax)
+    body.plot_backplane_img('RADIAL-VELOCITY', ax=ax)
     fig.tight_layout()
     plt.show()
 
     # Backplane images can also be accessed and manipulated directly
     radial_velocities = body.get_backplane_img('RADIAL-VELOCITY')
-    print('Average radial velocity:', np.nanmean(radial_velocities))
+    print(f'Average radial velocity: {np.nanmean(radial_velocities):.2f} km/s')
 
-    # Average radial velocity: 25.27 km/s
+    # Average radial velocity: -21.78 km/s
     
 .. image:: images/jupiter_backplane.png
     :width: 600
@@ -241,6 +280,8 @@ Cache behaviour
 The generation of backplanes and projected mapped data can be slow for larger datasets. Therefore, :class:`planetmapper.BodyXY` and :class:`planetmapper.Observation` objects automatically cache the results of various expensive function calls so that they do not have to be recalculated. This cache management happens automatically behind the scenes, so you should never have to worry about dealing with it directly. For example, when any disc parameters are changed, the cache is automatically cleared as the cached results will no longer be valid.
 
 ::
+
+    import planetmapper
 
     # Create a new object
     body = planetmapper.BodyXY('Jupiter', '2000-01-01', sz=500)

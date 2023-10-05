@@ -12,18 +12,34 @@ import numpy as np
 
 sys.path.insert(0, '..')  # Use local dev version of planetmapper
 import planetmapper
+from planetmapper.kernel_downloader import download_urls
 
 PLOT_DIRECTORY = '../docs/images'
 
 
 def main():
     pass
+    # download_spice_kernels()
     # plot_saturn_wireframe()
     # plot_neptune_wireframe()
     # plot_jupiter_wireframe()
     # plot_europa_backplane()
     # plot_jupiter_backplane()
     # plot_jupiter_mapped()
+
+
+def download_spice_kernels():
+    # This command will download ~2GB of data
+    # Note, the exact URLs in this example may not work if new kernel versions are published
+    download_urls(
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk/',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de430.bsp',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/jup365.bsp',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/sat441.bsp',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/nep097.bsp',
+        'https://naif.jpl.nasa.gov/pub/naif/HST/kernels/spk/',
+    )
 
 
 def plot_saturn_wireframe():
@@ -86,7 +102,7 @@ def plot_jupiter_wireframe():
 
 
 def plot_europa_backplane():
-    observation = planetmapper.Observation('../data/europa.fits.gz')
+    observation = planetmapper.Observation('gui_data/europa.fits')
 
     # Set the disc position
     observation.set_plate_scale_arcsec(12.25e-3)
@@ -102,8 +118,8 @@ def plot_europa_backplane():
 
 def plot_jupiter_backplane():
     # Create an object representing how Jupiter would appear in a 50x50 pixel image
-    # taken by JWST at a specific time
-    body = planetmapper.BodyXY('jupiter', utc='2024-01-01', observer='JWST', sz=50)
+    # taken from Earth at a specific time
+    body = planetmapper.BodyXY('jupiter', utc='2030-01-01', observer='Earth', sz=50)
     body.set_disc_params(x0=25, y0=25, r0=20)
 
     fig, ax = plt.subplots(figsize=(6, 5), dpi=200)
