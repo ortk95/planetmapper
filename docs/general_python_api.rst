@@ -4,16 +4,34 @@ Python module
 *************
 This page shows some simple examples of using the `planetmapper` module in Python code. For more details, see the full :ref:`API documentation <api>`.
 
+For PlanetMapper to function, you will need to download a series of :ref:`SPICE kernels <SPICE kernels>` containing the positions and orientations of the solar system bodies you are interested in. The code snippet below will download all the appropriate kernels needed for the examples on this page. For more details about SPICE kernels, including how to choose, download, and use them, see the :ref:`SPICE kernel documentation page <SPICE kernels>`.
+
+::
+
+    from planetmapper.kernel_downloader import download_urls
+    # This command will download ~2GB of data
+    # Note, the exact URLs in this example may not work if new kernel versions are published
+    download_urls(
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk/',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de430.bsp',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/jup365.bsp',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/sat441.bsp',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/nep097.bsp',
+        'https://naif.jpl.nasa.gov/pub/naif/HST/kernels/spk/',
+    )
+
+
 
 Coordinate conversions
 ======================
 Coordinate conversions can easily be performed using functions such as :func:`planetmapper.Body.lonlat2radec` to calculate the sky coordinates corresponding to a planetographic longitude/latitude coordinate on the surface of the target. 
 
-This code shows an example of using some of the functions in :class:`planetmapper.Body` to calculate information about observations of Jupiter from Mars: ::
+This code shows an example of using some of the functions in :class:`planetmapper.Body` to calculate information about observations of Jupiter from Venus: ::
 
     import planetmapper
 
-    body = planetmapper.Body('jupiter', '2020-01-01', observer='mars')
+    body = planetmapper.Body('jupiter', '2020-01-01', observer='venus')
 
     coordinates = [(42, 0), (123, 45)]
     for lon, lat in coordinates:
@@ -237,20 +255,20 @@ Backplanes can also be generated for observations which do not exist using :clas
     import numpy as np
 
     # Create an object representing how Jupiter would appear in a 50x50 pixel image
-    # taken by JWST at a specific time
-    body = planetmapper.BodyXY('jupiter', utc='2024-01-01', observer='JWST', sz=50)
+    # taken from Earth at a specific time
+    body = planetmapper.BodyXY('jupiter', utc='2030-01-01', observer='Earth', sz=50)
     body.set_disc_params(x0=25, y0=25, r0=20)
 
     fig, ax = plt.subplots(figsize=(6, 5), dpi=200)
-    body.plot_backplane_img('RADIAL-VELOCITY',ax=ax)
+    body.plot_backplane_img('RADIAL-VELOCITY', ax=ax)
     fig.tight_layout()
     plt.show()
 
     # Backplane images can also be accessed and manipulated directly
     radial_velocities = body.get_backplane_img('RADIAL-VELOCITY')
-    print('Average radial velocity:', np.nanmean(radial_velocities))
+    print(f'Average radial velocity: {np.nanmean(radial_velocities):.2f} km/s')
 
-    # Average radial velocity: 25.27 km/s
+    # Average radial velocity: -21.78 km/s
     
 .. image:: images/jupiter_backplane.png
     :width: 600

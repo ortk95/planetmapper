@@ -32,9 +32,9 @@ To download kernels which are required for virtually every SPICE calculation, ru
 
 This will automatically download a series of 'leap second kernels' and 'planetary constant kernels' to your computer. The function :func:`planetmapper.kernel_downloader.download_urls` effectively replicates the file structure from the `NAIF database <https://naif.jpl.nasa.gov/pub/naif/>`_ to your local system. Therefore, the leap second kernels will be automatically downloaded to `~/spice_kernels/naif/generic_kernels/lsk/` and the planetary constant kernels will be downloaded to `~/spice_kernels/naif/generic_kernels/pck/`.
 
-If you don't want to use :func:`planetmapper.kernel_downloader.download_urls`, you can instead manually browse and download files from https://naif.jpl.nasa.gov/pub/naif/ yourself.
+These required kernels are relatively small (~50KB for `.../lsk` and ~50MB for `.../pck`), so downloading them should be relatively fast. If you don't want to use :func:`planetmapper.kernel_downloader.download_urls`, you can instead manually browse and download files from https://naif.jpl.nasa.gov/pub/naif/ yourself.
 
-These required kernels are relatively small (~50KB for `.../lsk` and ~50MB for `.../pck`), so downloading them should be relatively fast. Once you have downloaded these required kernels, you will also need to download some of the ephemeris kernels described below.
+Once you have downloaded these required kernels, you will also need to download some of the ephemeris kernels described below.
 
 
 Planetary ephemeris kernels
