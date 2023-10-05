@@ -3046,7 +3046,7 @@ class PlotCoordinatesSetting(PlotScatterSetting):
                         tuple(
                             self.get_float(c, 'coordinate', positive=False)
                             for c in coordinates
-                        )
+                        )  #  type: ignore
                     )
         except ValueError:
             return False

@@ -4,7 +4,7 @@ import glob
 import math
 import numbers
 import os
-from collections.abc import Iterable
+from collections.abc import Collection
 from pathlib import Path
 from typing import (
     Any,
@@ -690,7 +690,7 @@ def load_kernels(*paths, clear_before: bool = False) -> list[str]:
     return list(kernels)
 
 
-def sort_kernel_paths(kernels: Iterable[str]) -> list[str]:
+def sort_kernel_paths(kernels: Collection[str]) -> list[str]:
     """
     Sort kernel paths by path depth and alphabetically.
 
@@ -712,7 +712,7 @@ def sort_kernel_paths(kernels: Iterable[str]) -> list[str]:
         separate directory, or load them manually yourself using `spice.furnsh`.
 
     Args:
-        kernels: Iterable of kernel paths.
+        kernels: Collection of kernel paths.
 
     Returns:
         Sorted list of kernel paths.
