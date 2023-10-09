@@ -1975,7 +1975,7 @@ class BodyXY(Body):
             **parameters: Additional parameters to pass to the projection. These are
                 passed to pyproj as `+{key}={value}`. For example, to create a
                 projection with a central longitude of 45 degrees, you can use
-                `lon_0=45`. By defaut, the axis direction is set to match the
+                `lon_0=45`. By default, the axis direction is set to match the
                 :attr:`Body.positive_longitude_direction` of the target body (see
                 above), pass `axis=None` to disable this behaviour.
 
