@@ -1,0 +1,15 @@
+{
+    "creators": [
+        {
+            "name": "King, Oliver R.T.",
+            "orcid": "0000-0002-6271-0062",
+            "affiliation": "School of Physics and Astronomy, University of Leicester, University Road, Leicester, LE1 7RH, United Kingdom"
+        },
+        {
+            "name": "Fletcher, Leigh N.",
+            "orcid": "0000-0001-5834-9588",
+            "affiliation": "School of Physics and Astronomy, University of Leicester, University Road, Leicester, LE1 7RH, United Kingdom"
+        }
+    ],
+    "title": "PlanetMapper: A Python package for visualising, navigating and mapping Solar System observations"
+}
