@@ -1950,12 +1950,13 @@ class BodyXY(Body):
         the `projection` argument of :func:`generate_map_coordinates`.
 
         By default, this function automatically sets the `+axis` parameter of the
-        projection to match the :attr:`positive_longitude_direction` of the target body
-        - if the target body has a positive longitude direction of E, then the
+        projection to match the :attr:`Body.positive_longitude_direction` of the target
+        body - if the target body has a positive longitude direction of E, then the
         projection will have `+axis=enu`, if the target body has a positive longitude
-        direction of W, then the projection will have `+axis=wnu`. This behaviour can be disabled by passing `axis=None` to this function. See
-        https://proj.org/en/9.3/usage/projections.html for more details about the
-        `+axis` projection parameter.
+        direction of W, then the projection will have `+axis=wnu`. This behaviour can be
+        disabled by passing `axis=None` to this function. See
+        https://proj.org/usage/projections.html#axis-orientation for more details about
+        the `+axis` projection parameter.
 
         Examples: ::
 
@@ -1969,14 +1970,14 @@ class BodyXY(Body):
             # '+proj=ortho +lon_0=180 +lat_0=45 +type=crs'
 
         Args:
-            proj: Projection name. See https://proj.org/en/9.3/operations/projections/
+            proj: Projection name. See https://proj.org/operations/projections
                 for a full list of projections that can be used.
             **parameters: Additional parameters to pass to the projection. These are
                 passed to pyproj as `+{key}={value}`. For example, to create a
                 projection with a central longitude of 45 degrees, you can use
                 `lon_0=45`. By defaut, the axis direction is set to match the
-                :attr:`positive_longitude_direction` of the target body (see above),
-                pass `axis=None` to disable this behaviour.
+                :attr:`Body.positive_longitude_direction` of the target body (see
+                above), pass `axis=None` to disable this behaviour.
 
         Returns:
             Proj string describing the projection. This can be passed to the
