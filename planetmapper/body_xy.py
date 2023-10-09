@@ -1982,8 +1982,6 @@ class BodyXY(Body):
             Proj string describing the projection. This can be passed to the
             `projection` argument of :func:`generate_map_coordinates`.
         """
-        # XXX test
-
         # By default, use the same positive longitude direction for projection as coords
         # i.e. +ve E gives +axis=enu, +ve W gives +axis=wnu. Pass axis=None to skip
         # this and leave axis undefined in the proj string.
@@ -1993,7 +1991,8 @@ class BodyXY(Body):
             parameters.pop('axis')
 
         parameters_string = ' '.join(f'+{k}={v}' for k, v in parameters.items())
-        return f'+proj={proj} {parameters_string} +type=crs'
+        space = ' ' if parameters_string else ''  # avoid double space if params empty
+        return f'+proj={proj} {parameters_string}{space}+type=crs'
 
     def _get_pyproj_map_coords(
         self,

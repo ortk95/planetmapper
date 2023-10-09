@@ -1076,6 +1076,38 @@ class TestBodyXY(unittest.TestCase):
                 self.assertTrue(np.allclose(xx, xx_expected))
                 self.assertTrue(np.allclose(yy, yy_expected))
 
+    def test_create_proj_string(self):
+        jupiter = BodyXY(
+            'Jupiter', observer='HST', utc='2005-01-01T00:00:00', nx=15, ny=10
+        )
+        earth = BodyXY('Earth', observer='HST', utc='2005-01-01T00:00:00', nx=15, ny=10)
+        self.assertEqual(
+            jupiter.create_proj_string('ortho'), '+proj=ortho +axis=wnu +type=crs'
+        )
+        self.assertEqual(
+            earth.create_proj_string('ortho'), '+proj=ortho +axis=enu +type=crs'
+        )
+        self.assertEqual(
+            jupiter.create_proj_string('ortho', axis=None), '+proj=ortho +type=crs'
+        )
+        self.assertEqual(
+            earth.create_proj_string('ortho', axis=None), '+proj=ortho +type=crs'
+        )
+        self.assertEqual(
+            jupiter.create_proj_string('ortho', axis='123'),
+            '+proj=ortho +axis=123 +type=crs',
+        )
+        self.assertEqual(
+            earth.create_proj_string('ortho', axis='123'),
+            '+proj=ortho +axis=123 +type=crs',
+        )
+        self.assertEqual(
+            jupiter.create_proj_string(
+                'eqc', string='a_string', number=123, lat_0=-1.234
+            ),
+            '+proj=eqc +string=a_string +number=123 +lat_0=-1.234 +axis=wnu +type=crs',
+        )
+
     def test_standardise_backplane_name(self):
         self.assertEqual(self.body.standardise_backplane_name('EMISSION'), 'EMISSION')
         self.assertEqual(self.body.standardise_backplane_name(' EMISSION '), 'EMISSION')
