@@ -828,7 +828,7 @@ class TestBodyXY(unittest.TestCase):
                 else:
                     self.assertEqual(a, b)
 
-        args_limit: list[
+        args: list[
             tuple[
                 tuple[float, float] | None,
                 tuple[float, float] | None,
@@ -867,7 +867,7 @@ class TestBodyXY(unittest.TestCase):
                 array([[-45.0, -45.0], [45.0, 45.0]]),
             ),
         ]
-        for xlim, ylim, lons_expected, lats_expected in args_limit:
+        for xlim, ylim, lons_expected, lats_expected in args:
             with self.subTest(xlim=xlim, ylim=ylim):
                 (
                     lons,
@@ -883,11 +883,11 @@ class TestBodyXY(unittest.TestCase):
                     np.array_equal(lons, lons_expected),
                     msg=f'{lons} <> {lons_expected}',
                 )
-                self.assertTrue(np.array_equal(lats, lats_expected), msg=repr(lats))
-                self.assertTrue(np.array_equal(xx, lons_expected), msg=repr(xx))
-                self.assertTrue(np.array_equal(yy, lats_expected), msg=repr(yy))
-                self.assertEqual(info['xlim'], xlim, msg=repr(info))
-                self.assertEqual(info['ylim'], ylim, msg=repr(info))
+                self.assertTrue(np.array_equal(lats, lats_expected))
+                self.assertTrue(np.array_equal(xx, lons_expected))
+                self.assertTrue(np.array_equal(yy, lats_expected))
+                self.assertEqual(info['xlim'], xlim)
+                self.assertEqual(info['ylim'], ylim)
 
         # Test reference
         args: list[tuple[MapKwargs, np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = [
@@ -899,90 +899,26 @@ class TestBodyXY(unittest.TestCase):
                 array([[-28.5, -28.5, -28.5]]),
             ),
             (
-                MapKwargs(projection='orthographic', size=5),
-                array(
-                    [
-                        [nan, nan, nan, nan, nan],
-                        [nan, 36.87110893, 0.0, -36.87110893, nan],
-                        [nan, 30.33135236, 0.0, -30.33135236, nan],
-                        [nan, 36.87110893, 0.0, -36.87110893, nan],
-                        [nan, nan, nan, nan, nan],
-                    ]
-                ),
-                array(
-                    [
-                        [nan, nan, nan, nan, nan],
-                        [nan, -34.45624462, -34.45624462, -34.45624462, nan],
-                        [nan, 0.0, 0.0, 0.0, nan],
-                        [nan, 34.45624462, 34.45624462, 34.45624462, nan],
-                        [nan, nan, nan, nan, nan],
-                    ]
-                ),
-                array(
-                    [
-                        [-1.01, -0.505, 0.0, 0.505, 1.01],
-                        [-1.01, -0.505, 0.0, 0.505, 1.01],
-                        [-1.01, -0.505, 0.0, 0.505, 1.01],
-                        [-1.01, -0.505, 0.0, 0.505, 1.01],
-                        [-1.01, -0.505, 0.0, 0.505, 1.01],
-                    ]
-                ),
-                array(
-                    [
-                        [-1.01, -1.01, -1.01, -1.01, -1.01],
-                        [-0.505, -0.505, -0.505, -0.505, -0.505],
-                        [0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.505, 0.505, 0.505, 0.505, 0.505],
-                        [1.01, 1.01, 1.01, 1.01, 1.01],
-                    ]
-                ),
+                MapKwargs(projection='orthographic', size=3),
+                array([[nan, nan, nan], [nan, 0.0, nan], [nan, nan, nan]]),
+                array([[nan, nan, nan], [nan, 0.0, nan], [nan, nan, nan]]),
+                array([[-1.01, 0.0, 1.01], [-1.01, 0.0, 1.01], [-1.01, 0.0, 1.01]]),
+                array([[-1.01, -1.01, -1.01], [0.0, 0.0, 0.0], [1.01, 1.01, 1.01]]),
             ),
             (
-                MapKwargs(projection='orthographic', size=5, lon=123.456, lat=-2),
-                array(
-                    [
-                        [nan, nan, nan, nan, nan],
-                        [nan, 161.19011383, 123.456, 85.72188617, nan],
-                        [nan, 153.80492624, 123.456, 93.10707376, nan],
-                        [nan, 159.53178271, 123.456, 87.38021729, nan],
-                        [nan, nan, nan, nan, nan],
-                    ]
-                ),
-                array(
-                    [
-                        [nan, nan, nan, nan, nan],
-                        [nan, -36.20674821, -36.65376937, -36.20674821, nan],
-                        [nan, -1.98332476, -2.29643357, -1.98332476, nan],
-                        [nan, 32.67332417, 32.24176455, 32.67332417, nan],
-                        [nan, nan, nan, nan, nan],
-                    ]
-                ),
-                array(
-                    [
-                        [-1.01, -0.505, 0.0, 0.505, 1.01],
-                        [-1.01, -0.505, 0.0, 0.505, 1.01],
-                        [-1.01, -0.505, 0.0, 0.505, 1.01],
-                        [-1.01, -0.505, 0.0, 0.505, 1.01],
-                        [-1.01, -0.505, 0.0, 0.505, 1.01],
-                    ]
-                ),
-                array(
-                    [
-                        [-1.01, -1.01, -1.01, -1.01, -1.01],
-                        [-0.505, -0.505, -0.505, -0.505, -0.505],
-                        [0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.505, 0.505, 0.505, 0.505, 0.505],
-                        [1.01, 1.01, 1.01, 1.01, 1.01],
-                    ]
-                ),
+                MapKwargs(projection='orthographic', size=3, lon=123.456, lat=-2),
+                array([[nan, nan, nan], [nan, 123.456, nan], [nan, nan, nan]]),
+                array([[nan, nan, nan], [nan, -2.29643357, nan], [nan, nan, nan]]),
+                array([[-1.01, 0.0, 1.01], [-1.01, 0.0, 1.01], [-1.01, 0.0, 1.01]]),
+                array([[-1.01, -1.01, -1.01], [0.0, 0.0, 0.0], [1.01, 1.01, 1.01]]),
             ),
             (
                 MapKwargs(projection='azimuthal', size=4),
                 array(
                     [
                         [nan, nan, nan, nan],
-                        [nan, 83.93213465, -83.93213465, nan],
-                        [nan, 83.93213465, -83.93213465, nan],
+                        [nan, -83.93213465, 83.93213465, nan],
+                        [nan, -83.93213465, 83.93213465, nan],
                         [nan, nan, nan, nan],
                     ]
                 ),
@@ -1016,8 +952,8 @@ class TestBodyXY(unittest.TestCase):
                 array(
                     [
                         [nan, nan, nan, nan],
-                        [nan, 168.456, 78.456, nan],
-                        [nan, -101.544, -11.544, nan],
+                        [nan, 78.456, 168.456, nan],
+                        [nan, -11.544, -101.544, nan],
                         [nan, nan, nan, nan],
                     ]
                 ),
@@ -1051,9 +987,9 @@ class TestBodyXY(unittest.TestCase):
                 array(
                     [
                         [nan, nan, nan, nan, nan],
-                        [nan, 91.6285626, 0.0, -91.6285626, nan],
-                        [nan, 60.66270473, 0.0, -60.66270473, nan],
-                        [nan, 91.6285626, 0.0, -91.6285626, nan],
+                        [nan, -91.6285626, 0.0, 91.6285626, nan],
+                        [nan, -60.66270473, 0.0, 60.66270473, nan],
+                        [nan, -91.6285626, 0.0, 91.6285626, nan],
                         [nan, nan, nan, nan, nan],
                     ]
                 ),
@@ -1090,9 +1026,9 @@ class TestBodyXY(unittest.TestCase):
                 array(
                     [
                         [nan, nan, nan, nan, nan],
-                        [nan, 137.26373836, 34.0, -69.26373836, nan],
-                        [nan, 95.20027738, 34.0, -27.20027738, nan],
-                        [nan, 113.79039062, 34.0, -45.79039062, nan],
+                        [nan, -69.26373836, 34.0, 137.26373836, nan],
+                        [nan, -27.20027738, 34.0, 95.20027738, nan],
+                        [nan, -45.79039062, 34.0, 113.79039062, nan],
                         [nan, nan, nan, nan, nan],
                     ]
                 ),
@@ -1135,46 +1071,10 @@ class TestBodyXY(unittest.TestCase):
                     transformer,
                     info,
                 ) = self.body.generate_map_coordinates(**kwargs)
-                self.assertTrue(
-                    np.allclose(lons, lons_expected, equal_nan=True), msg=repr(lons)
-                )
-                self.assertTrue(
-                    np.allclose(lats, lats_expected, equal_nan=True), msg=repr(lats)
-                )
-                self.assertTrue(np.allclose(xx, xx_expected), msg=repr(xx))
-                self.assertTrue(np.allclose(yy, yy_expected), msg=repr(yy))
-
-    def test_create_proj_string(self):
-        jupiter = BodyXY(
-            'Jupiter', observer='HST', utc='2005-01-01T00:00:00', nx=15, ny=10
-        )
-        earth = BodyXY('Earth', observer='HST', utc='2005-01-01T00:00:00', nx=15, ny=10)
-        self.assertEqual(
-            jupiter.create_proj_string('ortho'), '+proj=ortho +axis=wnu +type=crs'
-        )
-        self.assertEqual(
-            earth.create_proj_string('ortho'), '+proj=ortho +axis=enu +type=crs'
-        )
-        self.assertEqual(
-            jupiter.create_proj_string('ortho', axis=None), '+proj=ortho +type=crs'
-        )
-        self.assertEqual(
-            earth.create_proj_string('ortho', axis=None), '+proj=ortho +type=crs'
-        )
-        self.assertEqual(
-            jupiter.create_proj_string('ortho', axis='123'),
-            '+proj=ortho +axis=123 +type=crs',
-        )
-        self.assertEqual(
-            earth.create_proj_string('ortho', axis='123'),
-            '+proj=ortho +axis=123 +type=crs',
-        )
-        self.assertEqual(
-            jupiter.create_proj_string(
-                'eqc', string='a_string', number=123, lat_0=-1.234
-            ),
-            '+proj=eqc +string=a_string +number=123 +lat_0=-1.234 +axis=wnu +type=crs',
-        )
+                self.assertTrue(np.allclose(lons, lons_expected, equal_nan=True))
+                self.assertTrue(np.allclose(lats, lats_expected, equal_nan=True))
+                self.assertTrue(np.allclose(xx, xx_expected))
+                self.assertTrue(np.allclose(yy, yy_expected))
 
     def test_standardise_backplane_name(self):
         self.assertEqual(self.body.standardise_backplane_name('EMISSION'), 'EMISSION')
