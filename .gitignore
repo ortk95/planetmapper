@@ -25,6 +25,7 @@ tests/temp
 !LICENSE.txt
 !.gitignore
 !.pylintrc
+!.zenodo.json
 
 # Ignored paths
 .vscode
