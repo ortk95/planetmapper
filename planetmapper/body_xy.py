@@ -1748,13 +1748,12 @@ class BodyXY(Body):
         - `'manual'`: manually specify the longitude and latitude coordinates to use
           for each point on the map with the `lon_coords` and `lat_coords` arguments.
 
-        Projections can also be specified by passing a proj projection string to the
+        Projections can also be specified by passing a pyproj projection string to the
         `projection` argument. If you are manually specifying a projection, you must
         also specify `projection_x_coords` and `projection_y_coords` to provide the x
         and y coordinates to project the data to. See
         https://proj.org/operations/projections for a list of projections that can be
         used. The provided projection string will be passed to `pyproj.CRS`.
-        :func:`create_proj_string` can be used to help build a projection string.
 
         .. hint ::
 
@@ -1866,8 +1865,7 @@ class BodyXY(Body):
             info = dict(projection=projection)
         elif projection == 'orthographic':
             b = self.r_polar / self.r_eq
-            proj = self.create_proj_string(
-                'ortho',
+            proj = '+proj=ortho +a={a} +b={b} +lon_0={lon_0} +lat_0={lat_0} +y_0={y_0} +type=crs'.format(
                 a=1,
                 b=b,
                 lon_0=lon,
@@ -1880,9 +1878,8 @@ class BodyXY(Body):
             )
             info = dict(projection=projection, lon=lon, lat=lat, size=size)
         elif projection == 'azimuthal':
-            proj = self.create_proj_string(
-                'aeqd',
-                R=1 / np.pi,
+            proj = '+proj=aeqd +R={a} +lon_0={lon_0} +lat_0={lat_0} +type=crs'.format(
+                a=1 / np.pi,
                 lon_0=lon,
                 lat_0=lat,
             )
@@ -1892,9 +1889,8 @@ class BodyXY(Body):
             )
             info = dict(projection=projection, lon=lon, lat=lat, size=size)
         elif projection == 'azimuthal equal area':
-            proj = self.create_proj_string(
-                'laea',
-                R=1 / 2,
+            proj = '+proj=laea +R={a} +lon_0={lon_0} +lat_0={lat_0} +type=crs'.format(
+                a=1 / 2,
                 lon_0=lon,
                 lat_0=lat,
             )
@@ -1938,63 +1934,6 @@ class BodyXY(Body):
 
         return lons, lats, xx, yy, transformer, info
 
-    def create_proj_string(
-        self,
-        proj: str,
-        **parameters,
-    ) -> str:
-        """
-        Create projection string for use with pyproj.
-
-        This function will automatically build a projection string that can be used as
-        the `projection` argument of :func:`generate_map_coordinates`.
-
-        By default, this function automatically sets the `+axis` parameter of the
-        projection to match the :attr:`Body.positive_longitude_direction` of the target
-        body - if the target body has a positive longitude direction of E, then the
-        projection will have `+axis=enu`, if the target body has a positive longitude
-        direction of W, then the projection will have `+axis=wnu`. This behaviour can be
-        disabled by passing `axis=None` to this function. See
-        https://proj.org/usage/projections.html#axis-orientation for more details about
-        the `+axis` projection parameter.
-
-        Examples: ::
-
-            body.create_proj_string('ortho')
-            # '+proj=ortho +axis=wnu +type=crs'
-
-            body.create_proj_string('ortho', lon_0=180, lat_0=45)
-            # '+proj=ortho +lon_0=180 +lat_0=45 +axis=wnu +type=crs'
-
-            body.create_proj_string('ortho', lon_0=180, lat_0=45, axis=None)
-            # '+proj=ortho +lon_0=180 +lat_0=45 +type=crs'
-
-        Args:
-            proj: Projection name. See https://proj.org/operations/projections
-                for a full list of projections that can be used.
-            **parameters: Additional parameters to pass to the projection. These are
-                passed to pyproj as `+{key}={value}`. For example, to create a
-                projection with a central longitude of 45 degrees, you can use
-                `lon_0=45`. By defaut, the axis direction is set to match the
-                :attr:`Body.positive_longitude_direction` of the target body (see
-                above), pass `axis=None` to disable this behaviour.
-
-        Returns:
-            Proj string describing the projection. This can be passed to the
-            `projection` argument of :func:`generate_map_coordinates`.
-        """
-        # By default, use the same positive longitude direction for projection as coords
-        # i.e. +ve E gives +axis=enu, +ve W gives +axis=wnu. Pass axis=None to skip
-        # this and leave axis undefined in the proj string.
-        if 'axis' not in parameters:
-            parameters['axis'] = f'{self.positive_longitude_direction.lower()}nu'
-        elif parameters['axis'] is None:
-            parameters.pop('axis')
-
-        parameters_string = ' '.join(f'+{k}={v}' for k, v in parameters.items())
-        space = ' ' if parameters_string else ''  # avoid double space if params empty
-        return f'+proj={proj} {parameters_string}{space}+type=crs'
-
     def _get_pyproj_map_coords(
         self,
         projection: str,
@@ -2019,20 +1958,18 @@ class BodyXY(Body):
         lons, lats = transformer.transform(xx, yy, direction='INVERSE')
         return lons, lats, xx, yy, transformer
 
-    def _get_default_pyproj_projection(self, **parameters) -> str:
-        return self.create_proj_string(
-            'eqc',
+    def _get_default_pyproj_projection(self) -> str:
+        return '+proj=eqc +a={a} +b={b} +lon_0={l0} +to_meter={tm} +type=crs'.format(
             a=self.r_eq,
             b=self.r_polar,
-            lon_0=0,
-            to_meter=np.radians(1) * self.r_eq,
-            **parameters,
+            l0=0,
+            tm=np.radians(1) * self.r_eq,
         )
 
     def _get_pyproj_transformer(
         self, projection: str | None = None
     ) -> pyproj.Transformer:
-        proj_in = self._get_default_pyproj_projection(axis=None)
+        proj_in = self._get_default_pyproj_projection()
         if projection is None:
             projection = proj_in  # return identity transform
         return pyproj.Transformer.from_crs(pyproj.CRS(proj_in), pyproj.CRS(projection))
