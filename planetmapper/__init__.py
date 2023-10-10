@@ -69,6 +69,15 @@ and the
 `SPICE documentation <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/>`__
 for more information.
 
+
+If you use PlanetMapper in your research, please :ref:`cite the following paper
+<citation>`:
+
+   King et al., (2023). PlanetMapper: A Python package for visualising, navigating and
+   mapping Solar System observations. Journal of Open Source Software, 8(90), 5728,
+   https://doi.org/10.21105/joss.05728
+
+
 .. warning::
 
     This code is in active development, so may contain bugs! Any issues, bugs and 
