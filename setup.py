@@ -36,6 +36,7 @@ setuptools.setup(
     project_urls={
         'Documentation': 'https://planetmapper.readthedocs.io/',
         'GitHub': common.__url__,
+        'Paper': 'https://doi.org/10.21105/joss.05728',
     },
     entry_points={
         # Copy any changes here to the conda-forge recipe (meta.yaml)

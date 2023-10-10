@@ -19,6 +19,8 @@ If you would like to contribute code to PlanetMapper, you are welcome to fork th
 
 Each individual pull request should be limited to a single new feature or bug fix, and include a clear description of the change. Please make sure your code is well documented and includes tests for any new functionality.
 
+Pull requests should generally target the `dev` branch, which is where new features are developed.
+
 Contributions must pass all checks before they will be merged, and conform to the the style of existing code. You can run the checks locally using `run_checks.sh` to make sure that:
 - All code is correctly formatted using `black` and `isort`
 - The code passes `pylint` and `pyright` checks

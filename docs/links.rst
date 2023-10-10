@@ -14,3 +14,5 @@ Links
 - `Documentation <https://planetmapper.readthedocs.io/en/latest/>`__
 
 - `PyPI page <https://pypi.org/project/planetmapper/>`__
+
+- `Journal of Open Source Software paper <https://joss.theoj.org/papers/10.21105/joss.05728>`__

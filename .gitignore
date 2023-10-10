@@ -9,6 +9,7 @@
 !*.yml
 !*.json
 !*.toml
+!*.bib
 !docs/images/*.png
 !examples/**/*.fits
 
@@ -25,10 +26,13 @@ tests/temp
 !LICENSE.txt
 !.gitignore
 !.pylintrc
+!.zenodo.json
+!CITATION.cff
+!CITATION.bib
 
 # Ignored paths
 .vscode
-scratchpad*.py
+scratchpad*
 time_snippets.py
 tools.py
 profile_code.py

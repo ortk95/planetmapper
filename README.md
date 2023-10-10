@@ -3,8 +3,9 @@
 [![PyPI](https://img.shields.io/pypi/v/planetmapper?label=PyPI&logo=python&logoColor=silver)](https://pypi.org/project/planetmapper/)
 [![Publish Workflow Status](https://github.com/ortk95/planetmapper/actions/workflows/python-publish.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/python-publish.yml)
 [![Checks Workflow Status](https://github.com/ortk95/planetmapper/actions/workflows/checks.yml/badge.svg?branch=main)](https://github.com/ortk95/planetmapper/actions/workflows/checks.yml)
-[![Coverage Status](https://img.shields.io/coverallsCoverage/github/ortk95/planetmapper)](https://coveralls.io/github/ortk95/planetmapper)
 [![Documentation Status](https://readthedocs.org/projects/planetmapper/badge/?version=latest)](https://planetmapper.readthedocs.io/en/latest/?badge=latest)
+[![Coverage Status](https://img.shields.io/coverallsCoverage/github/ortk95/planetmapper)](https://coveralls.io/github/ortk95/planetmapper)
+[![Paper DOI](https://joss.theoj.org/papers/10.21105/joss.05728/status.svg)](https://doi.org/10.21105/joss.05728)
 
 PlanetMapper is an open source Python module for visualising, navigating and mapping Solar System observations.
 
@@ -18,6 +19,35 @@ pip install planetmapper --upgrade
 ```
 
 _Requires Python 3.10+_
+
+
+## Citing PlanetMapper
+If you use PlanetMapper in your research, please cite the following paper:
+
+> King et al., (2023). PlanetMapper: A Python package for visualising, navigating and mapping Solar System observations. Journal of Open Source Software, 8(90), 5728, https://doi.org/10.21105/joss.05728
+
+<details>
+<summary>Citation BibTeX entry</summary>
+
+```bibtex
+@article{king_2023_planetmapper,
+  author  = {King, Oliver R. T. and Fletcher, Leigh N.},
+  doi     = {10.21105/joss.05728},
+  journal = {Journal of Open Source Software},
+  month   = oct,
+  number  = {90},
+  pages   = {5728},
+  title   = {{PlanetMapper: A Python package for visualising, navigating and mapping Solar System observations}},
+  url     = {https://joss.theoj.org/papers/10.21105/joss.05728},
+  volume  = {8},
+  year    = {2023}
+}
+```
+
+</details>
+
+Each PlanetMapper version is also archived on Zenodo at [doi.org/10.5281/zenodo.7963121](https://doi.org/10.5281/zenodo.7963121).
+
 
 ## Key features
 ### [Fit and map astronomical observations using a full featured user interface](https://planetmapper.readthedocs.io/en/latest/user_interface.html)
