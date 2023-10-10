@@ -48,8 +48,6 @@ If you use PlanetMapper in your research, please cite the following paper:
 
 Each individual PlanetMapper release is also archived on Zenodo at [doi.org/10.5281/zenodo.7963121](https://doi.org/10.5281/zenodo.7963121).
 
-[![JOSS Paper DOI](https://joss.theoj.org/papers/10.21105/joss.05728/status.svg)](https://doi.org/10.21105/joss.05728) [![Zenodo archive DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7963121.svg)](https://doi.org/10.5281/zenodo.7963121)
-
 
 ## Key features
 ### [Fit and map astronomical observations using a full featured user interface](https://planetmapper.readthedocs.io/en/latest/user_interface.html)
