@@ -34,6 +34,28 @@ Key features
     :alt: Plot of a mapped Jupiter observation
 
 
+:ref:`Citing PlanetMapper <citation>`
+=====================================
+If you use PlanetMapper in your research, please cite the following paper:
+
+   King et al., (2023). PlanetMapper: A Python package for visualising, navigating and mapping Solar System observations. Journal of Open Source Software, 8(90), 5728, https://doi.org/10.21105/joss.05728
+
+.. code-block:: bibtex
+
+   @article{king_2023_planetmapper,
+     author  = {King, Oliver R. T. and Fletcher, Leigh N.},
+     doi     = {10.21105/joss.05728},
+     journal = {Journal of Open Source Software},
+     month   = oct,
+     number  = {90},
+     pages   = {5728},
+     title   = {{PlanetMapper: A Python package for visualising, navigating and mapping Solar System observations}},
+     url     = {https://joss.theoj.org/papers/10.21105/joss.05728},
+     volume  = {8},
+     year    = {2023}
+   }
+
+
 .. toctree::
    :maxdepth: 2
    :caption: Getting Started
@@ -67,5 +89,6 @@ Key features
 
    default_backplanes
    credits
+   citation
    license
    links
