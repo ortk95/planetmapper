@@ -32,7 +32,7 @@ tests/temp
 
 # Ignored paths
 .vscode
-scratchpad*
+scratchpad*.py
 time_snippets.py
 tools.py
 profile_code.py
