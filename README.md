@@ -46,7 +46,7 @@ If you use PlanetMapper in your research, please cite the following paper:
 
 </details>
 
-Each individual PlanetMapper release is also archived on Zenodo at [doi.org/10.5281/zenodo.7963121](https://doi.org/10.5281/zenodo.7963121).
+Each PlanetMapper version is also archived on Zenodo at [doi.org/10.5281/zenodo.7963121](https://doi.org/10.5281/zenodo.7963121).
 
 
 ## Key features
