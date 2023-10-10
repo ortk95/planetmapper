@@ -1,0 +1,38 @@
+cff-version: "1.2.0"
+authors:
+- family-names: King
+  given-names: Oliver R. T.
+  orcid: "https://orcid.org/0000-0002-6271-0062"
+- family-names: Fletcher
+  given-names: Leigh N.
+  orcid: "https://orcid.org/0000-0001-5834-9588"
+contact:
+- family-names: King
+  given-names: Oliver R. T.
+  orcid: "https://orcid.org/0000-0002-6271-0062"
+doi: 10.5281/zenodo.8410701
+message: If you use this software, please cite our article in the
+  Journal of Open Source Software.
+preferred-citation:
+  authors:
+  - family-names: King
+    given-names: Oliver R. T.
+    orcid: "https://orcid.org/0000-0002-6271-0062"
+  - family-names: Fletcher
+    given-names: Leigh N.
+    orcid: "https://orcid.org/0000-0001-5834-9588"
+  date-published: 2023-10-10
+  doi: 10.21105/joss.05728
+  issn: 2475-9066
+  issue: 90
+  journal: Journal of Open Source Software
+  publisher:
+    name: Open Journals
+  start: 5728
+  title: "PlanetMapper: A Python package for visualising, navigating and
+    mapping Solar System observations"
+  type: article
+  url: "https://joss.theoj.org/papers/10.21105/joss.05728"
+  volume: 8
+title: "PlanetMapper: A Python package for visualising, navigating and
+  mapping Solar System observations"
