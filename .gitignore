@@ -26,7 +26,8 @@ tests/temp
 !.gitignore
 !.pylintrc
 !.zenodo.json
-!CITATION.*
+!CITATION.cff
+!CITATION.bib
 
 # Ignored paths
 .vscode
