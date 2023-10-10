@@ -21,10 +21,25 @@ pip install planetmapper --upgrade
 _Requires Python 3.10+_
 
 
-## Cite PlanetMapper
+## Citing PlanetMapper
 If you use PlanetMapper in your research, please cite the following paper:
 
 > King et al., (2023). PlanetMapper: A Python package for visualising, navigating and mapping Solar System observations. Journal of Open Source Software, 8(90), 5728, https://doi.org/10.21105/joss.05728
+
+```bibtex
+@article{king_2023_planetmapper,
+  author  = {King, Oliver R. T. and Fletcher, Leigh N.},
+  doi     = {10.21105/joss.05728},
+  journal = {Journal of Open Source Software},
+  month   = oct,
+  number  = {90},
+  pages   = {5728},
+  title   = {{PlanetMapper: A Python package for visualising, navigating and mapping Solar System observations}},
+  url     = {https://joss.theoj.org/papers/10.21105/joss.05728},
+  volume  = {8},
+  year    = {2023}
+}
+```
 
 
 ## Key features
