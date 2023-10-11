@@ -19,7 +19,7 @@ Fitting an observation
 .. note::
     You can download the Europa data file used in these examples from the `PlanetMapper GitHub repository <https://github.com/ortk95/planetmapper/tree/main/examples/gui_data>`_.
 
-To start, type `planetmapper` into a command line and press enter. This will open a window where you can choose a file to open:[#king2022]_
+To start, type `planetmapper` into a command line and press :kbd:`Enter`. This will open a window where you can choose a file to open:[#king2022]_
  
 .. image:: images/gui_open.png
     :width: 600
@@ -30,7 +30,7 @@ If your data is a FITS file, PlanetMapper will attempt to automatically fill the
 .. hint::
     The target, date and observer fields are passed directly to the `target`, `utc` and `observer` parameters of a :class:`planetmapper.Observation` object, so check the full documentation for :class:`planetmapper.Observation` and :class:`planetmapper.Body` for details of what formats are accepted.
 
-Once you click OK, the full fitting window should open. If you get any error messages, then double check the target, date and observer fields for any typos.
+Once you click :guilabel:`OK`, the full fitting window should open. If you get any error messages, then double check the target, date and observer fields for any typos.
 
 .. image:: images/gui_fitting_initial.png
     :width: 600
@@ -48,30 +48,30 @@ Once the disc is fit, it should look something like the image above. If you want
     :width: 600
     :alt: Screenshot of the customisation options.
 
-You can fully customise the appearance of the plot on the right to make fitting easier (or if you just fancy a more exciting colour scheme). In the settings tab, you can toggle the visibility of different plotted elements, and you can click on Edit to customise them further. It can be particularly useful to customise the colour scale and brightness of the observed image to increase the contrast around the limb. The zoom and pan buttons beneath the plot can be used to move around the image - click the home button to reset to the default view
+You can fully customise the appearance of the plot on the right to make fitting easier (or if you just fancy a more exciting colour scheme). In the :guilabel:`Settings` tab, you can toggle the visibility of different plotted elements, and you can click on :guilabel:`Edit` to customise them further. It can be particularly useful to customise the colour scale and brightness of the observed image to increase the contrast around the limb. The zoom and pan buttons beneath the plot can be used to move around the image - click the home button to reset to the default view
 
-You can also use the settings tab to mark points of interest to help with fitting. For example:
+You can also use the :guilabel:`Settings` tab to mark points of interest to help with fitting. For example:
 
-- You can mark a specific location (e.g. a distinctive impact crater) on the surface of the target with a lon/lat POI.
-- You can mark a specific sky coordinate (e.g. a background star) with a RA/Dec POI.
-- You can mark the location of other bodies (e.g. if you are fitting an observation of Jupiter, you may want to mark the positions of any of its moons which are also in shot). 
+- You can mark a specific location (e.g. a distinctive impact crater) on the surface of the target with a :guilabel:`Lon/Lat POI`.
+- You can mark a specific sky coordinate (e.g. a background star) with a :guilabel:`RA/Dec POI`.
+- You can mark the location of :guilabel:`Other bodies` (e.g. if you are fitting an observation of Jupiter, you may want to mark the positions of any of its moons which are also in shot). 
 
 .. image:: images/gui_saving.png
     :width: 600
     :alt: Screenshot of the saving options window.
 
-Once you are happy with the fitting result, click Save at the top of the Controls tab. This will open a window where you can choose which files to output. You can customise which files to output (with the 'Save navigated observation' and 'Save mapped observation' checkboxes) and choose the filepath where these files will be saved.
+Once you are happy with the fitting result, click :guilabel:`Save` at the top of the :guilabel:`Controls` tab. This will open a window where you can choose which files to output. You can customise which files to output (with the :guilabel:`Save navigated observation` and :guilabel:`Save mapped observation` checkboxes) and choose the filepath where these files will be saved.
 
 - The navigated observation is similar to the input file, with additional 'FITS backplanes' containing useful information such as the longitude/latitude coordinates for each pixel in the image. This file is generated using the function :func:`planetmapper.Observation.save_observation`.
 - The mapped observation produces a FITS file which contains (as the name suggests...) a mapped version of the observation. This map file will also contain the various useful backplanes. The degree interval option allows you to customise the size of the output map (e.g. degree interval=1 produces a map which is 180x360, degree interval=10 produces a map which is 18x36). This file is generated using the function :func:`planetmapper.Observation.save_mapped_observation`.
 
-Once you click Save, your requested files will be generated and saved. Note that for larger files, this can take around a minute to complete as some of the coordinate conversion calculations are relatively complex.
+Once you click :guilabel:`Save`, your requested files will be generated and saved. Note that for larger files, this can take around a minute to complete as some of the coordinate conversion calculations are relatively complex.
 
 .. image:: images/gui_coords_selection.png
     :width: 600
     :alt: Screenshot of selecting coordinates.
 
-You can also use the user interface to directly measure the coordinates of points of interest. Simply click on a location in the plot and the coordinate values for that location will be displayed in the 'Coords' tab. The coordinate values will also be printed to the command line in a machine readable format that can easily be copied directly into a Python script, JSON database etc. If clicking on the plot isn't updating the coordinates for you, make sure you don't have the pan or zoom buttons selected.
+You can also use the user interface to directly measure the coordinates of points of interest. Simply click on a location in the plot and the coordinate values for that location will be displayed in the :guilabel:`Coords` tab. The coordinate values will also be printed to the command line in a machine readable format that can easily be copied directly into a Python script, JSON database etc. If clicking on the plot isn't updating the coordinates for you, make sure you don't have the pan or zoom buttons selected.
     
 
 Running the UI from Python
