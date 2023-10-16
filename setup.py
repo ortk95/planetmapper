@@ -46,7 +46,7 @@ setuptools.setup(
     install_requires=[
         'astropy',
         'matplotlib',
-        'numpy',
+        'numpy<2.0',
         'Pillow',
         'spiceypy',
         'scipy',
