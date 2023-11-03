@@ -1140,14 +1140,10 @@ class BodyXY(Body):
         if ax is None:
             ax = cast(Axes, plt.gca())
 
-        map_kwargs = {}
-        # pylint: disable-next=no-member
-        for k in set(_MapKwargs.__optional_keys__) | set(_MapKwargs.__required_keys__):
-            if k in map_and_formatting_kwargs:
-                map_kwargs[k] = map_and_formatting_kwargs.pop(k)
+        map_kwargs, common_formatting = _extract_map_kwargs_from_dict(map_and_formatting_kwargs)
 
         kwargs = self._get_wireframe_kw(
-            common_formatting=map_and_formatting_kwargs, formatting=formatting
+            common_formatting=common_formatting, formatting=formatting
         )
         _, _, _, _, transformer, map_kw_used = self.generate_map_coordinates(
             **map_kwargs
@@ -1282,11 +1278,7 @@ class BodyXY(Body):
         if ax is None:
             fig, ax = plt.subplots()
 
-        map_kwargs = {}
-        # pylint: disable-next=no-member
-        for k in set(_MapKwargs.__optional_keys__) | set(_MapKwargs.__required_keys__):
-            if k in kwargs:
-                map_kwargs[k] = kwargs.pop(k)
+        map_kwargs, kwargs = _extract_map_kwargs(kwargs)
 
         _, _, xx, yy, _, _ = self.generate_map_coordinates(**map_kwargs)
         h = ax.pcolormesh(xx, yy, map_img, **kwargs)
@@ -3186,3 +3178,27 @@ def _make_backplane_documentation_str() -> str:
     msg.append('')
 
     return '\n'.join(msg)
+
+
+def _extract_map_kwargs_from_dict(kwargs_dict) -> tuple[_MapKwargs, dict[str, Any]]:
+    """
+    Split a dictionary of keyword arguments into a dictionary of map kwargs and a
+    dictionary of other kwargs.
+
+    Args:
+        kwargs_dict: Dictionary of keyword arguments.
+    
+    Returns:
+        Tuple containing a dictionary of map kwargs and a dictionary of other kwargs.
+    """
+    # XXX add test
+    # pylint: disable-next=no-member
+    map_keys = set(_MapKwargs.__optional_keys__) | set(_MapKwargs.__required_keys__)
+    map_kwargs = _MapKwargs()
+    other_kwargs = {}
+    for k, v in kwargs_dict.items():
+        if k in map_keys:
+            map_kwargs[k] = v
+        else:
+            other_kwargs[k] = v
+    return map_kwargs, other_kwargs
