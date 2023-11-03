@@ -1663,11 +1663,7 @@ class BodyXY(Body):
         return ax
 
     def plot_backplane_map(
-        self,
-        name: str,
-        ax: Axes | None = None,
-        show: bool = False,
-        **kwargs
+        self, name: str, ax: Axes | None = None, show: bool = False, **kwargs
     ) -> Axes:
         """
         Plot a map of backplane values on the target body.
@@ -3201,7 +3197,6 @@ def _extract_map_kwargs_from_dict(kwargs_dict) -> tuple[_MapKwargs, dict[str, An
     Returns:
         Tuple containing a dictionary of map kwargs and a dictionary of other kwargs.
     """
-    # XXX add test
     # pylint: disable-next=no-member
     map_keys = set(_MapKwargs.__optional_keys__) | set(_MapKwargs.__required_keys__)
     map_kwargs = _MapKwargs()

@@ -21,6 +21,40 @@ class TestFunctions(unittest.TestCase):
             planetmapper.body_xy._make_backplane_documentation_str(), str
         )
 
+    def test_extract_map_kwargs_from_dict(self):
+        pairs: list[tuple[dict, tuple[dict, dict]]] = [
+            (
+                {},
+                ({}, {}),
+            ),
+            (
+                {'a': 1},
+                ({}, {'a': 1}),
+            ),
+            ({'projection': 'orthographic'}, ({'projection': 'orthographic'}, {})),
+            (
+                {'projection': 'orthographic', 'a': 1},
+                ({'projection': 'orthographic'}, {'a': 1}),
+            ),
+            (
+                {'projection': 'orthographic', 'a': 1, 'b': 2},
+                ({'projection': 'orthographic'}, {'a': 1, 'b': 2}),
+            ),
+            (
+                {'projection': 'orthographic', 'a': 1, 'b': 2, 'xlim': (0, 1)},
+                ({'projection': 'orthographic', 'xlim': (0, 1)}, {'a': 1, 'b': 2}),
+            ),
+                        (
+                {'projection': 'orthographic', 'color':'r', 'alpha':0.5, 'xlim': (0, 1)},
+                ({'projection': 'orthographic', 'xlim': (0, 1)}, { 'color':'r', 'alpha':0.5, }),
+            ),
+        ]
+        for a, b in pairs:
+            with self.subTest(a=a, b=b):
+                self.assertEqual(
+                    planetmapper.body_xy._extract_map_kwargs_from_dict(a), b
+                )
+
 
 class TestBodyXY(unittest.TestCase):
     def setUp(self):
