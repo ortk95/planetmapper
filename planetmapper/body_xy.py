@@ -1119,8 +1119,7 @@ class BodyXY(Body):
         indicate_prime_meridian: bool = True,
         aspect_adjustable: Literal['box', 'datalim'] = 'box',
         formatting: dict[_WireframeComponent, dict[str, Any]] | None = None,
-        common_formatting: dict[str, Any] | None = None,
-        **map_kwargs: Unpack[_MapKwargs],
+        **map_and_formatting_kwargs,
     ) -> Axes:
         """
         Plot wireframe (e.g. gridlines) of the map projection of the observation. See
@@ -1141,8 +1140,14 @@ class BodyXY(Body):
         if ax is None:
             ax = cast(Axes, plt.gca())
 
+        map_kwargs = {}
+        # pylint: disable-next=no-member
+        for k in set(_MapKwargs.__optional_keys__) | set(_MapKwargs.__required_keys__):
+            if k in map_and_formatting_kwargs:
+                map_kwargs[k] = map_and_formatting_kwargs.pop(k)
+
         kwargs = self._get_wireframe_kw(
-            common_formatting=common_formatting, formatting=formatting
+            common_formatting=map_and_formatting_kwargs, formatting=formatting
         )
         _, _, _, _, transformer, map_kw_used = self.generate_map_coordinates(
             **map_kwargs
