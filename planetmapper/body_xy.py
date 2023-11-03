@@ -1119,8 +1119,7 @@ class BodyXY(Body):
         indicate_prime_meridian: bool = True,
         aspect_adjustable: Literal['box', 'datalim'] = 'box',
         formatting: dict[_WireframeComponent, dict[str, Any]] | None = None,
-        common_formatting: dict[str, Any] | None = None,
-        **map_kwargs: Unpack[_MapKwargs],
+        **map_and_formatting_kwargs,
     ) -> Axes:
         """
         Plot wireframe (e.g. gridlines) of the map projection of the observation. See
@@ -1140,6 +1139,12 @@ class BodyXY(Body):
         """
         if ax is None:
             ax = cast(Axes, plt.gca())
+
+        map_kwargs, common_formatting = _extract_map_kwargs_from_dict(
+            map_and_formatting_kwargs
+        )
+        if 'common_formatting' in common_formatting:
+            common_formatting |= common_formatting.pop('common_formatting')
 
         kwargs = self._get_wireframe_kw(
             common_formatting=common_formatting, formatting=formatting
@@ -1277,11 +1282,7 @@ class BodyXY(Body):
         if ax is None:
             fig, ax = plt.subplots()
 
-        map_kwargs = {}
-        # pylint: disable-next=no-member
-        for k in set(_MapKwargs.__optional_keys__) | set(_MapKwargs.__required_keys__):
-            if k in kwargs:
-                map_kwargs[k] = kwargs.pop(k)
+        map_kwargs, kwargs = _extract_map_kwargs_from_dict(kwargs)
 
         _, _, xx, yy, _, _ = self.generate_map_coordinates(**map_kwargs)
         h = ax.pcolormesh(xx, yy, map_img, **kwargs)
@@ -1395,10 +1396,9 @@ class BodyXY(Body):
             rgba=rgba,
             plot_fn=lambda ax: self.plot_wireframe_xy(
                 ax=ax,
-                color='k',
                 add_axis_labels=False,
                 add_title=False,
-                **plot_kwargs or {},  # type: ignore
+                **(dict(color='k') | plot_kwargs or {}),  # type: ignore
             ),
         )
 
@@ -1407,8 +1407,7 @@ class BodyXY(Body):
         output_size: int | None = 1500,
         dpi: int = 200,
         rgba: bool = False,
-        plot_kwargs: dict[str, Any] | None = None,
-        **map_kwargs: Unpack[_MapKwargs],
+        **map_and_formatting_kwargs,
     ) -> np.ndarray:
         """
         .. warning ::
@@ -1450,12 +1449,16 @@ class BodyXY(Body):
                 blue, alpha) which can be used to more easily overlay the wireframe on
                 top of the observed data in other applications.
             plot_kwargs: Dictionary of arguments passed to :func:`plot_map_wireframe`.
-            **map_kwargs: Additional arguments passed to
-                :func:`generate_map_coordinates` to specify map projection to use.
+            **map_and_formatting_kwargs: Passed to :func:`plot_map_wireframe`. This
+                can include arguments such as `projection`.
         Returns:
             Image of the map wireframe which has the same aspect ratio as the map.
         """
         # TODO remove beta note when stable
+        map_kwargs, plot_kwargs = _extract_map_kwargs_from_dict(
+            map_and_formatting_kwargs
+        )
+
         lons, lats, xx, yy, transformer, map_kw_used = self.generate_map_coordinates(
             **map_kwargs
         )
@@ -1467,7 +1470,7 @@ class BodyXY(Body):
                 ax=ax,
                 add_axis_labels=False,
                 add_title=False,
-                **(plot_kwargs or {}) | dict(common_formatting=dict(color='k')),
+                **(dict(color='k') | plot_kwargs),  # type: ignore
                 **map_kwargs,
             )
             # Add dx/dy to the limits to ensure the wireframe covers all of each pixel
@@ -1664,27 +1667,29 @@ class BodyXY(Body):
         return ax
 
     def plot_backplane_map(
-        self,
-        name: str,
-        ax: Axes | None = None,
-        show: bool = False,
-        plot_kwargs: dict | None = None,
-        **map_kwargs: Unpack[_MapKwargs],
+        self, name: str, ax: Axes | None = None, show: bool = False, **kwargs
     ) -> Axes:
         """
         Plot a map of backplane values on the target body.
+
+        For example, top plot a backplane map with the 'Blues' colourmap and a red
+        partially transparent wireframe, on an orthographic projection, use: ::
+
+            body.plot_backplane_map(
+                'EMISSION',
+                projection='orthographic',
+                cmap='Blues',
+                wireframe_kwargs=dict(color='r', alpha=0.5),
+            )
 
         Args:
             name: Name of the desired backplane.
             ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
                 a new figure and axis is created.
             show: Toggle showing the plotted figure with `plt.show()`
-            plot_kwargs: Passed to :func:`plot_map` when plotting the backplane map. For
-                example, can be used to set the colormap of the plot using
-                `body.plot_backplane_map(..., plot_kwargs=dict(cmap='Greys'))`.
-            **map_kwargs: Additional arguments are passed to
-                :func:`generate_map_coordinates` to specify and customise the map
-                projection.
+            **kwargs: Additional arguments are passed to :func:`plot_map`. These can be
+                used to specify and customise the map projection, and to customise the
+                plot formatting.
         Returns:
             The axis containing the plotted data.
         """
@@ -1692,11 +1697,13 @@ class BodyXY(Body):
             fig, ax = plt.subplots()
         backplane = self.get_backplane(name)
 
+        map_kwargs, other_kwargs = _extract_map_kwargs_from_dict(kwargs)
+        if 'plot_kwargs' in other_kwargs:
+            # backwards compatibility
+            other_kwargs |= other_kwargs.pop('plot_kwargs')
+
         im = self.plot_map(
-            backplane.get_map(**map_kwargs),
-            ax=ax,
-            **map_kwargs,
-            **plot_kwargs or {},
+            backplane.get_map(**map_kwargs), ax=ax, **map_kwargs, **other_kwargs
         )
         plt.colorbar(im, label=backplane.description)
         if show:
@@ -3181,3 +3188,26 @@ def _make_backplane_documentation_str() -> str:
     msg.append('')
 
     return '\n'.join(msg)
+
+
+def _extract_map_kwargs_from_dict(kwargs_dict) -> tuple[_MapKwargs, dict[str, Any]]:
+    """
+    Split a dictionary of keyword arguments into a dictionary of map kwargs and a
+    dictionary of other kwargs.
+
+    Args:
+        kwargs_dict: Dictionary of keyword arguments.
+
+    Returns:
+        Tuple containing a dictionary of map kwargs and a dictionary of other kwargs.
+    """
+    # pylint: disable-next=no-member
+    map_keys = set(_MapKwargs.__optional_keys__) | set(_MapKwargs.__required_keys__)
+    map_kwargs = _MapKwargs()
+    other_kwargs = {}
+    for k, v in kwargs_dict.items():
+        if k in map_keys:
+            map_kwargs[k] = v
+        else:
+            other_kwargs[k] = v
+    return map_kwargs, other_kwargs
