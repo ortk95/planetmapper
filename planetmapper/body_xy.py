@@ -1143,6 +1143,8 @@ class BodyXY(Body):
         map_kwargs, common_formatting = _extract_map_kwargs_from_dict(
             map_and_formatting_kwargs
         )
+        if 'common_formatting' in common_formatting:
+            common_formatting |= common_formatting.pop('common_formatting')
 
         kwargs = self._get_wireframe_kw(
             common_formatting=common_formatting, formatting=formatting
@@ -1394,10 +1396,9 @@ class BodyXY(Body):
             rgba=rgba,
             plot_fn=lambda ax: self.plot_wireframe_xy(
                 ax=ax,
-                color='k',
                 add_axis_labels=False,
                 add_title=False,
-                **plot_kwargs or {},  # type: ignore
+                **(dict(color='k') | plot_kwargs or {}),  # type: ignore
             ),
         )
 
@@ -1406,8 +1407,7 @@ class BodyXY(Body):
         output_size: int | None = 1500,
         dpi: int = 200,
         rgba: bool = False,
-        plot_kwargs: dict[str, Any] | None = None,
-        **map_kwargs: Unpack[_MapKwargs],
+        **map_and_formatting_kwargs,
     ) -> np.ndarray:
         """
         .. warning ::
@@ -1449,12 +1449,16 @@ class BodyXY(Body):
                 blue, alpha) which can be used to more easily overlay the wireframe on
                 top of the observed data in other applications.
             plot_kwargs: Dictionary of arguments passed to :func:`plot_map_wireframe`.
-            **map_kwargs: Additional arguments passed to
-                :func:`generate_map_coordinates` to specify map projection to use.
+            **map_and_formatting_kwargs: Passed to :func:`plot_map_wireframe`. This
+                can include arguments such as `projection`.
         Returns:
             Image of the map wireframe which has the same aspect ratio as the map.
         """
         # TODO remove beta note when stable
+        map_kwargs, plot_kwargs = _extract_map_kwargs_from_dict(
+            map_and_formatting_kwargs
+        )
+
         lons, lats, xx, yy, transformer, map_kw_used = self.generate_map_coordinates(
             **map_kwargs
         )
@@ -1466,7 +1470,7 @@ class BodyXY(Body):
                 ax=ax,
                 add_axis_labels=False,
                 add_title=False,
-                **(plot_kwargs or {}) | dict(common_formatting=dict(color='k')),
+                **(dict(color='k') | plot_kwargs),  # type: ignore
                 **map_kwargs,
             )
             # Add dx/dy to the limits to ensure the wireframe covers all of each pixel

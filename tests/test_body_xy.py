@@ -660,6 +660,35 @@ class TestBodyXY(unittest.TestCase):
         fig, ax = plt.subplots()
         self.body.plot_map_wireframe(
             ax=ax,
+            projection='azimuthal equal area',
+            lat=-90,
+            label_poles=False,
+            grid_interval=45,
+            color='r',
+        )
+        self.assertEqual(len(ax.get_lines()), 20)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 30)
+        plt.close(fig)
+
+        # backwards compatibility
+        fig, ax = plt.subplots()
+        self.body.plot_map_wireframe(
+            ax=ax,
+            projection='azimuthal equal area',
+            lat=-90,
+            label_poles=False,
+            grid_interval=45,
+            common_formatting=dict(color='r'),
+        )
+        self.assertEqual(len(ax.get_lines()), 20)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 30)
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
+        self.body.plot_map_wireframe(
+            ax=ax,
             projection='manual',
             lon_coords=np.linspace(-180, 180, 5),
             lat_coords=np.linspace(0, 90, 3),
