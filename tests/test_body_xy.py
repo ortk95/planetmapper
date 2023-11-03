@@ -574,6 +574,10 @@ class TestBodyXY(unittest.TestCase):
         self.assertEqual(len(ax.get_children()), 26)
         plt.close('all')
 
+        fig, ax = plt.subplots()
+        self.body.plot_map_wireframe(ax=ax, color='r', zorder=2, alpha=0.5)
+        plt.close(fig)
+
         uranus = BodyXY('uranus', utc='2000-01-01', sz=5)  # Uranus is +ve E
         ax = uranus.plot_map_wireframe(ax=ax)
         self.assertEqual(ax.get_xlim(), (0, 360))
@@ -1345,6 +1349,14 @@ class TestBodyXY(unittest.TestCase):
         self.assertEqual(len(ax.get_lines()), 0)
         self.assertEqual(len(ax.get_images()), 0)
         self.assertEqual(len(ax.get_children()), 11)
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
+        self.body.plot_map(
+            np.ones((180, 360)),
+            ax=ax,
+            wireframe_kwargs=dict(color='r', zorder=2, alpha=0.5),
+        )
         plt.close(fig)
 
         self.body.imshow_map(np.ones((180, 360)))
