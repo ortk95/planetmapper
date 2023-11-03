@@ -1140,7 +1140,9 @@ class BodyXY(Body):
         if ax is None:
             ax = cast(Axes, plt.gca())
 
-        map_kwargs, common_formatting = _extract_map_kwargs_from_dict(map_and_formatting_kwargs)
+        map_kwargs, common_formatting = _extract_map_kwargs_from_dict(
+            map_and_formatting_kwargs
+        )
 
         kwargs = self._get_wireframe_kw(
             common_formatting=common_formatting, formatting=formatting
@@ -1278,7 +1280,7 @@ class BodyXY(Body):
         if ax is None:
             fig, ax = plt.subplots()
 
-        map_kwargs, kwargs = _extract_map_kwargs(kwargs)
+        map_kwargs, kwargs = _extract_map_kwargs_from_dict(kwargs)
 
         _, _, xx, yy, _, _ = self.generate_map_coordinates(**map_kwargs)
         h = ax.pcolormesh(xx, yy, map_img, **kwargs)
@@ -1665,23 +1667,31 @@ class BodyXY(Body):
         name: str,
         ax: Axes | None = None,
         show: bool = False,
-        plot_kwargs: dict | None = None,
-        **map_kwargs: Unpack[_MapKwargs],
+        **kwargs
+        # plot_kwargs: dict | None = None,
+        # **map_kwargs: Unpack[_MapKwargs],
     ) -> Axes:
         """
         Plot a map of backplane values on the target body.
+
+        For example, top plot a backplane map with the 'Blues' colourmap and a red
+        partially transparent wireframe, on an orthographic projection, use: ::
+
+            body.plot_backplane_map(
+                'EMISSION',
+                projection='orthographic',
+                cmap='Blues',
+                wireframe_kwargs=dict(color='r', alpha=0.5),
+            )
 
         Args:
             name: Name of the desired backplane.
             ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
                 a new figure and axis is created.
             show: Toggle showing the plotted figure with `plt.show()`
-            plot_kwargs: Passed to :func:`plot_map` when plotting the backplane map. For
-                example, can be used to set the colormap of the plot using
-                `body.plot_backplane_map(..., plot_kwargs=dict(cmap='Greys'))`.
-            **map_kwargs: Additional arguments are passed to
-                :func:`generate_map_coordinates` to specify and customise the map
-                projection.
+            **kwargs: Additional arguments are passed to :func:`plot_map`. These can be
+                used to specify and customise the map projection, and to customise the
+                plot formatting.
         Returns:
             The axis containing the plotted data.
         """
@@ -1689,11 +1699,13 @@ class BodyXY(Body):
             fig, ax = plt.subplots()
         backplane = self.get_backplane(name)
 
+        map_kwargs, other_kwargs = _extract_map_kwargs_from_dict(kwargs)
+        if 'plot_kwargs' in other_kwargs:
+            # backwards compatibility
+            other_kwargs |= other_kwargs.pop('plot_kwargs')
+
         im = self.plot_map(
-            backplane.get_map(**map_kwargs),
-            ax=ax,
-            **map_kwargs,
-            **plot_kwargs or {},
+            backplane.get_map(**map_kwargs), ax=ax, **map_kwargs, **other_kwargs
         )
         plt.colorbar(im, label=backplane.description)
         if show:
@@ -3187,7 +3199,7 @@ def _extract_map_kwargs_from_dict(kwargs_dict) -> tuple[_MapKwargs, dict[str, An
 
     Args:
         kwargs_dict: Dictionary of keyword arguments.
-    
+
     Returns:
         Tuple containing a dictionary of map kwargs and a dictionary of other kwargs.
     """
