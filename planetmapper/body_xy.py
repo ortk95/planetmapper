@@ -1668,8 +1668,6 @@ class BodyXY(Body):
         ax: Axes | None = None,
         show: bool = False,
         **kwargs
-        # plot_kwargs: dict | None = None,
-        # **map_kwargs: Unpack[_MapKwargs],
     ) -> Axes:
         """
         Plot a map of backplane values on the target body.
