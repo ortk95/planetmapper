@@ -44,9 +44,20 @@ class TestFunctions(unittest.TestCase):
                 {'projection': 'orthographic', 'a': 1, 'b': 2, 'xlim': (0, 1)},
                 ({'projection': 'orthographic', 'xlim': (0, 1)}, {'a': 1, 'b': 2}),
             ),
-                        (
-                {'projection': 'orthographic', 'color':'r', 'alpha':0.5, 'xlim': (0, 1)},
-                ({'projection': 'orthographic', 'xlim': (0, 1)}, { 'color':'r', 'alpha':0.5, }),
+            (
+                {
+                    'projection': 'orthographic',
+                    'color': 'r',
+                    'alpha': 0.5,
+                    'xlim': (0, 1),
+                },
+                (
+                    {'projection': 'orthographic', 'xlim': (0, 1)},
+                    {
+                        'color': 'r',
+                        'alpha': 0.5,
+                    },
+                ),
             ),
         ]
         for a, b in pairs:
