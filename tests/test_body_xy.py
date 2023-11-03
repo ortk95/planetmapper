@@ -21,6 +21,51 @@ class TestFunctions(unittest.TestCase):
             planetmapper.body_xy._make_backplane_documentation_str(), str
         )
 
+    def test_extract_map_kwargs_from_dict(self):
+        pairs: list[tuple[dict, tuple[dict, dict]]] = [
+            (
+                {},
+                ({}, {}),
+            ),
+            (
+                {'a': 1},
+                ({}, {'a': 1}),
+            ),
+            ({'projection': 'orthographic'}, ({'projection': 'orthographic'}, {})),
+            (
+                {'projection': 'orthographic', 'a': 1},
+                ({'projection': 'orthographic'}, {'a': 1}),
+            ),
+            (
+                {'projection': 'orthographic', 'a': 1, 'b': 2},
+                ({'projection': 'orthographic'}, {'a': 1, 'b': 2}),
+            ),
+            (
+                {'projection': 'orthographic', 'a': 1, 'b': 2, 'xlim': (0, 1)},
+                ({'projection': 'orthographic', 'xlim': (0, 1)}, {'a': 1, 'b': 2}),
+            ),
+            (
+                {
+                    'projection': 'orthographic',
+                    'color': 'r',
+                    'alpha': 0.5,
+                    'xlim': (0, 1),
+                },
+                (
+                    {'projection': 'orthographic', 'xlim': (0, 1)},
+                    {
+                        'color': 'r',
+                        'alpha': 0.5,
+                    },
+                ),
+            ),
+        ]
+        for a, b in pairs:
+            with self.subTest(a=a, b=b):
+                self.assertEqual(
+                    planetmapper.body_xy._extract_map_kwargs_from_dict(a), b
+                )
+
 
 class TestBodyXY(unittest.TestCase):
     def setUp(self):
@@ -574,6 +619,10 @@ class TestBodyXY(unittest.TestCase):
         self.assertEqual(len(ax.get_children()), 26)
         plt.close('all')
 
+        fig, ax = plt.subplots()
+        self.body.plot_map_wireframe(ax=ax, color='r', zorder=2, alpha=0.5)
+        plt.close(fig)
+
         uranus = BodyXY('uranus', utc='2000-01-01', sz=5)  # Uranus is +ve E
         ax = uranus.plot_map_wireframe(ax=ax)
         self.assertEqual(ax.get_xlim(), (0, 360))
@@ -602,6 +651,35 @@ class TestBodyXY(unittest.TestCase):
             lat=-90,
             label_poles=False,
             grid_interval=45,
+        )
+        self.assertEqual(len(ax.get_lines()), 20)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 30)
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
+        self.body.plot_map_wireframe(
+            ax=ax,
+            projection='azimuthal equal area',
+            lat=-90,
+            label_poles=False,
+            grid_interval=45,
+            color='r',
+        )
+        self.assertEqual(len(ax.get_lines()), 20)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 30)
+        plt.close(fig)
+
+        # backwards compatibility
+        fig, ax = plt.subplots()
+        self.body.plot_map_wireframe(
+            ax=ax,
+            projection='azimuthal equal area',
+            lat=-90,
+            label_poles=False,
+            grid_interval=45,
+            common_formatting=dict(color='r'),
         )
         self.assertEqual(len(ax.get_lines()), 20)
         self.assertEqual(len(ax.get_images()), 0)
@@ -1327,6 +1405,37 @@ class TestBodyXY(unittest.TestCase):
         self.assertEqual(len(ax.get_children()), 27)
         plt.close('all')
 
+        fig, ax = plt.subplots()
+        self.body.plot_backplane_map(
+            ' emission ',
+            degree_interval=90,
+            ax=ax,
+            cmap='Blues',
+            wireframe_kwargs=dict(color='r', zorder=2, alpha=0.5),
+        )
+        self.assertEqual(len(ax.get_lines()), 16)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 27)
+        plt.close(fig)
+
+        # back compatibility
+        fig, ax = plt.subplots()
+        self.body.plot_backplane_map(
+            ' emission ',
+            degree_interval=90,
+            ax=ax,
+            plot_kwargs=dict(
+                cmap='Blues',
+                wireframe_kwargs=dict(color='r', zorder=2, alpha=0.5),
+            ),
+        )
+        self.assertEqual(len(ax.get_lines()), 16)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 27)
+        plt.close(fig)
+
+        plt.close('all')
+
     def test_plot_map(self):
         fig, ax = plt.subplots()
         h = self.body.plot_map(np.ones((180, 360)), ax=ax)
@@ -1345,6 +1454,14 @@ class TestBodyXY(unittest.TestCase):
         self.assertEqual(len(ax.get_lines()), 0)
         self.assertEqual(len(ax.get_images()), 0)
         self.assertEqual(len(ax.get_children()), 11)
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
+        self.body.plot_map(
+            np.ones((180, 360)),
+            ax=ax,
+            wireframe_kwargs=dict(color='r', zorder=2, alpha=0.5),
+        )
         plt.close(fig)
 
         self.body.imshow_map(np.ones((180, 360)))

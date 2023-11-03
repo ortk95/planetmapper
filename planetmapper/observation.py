@@ -1308,10 +1308,10 @@ class Observation(BodyXY):
         """
         Run an interactive GUI to display and adjust the fitted observation.
 
-        This modifies the `Observation` object in-place, so can be used within a script
-        to e.g. interactively fit the planet's disc. Simply run the GUI, adjust the
-        parameters until the disc is fit, then close the GUI and the `Observation`
-        object will have your new values: ::
+        This modifies the :class:`Observation` object in-place, so can be used within a
+        script to e.g. interactively fit the planet's disc. Simply run the GUI, adjust
+        the parameters until the disc is fit, then close the GUI and the
+        :class:`Observation` object will have your new values: ::
 
             # Load in some data
             observation = planetmapper.Observation('exciting_data.fits')
@@ -1326,8 +1326,8 @@ class Observation(BodyXY):
 
             Once you have manually fitted the disc, you can simply close the user
             interface window and the disc parameters will be updated to the new values.
-            This means that you don't need to click the `Save...` button unless you
-            specifically want to save a navigated file to disk.
+            This means that you don't need to click the :guilabel:`Save...` button
+            unless you specifically want to save a navigated file to disk.
 
 
         The return value can also be used to interactively select a locations:::
@@ -1339,11 +1339,15 @@ class Observation(BodyXY):
                 ra, dec = observation.xy2radec()
                 ax.scatter(ra, dec)
 
+
+        See the :ref:`graphical user interface tutorial <gui examples>` for more details
+        about the GUI.
+
         .. note ::
 
-            The `Open...` button is disabled for user interfaces created by this method
-            to ensure that only one :class:`Observation` object is modified by the user
-            interface.
+            The :guilabel:`Open...` button is hidden for user interfaces created by
+            this method to ensure that only one :class:`Observation` object is modified
+            by the user interface.
 
             If you want the full user interface functionality instead, then call
             `planetmapper` from the command line or create and run a user interface
