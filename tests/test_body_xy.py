@@ -1331,6 +1331,37 @@ class TestBodyXY(unittest.TestCase):
         self.assertEqual(len(ax.get_children()), 27)
         plt.close('all')
 
+        fig, ax = plt.subplots()
+        self.body.plot_backplane_map(
+            ' emission ',
+            degree_interval=90,
+            ax=ax,
+            cmap='Blues',
+            wireframe_kwargs=dict(color='r', zorder=2, alpha=0.5),
+        )
+        self.assertEqual(len(ax.get_lines()), 16)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 27)
+        plt.close(fig)
+
+        # back compatibility
+        fig, ax = plt.subplots()
+        self.body.plot_backplane_map(
+            ' emission ',
+            degree_interval=90,
+            ax=ax,
+            plot_kwargs=dict(
+                cmap='Blues',
+                wireframe_kwargs=dict(color='r', zorder=2, alpha=0.5),
+            ),
+        )
+        self.assertEqual(len(ax.get_lines()), 16)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 27)
+        plt.close(fig)
+
+        plt.close('all')
+
     def test_plot_map(self):
         fig, ax = plt.subplots()
         h = self.body.plot_map(np.ones((180, 360)), ax=ax)
