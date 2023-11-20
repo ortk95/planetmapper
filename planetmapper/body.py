@@ -1381,7 +1381,7 @@ class Body(BodyBase):
     ) -> Numeric:
         # Based on Henrik's code at:
         # https://github.com/JWSTGiantPlanets/NIRSPEC-Toolkit/blob/5e2e2cc/JWSTSolarSystemPointing.py#L204-L209
-        a = np.cos(phase_radians) - np.cos(emission_radians) * np.cos(incidence_radians)  # type: ignore
+        a = np.cos(phase_radians) - np.cos(emission_radians) * np.cos(incidence_radians)
         b = np.sqrt(1.0 - np.cos(emission_radians) ** 2) * np.sqrt(
             1.0 - np.cos(incidence_radians) ** 2
         )
