@@ -1139,7 +1139,6 @@ class BodyXY(Body):
                 }
             )
         """
-        # XXX test grid_lat_limit
         if ax is None:
             ax = cast(Axes, plt.gca())
 
