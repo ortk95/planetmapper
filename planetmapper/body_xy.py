@@ -964,7 +964,10 @@ class BodyXY(Body):
         self,
         img: np.ndarray,
         *,
-        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
+        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic']
+        | int
+        | tuple[int, int] = 'linear',
+        spline_smoothing: float = 0,
         propagate_nan: bool = True,
         warn_nan: bool = False,
         **map_kwargs: Unpack[_MapKwargs],
@@ -1016,6 +1019,9 @@ class BodyXY(Body):
             of the target body. Locations which are not visible or outside the
             projection domain have a value of NaN.
         """
+        # XXX interpolation (document, test)
+        # XXX smoothing (document, test)
+        # XXX change signature of other functions
         x_map = self.get_x_map(**map_kwargs)
         y_map = self.get_y_map(**map_kwargs)
         projected = self._make_empty_map(**map_kwargs)
@@ -1025,6 +1031,8 @@ class BodyXY(Body):
             'quadratic': 2,
             'cubic': 3,
         }
+        if interpolation in spline_k:
+            interpolation = spline_k[interpolation]
 
         if interpolation == 'nearest':
             nan_sentinel = -999
@@ -1040,15 +1048,23 @@ class BodyXY(Body):
                     continue
                 y = y_map[a, b]  # y should never be nan when x is not nan
                 projected[a, b] = img[y, x]
-        elif interpolation in spline_k:
-            k = spline_k[interpolation]
+        elif isinstance(interpolation, int | tuple):
+            if isinstance(interpolation, int):
+                kx = ky = interpolation
+            else:
+                kx, ky = interpolation
             nans = np.isnan(img)
             if np.any(np.isnan(img)):
                 if warn_nan:
                     print('Warning, image contains NaN values which will be set to 0')
                 img = np.nan_to_num(img)
             interpolator = scipy.interpolate.RectBivariateSpline(
-                np.arange(img.shape[0]), np.arange(img.shape[1]), img, kx=k, ky=k
+                np.arange(img.shape[0]),
+                np.arange(img.shape[1]),
+                img,
+                kx=kx,
+                ky=ky,
+                s=spline_smoothing,  # type: ignore (docs say s is a float)
             )
             for a, b in self._iterate_image(projected.shape):
                 x = x_map[a, b]
