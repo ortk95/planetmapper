@@ -1727,7 +1727,6 @@ class Body(BodyBase):
             List of `(ra, dec)` tuples, corresponding to the list of input `lons`. `ra`
             and `dec` are arrays of RA/Dec coordinate values for that gridline.
         """
-        # XXX test lat_limit
         lats = np.linspace(-lat_limit, lat_limit, npts)
         out: list[tuple[np.ndarray, np.ndarray]] = []
         for lon in lons:
@@ -1756,7 +1755,6 @@ class Body(BodyBase):
             List of `(ra, dec)` tuples, corresponding to the list of input `lats`. `ra`
             and `dec` are arrays of RA/Dec coordinate values for that gridline.
         """
-        # XXX test lat_limit
         lons = np.linspace(0, 360, npts)
         out: list[tuple[np.ndarray, np.ndarray]] = []
         for lat in lats:
@@ -2179,7 +2177,6 @@ class Body(BodyBase):
         Returns:
             The axis containing the plotted wireframe.
         """
-        # XXX test grid_lat_limit
         ax = self._plot_wireframe(transform=None, ax=ax, **wireframe_kwargs)
 
         utils.format_radec_axes(
