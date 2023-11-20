@@ -1039,7 +1039,7 @@ class BodyXY(Body):
             'quadratic': 2,
             'cubic': 3,
         }
-        if interpolation in spline_k:
+        if interpolation in spline_k:  # pylint: disable=consider-using-get
             interpolation = spline_k[interpolation]
 
         if interpolation == 'nearest':

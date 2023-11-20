@@ -760,6 +760,13 @@ class TestObservation(unittest.TestCase):
                 include_backplanes=False,
                 include_wireframe=False,
             ),
+            'rectangular-interpolation': dict(
+                degree_interval=30,
+                interpolation=(1, 3),
+                spline_smoothing=1.23,
+                include_backplanes=False,
+                include_wireframe=False,
+            ),
             'orthographic-1': dict(
                 projection='orthographic', size=10, include_wireframe=False
             ),
