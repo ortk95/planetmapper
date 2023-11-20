@@ -55,6 +55,7 @@ class _WireframeKwargs(TypedDict, total=False):
     label_poles: bool
     add_title: bool
     grid_interval: float
+    grid_lat_limit: float
     indicate_equator: bool
     indicate_prime_meridian: bool
     formatting: dict[_WireframeComponent, dict[str, Any]] | None
@@ -1704,7 +1705,7 @@ class Body(BodyBase):
         return lon_radec + lat_radec
 
     def visible_lon_grid_radec(
-        self, lons: list[float] | np.ndarray, npts: int = 60
+        self, lons: list[float] | np.ndarray, npts: int = 60, *, lat_limit: float = 90
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
         Calculates the RA/Dec coordinates for visible lines of constant longitude.
@@ -1723,8 +1724,10 @@ class Body(BodyBase):
             List of `(ra, dec)` tuples, corresponding to the list of input `lons`. `ra`
             and `dec` are arrays of RA/Dec coordinate values for that gridline.
         """
-        lats = np.linspace(-90, 90, npts)
-        out = []
+        # XXX document lat_limit
+        # XXX test lat_limit
+        lats = np.linspace(-lat_limit, lat_limit, npts)
+        out: list[tuple[np.ndarray, np.ndarray]] = []
         for lon in lons:
             targvecs = [self.lonlat2targvec(lon, lat) for lat in lats]
             ra, dec = self._targvec_arr2radec_arrs(
@@ -1734,7 +1737,7 @@ class Body(BodyBase):
         return out
 
     def visible_lat_grid_radec(
-        self, lats: list[float] | np.ndarray, npts: int = 120
+        self, lats: list[float] | np.ndarray, npts: int = 120, *, lat_limit: float = 90
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
         Constant latitude version of :func:`visible_lon_grid_radec`. See also
@@ -1748,9 +1751,13 @@ class Body(BodyBase):
             List of `(ra, dec)` tuples, corresponding to the list of input `lats`. `ra`
             and `dec` are arrays of RA/Dec coordinate values for that gridline.
         """
+        # XXX document lat_limit
+        # XXX test lat_limit
         lons = np.linspace(0, 360, npts)
-        out = []
+        out: list[tuple[np.ndarray, np.ndarray]] = []
         for lat in lats:
+            if abs(lat) > lat_limit:
+                continue
             targvecs = [self.lonlat2targvec(lon, lat) for lon in lons]
             ra, dec = self._targvec_arr2radec_arrs(
                 targvecs, condition_func=self._test_if_targvec_visible
@@ -1955,11 +1962,13 @@ class Body(BodyBase):
 
     def _plot_wireframe(
         self,
+        *,
         transform: None | matplotlib.transforms.Transform,
         ax: Axes | None = None,
         label_poles: bool = True,
         add_title: bool = True,
         grid_interval: float = 30,
+        grid_lat_limit: float = 90,
         indicate_equator: bool = False,
         indicate_prime_meridian: bool = False,
         formatting: dict[_WireframeComponent, dict[str, Any]] | None = None,
@@ -1980,7 +1989,9 @@ class Body(BodyBase):
         )
 
         lons = np.arange(0, 360, grid_interval)
-        for lon, (ra, dec) in zip(lons, self.visible_lon_grid_radec(lons)):
+        for lon, (ra, dec) in zip(
+            lons, self.visible_lon_grid_radec(lons, lat_limit=grid_lat_limit)
+        ):
             ax.plot(
                 ra,
                 dec,
@@ -1992,7 +2003,9 @@ class Body(BodyBase):
                 ),
             )
         lats = np.arange(-90, 90, grid_interval)
-        for lat, (ra, dec) in zip(lats, self.visible_lat_grid_radec(lats)):
+        for lat, (ra, dec) in zip(
+            lats, self.visible_lat_grid_radec(lats, lat_limit=grid_lat_limit)
+        ):
             ax.plot(
                 ra,
                 dec,
@@ -2158,6 +2171,8 @@ class Body(BodyBase):
         Returns:
             The axis containing the plotted wireframe.
         """
+        # XXX document grid_lat_limit
+        # XXX test grid_lat_limit
         ax = self._plot_wireframe(transform=None, ax=ax, **wireframe_kwargs)
 
         utils.format_radec_axes(
