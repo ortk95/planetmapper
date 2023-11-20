@@ -964,7 +964,10 @@ class BodyXY(Body):
         self,
         img: np.ndarray,
         *,
-        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
+        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic']
+        | int
+        | tuple[int, int] = 'linear',
+        spline_smoothing: float = 0,
         propagate_nan: bool = True,
         warn_nan: bool = False,
         **map_kwargs: Unpack[_MapKwargs],
@@ -995,9 +998,20 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between the longitude/latitude points
                 in the mapped output. Passed to :func:`get_x_map` and :func:`get_y_map`
                 when generating the coordinates used for the projection.
-            interpolation: Interpolation used when mapping. This can either any of
-                `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. The default is
-                `'linear'`.
+            interpolation: Interpolation used when mapping. This can be any of
+                `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`; the default is
+                `'linear'`. `'linear'`, `'quadratic'` and `'cubic'` are aliases for
+                spline interpolations of degree 1, 2 and 3 respectively. Alternatively,
+                the degree of spline interpolation can be specified manually by passing
+                an integer or tuple of integers. If an integer is passed, the same
+                interpolation is used in both the x and y directions (i.e.
+                `RectBivariateSpline` with `kx = ky = interpolation`). If a tuple of
+                integers is passed, the first integer is used for the x direction and
+                the second integer is used for the y direction (i.e.
+                `RectBivariateSpline` with `kx, ky = interpolation`).
+            spline_smoothing: Smoothing factor passed to
+                `RectBivariateSpline(..., s=spline_smoothing)` when spline interpolation
+                is used. This parameter is ignored when `interpolation='nearest'`.
             propagate_nan: If using spline interpolation, propagate NaN values from the
                 image to the mapped data. If `propagate_nan` is `True` (the default),
                 the interpolation is performed as normal (i.e. with NaN values in the
@@ -1025,6 +1039,8 @@ class BodyXY(Body):
             'quadratic': 2,
             'cubic': 3,
         }
+        if interpolation in spline_k:  # pylint: disable=consider-using-get
+            interpolation = spline_k[interpolation]
 
         if interpolation == 'nearest':
             nan_sentinel = -999
@@ -1040,15 +1056,23 @@ class BodyXY(Body):
                     continue
                 y = y_map[a, b]  # y should never be nan when x is not nan
                 projected[a, b] = img[y, x]
-        elif interpolation in spline_k:
-            k = spline_k[interpolation]
+        elif isinstance(interpolation, int | tuple):
+            if isinstance(interpolation, int):
+                kx = ky = interpolation
+            else:
+                kx, ky = interpolation
             nans = np.isnan(img)
             if np.any(np.isnan(img)):
                 if warn_nan:
                     print('Warning, image contains NaN values which will be set to 0')
                 img = np.nan_to_num(img)
             interpolator = scipy.interpolate.RectBivariateSpline(
-                np.arange(img.shape[0]), np.arange(img.shape[1]), img, kx=k, ky=k
+                np.arange(img.shape[0]),
+                np.arange(img.shape[1]),
+                img,
+                kx=kx,
+                ky=ky,
+                s=spline_smoothing,  # type: ignore (docs say s is a float)
             )
             for a, b in self._iterate_image(projected.shape):
                 x = x_map[a, b]
@@ -1111,10 +1135,12 @@ class BodyXY(Body):
     def plot_map_wireframe(
         self,
         ax: Axes | None = None,
+        *,
         label_poles: bool = True,
         add_title: bool = True,
         add_axis_labels: bool = True,
         grid_interval: float = 30,
+        grid_lat_limit: float = 90,
         indicate_equator: bool = True,
         indicate_prime_meridian: bool = True,
         aspect_adjustable: Literal['box', 'datalim'] = 'box',
@@ -1165,10 +1191,13 @@ class BodyXY(Body):
             # lat=45, but this fixes the most common cases of lat=0,90,-90 and it's a
             # relatively minor cosmetic bug so is probably more-or-less fine as-is.
             npts = 360
-            lats_to_plot = [np.linspace(-90, 0, npts), np.linspace(0, 90, npts)]
+            lats_to_plot = [
+                np.linspace(-grid_lat_limit, 0, npts),
+                np.linspace(0, grid_lat_limit, npts),
+            ]
         else:
             npts = 720
-            lats_to_plot = [np.linspace(-90, 90, npts)]
+            lats_to_plot = [np.linspace(-grid_lat_limit, grid_lat_limit, npts)]
         for lon in lon_ticks:
             if lon == 360 or (lon == 0 and projection == 'rectangular'):
                 continue
@@ -1187,6 +1216,8 @@ class BodyXY(Body):
         npts = 720
         for lat in lat_ticks:
             if lat in {-90, 90}:
+                continue
+            if abs(lat) > grid_lat_limit:
                 continue
             x, y = transformer.transform(np.linspace(0, 360, npts), lat * np.ones(npts))
             ax.plot(
