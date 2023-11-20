@@ -683,7 +683,11 @@ class Observation(BodyXY):
     # Mapping
     def get_mapped_data(
         self,
-        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
+        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic']
+        | int
+        | tuple[int, int] = 'linear',
+        *,
+        spline_smoothing: float = 0,
         **map_kwargs: Unpack[_MapKwargs],
     ) -> np.ndarray:
         """
@@ -699,11 +703,10 @@ class Observation(BodyXY):
         need to worry about the cache, it all happens 'magically' behind the scenes).
 
         Args:
-            degree_interval: Interval in degrees between the longitude/latitude points.
-                Passed to :func:`BodyXY.map_img`.
             interpolation: Interpolation used when mapping. This can either any of
                 `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. Passed to
                 :func:`BodyXY.map_img`.
+            spline_smoothing: Passed to :func:`BodyXY.map_img`.
             **map_kwargs: Additional arguments are passed to
                 :func:`BodyXY.generate_map_coordinates` to specify and customise the map
                 projection.
@@ -713,13 +716,19 @@ class Observation(BodyXY):
             the projection domain have a value of NaN.
         """
         # Return a copy so that the cached value isn't tainted by any modifications
-        return self._get_mapped_data(interpolation=interpolation, **map_kwargs).copy()
+        return self._get_mapped_data(
+            interpolation=interpolation, spline_smoothing=spline_smoothing, **map_kwargs
+        ).copy()
 
     @_cache_clearable_result
     @progress_decorator
     def _get_mapped_data(
         self,
-        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
+        *,
+        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic']
+        | int
+        | tuple[int, int],
+        spline_smoothing: float,
         **map_kwargs: Unpack[_MapKwargs],
     ):
         projected = []
@@ -735,6 +744,7 @@ class Observation(BodyXY):
             projected.append(
                 self.map_img(
                     img,
+                    spline_smoothing=spline_smoothing,
                     interpolation=interpolation,
                     **map_kwargs,
                 )
@@ -1102,7 +1112,10 @@ class Observation(BodyXY):
         self,
         path: str,
         *,
-        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic'] = 'linear',
+        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic']
+        | int
+        | tuple[int, int] = 'linear',
+        spline_smoothing: float = 0,
         include_backplanes: bool = True,
         include_wireframe: bool = True,
         wireframe_kwargs: dict[str, Any] | None = None,
@@ -1124,6 +1137,7 @@ class Observation(BodyXY):
             interpolation: Interpolation used when mapping. This can either any of
                 `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. Passed to
                 :func:`BodyXY.map_img`.
+            spline_smoothing: Passed to :func:`BodyXY.map_img`.
             include_backplanes: Toggle generating and saving backplanes to output FITS
                 file.
             include_wireframe: Toggle generating and saving wireframe overlay map as an
@@ -1153,13 +1167,22 @@ class Observation(BodyXY):
         with utils.filter_fits_comment_warning():
             if print_info:
                 print(' Projecting mapped data...')
-            data = self.get_mapped_data(interpolation=interpolation, **map_kwargs)
+            data = self.get_mapped_data(
+                interpolation=interpolation,
+                spline_smoothing=spline_smoothing,
+                **map_kwargs,
+            )
             header = self.header.copy()
 
             self._update_progress_hook(1 / progress_max)
 
             self.add_header_metadata(header)
-            self._add_map_header_metadata(header, interpolation, **map_kwargs)
+            self._add_map_header_metadata(
+                header,
+                interpolation=interpolation,
+                spline_smoothing=spline_smoothing,
+                **map_kwargs,
+            )
             self._add_map_wcs_to_header(header, **map_kwargs)
 
             hdul = fits.HDUList([fits.PrimaryHDU(data=data, header=header)])
@@ -1204,18 +1227,29 @@ class Observation(BodyXY):
     def _add_map_header_metadata(
         self,
         header: fits.Header,
-        interpolation: str,
+        *,
+        interpolation: str | int | tuple[int, int],
+        spline_smoothing: float,
         **map_kwargs: Unpack[_MapKwargs],
     ):
         lons, lats, xx, yy, transformer, info = self.generate_map_coordinates(
             **map_kwargs
         )
+        if isinstance(interpolation, tuple):
+            interpolation = str(interpolation)
         self.append_to_header(
             'MAP INTERPOLATION',
             interpolation,
             'Interpolation method used in mapping.',
             header=header,
         )
+        if interpolation != 'nearest':
+            self.append_to_header(
+                'MAP SPLINE-SMOOTHING',
+                spline_smoothing,
+                'Interpolation spline smoothing factor used in mapping.',
+                header=header,
+            )
         self.append_to_header(
             'MAP PROJECTION',
             info['projection'],
