@@ -998,9 +998,20 @@ class BodyXY(Body):
             degree_interval: Interval in degrees between the longitude/latitude points
                 in the mapped output. Passed to :func:`get_x_map` and :func:`get_y_map`
                 when generating the coordinates used for the projection.
-            interpolation: Interpolation used when mapping. This can either any of
-                `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. The default is
-                `'linear'`.
+            interpolation: Interpolation used when mapping. This can be any of
+                `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`; the default is
+                `'linear'`. `'linear'`, `'quadratic'` and `'cubic'` are aliases for
+                spline interpolations of degree 1, 2 and 3 respectively. Alternatively,
+                the degree of spline interpolation can be specified manually by passing
+                an integer or tuple of integers. If an integer is passed, the same
+                interpolation is used in both the x and y directions (i.e. 
+                `RectBivariateSpline` with `kx = ky = interpolation`). If a tuple of
+                integers is passed, the first integer is used for the x direction and
+                the second integer is used for the y direction (i.e. 
+                `RectBivariateSpline` with `kx, ky = interpolation`).
+            spline_smoothing: Smoothing factor passed to 
+                `RectBivariateSpline(..., s=spline_smoothing)` when spline interpolation
+                is used. This parameter is ignored when `interpolation='nearest'`.
             propagate_nan: If using spline interpolation, propagate NaN values from the
                 image to the mapped data. If `propagate_nan` is `True` (the default),
                 the interpolation is performed as normal (i.e. with NaN values in the
@@ -1019,8 +1030,8 @@ class BodyXY(Body):
             of the target body. Locations which are not visible or outside the
             projection domain have a value of NaN.
         """
-        # XXX interpolation (document, test)
-        # XXX smoothing (document, test)
+        # XXX interpolation (test)
+        # XXX smoothing (test)
         # XXX change signature of other functions
         x_map = self.get_x_map(**map_kwargs)
         y_map = self.get_y_map(**map_kwargs)
