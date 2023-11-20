@@ -725,7 +725,7 @@ class TestBodyXY(unittest.TestCase):
                 [0.0, 3.0, 0.1, nan],
             ]
         )
-        expected = {
+        expected_interpolations: dict[str | int | tuple[int, int], np.ndarray] = {
             'nearest': array(
                 [
                     [nan, nan, 2.2, 2.2, 2.2, 3.3, nan, nan],
@@ -758,8 +758,23 @@ class TestBodyXY(unittest.TestCase):
                     [nan, nan, 4.84799586, nan, nan, nan, nan, nan],
                 ]
             ),
+            (1, 2): array(
+                [
+                    [nan, nan, nan, 2.39880056, 2.87923885, 3.21453136, nan, nan],
+                    [nan, nan, nan, nan, nan, 7.69507021, nan, nan],
+                    [nan, nan, nan, nan, nan, nan, nan, nan],
+                    [nan, nan, 0.27191758, nan, nan, nan, nan, nan],
+                ]
+            ),
         }
-        for interpolation, expected_img in expected.items():
+        # Check aliases
+        expected_interpolations[1] = expected_interpolations['linear']
+        expected_interpolations[2] = expected_interpolations['quadratic']
+        expected_interpolations[3] = expected_interpolations['cubic']
+        expected_interpolations[(1, 1)] = expected_interpolations['linear']
+        expected_interpolations[(2, 2)] = expected_interpolations['quadratic']
+        expected_interpolations[(3, 3)] = expected_interpolations['cubic']
+        for interpolation, expected_img in expected_interpolations.items():
             with self.subTest(interpolation=interpolation):
                 self.assertTrue(
                     np.allclose(
@@ -767,6 +782,55 @@ class TestBodyXY(unittest.TestCase):
                             image,
                             degree_interval=45,
                             interpolation=interpolation,  # type: ignore
+                        ),
+                        expected_img,
+                        equal_nan=True,
+                    )
+                )
+
+        # Check smoothing
+        expected_smoothings: dict[float, np.ndarray] = {
+            0: array(
+                [
+                    [nan, nan, nan, 2.31866428, 2.74706312, 3.19651992, nan, nan],
+                    [nan, nan, nan, nan, nan, 3.31150404, nan, nan],
+                    [nan, nan, nan, nan, nan, nan, nan, nan],
+                    [nan, nan, 0.32017562, nan, nan, nan, nan, nan],
+                ]
+            ),
+            1: array(
+                [
+                    [nan, nan, nan, 2.31766471, 2.74652993, 3.19647602, nan, nan],
+                    [nan, nan, nan, nan, nan, 3.30164207, nan, nan],
+                    [nan, nan, nan, nan, nan, nan, nan, nan],
+                    [nan, nan, 0.32127596, nan, nan, nan, nan, nan],
+                ]
+            ),
+            2.345: array(
+                [
+                    [nan, nan, nan, 2.31717738, 2.74625964, 3.19643345, nan, nan],
+                    [nan, nan, nan, nan, nan, 3.29639338, nan, nan],
+                    [nan, nan, nan, nan, nan, nan, nan, nan],
+                    [nan, nan, 0.32184233, nan, nan, nan, nan, nan],
+                ]
+            ),
+            67.89: array(
+                [
+                    [nan, nan, nan, 2.31366672, 2.74364086, 3.19475039, nan, nan],
+                    [nan, nan, nan, nan, nan, 3.22974976, nan, nan],
+                    [nan, nan, nan, nan, nan, nan, nan, nan],
+                    [nan, nan, 0.32789123, nan, nan, nan, nan, nan],
+                ]
+            ),
+        }
+        for smoothing, expected_img in expected_smoothings.items():
+            with self.subTest(smoothing=smoothing):
+                self.assertTrue(
+                    np.allclose(
+                        self.body.map_img(
+                            image,
+                            degree_interval=45,
+                            spline_smoothing=smoothing,
                         ),
                         expected_img,
                         equal_nan=True,

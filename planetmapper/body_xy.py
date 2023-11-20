@@ -1004,12 +1004,12 @@ class BodyXY(Body):
                 spline interpolations of degree 1, 2 and 3 respectively. Alternatively,
                 the degree of spline interpolation can be specified manually by passing
                 an integer or tuple of integers. If an integer is passed, the same
-                interpolation is used in both the x and y directions (i.e. 
+                interpolation is used in both the x and y directions (i.e.
                 `RectBivariateSpline` with `kx = ky = interpolation`). If a tuple of
                 integers is passed, the first integer is used for the x direction and
-                the second integer is used for the y direction (i.e. 
+                the second integer is used for the y direction (i.e.
                 `RectBivariateSpline` with `kx, ky = interpolation`).
-            spline_smoothing: Smoothing factor passed to 
+            spline_smoothing: Smoothing factor passed to
                 `RectBivariateSpline(..., s=spline_smoothing)` when spline interpolation
                 is used. This parameter is ignored when `interpolation='nearest'`.
             propagate_nan: If using spline interpolation, propagate NaN values from the
@@ -1030,9 +1030,6 @@ class BodyXY(Body):
             of the target body. Locations which are not visible or outside the
             projection domain have a value of NaN.
         """
-        # XXX interpolation (test)
-        # XXX smoothing (test)
-        # XXX change signature of other functions
         x_map = self.get_x_map(**map_kwargs)
         y_map = self.get_y_map(**map_kwargs)
         projected = self._make_empty_map(**map_kwargs)
