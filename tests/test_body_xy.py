@@ -1448,6 +1448,18 @@ class TestBodyXY(unittest.TestCase):
         plt.close(fig)
 
         fig, ax = plt.subplots()
+        h = self.body.plot_map(
+            np.ones((180, 360)), ax=ax, wireframe_kwargs=dict(grid_lat_limit=30)
+        )
+        self.assertIsInstance(h, QuadMesh)
+        children = ax.get_children()
+        self.assertIn(h, ax.get_children())
+        self.assertEqual(len(ax.get_lines()), 14)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 25)
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
         h = self.body.plot_map(np.ones((180, 360)), ax=ax, add_wireframe=False)
         children = ax.get_children()
         self.assertIn(h, ax.get_children())

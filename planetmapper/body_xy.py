@@ -1111,10 +1111,12 @@ class BodyXY(Body):
     def plot_map_wireframe(
         self,
         ax: Axes | None = None,
+        *,
         label_poles: bool = True,
         add_title: bool = True,
         add_axis_labels: bool = True,
         grid_interval: float = 30,
+        grid_lat_limit: float = 90,
         indicate_equator: bool = True,
         indicate_prime_meridian: bool = True,
         aspect_adjustable: Literal['box', 'datalim'] = 'box',
@@ -1165,10 +1167,13 @@ class BodyXY(Body):
             # lat=45, but this fixes the most common cases of lat=0,90,-90 and it's a
             # relatively minor cosmetic bug so is probably more-or-less fine as-is.
             npts = 360
-            lats_to_plot = [np.linspace(-90, 0, npts), np.linspace(0, 90, npts)]
+            lats_to_plot = [
+                np.linspace(-grid_lat_limit, 0, npts),
+                np.linspace(0, grid_lat_limit, npts),
+            ]
         else:
             npts = 720
-            lats_to_plot = [np.linspace(-90, 90, npts)]
+            lats_to_plot = [np.linspace(-grid_lat_limit, grid_lat_limit, npts)]
         for lon in lon_ticks:
             if lon == 360 or (lon == 0 and projection == 'rectangular'):
                 continue
@@ -1187,6 +1192,8 @@ class BodyXY(Body):
         npts = 720
         for lat in lat_ticks:
             if lat in {-90, 90}:
+                continue
+            if abs(lat) > grid_lat_limit:
                 continue
             x, y = transformer.transform(np.linspace(0, 360, npts), lat * np.ones(npts))
             ax.plot(

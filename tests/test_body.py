@@ -937,6 +937,171 @@ class TestBody(unittest.TestCase):
             )
         )
 
+        self.assertTrue(
+            np.allclose(
+                self.body.visible_lonlat_grid_radec(lat_limit=30, npts=5),
+                [
+                    (
+                        array([nan, nan, nan, nan, nan]),
+                        array([nan, nan, nan, nan, nan]),
+                    ),
+                    (
+                        array([nan, nan, nan, nan, nan]),
+                        array([nan, nan, nan, nan, nan]),
+                    ),
+                    (
+                        array([nan, nan, nan, nan, nan]),
+                        array([nan, nan, nan, nan, nan]),
+                    ),
+                    (
+                        array(
+                            [
+                                196.36751616,
+                                196.36759734,
+                                196.36794262,
+                                196.36853038,
+                                196.36933989,
+                            ]
+                        ),
+                        array(
+                            [
+                                -5.56612675,
+                                -5.56496537,
+                                -5.56387245,
+                                -5.56289478,
+                                -5.56207953,
+                            ]
+                        ),
+                    ),
+                    (
+                        array(
+                            [
+                                196.368942,
+                                196.36916913,
+                                196.36956301,
+                                196.37010219,
+                                196.37076577,
+                            ]
+                        ),
+                        array(
+                            [
+                                -5.56667572,
+                                -5.56557049,
+                                -5.56449624,
+                                -5.56349983,
+                                -5.56262837,
+                            ]
+                        ),
+                    ),
+                    (
+                        array(
+                            [
+                                196.37093916,
+                                196.37137073,
+                                196.37183267,
+                                196.3723038,
+                                196.37276294,
+                            ]
+                        ),
+                        array(
+                            [
+                                -5.56753064,
+                                -5.5665129,
+                                -5.56546778,
+                                -5.56444221,
+                                -5.56348323,
+                            ]
+                        ),
+                    ),
+                    (
+                        array(
+                            [
+                                196.37297245,
+                                196.37361216,
+                                196.37414339,
+                                196.3745452,
+                                196.3747962,
+                            ]
+                        ),
+                        array(
+                            [
+                                -5.56846241,
+                                -5.56754006,
+                                -5.5665267,
+                                -5.56546938,
+                                -5.56441503,
+                            ]
+                        ),
+                    ),
+                    (
+                        array(
+                            [
+                                196.37449692,
+                                196.37529266,
+                                196.37587583,
+                                196.37622567,
+                                196.37632061,
+                            ]
+                        ),
+                        array(
+                            [
+                                -5.56922131,
+                                -5.56837668,
+                                -5.5673892,
+                                -5.56630605,
+                                -5.56517403,
+                            ]
+                        ),
+                    ),
+                    (
+                        array(
+                            [
+                                196.37510403,
+                                196.37596188,
+                                196.37656571,
+                                196.37689485,
+                                196.37692764,
+                            ]
+                        ),
+                        array(
+                            [
+                                -5.56960397,
+                                -5.56879854,
+                                -5.56782415,
+                                -5.566728,
+                                -5.56555684,
+                            ]
+                        ),
+                    ),
+                    (
+                        array([nan, nan, nan, nan, nan]),
+                        array([nan, nan, nan, nan, nan]),
+                    ),
+                    (
+                        array([nan, nan, nan, nan, nan]),
+                        array([nan, nan, nan, nan, nan]),
+                    ),
+                    (
+                        array([nan, nan, nan, nan, nan]),
+                        array([nan, nan, nan, nan, nan]),
+                    ),
+                    (
+                        array([nan, 196.36751616, 196.37297245, nan, nan]),
+                        array([nan, -5.56612675, -5.56846241, nan, nan]),
+                    ),
+                    (
+                        array([nan, 196.36794262, 196.37414339, nan, nan]),
+                        array([nan, -5.56387245, -5.5665267, nan, nan]),
+                    ),
+                    (
+                        array([nan, 196.36933989, 196.3747962, nan, nan]),
+                        array([nan, -5.56207953, -5.56441503, nan, nan]),
+                    ),
+                ],
+                equal_nan=True,
+            )
+        )
+
     def test_radial_velocity_from_lonlat(self):
         args: list[tuple[tuple[float, float], float]] = [
             ((0, 0), -20.796924908179438),
@@ -1036,6 +1201,13 @@ class TestBody(unittest.TestCase):
         self.assertEqual(len(ax.get_lines()), 21)
         self.assertEqual(len(ax.get_images()), 0)
         self.assertEqual(len(ax.get_children()), 31)
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
+        self.body.plot_wireframe_radec(ax, grid_lat_limit=30)
+        self.assertEqual(len(ax.get_lines()), 18)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 29)
         plt.close(fig)
 
         ax = self.body.plot_wireframe_km()
