@@ -2139,9 +2139,9 @@ class Body(BodyBase):
             add_axis_labels: Add axis labels.
             grid_interval: Spacing between grid lines in degrees.
             grid_lat_limit: Latitude limit for gridlines. For example, if
-                `grid_lat_limit=60`, then will only be plotted for latitudes between
-                60°N and 60°S (inclusive). This can be useful to reduce visual clutter
-                around the poles.
+                `grid_lat_limit=60`, then gridlines will only be plotted for latitudes
+                between 60°N and 60°S (inclusive). This can be useful to reduce visual
+                clutter around the poles.
             indicate_equator: Toggle indicating the equator with a solid line.
             indicate_prime_meridian: Toggle indicating the prime meridian with a solid
                 line.
