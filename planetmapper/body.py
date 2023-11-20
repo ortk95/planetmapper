@@ -671,7 +671,7 @@ class Body(BodyBase):
         dist_offset = (
             np.linalg.norm(self._subpoint_rayvec + targvec_offset)
             - self.subpoint_distance
-        )
+        )  # pyright: ignore[reportGeneralTypeIssues]
 
         # Use the calculated difference in distance relative to the subpoint to
         # calculate the time corresponding to when the ray left the surface at the point
@@ -726,7 +726,7 @@ class Body(BodyBase):
         dist_offset = (
             np.linalg.norm(-self._subpoint_rayvec + obsvec_offset)
             - self.subpoint_distance
-        )
+        )  # pyright: ignore[reportGeneralTypeIssues]
 
         # Use the calculated difference in distance relative to the subpoint to
         # calculate the time corresponding to when the ray left the surface at the point
