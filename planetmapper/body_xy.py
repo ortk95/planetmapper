@@ -912,6 +912,7 @@ class BodyXY(Body):
             self._mpl_transform_xy2radec = (
                 self._get_matplotlib_xy2radec_transform_radians() + transform_deg2rad
             )
+        self.update_transform()  # https://github.com/ortk95/planetmapper/issues/310
         transform = self._mpl_transform_xy2radec
         if ax:
             transform = transform + ax.transData
@@ -925,6 +926,7 @@ class BodyXY(Body):
             self._mpl_transform_radec2xy = (
                 transform_rad2deg + self._get_matplotlib_radec2xy_transform_radians()
             )  # type: ignore
+        self.update_transform()  # https://github.com/ortk95/planetmapper/issues/310
         transform = self._mpl_transform_radec2xy
         if ax:
             transform = transform + ax.transData
