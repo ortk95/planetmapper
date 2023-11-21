@@ -1624,7 +1624,7 @@ class TestBodyXY(unittest.TestCase):
         # Test caching works
         fig, axis = plt.subplots()
         for ax in [None, axis]:
-            for transform, attr in (
+            for transform_method, attr in (
                 (self.body.matplotlib_radec2xy_transform, '_mpl_transform_radec2xy'),
                 (self.body.matplotlib_xy2radec_transform, '_mpl_transform_xy2radec'),
                 (self.body.matplotlib_km2xy_transform, '_mpl_transform_km2xy'),
@@ -1632,11 +1632,11 @@ class TestBodyXY(unittest.TestCase):
                 (self.body.matplotlib_radec2km_transform, '_mpl_transform_radec2km'),
                 (self.body.matplotlib_km2radec_transform, '_mpl_transform_km2radec'),
             ):
-                with self.subTest(ax=ax, transform=transform, attr=attr):
-                    transform(ax)
-                    t1 = transform(ax)
+                with self.subTest(ax=ax, transform=transform_method, attr=attr):
+                    transform_method(ax)
+                    t1 = transform_method(ax)
                     setattr(self.body, attr, None)
-                    t2 = transform(ax)
+                    t2 = transform_method(ax)
                     self.assertEqual(t1, t2)
 
         plt.close(fig)
@@ -1661,19 +1661,38 @@ class TestBodyXY(unittest.TestCase):
             self.assertTrue(np.allclose(t2.inverted().get_matrix(), t1.get_matrix()))
 
         # Test update
-        for transform in [
+        for transform_method in [
             self.body.matplotlib_radec2xy_transform,
             self.body.matplotlib_xy2radec_transform,
             self.body.matplotlib_km2xy_transform,
             self.body.matplotlib_xy2km_transform,
         ]:
-            with self.subTest(transform=transform):
+            with self.subTest(transform_method=transform_method):
+                transform = transform_method()
                 self.body.set_disc_params(10, 9, 8, 7)
                 self.body.update_transform()
-                m1 = transform().get_matrix()
+                m1 = transform.get_matrix()
                 self.body.set_disc_params(1.2, 3.4, 5.6, 178.9)
-                self.assertTrue(np.array_equal(m1, transform().get_matrix()))
+                self.assertTrue(np.array_equal(m1, transform.get_matrix()))
                 self.body.update_transform()
-                self.assertFalse(np.array_equal(m1, transform().get_matrix()))
+                self.assertFalse(np.array_equal(m1, transform.get_matrix()))
+
+        # Test passive update when getting 'new' transform
+        # https://github.com/ortk95/planetmapper/issues/310
+        for transform_method in [
+            self.body.matplotlib_radec2xy_transform,
+            self.body.matplotlib_xy2radec_transform,
+            self.body.matplotlib_km2xy_transform,
+            self.body.matplotlib_xy2km_transform,
+        ]:
+            self.body.set_disc_params(10, 9, 8, 7)
+            m1 = transform_method().get_matrix()
+            self.body.set_disc_params(1.2, 3.4, 5.6, 178.9)
+            m2 = transform_method().get_matrix()
+            self.body.set_disc_params(10, 9, 8, 7)
+            m3 = transform_method().get_matrix()
+
+            self.assertFalse(np.array_equal(m1, m2))
+            self.assertTrue(np.array_equal(m1, m3))
 
     # Backplane contents tested against FITS reference in test_observation
