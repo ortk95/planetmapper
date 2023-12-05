@@ -107,6 +107,8 @@ If you use PlanetMapper in your research, please :ref:`cite the following paper
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 """
+import sys
+
 from . import base, data_loader, gui, kernel_downloader, utils
 from .base import SpiceBase, get_kernel_path, set_kernel_path
 from .basic_body import BasicBody
@@ -136,4 +138,4 @@ __all__ = [
 def main():
     """:meta private:"""
     # pylint: disable-next=protected-access
-    gui._main()
+    gui._main(sys.argv[1:])
