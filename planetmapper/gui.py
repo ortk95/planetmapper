@@ -129,6 +129,7 @@ def _main(*args):
     if args:
         try:
             gui.set_observation(Observation(args[0]))
+        # pylint: disable-next=bare-except
         except Exception as e:
             print(f'Error loading observation: {e}')
             sys.exit(1)
