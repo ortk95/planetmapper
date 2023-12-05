@@ -1,6 +1,7 @@
 # pylint: disable=attribute-defined-outside-init,protected-access
 import math
 import os
+import sys
 import tkinter as tk
 import tkinter.colorchooser
 import tkinter.filedialog
@@ -126,7 +127,11 @@ def _main(*args):
         print('*** Using X11 font bugfix ***')
     gui = GUI()
     if args:
-        gui.set_observation(Observation(args[0]))
+        try:
+            gui.set_observation(Observation(args[0]))
+        except Exception as e:
+            print(f'Error loading observation: {e}')
+            sys.exit(1)
     gui.run()
 
 
