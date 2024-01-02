@@ -29,6 +29,7 @@ tests/temp
 !.zenodo.json
 !CITATION.cff
 !CITATION.bib
+!docs/_templates/*.html
 
 # Ignored paths
 .vscode
