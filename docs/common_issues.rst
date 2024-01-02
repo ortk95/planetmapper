@@ -9,7 +9,7 @@ Common issues & solutions
 
 General solutions
 =================
-Run `pip install planetmapper --upgrade` in a terminal to make sure you are running the latest version of PlanetMapper. It is possible that your bug may have been fixed in a recent update (you can also check the release notes for each version `on GitHub <https://github.com/ortk95/planetmapper/releases>`__).
+:ref:`Update PlanetMapper <_updating_planetmapper>` to make sure you are running the latest version. It is possible that your bug may have been fixed in a recent update (you can also check the release notes for each version `on GitHub <https://github.com/ortk95/planetmapper/releases>`__).
 
 
 Installation issues
