@@ -10,4 +10,4 @@ If you are having any issues with PlanetMapper, check the list of :ref:`common i
 - If you have a have any suggestions, or would otherwise like to get in touch, you can `create a new discussion on GitHub <https://github.com/ortk95/planetmapper/discussions/new/choose>`__.
 - If you would like to contribute code to PlanetMapper, see our `contributing guidelines on GitHub <https://github.com/ortk95/planetmapper/blob/main/CONTRIBUTING.md>`__.
 
-If you are unable to use GitHub, you can also contact us via email at `ortk2@le.ac.uk`.
+If you are unable to use GitHub, you can also get in contact via email at `ortk2@le.ac.uk`.
