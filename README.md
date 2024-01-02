@@ -1,7 +1,7 @@
 # ![PlanetMapper logo](docs/images/logo_wide_transparent.png)
 
 [![PyPI Version](https://img.shields.io/pypi/v/planetmapper?label=PyPI)](https://pypi.org/project/planetmapper/)
-![Conda Version](https://img.shields.io/conda/vn/conda-forge/planetmapper?label=conda)
+[![Conda Version](https://img.shields.io/conda/vn/conda-forge/planetmapper?label=conda)](https://anaconda.org/conda-forge/planetmapper)
 [![Publish Workflow Status](https://github.com/ortk95/planetmapper/actions/workflows/python-publish.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/python-publish.yml)
 [![Checks Workflow Status](https://github.com/ortk95/planetmapper/actions/workflows/checks.yml/badge.svg?branch=main)](https://github.com/ortk95/planetmapper/actions/workflows/checks.yml)
 [![Documentation Status](https://readthedocs.org/projects/planetmapper/badge/?version=latest)](https://planetmapper.readthedocs.io/en/latest/?badge=latest)
