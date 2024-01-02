@@ -1,6 +1,6 @@
 .. _help:
 
-Help & Support
+Help & support
 **************
 
 If you are having any issues with PlanetMapper, check the list of :ref:`common issues and their solutions <common issues>` first. If you can't find a solution there, please get in touch with us and we will do our best to help you out:
