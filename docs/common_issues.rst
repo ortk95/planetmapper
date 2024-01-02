@@ -4,7 +4,7 @@ Common issues & solutions
 *************************
 
 .. note::
-    If you find any bugs/errors that you cannot solve, please `open an issue on GitHub <https://github.com/ortk95/planetmapper/issues/new>`__
+    If you find any bugs or errors that you cannot solve, please :ref:`get in touch <help>`!`
 
 
 General solutions
