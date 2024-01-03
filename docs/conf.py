@@ -58,6 +58,7 @@ autodoc_inherit_docstrings = False
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
+html_extra_path = ['google065a4d650d8ee82d.html']
 html_logo = 'images/logo_rtd_transparent.png'
 html_theme_options = {
     'logo_only': True,

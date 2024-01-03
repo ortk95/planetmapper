@@ -3,13 +3,13 @@
 Common issues & solutions
 *************************
 
-.. note::
-    If you find any bugs/errors that you cannot solve, please `open an issue on GitHub <https://github.com/ortk95/planetmapper/issues/new>`__
+.. hint::
+    If you find any issues that you cannot solve, please :ref:`get in touch through our help pages <help>`!
 
 
 General solutions
 =================
-Run `pip install planetmapper --upgrade` in a terminal to make sure you are running the latest version of PlanetMapper. It is possible that your bug may have been fixed in a recent update (you can also check the release notes for each version `on GitHub <https://github.com/ortk95/planetmapper/releases>`__).
+:ref:`Update PlanetMapper <updating_planetmapper>` to make sure you are running the latest version. It is possible that your bug may have been fixed in a recent update (you can also check the release notes for each version `on GitHub <https://github.com/ortk95/planetmapper/releases>`__).
 
 
 Installation issues
