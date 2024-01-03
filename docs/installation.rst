@@ -30,7 +30,10 @@ if you installed PlanetMapper with pip, or: ::
 
 if you installed PlanetMapper with conda.
 
-You can view the release notes for each version `on GitHub <https://github.com/ortk95/planetmapper/releases>`__.
+The release notes for each version can be `found on GitHub <https://github.com/ortk95/planetmapper/releases>`__, and you can check what version of PlanetMapper you have installed by running: ::
+
+    import planetmapper
+    print(planetmapper.__version__)
 
 First steps
 ===========

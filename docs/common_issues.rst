@@ -3,8 +3,8 @@
 Common issues & solutions
 *************************
 
-.. note::
-    If you find any bugs or errors that you cannot solve, please :ref:`get in touch <help>`!`
+.. hint::
+    If you find any issues that you cannot solve, please :ref:`get in touch through our help pages <help>`!
 
 
 General solutions
