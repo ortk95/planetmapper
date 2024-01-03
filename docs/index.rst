@@ -63,6 +63,7 @@ If you use PlanetMapper in your research, please cite the following paper:
    installation
    spice_kernels
    common_issues
+   help
 
 .. toctree::
    :maxdepth: 2

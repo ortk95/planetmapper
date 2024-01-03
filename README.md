@@ -1,6 +1,7 @@
 # ![PlanetMapper logo](docs/images/logo_wide_transparent.png)
 
-[![PyPI](https://img.shields.io/pypi/v/planetmapper?label=PyPI&logo=python&logoColor=silver)](https://pypi.org/project/planetmapper/)
+[![PyPI Version](https://img.shields.io/pypi/v/planetmapper?label=PyPI)](https://pypi.org/project/planetmapper/)
+[![Conda Version](https://img.shields.io/conda/vn/conda-forge/planetmapper?label=conda)](https://anaconda.org/conda-forge/planetmapper)
 [![Publish Workflow Status](https://github.com/ortk95/planetmapper/actions/workflows/python-publish.yml/badge.svg)](https://github.com/ortk95/planetmapper/actions/workflows/python-publish.yml)
 [![Checks Workflow Status](https://github.com/ortk95/planetmapper/actions/workflows/checks.yml/badge.svg?branch=main)](https://github.com/ortk95/planetmapper/actions/workflows/checks.yml)
 [![Documentation Status](https://readthedocs.org/projects/planetmapper/badge/?version=latest)](https://planetmapper.readthedocs.io/en/latest/?badge=latest)
@@ -14,8 +15,12 @@ For full documentation and [API reference](https://planetmapper.readthedocs.io/e
 
 
 ## [Installation](https://planetmapper.readthedocs.io/en/latest/installation.html)
-```
+```bash
 pip install planetmapper --upgrade
+```
+
+```bash
+conda install -c conda-forge planetmapper
 ```
 
 _Requires Python 3.10+_
@@ -69,4 +74,8 @@ plt.show()
 
 ## Contributing
 
-If you spot a bug, have a suggestion, or want contribute code to PlanetMapper, check out the [contributing guidelines](https://github.com/ortk95/planetmapper/blob/main/CONTRIBUTING.md)!
+If you spot a bug, or want contribute code to PlanetMapper, check out the [contributing guidelines](https://github.com/ortk95/planetmapper/blob/main/CONTRIBUTING.md).
+
+## Help and support
+
+If you have any questions, suggestions or feedback, please [visit our support page and get in touch](https://planetmapper.readthedocs.io/en/latest/help.html)!
