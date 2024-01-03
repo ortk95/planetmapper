@@ -1,3 +1,7 @@
+.. meta::
+    :name=google-site-verification:
+      Y0SAphjsQukapIPjdOm3EJp8_fKc0cBPXv7-_PJb9ro
+
 PlanetMapper
 ************
 
