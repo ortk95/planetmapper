@@ -30,6 +30,7 @@ tests/temp
 !CITATION.cff
 !CITATION.bib
 !docs/_templates/*.html
+!docs/*.html
 
 # Ignored paths
 .vscode
