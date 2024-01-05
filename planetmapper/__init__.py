@@ -133,9 +133,3 @@ __all__ = [
     'data_loader',
     'DEFAULT_WIREFRAME_FORMATTING',
 ]
-
-
-def main():
-    """:meta private:"""
-    # pylint: disable-next=protected-access
-    gui._main(sys.argv[1:])
