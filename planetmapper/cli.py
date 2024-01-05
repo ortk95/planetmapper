@@ -1,12 +1,22 @@
 """
-TODO
+This module is the entry point for the PlanetMapper Command Line Interface (CLI).
+
+The command line interface is generally used to launch the PlanetMapper Graphical User
+Interface (GUI) without needing to write any Python code. For example, simply running
+`planetmapper` in the command line will launch the GUI.
+
+For a list of available command line options, run `planetmapper --help` in the command
+line.
 """
 
 import argparse
 
-import common
+# Defer main planetmapper imports until they are needed to improve speed of CLI.
+# e.g. `planetmapper --version` should print the version number without importing
+# the rest of the package, and the 'Launching PlanetMapper ...' message should be
+# printed before the main imports start (so the user gets some immediate feedback).
+# TODO this doesn't seem to actually work
 
-# XXX add docstring
 # XXX change entry points (PyPI & conda-forge) to use this function & test
 # XXX add tests
 
@@ -32,27 +42,36 @@ System observations. See https://planetmapper.readthedocs.io for full documentat
         '-v',
         '--version',
         action='version',
-        version=f'PlanetMapper {common.__version__}',
+        version=f'PlanetMapper {_get_version()}',
         help='print the version number and exit',
     )
     return parser
 
 
 def _run_gui(file_path: str | None) -> None:
-    print(f'Launching PlanetMapper {common.__version__}', flush=True)
+    print(f'Launching PlanetMapper {_get_version()}', flush=True)
 
-    # Defer importing main planetmapper module until here to improve apparent speed
-    # of startup (i.e. the 'Launching PlanetMapper ...' message should be printed before
-    # the relatively slow importing of the various modules).
     from . import gui
 
-    gui._run_gui_from_cli(file_path, printed_launching_message=True)
+    gui._run_gui_from_cli(file_path)
+
+
+def _get_version() -> str:
+    from . import common
+
+    return common.__version__
 
 
 def main() -> None:
-    """:meta private:"""
+    """
+    Entry point for CLI.
+
+    :meta private:
+    """
+
     args = _get_parser().parse_args()
     _run_gui(args.file_path)
 
 
-main()  # XXX remove this
+if __name__ == '__main__':
+    main()  # XXX remove this

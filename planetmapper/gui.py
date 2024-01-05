@@ -120,10 +120,8 @@ X11_FONT_BUGRIX_TRANSLATIONS = str.maketrans(
 )
 
 
-def _run_gui_from_cli(*args: str | None, printed_launching_message:bool=False) -> None:
+def _run_gui_from_cli(*args: str | None) -> None:
     """Called with `planetmapper` from the command line"""
-    if not printed_launching_message:
-        print(f'Launching PlanetMapper {common.__version__}', flush=True)
     if USE_X11_FONT_BUGFIX:
         print('*** Using X11 font bugfix ***')
     gui = GUI()
