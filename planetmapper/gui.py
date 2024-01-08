@@ -28,7 +28,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from matplotlib.text import Text
 
-from . import base, common, data_loader, progress, utils
+from . import base, data_loader, progress, utils
 from .body import BasicBody, Body, NotFoundError
 from .body_xy import _MapKwargs
 from .observation import Observation
