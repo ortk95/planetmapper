@@ -18,18 +18,16 @@ import argparse
 # printed before the main imports start (so the user gets some immediate feedback).
 
 # XXX change entry points (PyPI & conda-forge) to use this function & test
-# XXX add tests
 
 
-def main() -> None:
+def main(args: list[str] | None = None) -> None:
     """
     Entry point for CLI.
 
     :meta private:
     """
-
-    args = _get_parser().parse_args()
-    _run_gui(args.file_path)
+    parsed_args = _get_parser().parse_args(args)
+    _run_gui(parsed_args.file_path)
 
 
 def _get_parser() -> argparse.ArgumentParser:

@@ -32,8 +32,3 @@ class TestInit(unittest.TestCase):
         self.assertLess(
             version.Version(planetmapper.__version__), version.Version('2.0.0')
         )
-
-    @patch('planetmapper.gui._main')
-    def test_main(self, mock_gui_main: MagicMock):
-        planetmapper.main()
-        mock_gui_main.assert_called_once()
