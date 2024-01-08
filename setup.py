@@ -40,7 +40,7 @@ setuptools.setup(
     },
     entry_points={
         # Copy any changes here to the conda-forge recipe (meta.yaml)
-        'console_scripts': ['planetmapper=planetmapper:main'],
+        'console_scripts': ['planetmapper=planetmapper.cli:main'],
     },
     python_requires='>=3.10.0',
     install_requires=[

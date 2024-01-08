@@ -83,6 +83,7 @@ If you use PlanetMapper in your research, please cite the following paper:
    documentation
    base
    gui
+   cli
    utils
    data_loader
    kernel_downloader
