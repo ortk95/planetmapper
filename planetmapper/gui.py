@@ -28,7 +28,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from matplotlib.text import Text
 
-from . import base, common, data_loader, progress, utils
+from . import base, data_loader, progress, utils
 from .body import BasicBody, Body, NotFoundError
 from .body_xy import _MapKwargs
 from .observation import Observation
@@ -120,13 +120,12 @@ X11_FONT_BUGRIX_TRANSLATIONS = str.maketrans(
 )
 
 
-def _main(*args):
+def _run_gui_from_cli(*args: str | None) -> None:
     """Called with `planetmapper` from the command line"""
-    print(f'Launching PlanetMapper {common.__version__}')
     if USE_X11_FONT_BUGFIX:
         print('*** Using X11 font bugfix ***')
     gui = GUI()
-    if args:
+    if args and args[0] is not None:
         try:
             gui.set_observation(Observation(args[0]))
         # pylint: disable-next=broad-exception-caught
