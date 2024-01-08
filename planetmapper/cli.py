@@ -11,11 +11,11 @@ line.
 
 import argparse
 
+# TODO if possible...
 # Defer main planetmapper imports until they are needed to improve speed of CLI.
 # e.g. `planetmapper --version` should print the version number without importing
 # the rest of the package, and the 'Launching PlanetMapper ...' message should be
 # printed before the main imports start (so the user gets some immediate feedback).
-# TODO this doesn't seem to actually work
 
 # XXX change entry points (PyPI & conda-forge) to use this function & test
 # XXX add tests
