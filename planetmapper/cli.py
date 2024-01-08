@@ -17,8 +17,6 @@ import argparse
 # the rest of the package, and the 'Launching PlanetMapper ...' message should be
 # printed before the main imports start (so the user gets some immediate feedback).
 
-# XXX change entry points (PyPI & conda-forge) to use this function
-
 
 def main(args: list[str] | None = None) -> None:
     """
