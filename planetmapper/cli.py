@@ -21,6 +21,17 @@ import argparse
 # XXX add tests
 
 
+def main() -> None:
+    """
+    Entry point for CLI.
+
+    :meta private:
+    """
+
+    args = _get_parser().parse_args()
+    _run_gui(args.file_path)
+
+
 def _get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog='planetmapper',
@@ -60,18 +71,3 @@ def _get_version() -> str:
     from . import common
 
     return common.__version__
-
-
-def main() -> None:
-    """
-    Entry point for CLI.
-
-    :meta private:
-    """
-
-    args = _get_parser().parse_args()
-    _run_gui(args.file_path)
-
-
-if __name__ == '__main__':
-    main()  # XXX remove this
