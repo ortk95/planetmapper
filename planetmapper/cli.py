@@ -32,8 +32,9 @@ def _get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog='planetmapper',
         description="""
-PlanetMapper: An open source Python module for visualising, navigating and mapping Solar
-System observations. See https://planetmapper.readthedocs.io for full documentation.
+PlanetMapper: An open source Python package for visualising, navigating and mapping
+Solar System observations. See https://planetmapper.readthedocs.io for full
+documentation.
 """,
         epilog='If no arguments are provided, the PlanetMapper GUI will be launched.',
         argument_default=argparse.SUPPRESS,

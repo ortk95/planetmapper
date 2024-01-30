@@ -14,7 +14,7 @@ class TestInit(unittest.TestCase):
         self.assertEqual(planetmapper.__license__, 'MIT')
         self.assertEqual(
             planetmapper.__description__,
-            'PlanetMapper: A Python module for visualising, navigating and mapping Solar System observations',
+            'PlanetMapper: A Python package for visualising, navigating and mapping Solar System observations',
         )
 
     def test_version(self):
