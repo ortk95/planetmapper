@@ -183,6 +183,7 @@ class GUI:
             self.save_button: ['<Control-s>'],
             self.load_observation: ['<Control-o>'],
             self.copy_machine_coord_values: ['<Control-c>'],
+            self.display_header: ['<Control-h>'],
         }
         self.shortcuts_to_keep_in_entry = ['<Control-s>', '<Control-o>']
 
@@ -437,7 +438,15 @@ class GUI:
         frame.pack()
         self.notebook.add(frame, text='Controls')
 
-        buttons = [
+        buttons: list[
+            tuple[
+                str,
+                str,
+                Callable[[], None],
+                int | tuple[int, int],
+                int | tuple[int, int],
+            ]
+        ] = [
             (
                 'Open...',
                 'Open a new observation, change target/date/observer, and adjust kernel settings',
@@ -452,6 +461,13 @@ class GUI:
                 1,
                 0,
             ),
+            (
+                'View FITS header',
+                'View the FITS header for the observation',
+                self.display_header,
+                (0, 2) if self.allow_open else 1,
+                1,
+            ),
         ]
         if not self.allow_open:
             del buttons[0]
@@ -463,6 +479,7 @@ class GUI:
             button_tooltip_base='{hint}',
             entry_tooltip='',
             numeric_entries=[],
+            wide_buttons=True,
         )
 
         self.build_main_controls_section(
@@ -529,45 +546,80 @@ class GUI:
         self,
         frame: ttk.Frame,
         label: str,
-        buttons: list[tuple[str, str, Callable[[], None], int, int]],
+        buttons: list[
+            tuple[
+                str,
+                str,
+                Callable[[], None],
+                int | tuple[int, int],
+                int | tuple[int, int],
+            ]
+        ],
         button_tooltip_base: str,
         entry_tooltip: str,
         numeric_entries: list[SetterKey | tuple[SetterKey, str]],
         ipadx=30,
         ipady=1,
         add_callbacks: list[SetterKey] | None = None,
+        wide_buttons: bool = False,
         **kw,
     ) -> None:
         label_frame = ttk.LabelFrame(frame, text=label)
         label_frame.pack(fill='x', pady=3, ipadx=1, ipady=1)
 
-        button_frame = ttk.Frame(label_frame)
-        button_frame.pack()
-        for arrow, hint, fn, column, row in buttons:
-            arrow = self.maybe_replace_string_with_x11_bugfix(arrow)
-            self.add_tooltip(
-                ttk.Button(button_frame, text=arrow, command=fn, width=1),
-                button_tooltip_base.format(hint=hint),
-                fn,
-            ).grid(column=column, row=row, ipadx=ipadx, ipady=ipady, padx=2, pady=2)
-
-        entry_frame = self.add_tooltip(ttk.Frame(label_frame), entry_tooltip)
-        entry_frame.pack(pady=2)
-        for ne in numeric_entries:
-            if isinstance(ne, str):
-                NumericEntry(
-                    self, entry_frame, ne, pady=2, add_callbacks=add_callbacks, **kw
-                )
-            else:
-                NumericEntry(
-                    self,
-                    entry_frame,
-                    ne[0],
-                    ne[1],
+        if buttons:
+            button_frame = ttk.Frame(label_frame)
+            button_frame.pack(
+                fill='x' if wide_buttons else 'none',
+                expand=wide_buttons,
+                padx=5 if wide_buttons else 0,
+            )
+            for text, hint, fn, column, row in buttons:
+                if isinstance(column, tuple):
+                    column, columnspan = column
+                else:
+                    columnspan = 1
+                if isinstance(row, tuple):
+                    row, rowspan = row
+                else:
+                    rowspan = 1
+                text = self.maybe_replace_string_with_x11_bugfix(text)
+                self.add_tooltip(
+                    ttk.Button(button_frame, text=text, command=fn, width=1),
+                    button_tooltip_base.format(hint=hint),
+                    fn,
+                ).grid(
+                    column=column,
+                    row=row,
+                    columnspan=columnspan,
+                    rowspan=rowspan,
+                    ipadx=ipadx,
+                    ipady=ipady,
+                    padx=2,
                     pady=2,
-                    add_callbacks=add_callbacks,
-                    **kw,
+                    sticky='we',
                 )
+                if wide_buttons:
+                    button_frame.grid_columnconfigure(column, weight=1)
+
+        if numeric_entries:
+            entry_frame = self.add_tooltip(ttk.Frame(label_frame), entry_tooltip)
+            entry_frame.pack(pady=2)
+            for ne in numeric_entries:
+                if isinstance(ne, str):
+                    NumericEntry(
+                        self, entry_frame, ne, pady=2, add_callbacks=add_callbacks, **kw
+                    )
+                else:
+                    NumericEntry(
+                        self,
+                        entry_frame,
+                        ne[0],
+                        ne[1],
+                        pady=2,
+                        add_callbacks=add_callbacks,
+                        **kw,
+                    )
 
     def build_plot_settings_controls_tab(self) -> None:
         menu = ttk.Frame(self.notebook)
@@ -1420,6 +1472,9 @@ class GUI:
             s = s.translate(X11_FONT_BUGRIX_TRANSLATIONS)
         return s
 
+    def display_header(self) -> None:
+        HeaderDisplay(self)
+
 
 class Popup:
     def get_int(
@@ -2258,6 +2313,55 @@ class SavingProgress(Popup):
         self.window.destroy()
         self.parent.gui.get_observation()._remove_progress_hook()
         self.parent.saving_progress_window = None
+
+
+class HeaderDisplay(Popup):
+    def __init__(self, gui: GUI) -> None:
+        self.gui = gui
+        self.make_widget()
+
+    def make_widget(self) -> None:
+        self.window = tk.Toplevel(self.gui.root)
+        self.window.title('FITS Header')
+        self.window.grab_set()
+        self.window.transient(self.gui.root)
+        geometry = self.gui.root.geometry()
+
+        x, y = (int(s) for s in geometry.split('+')[1:])
+        self.window.geometry(
+            '{sz}+{x:.0f}+{y:.0f}'.format(
+                sz='650x800',
+                x=x + 50,
+                y=y + 50,
+            )
+        )
+
+        self.window_frame = ttk.Frame(self.window)
+        self.window_frame.pack(expand=True, fill='both')
+
+        self.content_frame = ttk.Frame(self.window_frame)
+        self.content_frame.pack(expand=True, fill='both')
+
+        self.window.protocol('WM_DELETE_WINDOW', self.close_window)
+        self.window.bind('<Escape>', self.close_window)
+
+        self.add_header_widget()
+
+    def add_header_widget(self) -> None:
+        self.header_txt = tkinter.scrolledtext.ScrolledText(self.content_frame)
+        self.header_txt.pack(expand=True, fill='both')
+        self.header_txt.insert('1.0', self.get_header_string())
+        self.header_txt.configure(state='disabled')
+
+    def get_header_string(self) -> str:
+        header = self.gui.get_observation().header
+        return header.tostring(sep='\n')
+
+    def click_close(self) -> None:
+        self.close_window()
+
+    def close_window(self, *_) -> None:
+        self.window.destroy()
 
 
 # Progress hooks
@@ -3327,7 +3431,7 @@ class CustomNavigationToolbar(NavigationToolbar2Tk):
     def __init__(self, canvas, window, *, pack_toolbar: bool = True, gui: GUI) -> None:
         # Default tooltips don't work with tk (on my laptop with dark mode at least)
         # so disable them here by setting to None, then use our custom tooltips instead.
-        # This list also removes the and Subplots button which we don't want.
+        # This list also removes the Subplots button which we don't want.
         self.toolitems = (
             ('Home', None, 'home', 'home'),
             ('Back', None, 'back', 'back'),
@@ -3340,7 +3444,7 @@ class CustomNavigationToolbar(NavigationToolbar2Tk):
         )
         super().__init__(canvas, window, pack_toolbar=pack_toolbar)
         try:
-            self._message_label.configure(foreground='#666666')
+            self._message_label.configure(foreground='#888888')
         # pylint: disable-next=bare-except
         except:
             pass
