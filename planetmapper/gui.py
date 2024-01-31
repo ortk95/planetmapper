@@ -94,8 +94,6 @@ MAP_PROJECTIONS = ('rectangular', 'orthographic', 'azimuthal', 'azimuthal equal 
 DEFAULT_HINT = ''
 
 
-# XXX correct dark background in matplotlib toolbar
-
 # Deal with X11 font bug by replacing high codepoint chars with ASCII equivalents.
 # This seems to prevent the use of fonts which cause the X_OpenFont error which
 # XQuartz was producing when trying to run planetmapper over SSH on mac. This is a bit
@@ -2332,7 +2330,7 @@ class HeaderDisplay(Popup):
         x, y = (int(s) for s in geometry.split('+')[1:])
         self.window.geometry(
             '{sz}+{x:.0f}+{y:.0f}'.format(
-                sz='650x800',  
+                sz='650x800',
                 x=x + 50,
                 y=y + 50,
             )
@@ -3433,7 +3431,7 @@ class CustomNavigationToolbar(NavigationToolbar2Tk):
     def __init__(self, canvas, window, *, pack_toolbar: bool = True, gui: GUI) -> None:
         # Default tooltips don't work with tk (on my laptop with dark mode at least)
         # so disable them here by setting to None, then use our custom tooltips instead.
-        # This list also removes the and Subplots button which we don't want.
+        # This list also removes the Subplots button which we don't want.
         self.toolitems = (
             ('Home', None, 'home', 'home'),
             ('Back', None, 'back', 'back'),
@@ -3446,7 +3444,7 @@ class CustomNavigationToolbar(NavigationToolbar2Tk):
         )
         super().__init__(canvas, window, pack_toolbar=pack_toolbar)
         try:
-            self._message_label.configure(foreground='#666666')
+            self._message_label.configure(foreground='#888888')
         # pylint: disable-next=bare-except
         except:
             pass
