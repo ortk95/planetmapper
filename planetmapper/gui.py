@@ -94,6 +94,8 @@ MAP_PROJECTIONS = ('rectangular', 'orthographic', 'azimuthal', 'azimuthal equal 
 DEFAULT_HINT = ''
 
 
+# XXX correct dark background in matplotlib toolbar
+
 # Deal with X11 font bug by replacing high codepoint chars with ASCII equivalents.
 # This seems to prevent the use of fonts which cause the X_OpenFont error which
 # XQuartz was producing when trying to run planetmapper over SSH on mac. This is a bit
@@ -183,6 +185,7 @@ class GUI:
             self.save_button: ['<Control-s>'],
             self.load_observation: ['<Control-o>'],
             self.copy_machine_coord_values: ['<Control-c>'],
+            self.display_header: ['<Control-h>'],
         }
         self.shortcuts_to_keep_in_entry = ['<Control-s>', '<Control-o>']
 
@@ -464,13 +467,12 @@ class GUI:
                 'View FITS header',
                 'View the FITS header for the observation',
                 self.display_header,
-                (0, 2),
+                (0, 2) if self.allow_open else 1,
                 1,
             ),
         ]
         if not self.allow_open:
             del buttons[0]
-            # XXX change colspan of view button here
 
         self.build_main_controls_section(
             frame=frame,
@@ -1473,7 +1475,6 @@ class GUI:
         return s
 
     def display_header(self) -> None:
-        # XXX implement this
         HeaderDisplay(self)
 
 
@@ -2317,7 +2318,6 @@ class SavingProgress(Popup):
 
 
 class HeaderDisplay(Popup):
-    # XXX complete this
     def __init__(self, gui: GUI) -> None:
         self.gui = gui
         self.make_widget()
@@ -2332,7 +2332,7 @@ class HeaderDisplay(Popup):
         x, y = (int(s) for s in geometry.split('+')[1:])
         self.window.geometry(
             '{sz}+{x:.0f}+{y:.0f}'.format(
-                sz='650x800',  # XXX
+                sz='650x800',  
                 x=x + 50,
                 y=y + 50,
             )
@@ -2345,6 +2345,7 @@ class HeaderDisplay(Popup):
         self.content_frame.pack(expand=True, fill='both')
 
         self.window.protocol('WM_DELETE_WINDOW', self.close_window)
+        self.window.bind('<Escape>', self.close_window)
 
         self.add_header_widget()
 
@@ -2361,7 +2362,7 @@ class HeaderDisplay(Popup):
     def click_close(self) -> None:
         self.close_window()
 
-    def close_window(self) -> None:
+    def close_window(self, *_) -> None:
         self.window.destroy()
 
 
