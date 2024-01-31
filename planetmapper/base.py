@@ -782,13 +782,11 @@ def set_kernel_path(path: str | None) -> None:
 
 
 @overload
-def get_kernel_path(return_source: Literal[False] = False) -> str:
-    ...
+def get_kernel_path(return_source: Literal[False] = False) -> str: ...
 
 
 @overload
-def get_kernel_path(return_source: Literal[True]) -> tuple[str, str]:
-    ...
+def get_kernel_path(return_source: Literal[True]) -> tuple[str, str]: ...
 
 
 def get_kernel_path(return_source: bool = False) -> str | tuple[str, str]:

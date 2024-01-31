@@ -437,14 +437,12 @@ class Body(BodyBase):
     @overload
     def create_other_body(
         self, other_target: str | int, fallback_to_basic_body: Literal[False]
-    ) -> 'Body':
-        ...
+    ) -> 'Body': ...
 
     @overload
     def create_other_body(
         self, other_target: str | int, fallback_to_basic_body: bool = True
-    ) -> 'Body|BasicBody':
-        ...
+    ) -> 'Body|BasicBody': ...
 
     def create_other_body(
         self, other_target: str | int, fallback_to_basic_body: bool = True
@@ -892,9 +890,11 @@ class Body(BodyBase):
     ) -> tuple[np.ndarray, np.ndarray]:
         if condition_func is not None:
             ra_dec = [
-                self._obsvec2radec_radians(self._targvec2obsvec(t))
-                if condition_func(t)
-                else (np.nan, np.nan)
+                (
+                    self._obsvec2radec_radians(self._targvec2obsvec(t))
+                    if condition_func(t)
+                    else (np.nan, np.nan)
+                )
                 for t in targvec_arr
             ]
         else:

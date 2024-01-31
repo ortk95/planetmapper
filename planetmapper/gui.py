@@ -187,27 +187,27 @@ class GUI:
         }
         self.shortcuts_to_keep_in_entry = ['<Control-s>', '<Control-o>']
 
-        self.setter_callbacks: defaultdict[
-            SetterKey, list[Callable[[float], Any]]
-        ] = defaultdict(
-            list,
-            {
-                'x0': [lambda f: self.get_observation().set_x0(f)],
-                'y0': [lambda f: self.get_observation().set_y0(f)],
-                'r0': [lambda f: self.get_observation().set_r0(f)],
-                'rotation': [lambda f: self.get_observation().set_rotation(f)],
-                'step': [self.set_step],
-                'plate_scale_arcsec': [
-                    lambda f: self.get_observation().set_plate_scale_arcsec(f)
-                ],
-                'plate_scale_km': [
-                    lambda f: self.get_observation().set_plate_scale_km(f)
-                ],
-            },
+        self.setter_callbacks: defaultdict[SetterKey, list[Callable[[float], Any]]] = (
+            defaultdict(
+                list,
+                {
+                    'x0': [lambda f: self.get_observation().set_x0(f)],
+                    'y0': [lambda f: self.get_observation().set_y0(f)],
+                    'r0': [lambda f: self.get_observation().set_r0(f)],
+                    'rotation': [lambda f: self.get_observation().set_rotation(f)],
+                    'step': [self.set_step],
+                    'plate_scale_arcsec': [
+                        lambda f: self.get_observation().set_plate_scale_arcsec(f)
+                    ],
+                    'plate_scale_km': [
+                        lambda f: self.get_observation().set_plate_scale_km(f)
+                    ],
+                },
+            )
         )
-        self.ui_callbacks: defaultdict[
-            SetterKey | None, set[Callable[[], Any]]
-        ] = defaultdict(set)
+        self.ui_callbacks: defaultdict[SetterKey | None, set[Callable[[], Any]]] = (
+            defaultdict(set)
+        )
 
         self.getters: dict[SetterKey, Callable[[], float]] = {
             'x0': lambda: self.get_observation().get_x0(),

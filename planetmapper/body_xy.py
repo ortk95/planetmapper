@@ -45,8 +45,7 @@ class _MapKwargs(TypedDict, total=False):
 
 
 class _BackplaneMapGetter(Protocol):
-    def __call__(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
-        ...
+    def __call__(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray: ...
 
 
 class Backplane(NamedTuple):
@@ -966,9 +965,9 @@ class BodyXY(Body):
         self,
         img: np.ndarray,
         *,
-        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic']
-        | int
-        | tuple[int, int] = 'linear',
+        interpolation: (
+            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
+        ) = 'linear',
         spline_smoothing: float = 0,
         propagate_nan: bool = True,
         warn_nan: bool = False,

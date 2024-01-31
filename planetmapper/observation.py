@@ -683,9 +683,9 @@ class Observation(BodyXY):
     # Mapping
     def get_mapped_data(
         self,
-        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic']
-        | int
-        | tuple[int, int] = 'linear',
+        interpolation: (
+            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
+        ) = 'linear',
         *,
         spline_smoothing: float = 0,
         **map_kwargs: Unpack[_MapKwargs],
@@ -725,9 +725,9 @@ class Observation(BodyXY):
     def _get_mapped_data(
         self,
         *,
-        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic']
-        | int
-        | tuple[int, int],
+        interpolation: (
+            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
+        ),
         spline_smoothing: float,
         **map_kwargs: Unpack[_MapKwargs],
     ):
@@ -1112,9 +1112,9 @@ class Observation(BodyXY):
         self,
         path: str,
         *,
-        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic']
-        | int
-        | tuple[int, int] = 'linear',
+        interpolation: (
+            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
+        ) = 'linear',
         spline_smoothing: float = 0,
         include_backplanes: bool = True,
         include_wireframe: bool = True,
