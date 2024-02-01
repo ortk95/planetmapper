@@ -8,6 +8,7 @@ import tkinter.filedialog
 import tkinter.messagebox
 import tkinter.scrolledtext
 import traceback
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from tkinter import ttk
 from typing import Any, Callable, Literal, TypedDict, TypeVar
@@ -2398,7 +2399,7 @@ class SaveMapProgressHookGUI(progress._SaveMapProgressHook, SaveProgressHookGUI)
 
 
 # Artist settings popups
-class ArtistSetting(Popup):
+class ArtistSetting(Popup, ABC):
     def __init__(
         self,
         gui: GUI,
@@ -2494,11 +2495,11 @@ class ArtistSetting(Popup):
         self.grid_frame.pack()
         self.make_menu()
 
-    def make_menu(self) -> None:
-        raise NotImplementedError
+    @abstractmethod
+    def make_menu(self) -> None: ...
 
-    def apply_settings(self) -> bool:
-        raise NotImplementedError
+    @abstractmethod
+    def apply_settings(self) -> bool: ...
 
     def run_callbacks(self) -> None:
         if self.callbacks is None:
@@ -3216,7 +3217,6 @@ class PlotOutlinedTextSetting(ArtistSetting):
         return True
 
 
-# pylint: disable-next=abstract-method
 class GenericOtherBodySetting(ArtistSetting):
     def add_other_body_menu_setting(self):
         label = '\n'.join(

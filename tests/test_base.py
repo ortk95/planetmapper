@@ -223,11 +223,18 @@ class TestSpiceBase(unittest.TestCase):
                 self.assertAlmostEqual(self.obj.angular_dist(*angles), dist)
         self.assertTrue(np.isnan(self.obj.angular_dist(1, 2, 3, np.nan)))
 
-    def test_progrress_hook(self):
-        hook = planetmapper.progress.ProgressHook()
+    def test_progress_hook(self):
+        class CustomError(Exception):
+            pass
+
+        class CustomHook(planetmapper.progress.ProgressHook):
+            def __call__(self, progress: float, stack: list[str]) -> None:
+                raise CustomError()
+
+        hook = CustomHook()
         self.obj._set_progress_hook(hook)
-        self.assertEqual(self.obj._get_progress_hook(), hook)
-        with self.assertRaises(NotImplementedError):
+        self.assertIs(self.obj._get_progress_hook(), hook)
+        with self.assertRaises(CustomError):
             self.obj._update_progress_hook(0.5)
         self.obj._remove_progress_hook()
         self.assertIsNone(self.obj._get_progress_hook())
