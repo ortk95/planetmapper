@@ -968,7 +968,7 @@ class Body(BodyBase):
         if x > 180.0:
             x -= 360.0
         y = np.rad2deg(y)
-        return x, y
+        return x * 3600.0, y * 3600.0  # convert degrees -> arcseconds
 
     def _angular2obsvec_norm(
         self,
@@ -978,7 +978,7 @@ class Body(BodyBase):
     ) -> np.ndarray:
         # inverse of a roation matrix is just the transpose
         return self._get_obsvec2angular_matrix(**angular_kwargs).T @ spice.radrec(
-            1.0, -np.deg2rad(angular_x), np.deg2rad(angular_y)
+            1.0, -np.deg2rad(angular_x / 3600.0), np.deg2rad(angular_y / 3600.0)
         )
 
     def angular2radec(
@@ -1000,7 +1000,8 @@ class Body(BodyBase):
         **angular_kwargs: Unpack[_AngularCoordinateKwargs],
     ) -> tuple[float, float]:
         return self._obsvec2angular(
-            self._radec2obsvec_norm_radians(*self._degree_pair2radians(ra, dec)), **angular_kwargs
+            self._radec2obsvec_norm_radians(*self._degree_pair2radians(ra, dec)),
+            **angular_kwargs,
         )
 
     def angular2lonlat(
