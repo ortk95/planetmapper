@@ -312,39 +312,33 @@ class BodyXY(Body):
 
     # Coordinate transformations
     @_cache_clearable_result
-    def _get_xy2radec_matrix_radians(self) -> np.ndarray:
-        r_km = self.r_eq
-        r_radians = np.arcsin(r_km / self.target_distance)
-        s = r_radians / self.get_r0()
-        theta = self._get_rotation_radians()
-        direction_matrix = np.array([[-1, 0], [0, 1]])
-        stretch_matrix = np.array(
-            [[1 / np.abs(np.cos(self._target_dec_radians)), 0], [0, 1]]
+    def _get_xy2angular_matrix(self) -> np.ndarray:
+        # angular coords are centred on the target, so just need to:
+        # - convert arcsec to pixels with constant scale factor (s)
+        # - rotate by the rotation angle
+        # - translate by the target's disc centre
+        s = self.get_plate_scale_arcsec()  # arcsec/pixel
+        theta_radians = self._get_rotation_radians()
+        transform_matrix_2x2 = s * self._rotation_matrix_radians(theta_radians)
+        offset_vector = transform_matrix_2x2.dot(
+            np.array([self.get_x0(), self.get_y0()])
         )
-        rotation_matrix = self._rotation_matrix_radians(theta)
-        transform_matrix_2x2 = s * np.matmul(stretch_matrix, rotation_matrix)
-        transform_matrix_2x2 = np.matmul(transform_matrix_2x2, direction_matrix)
-
-        v0 = np.array([self.get_x0(), self.get_y0()])
-        a0 = np.array([self._target_ra_radians, self._target_dec_radians])
-        offset_vector = a0 - np.matmul(transform_matrix_2x2, v0)
-
         transform_matrix_3x3 = np.identity(3)
         transform_matrix_3x3[:2, :2] = transform_matrix_2x2
         transform_matrix_3x3[:2, 2] = offset_vector
-
         return transform_matrix_3x3
 
     @_cache_clearable_result
-    def _get_radec2xy_matrix_radians(self) -> np.ndarray:
-        return np.linalg.inv(self._get_xy2radec_matrix_radians())
+    def _get_angular2xy_matrix(self) -> np.ndarray:
+        return np.linalg.inv(self._get_xy2angular_matrix())
 
-    def _xy2radec_radians(self, x: float, y: float) -> tuple[float, float]:
-        a = self._get_xy2radec_matrix_radians().dot(np.array([x, y, 1]))
-        return a[0], a[1]
+    def _xy2obsvec_norm(self, x: float, y: float) -> np.ndarray:
+        a = self._get_xy2angular_matrix().dot(np.array([x, y, 1.0]))
+        return self._angular2obsvec_norm(a[0], a[1])
 
-    def _radec2xy_radians(self, ra: float, dec: float) -> tuple[float, float]:
-        v = self._get_radec2xy_matrix_radians().dot(np.array([ra, dec, 1]))
+    def _obsvec2xy(self, obsvec: np.ndarray) -> tuple[float, float]:
+        angular_x, angular_y = self._obsvec2angular(obsvec)
+        v = self._get_angular2xy_matrix().dot(np.array([angular_x, angular_y, 1.0]))
         return v[0], v[1]
 
     # Composite transformations
@@ -359,7 +353,9 @@ class BodyXY(Body):
         Returns:
             `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
         """
-        return self._radian_pair2degrees(*self._xy2radec_radians(x, y))
+        return self._radian_pair2degrees(
+            *self._obsvec2radec_radians(self._xy2obsvec_norm(x, y))
+        )
 
     def radec2xy(self, ra: float, dec: float) -> tuple[float, float]:
         """
@@ -372,7 +368,9 @@ class BodyXY(Body):
         Returns:
             `(x, y)` tuple containing the image pixel coordinates of the point.
         """
-        return self._radec2xy_radians(*self._degree_pair2radians(ra, dec))
+        return self._obsvec2xy(
+            self._radec2obsvec_norm_radians(*self._degree_pair2radians(ra, dec))
+        )
 
     def xy2lonlat(self, x: float, y: float, **kwargs) -> tuple[float, float]:
         """
@@ -438,9 +436,7 @@ class BodyXY(Body):
         return np.array(x), np.array(y)
 
     def _xy2targvec(self, x: float, y: float) -> np.ndarray:
-        return self._obsvec_norm2targvec(
-            self._radec2obsvec_norm_radians(*self._xy2radec_radians(x, y))
-        )
+        return self._obsvec_norm2targvec(self._xy2obsvec_norm(x, y))
 
     # Interface
     def set_disc_params(
@@ -2323,8 +2319,8 @@ class BodyXY(Body):
     def _get_radec_img(self) -> np.ndarray:
         out = self._make_empty_img(2)
         for y, x in self._iterate_image(out.shape, progress=True):
-            out[y, x] = self._xy2radec_radians(x, y)
-        return np.rad2deg(out)
+            out[y, x] = self.xy2radec(x, y)
+        return out
 
     @_cache_stable_result
     @progress_decorator
