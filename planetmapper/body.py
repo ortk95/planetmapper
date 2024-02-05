@@ -400,8 +400,8 @@ class Body(BodyBase):
         self.coordinates_of_interest_lonlat = []
         self.coordinates_of_interest_radec = []
 
-        self._matrix_km2radec = None
-        self._matrix_radec2km = None
+        self._matrix_km2angular = None
+        self._matrix_angular2km = None
         self._mpl_transform_km2radec_radians = None
         self._mpl_transform_radec2km_radians = None
         self._mpl_transform_km2radec = None
@@ -929,25 +929,17 @@ class Body(BodyBase):
         origin_dec: float | None = None,
         coordinate_rotation: float = 0.0,
     ) -> np.ndarray:
-        # XXX stabilise names (tangent, kwargs)
+        # XXX stabilise names (kwargs)
         # XXX test
-        # XXX document
-        # XXX use unpack
-        # XXX add nan checks
-        # XXX add full set of transformations (lonlat, radec)
+        # XXX add generic documentation
         # XXX add full set of derived transformations (km, xy)
-        if origin_ra is None and origin_dec is None:
-            # This gives slightly better accuracy for the default case
-            # (probably due to fewer floating point operations)
-            origin_obsvec = self._targvec2obsvec(np.array([0.0, 0.0, 0.0]))
-        else:
-            if origin_ra is None:
-                origin_ra = self.target_ra
-            if origin_dec is None:
-                origin_dec = self.target_dec
-            origin_obsvec = self._radec2obsvec_norm_radians(
-                *self._degree_pair2radians(origin_ra, origin_dec)
-            )
+        if origin_ra is None:
+            origin_ra = self.target_ra
+        if origin_dec is None:
+            origin_dec = self.target_dec
+        origin_obsvec = self._radec2obsvec_norm_radians(
+            *self._degree_pair2radians(origin_ra, origin_dec)
+        )
 
         _, ra_angle, _ = spice.recrad(origin_obsvec)
         ra_matrix = spice.rotate(ra_angle, 3)
@@ -1131,44 +1123,33 @@ class Body(BodyBase):
             **angular_kwargs,
         )
 
-    # Coordinate transformations km <-> radec
-    def _get_km2radec_matrix_radians(self) -> np.ndarray:
-        # Based on code in BodyXY._get_xy2radec_matrix_radians()
-        if self._matrix_km2radec is None:
-            r_km = self.r_eq
-            r_radians = np.arcsin(r_km / self.target_distance)
-            s = r_radians / r_km
-            theta = -np.deg2rad(self.north_pole_angle())
-            direction_matrix = np.array([[-1, 0], [0, 1]])
-            stretch_matrix = np.array(
-                [[1 / np.abs(np.cos(self._target_dec_radians)), 0], [0, 1]]
-            )
-            rotation_matrix = self._rotation_matrix_radians(theta)
-            transform_matrix_2x2 = s * np.matmul(stretch_matrix, rotation_matrix)
-            transform_matrix_2x2 = np.matmul(transform_matrix_2x2, direction_matrix)
+    # Coordinate transformations km <-> angular
+    def _get_km2angular_matrix(self) -> np.ndarray:
+        if self._matrix_km2angular is None:
+            # angular coords are centred on the target, so just need to convert
+            # arcsec to km with a constant scale factor (s), and rotate so the north
+            # pole is at the top
+            s = (self.target_diameter_arcsec / 2) / self.r_eq
+            theta_radians = np.deg2rad(self.north_pole_angle())
+            transform_matrix = s * self._rotation_matrix_radians(theta_radians)
+            self._matrix_km2angular = transform_matrix
+        return self._matrix_km2angular
 
-            v0 = np.array([0, 0])
-            a0 = np.array([self._target_ra_radians, self._target_dec_radians])
-            offset_vector = a0 - np.matmul(transform_matrix_2x2, v0)
+    def _get_angular2km_matrix(self) -> np.ndarray:
+        if self._matrix_angular2km is None:
+            self._matrix_angular2km = np.linalg.inv(self._get_km2angular_matrix())
+        return self._matrix_angular2km
 
-            transform_matrix_3x3 = np.identity(3)
-            transform_matrix_3x3[:2, :2] = transform_matrix_2x2
-            transform_matrix_3x3[:2, 2] = offset_vector
-            self._matrix_km2radec = transform_matrix_3x3
-        return self._matrix_km2radec
+    def _km2obsvec_norm(self, km_x: float, km_y: float) -> np.ndarray:
+        return self._angular2obsvec_norm(
+            *(self._get_km2angular_matrix().dot(np.array([km_x, km_y])))
+        )
 
-    def _get_radec2km_matrix_radians(self) -> np.ndarray:
-        if self._matrix_radec2km is None:
-            self._matrix_radec2km = np.linalg.inv(self._get_km2radec_matrix_radians())
-        return self._matrix_radec2km
-
-    def _km2radec_radians(self, km_x: float, km_y: float) -> tuple[float, float]:
-        a = self._get_km2radec_matrix_radians().dot(np.array([km_x, km_y, 1]))
-        return a[0], a[1]
-
-    def _radec2km_radians(self, ra: float, dec: float) -> tuple[float, float]:
-        v = self._get_radec2km_matrix_radians().dot(np.array([ra, dec, 1]))
-        return v[0], v[1]
+    def _obsvec2km(self, obsvec: np.ndarray) -> tuple[float, float]:
+        km_x, km_y = self._get_angular2km_matrix().dot(
+            np.array(self._obsvec2angular(obsvec))
+        )
+        return km_x, km_y
 
     def km2radec(self, km_x: float, km_y: float) -> tuple[float, float]:
         """
@@ -1181,7 +1162,9 @@ class Body(BodyBase):
         Returns:
             `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
         """
-        return self._radian_pair2degrees(*self._km2radec_radians(km_x, km_y))
+        return self._radian_pair2degrees(
+            *self._obsvec2radec_radians(self._km2obsvec_norm(km_x, km_y))
+        )
 
     def radec2km(self, ra: float, dec: float) -> tuple[float, float]:
         """
@@ -1196,7 +1179,9 @@ class Body(BodyBase):
             `(km_x, km_y)` tuple containing distances in km in the target plane in the
             East-West and North-South directions respectively.
         """
-        return self._radec2km_radians(*self._degree_pair2radians(ra, dec))
+        return self._obsvec2km(
+            self._radec2obsvec_norm_radians(*self._degree_pair2radians(ra, dec))
+        )
 
     def km2lonlat(self, km_x: float, km_y: float, **kwargs) -> tuple[float, float]:
         """
@@ -1233,9 +1218,10 @@ class Body(BodyBase):
     def _get_matplotlib_radec2km_transform_radians(
         self,
     ) -> matplotlib.transforms.Affine2D:
+        # XXX
         if self._mpl_transform_radec2km_radians is None:
             self._mpl_transform_radec2km_radians = matplotlib.transforms.Affine2D(
-                self._get_radec2km_matrix_radians()
+                self._get_angular2km_matrix()
             )
         return self._mpl_transform_radec2km_radians
 
@@ -1255,6 +1241,7 @@ class Body(BodyBase):
         Returns:
             Matplotlib transformation from `radec` to `km` coordinates.
         """
+        # XXX
         if self._mpl_transform_radec2km is None:
             transform_rad2deg = matplotlib.transforms.Affine2D().scale(np.deg2rad(1))
             self._mpl_transform_radec2km = (
@@ -1281,6 +1268,7 @@ class Body(BodyBase):
         Returns:
             Matplotlib transformation from `km` to `radec` coordinates.
         """
+        # XXX
         if self._mpl_transform_km2radec is None:
             self._mpl_transform_km2radec = (
                 self.matplotlib_radec2km_transform().inverted()
