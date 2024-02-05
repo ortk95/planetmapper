@@ -26,7 +26,7 @@ from matplotlib.figure import Figure
 from spiceypy.utils.exceptions import NotFoundError
 
 from .base import _cache_clearable_result, _cache_stable_result
-from .body import Body, _WireframeComponent, _WireframeKwargs
+from .body import Body, _AngularCoordinateKwargs, _WireframeComponent, _WireframeKwargs
 from .progress import progress_decorator
 
 
@@ -428,6 +428,49 @@ class BodyXY(Body):
             `(x, y)` tuple containing the image pixel coordinates of the point.
         """
         return self.radec2xy(*self.km2radec(km_x, km_y))
+
+    def xy2angular(
+        self, x: float, y: float, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
+    ) -> tuple[float, float]:
+        """
+        Convert image pixel coordinates to relative angular coordinates.
+
+        Args:
+            x: Image pixel coordinate in the x direction.
+            y: Image pixel coordinate in the y direction.
+            **angular_kwargs: Additional arguments are used to customise the origin and
+                rotation of the relative angular coordinates. See
+                :func:`radec2angular` for details.
+
+        Returns:
+            `(angular_x, angular_y)` tuple containing the relative angular coordinates
+            of the point in arcseconds.
+        """
+        # XXX test
+        return self.radec2angular(*self.xy2radec(x, y), **angular_kwargs)
+
+    def angular2xy(
+        self,
+        angular_x: float,
+        angular_y: float,
+        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
+        """
+        Convert relative angular coordinates to image pixel coordinates.
+
+        Args:
+            angular_x: Angular coordinate in the x direction in arcseconds.
+            angular_y: Angular coordinate in the y direction in arcseconds.
+            **angular_kwargs: Additional arguments are used to customise the origin and
+                rotation of the relative angular coordinates. See
+                :func:`radec2angular` for details.
+
+        Returns:
+            `(x, y)` tuple containing the image pixel coordinates of the point.
+        """
+        return self.radec2xy(
+            *self.angular2radec(angular_x, angular_y, **angular_kwargs)
+        )
 
     def _radec_arrs2xy_arrs(
         self, ra_arr: np.ndarray, dec_arr: np.ndarray
