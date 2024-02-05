@@ -2207,7 +2207,8 @@ class Body(BodyBase):
     def _plot_wireframe(
         self,
         *,
-        transform: None | matplotlib.transforms.Transform,
+        coordinate_func: Callable[[float, float], tuple[float, float]],
+        transform: matplotlib.transforms.Transform | None,
         ax: Axes | None = None,
         label_poles: bool = True,
         add_title: bool = True,
@@ -2218,13 +2219,29 @@ class Body(BodyBase):
         formatting: dict[_WireframeComponent, dict[str, Any]] | None = None,
         **common_formatting,
     ) -> Axes:
-        """Plot generic wireframe representation of the observation"""
+        """
+        Plot generic wireframe representation of the observation.
+
+        Args:
+            coordinate_func: Function to convert RA/Dec coordinates to the desired
+                coordinate system. Takes two arguments (RA, Dec) and returns two
+                values (x, y).
+            transform: Matplotlib transform to apply to the plotted data, after
+                transforming with `coordinate_func`.
+        """
         if ax is None:
             ax = cast(Axes, plt.gca())
         if transform is None:
             transform = ax.transData
         else:
             transform = transform + ax.transData
+
+        def array_func(
+            ras: np.ndarray, decs: np.ndarray
+        ) -> tuple[np.ndarray, np.ndarray]:
+            """Transform arrays of coords with coordinate_func"""
+            xs, ys = zip(*(coordinate_func(ra, dec) for ra, dec in zip(ras, decs)))
+            return np.array(xs), np.array(ys)
 
         kwargs = self._get_wireframe_kw(
             base_formatting=dict(transform=transform),
@@ -2237,8 +2254,7 @@ class Body(BodyBase):
             lons, self.visible_lon_grid_radec(lons, lat_limit=grid_lat_limit)
         ):
             ax.plot(
-                ra,
-                dec,
+                *array_func(ra, dec),
                 **kwargs['grid']
                 | (
                     kwargs['prime_meridian']
@@ -2251,51 +2267,51 @@ class Body(BodyBase):
             lats, self.visible_lat_grid_radec(lats, lat_limit=grid_lat_limit)
         ):
             ax.plot(
-                ra,
-                dec,
+                *array_func(ra, dec),
                 **kwargs['grid']
                 | (kwargs['equator'] if lat == 0 and indicate_equator else {}),
             )
 
-        ax.plot(*self.limb_radec(), **kwargs['limb'])
-        ax.plot(*self.terminator_radec(), **kwargs['terminator'])
+        ax.plot(*array_func(*self.limb_radec()), **kwargs['limb'])
+        ax.plot(*array_func(*self.terminator_radec()), **kwargs['terminator'])
 
         ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination()
-        ax.plot(ra_day, dec_day, **kwargs['limb_illuminated'])
+        ax.plot(*array_func(ra_day, dec_day), **kwargs['limb_illuminated'])
 
         if label_poles:
             for lon, lat, s in self.get_poles_to_plot():
-                ra, dec = self.lonlat2radec(lon, lat)
-                ax.text(ra, dec, s, **kwargs['pole'])
+                x, y = coordinate_func(*self.lonlat2radec(lon, lat))
+                ax.text(x, y, s, **kwargs['pole'])
 
         for lon, lat in self.coordinates_of_interest_lonlat:
             if self.test_if_lonlat_visible(lon, lat):
-                ra, dec = self.lonlat2radec(lon, lat)
-                ax.scatter(ra, dec, **kwargs['coordinate_of_interest_lonlat'])
+                x, y = coordinate_func(*self.lonlat2radec(lon, lat))
+                ax.scatter(x, y, **kwargs['coordinate_of_interest_lonlat'])
         for ra, dec in self.coordinates_of_interest_radec:
-            ax.scatter(ra, dec, **kwargs['coordinate_of_interest_radec'])
+            ax.scatter(
+                *coordinate_func(ra, dec), **kwargs['coordinate_of_interest_radec']
+            )
 
         for radius in self.ring_radii:
-            ra, dec = self.ring_radec(radius)
-            ax.plot(ra, dec, **kwargs['ring'])
+            x, y = array_func(*self.ring_radec(radius))
+            ax.plot(x, y, **kwargs['ring'])
 
         for body in self.other_bodies_of_interest:
-            ra = body.target_ra
-            dec = body.target_dec
+            x, y = coordinate_func(body.target_ra, body.target_dec)
             label = body.target
             hidden = not self.test_if_other_body_visible(body)
             if hidden:
                 label = f'({label})'
             ax.text(
-                ra,
-                dec,
+                x,
+                y,
                 label + '\n',
                 **kwargs['other_body_of_interest_label']
                 | (kwargs['hidden_other_body_of_interest_label'] if hidden else {}),
             )
             ax.scatter(
-                ra,
-                dec,
+                x,
+                y,
                 **kwargs['other_body_of_interest_marker']
                 | (kwargs['hidden_other_body_of_interest_marker'] if hidden else {}),
             )
@@ -2419,7 +2435,12 @@ class Body(BodyBase):
         Returns:
             The axis containing the plotted wireframe.
         """
-        ax = self._plot_wireframe(transform=None, ax=ax, **wireframe_kwargs)
+        ax = self._plot_wireframe(
+            coordinate_func=lambda ra, dec: (ra, dec),
+            transform=None,
+            ax=ax,
+            **wireframe_kwargs,
+        )
 
         utils.format_radec_axes(
             ax,
@@ -2449,9 +2470,12 @@ class Body(BodyBase):
         Returns:
             The axis containing the plotted wireframe.
         """
-
-        transform = self.matplotlib_radec2km_transform()
-        ax = self._plot_wireframe(transform=transform, ax=ax, **wireframe_kwargs)
+        ax = self._plot_wireframe(
+            coordinate_func=lambda ra, dec: self.radec2km(ra, dec),
+            transform=None,
+            ax=ax,
+            **wireframe_kwargs,
+        )
         if add_axis_labels:
             ax.set_xlabel('Projected distance (km)')
             ax.set_ylabel('Projected distance (km)')
