@@ -1879,6 +1879,12 @@ class Body(BodyBase):
         Calculate the angle of the north pole of the target body relative to the
         positive declination direction.
 
+        .. note::
+
+            This method calculates the angle between the centre of the target and its
+            north pole, so may produce unexpected results for targets which are located
+            at the celestial pole.
+
         Returns:
             Angle of the north pole in degrees.
         """
