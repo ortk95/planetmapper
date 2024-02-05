@@ -1215,6 +1215,52 @@ class Body(BodyBase):
         """
         return self.radec2km(*self.lonlat2radec(lon, lat))
 
+    def km2angular(
+        self,
+        km_x: float,
+        km_y: float,
+        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
+        """
+        Convert distance in target plane to relative angular coordinates.
+
+        Args:
+            km_x: Distance in target plane in km in the East-West direction.
+            km_y: Distance in target plane in km in the North-South direction.
+            **angular_kwargs: Additional arguments are used to customise the origin and
+                rotation of the relative angular coordinates. See
+                :func:`radec2angular` for details.
+
+        Returns:
+            `(angular_x, angular_y)` tuple containing the relative angular coordinates
+            of the point in arcseconds.
+        """
+        return self.radec2angular(*self.km2radec(km_x, km_y), **angular_kwargs)
+
+    def angular2km(
+        self,
+        angular_x: float,
+        angular_y: float,
+        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
+        """
+        Convert relative angular coordinates to distances in the target plane.
+
+        Args:
+            angular_x: Angular coordinate in the x direction in arcseconds.
+            angular_y: Angular coordinate in the y direction in arcseconds.
+            **angular_kwargs: Additional arguments are used to customise the origin and
+                rotation of the relative angular coordinates. See
+                :func:`radec2angular` for details.
+
+        Returns:
+            `(km_x, km_y)` tuple containing distances in km in the target plane in the
+            East-West and North-South directions respectively.
+        """
+        return self.radec2km(
+            *self.angular2radec(angular_x, angular_y, **angular_kwargs)
+        )
+
     def _get_matplotlib_radec2km_transform_radians(
         self,
     ) -> matplotlib.transforms.Affine2D:

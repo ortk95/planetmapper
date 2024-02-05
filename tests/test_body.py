@@ -658,6 +658,51 @@ class TestBody(unittest.TestCase):
                     all(not np.isfinite(x) for x in self.body.lonlat2km(*a))
                 )
 
+    def test_km_angular(self):
+        pairs: list[tuple[tuple[float, float], dict, tuple[float, float]]] = [
+            ((0, 0), {}, (4.6729617106227635e-09, 1.0370567346858554e-08)),
+            (
+                (0, 0),
+                {'coordinate_rotation': 123},
+                (4.6729617106227635e-09, 1.0370567346858554e-08),
+            ),
+            ((1.234, 5.678), {}, (13739.866378614151, 18556.388206846823)),
+            ((-3600.1234, 45678), {}, (61525334.93172047, 171364244.1505089)),
+            (
+                (1.234, 5.678),
+                {'coordinate_rotation': 123},
+                (8079.429074795995, -21629.754904840156),
+            ),
+            (
+                (1.234, 5.678),
+                {'origin_ra': 123},
+                (927957585.3290204, -480110160.1311036),
+            ),
+            (
+                (1.234, 5.678),
+                {'origin_dec': 12.3},
+                (105009703.24513194, 233032424.31876734),
+            ),
+            (
+                (1.234, 5.678),
+                {'origin_ra': -123, 'origin_dec': -12.3},
+                (-568773415.4728397, 129941895.59871267),
+            ),
+            (
+                (1.234, 5.678),
+                {'origin_ra': -123, 'origin_dec': 12.3, 'coordinate_rotation': -123},
+                (-445228360.6330424, 459438707.21556187),
+            ),
+        ]
+        for (x, y), kw, km in pairs:
+            with self.subTest(x=x, y=y, kw=kw):
+                self.assertTrue(
+                    np.allclose(self.body.angular2km(x, y, **kw), km, atol=1e-3)  # type: ignore
+                )
+                self.assertTrue(
+                    np.allclose(self.body.km2angular(*km, **kw), (x, y))  # type: ignore
+                )
+
     def test_limbradec(self):
         self.assertTrue(
             np.allclose(
