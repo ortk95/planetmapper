@@ -929,6 +929,8 @@ class Body(BodyBase):
         origin_dec: float | None = None,
         coordinate_rotation: float = 0.0,
     ) -> np.ndarray:
+        # any changes to kwargs/defaults should be reflected in radec2angular and
+        # plot_wireframe_angular
         # XXX stabilise names (kwargs)
         # XXX test
         # XXX add generic documentation
@@ -2435,6 +2437,7 @@ class Body(BodyBase):
         Returns:
             The axis containing the plotted wireframe.
         """
+        # XXX add note about warping at high declinations
         ax = self._plot_wireframe(
             coordinate_func=lambda ra, dec: (ra, dec),
             transform=None,
@@ -2480,6 +2483,58 @@ class Body(BodyBase):
             ax.set_xlabel('Projected distance (km)')
             ax.set_ylabel('Projected distance (km)')
             ax.ticklabel_format(style='sci', scilimits=(-3, 3))
+        ax.set_aspect(1, adjustable=aspect_adjustable)
+
+        if show:
+            plt.show()
+        return ax
+
+    def plot_wireframe_angular(
+        self,
+        ax: Axes | None = None,
+        *,
+        origin_ra: float | None = None,
+        origin_dec: float | None = None,
+        coordinate_rotation: float = 0.0,
+        add_axis_labels: bool = True,
+        aspect_adjustable: Literal['box', 'datalim'] = 'datalim',
+        show: bool = False,
+        **wireframe_kwargs: Unpack[_WireframeKwargs],
+    ) -> Axes:
+        """
+        Plot basic wireframe representation of the observation on a relative angular
+        coordinate frame. See :func:`plot_wireframe_radec` for details of accepted
+        arguments.
+
+        The `origin_ra`, `origin_dec` and `coordinate_rotation` arguments can be used to
+        customise the origin and rotation of the relative angular coordinate frame (see
+        see :func:`radec2angular`). For example, to plot the wireframe with the origin
+        at the north pole, use: ::
+
+            body.plot_wireframe_angular(origin_ra=0, origin_dec=90)
+
+        Returns:
+            The axis containing the plotted wireframe.
+        """
+        # XXX test
+        # XXX document in examples
+        # XXX document in radec wireframe
+        # XXX add note about warping at high angular distances
+        ax = self._plot_wireframe(
+            coordinate_func=lambda ra, dec: self.radec2angular(
+                ra,
+                dec,
+                origin_ra=origin_ra,
+                origin_dec=origin_dec,
+                coordinate_rotation=coordinate_rotation,
+            ),
+            transform=None,
+            ax=ax,
+            **wireframe_kwargs,
+        )
+        if add_axis_labels:
+            ax.set_xlabel('Angular distance (arcsec)')
+            ax.set_ylabel('Angular distance (arcsec)')
         ax.set_aspect(1, adjustable=aspect_adjustable)
 
         if show:
