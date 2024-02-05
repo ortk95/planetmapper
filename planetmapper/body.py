@@ -962,6 +962,13 @@ class Body(BodyBase):
     def _obsvec2angular(
         self, obsvec: np.ndarray, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
     ) -> tuple[float, float]:
+        if not (
+            math.isfinite(obsvec[0])
+            and math.isfinite(obsvec[1])
+            and math.isfinite(obsvec[2])
+        ):
+            # ^ profiling suggests this is the fastest NaN check
+            return np.nan, np.nan
         vec = self._get_obsvec2angular_matrix(**angular_kwargs) @ obsvec
         _, x, y = spice.recrad(vec)
         x = (np.rad2deg(x) * -1) % 360.0

@@ -472,6 +472,136 @@ class TestBody(unittest.TestCase):
                     )
                 )
 
+    def test_angular_radec(self):
+        pairs: list[tuple[tuple[float, float], dict, tuple[float, float]]] = [
+            ((0, 0), {}, (196.37198562131056, -5.565793839734843)),
+            (
+                (0, 0),
+                {'coordinate_rotation': 123},
+                (196.37198562131056, -5.565793839734843),
+            ),
+            ((1.234, 5.678), {}, (196.37164122076928, -5.564216617412704)),
+            ((-3600.1234, 45678), {}, (197.35518558863563, 7.1233716685998285)),
+            (
+                (1.234, 5.678),
+                {'coordinate_rotation': 123},
+                (196.3708441579451, -5.566940333059796),
+            ),
+            (
+                (1.234, 5.678),
+                {'origin_ra': 123},
+                (122.99965559945868, -5.564216624812211),
+            ),
+            (
+                (1.234, 5.678),
+                {'origin_dec': 12.3},
+                (196.37163479126497, 12.301577221998656),
+            ),
+            (
+                (1.234, 5.678),
+                {'origin_ra': -123, 'origin_dec': -12.3},
+                (236.99964917120613, -12.298422777554215),
+            ),
+            (
+                (1.234, 5.678),
+                {'origin_ra': -123, 'origin_dec': 12.3, 'coordinate_rotation': -123},
+                (237.001544919471, 12.299428456509167),
+            ),
+        ]
+        for (x, y), kw, radec in pairs:
+            with self.subTest(x=x, y=y, kw=kw):
+                self.assertTrue(
+                    np.allclose(
+                        self.body.angular2radec(x, y, **kw), radec  # type: ignore
+                    )
+                )
+                self.assertTrue(
+                    np.allclose(
+                        self.body.radec2angular(*radec, **kw), (x, y)  # type: ignore
+                    )
+                )
+
+        # test for lack of changes
+        ra, dec = self.body.target_ra, self.body.target_dec
+        kwargs: list[dict] = [
+            dict(),
+            dict(coordinate_rotation=0),
+            dict(origin_ra=ra),
+            dict(origin_dec=dec),
+            dict(origin_ra=ra, origin_dec=dec),
+            dict(coordinate_rotation=0, origin_ra=ra, origin_dec=dec),
+            dict(coordinate_rotation=0, origin_ra=None, origin_dec=None),
+        ]
+        x, y = 2.34, -5.67
+        radec_expected = self.body.angular2radec(x, y)
+        for kw in kwargs:
+            with self.subTest(kw=kw):
+                radec = self.body.angular2radec(x, y, **kw)
+                self.assertTrue(np.allclose(radec, radec_expected))
+
+                xy = self.body.radec2angular(*radec_expected, **kw)
+                self.assertTrue(np.allclose(xy, (x, y)))
+
+    def test_angular_lonlat(self):
+        pairs = [
+            ((0, 0), {}, (153.1234529836525, -3.088664454046201)),
+            (
+                (0, 0),
+                {'coordinate_rotation': 123},
+                (153.1234529836525, -3.088664454046201),
+            ),
+            ((1.234, 5.678), {}, (141.76181779277195, 14.187903497915688)),
+            ((-3600.1234, 45678), {}, (nan, nan)),
+            (
+                (1.234, 5.678),
+                {'coordinate_rotation': 123},
+                (146.10317442767905, -23.08048248991215),
+            ),
+            (
+                (1.234, 5.678),
+                {'origin_ra': 196.372, 'origin_dec': -5.566},
+                (143.01960641488623, 11.717675615612585),
+            ),
+            (
+                (1.234, 0.678),
+                {
+                    'origin_ra': 196.372,
+                    'origin_dec': -5.566,
+                    'coordinate_rotation': -123,
+                },
+                (156.98171972231182, -1.4107148298315533),
+            ),
+        ]
+        for (x, y), kw, lonlat in pairs:
+            with self.subTest(x=x, y=y, kw=kw):
+                self.assertTrue(
+                    np.allclose(
+                        self.body.angular2lonlat(x, y, **kw), lonlat, equal_nan=True
+                    )
+                )
+                if np.isfinite(lonlat[0]):
+                    self.assertTrue(
+                        np.allclose(self.body.lonlat2angular(*lonlat, **kw), (x, y))
+                    )
+                else:
+                    with self.assertRaises(NotFoundError):
+                        self.body.angular2lonlat(x, y, **kw, not_found_nan=False)
+
+        inputs = [
+            (np.nan, np.nan),
+            (np.nan, 0),
+            (0, np.nan),
+            (np.inf, np.inf),
+        ]
+        for a in inputs:
+            with self.subTest(a):
+                self.assertTrue(
+                    all(not np.isfinite(x) for x in self.body.angular2lonlat(*a))
+                )
+                self.assertTrue(
+                    all(not np.isfinite(x) for x in self.body.lonlat2angular(*a))
+                )
+
     def test_km_radec(self):
         pairs = [
             [(0, 0), (196.37198562427025, -5.565793847134351)],
