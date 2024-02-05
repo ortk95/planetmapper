@@ -28,7 +28,7 @@ from spiceypy.utils.exceptions import (
 )
 
 from . import data_loader, utils
-from .base import BodyBase, Numeric
+from .base import BodyBase, Numeric, _cache_stable_result
 from .basic_body import BasicBody
 
 _WireframeComponent = Literal[
@@ -100,6 +100,12 @@ DEFAULT_WIREFRAME_FORMATTING: dict[_WireframeComponent, dict[str, Any]] = {
     'hidden_other_body_of_interest_label': dict(),
     'map_boundary': dict(),
 }
+
+
+class _AngularCoordinateKwargs(TypedDict, total=False):
+    origin_ra: float | None
+    origin_dec: float | None
+    coordinate_rotation: float
 
 
 class Body(BodyBase):
@@ -706,7 +712,7 @@ class Body(BodyBase):
     def _radec2obsvec_norm_radians(self, ra: float, dec: float) -> np.ndarray:
         if not (math.isfinite(ra) and math.isfinite(dec)):
             return np.array([np.nan, np.nan, np.nan])
-        return spice.radrec(1, ra, dec)
+        return spice.radrec(1.0, ra, dec)
 
     def _obsvec2targvec(self, obsvec: np.ndarray) -> np.ndarray:
         """
@@ -912,6 +918,116 @@ class Body(BodyBase):
     ) -> tuple[np.ndarray, np.ndarray]:
         return self._radian_pair2degrees(
             *self._targvec_arr2radec_arrs_radians(targvec_arr, condition_func)
+        )
+
+    # Coordinate transformations angular plane
+    @_cache_stable_result
+    def _get_obsvec2angular_matrix(
+        self,
+        *,
+        origin_ra: float | None = None,
+        origin_dec: float | None = None,
+        coordinate_rotation: float = 0.0,
+    ) -> np.ndarray:
+        # XXX stabilise names (tangent, kwargs)
+        # XXX test
+        # XXX document
+        # XXX use unpack
+        # XXX add nan checks
+        # XXX add full set of transformations (lonlat, radec)
+        # XXX add full set of derived transformations (km, xy)
+        if origin_ra is None and origin_dec is None:
+            # This gives slightly better accuracy for the default case
+            # (probably due to fewer floating point operations)
+            origin_obsvec = self._targvec2obsvec(np.array([0.0, 0.0, 0.0]))
+        else:
+            if origin_ra is None:
+                origin_ra = self.target_ra
+            if origin_dec is None:
+                origin_dec = self.target_dec
+            origin_obsvec = self._radec2obsvec_norm_radians(
+                *self._degree_pair2radians(origin_ra, origin_dec)
+            )
+
+        _, ra_angle, _ = spice.recrad(origin_obsvec)
+        ra_matrix = spice.rotate(ra_angle, 3)
+
+        _, _, dec_angle = spice.recrad(ra_matrix @ origin_obsvec)
+        dec_matrix = spice.rotate(-dec_angle, 2)
+
+        rotation_matrix = spice.rotate(np.deg2rad(coordinate_rotation), 1)
+
+        return rotation_matrix @ dec_matrix @ ra_matrix
+
+    def _obsvec2angular(
+        self, obsvec: np.ndarray, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
+    ) -> tuple[float, float]:
+        vec = self._get_obsvec2angular_matrix(**angular_kwargs) @ obsvec
+        _, x, y = spice.recrad(vec)
+        x = (np.rad2deg(x) * -1) % 360.0
+        if x > 180.0:
+            x -= 360.0
+        y = np.rad2deg(y)
+        return x, y
+
+    def _angular2obsvec_norm(
+        self,
+        angular_x: float,
+        angular_y: float,
+        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+    ) -> np.ndarray:
+        # inverse of a roation matrix is just the transpose
+        return self._get_obsvec2angular_matrix(**angular_kwargs).T @ spice.radrec(
+            1.0, -np.deg2rad(angular_x), np.deg2rad(angular_y)
+        )
+
+    def angular2radec(
+        self,
+        angular_x: float,
+        angular_y: float,
+        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
+        return self._radian_pair2degrees(
+            *self._obsvec2radec_radians(
+                self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs)
+            )
+        )
+
+    def radec2angular(
+        self,
+        ra: float,
+        dec: float,
+        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
+        return self._obsvec2angular(
+            self._radec2obsvec_norm_radians(*self._degree_pair2radians(ra, dec)), **angular_kwargs
+        )
+
+    def angular2lonlat(
+        self,
+        angular_x: float,
+        angular_y: float,
+        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
+        return self._radian_pair2degrees(
+            *self._targvec2lonlat_radians(
+                self._obsvec_norm2targvec(
+                    self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs)
+                )
+            )
+        )
+
+    def lonlat2angular(
+        self,
+        lon: float,
+        lat: float,
+        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
+        return self._obsvec2angular(
+            self._targvec2obsvec(
+                self._lonlat2targvec_radians(*self._degree_pair2radians(lon, lat))
+            ),
+            **angular_kwargs,
         )
 
     # Coordinate transformations km <-> radec
