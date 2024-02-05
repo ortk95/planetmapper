@@ -981,27 +981,71 @@ class Body(BodyBase):
             1.0, -np.deg2rad(angular_x / 3600.0), np.deg2rad(angular_y / 3600.0)
         )
 
+    def radec2angular(
+        self,
+        ra: float,
+        dec: float,
+        *,
+        origin_ra: float | None = None,
+        origin_dec: float | None = None,
+        coordinate_rotation: float = 0.0,
+    ) -> tuple[float, float]:
+        """
+        Convert RA/Dec sky coordinates for the observer to relative angular coordinates.
+
+        The origin and rotation of the relative angular coordinates can be customised
+        using the `origin_ra`, `origin_dec` and `coordinate_rotation` arguments. If
+        these are not provided, the origin will be the centre of the target body and the
+        rotation will be the same as in RA/Dec coordinates.
+
+        Args:
+            ra: Right ascension of point in the sky of the observer.
+            dec: Declination of point in the sky of the observer.
+            origin_ra: Right ascension (RA) of the origin of the relative angular
+                coordinates. If `None`, the RA of the centre of the target body is used.
+            origin_dec: Declination (Dec) of the origin of the relative angular
+                coordinates. If `None`, the Dec of the centre of the target body is
+                used.
+            coordinate_rotation: Angle in degrees to rotate the relative angular
+                coordinates around the origin, relative to the positive declination
+                direction. The default `coordinate_rotation` is 0.0, so the target will
+                have the same orientation as in RA/Dec coordinates.
+
+        Returns:
+            `(angular_x, angular_y)` tuple containing the relative angular coordinates
+            of the point in arcseconds.
+        """
+        # XXX add detail to the docstring?
+        return self._obsvec2angular(
+            self._radec2obsvec_norm_radians(*self._degree_pair2radians(ra, dec)),
+            origin_ra=origin_ra,
+            origin_dec=origin_dec,
+            coordinate_rotation=coordinate_rotation,
+        )
+
     def angular2radec(
         self,
         angular_x: float,
         angular_y: float,
         **angular_kwargs: Unpack[_AngularCoordinateKwargs],
     ) -> tuple[float, float]:
+        """
+        Convert relative angular coordinates to RA/Dec sky coordinates for the observer.
+
+        Args:
+            angular_x: Angular coordinate in the x direction in arcseconds.
+            angular_y: Angular coordinate in the y direction in arcseconds.
+            **angular_kwargs: Additional arguments are used to customise the origin and
+                rotation of the relative angular coordinates. See
+                :func:`radec2angular` for details.
+
+        Returns:
+            `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
+        """
         return self._radian_pair2degrees(
             *self._obsvec2radec_radians(
                 self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs)
             )
-        )
-
-    def radec2angular(
-        self,
-        ra: float,
-        dec: float,
-        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
-    ) -> tuple[float, float]:
-        return self._obsvec2angular(
-            self._radec2obsvec_norm_radians(*self._degree_pair2radians(ra, dec)),
-            **angular_kwargs,
         )
 
     def angular2lonlat(
@@ -1010,6 +1054,20 @@ class Body(BodyBase):
         angular_y: float,
         **angular_kwargs: Unpack[_AngularCoordinateKwargs],
     ) -> tuple[float, float]:
+        """
+        Convert relative angular coordinates to longitude/latitude coordinates on the
+        target body.
+
+        Args:
+            angular_x: Angular coordinate in the x direction in arcseconds.
+            angular_y: Angular coordinate in the y direction in arcseconds.
+            **angular_kwargs: Additional arguments are used to customise the origin and
+                rotation of the relative angular coordinates. See
+                :func:`radec2angular` for details.
+        
+        Returns:
+            `(lon, lat)` tuple containing the longitude and latitude of the point.
+        """
         return self._radian_pair2degrees(
             *self._targvec2lonlat_radians(
                 self._obsvec_norm2targvec(
@@ -1024,6 +1082,21 @@ class Body(BodyBase):
         lat: float,
         **angular_kwargs: Unpack[_AngularCoordinateKwargs],
     ) -> tuple[float, float]:
+        """
+        Convert longitude/latitude coordinates on the target body to relative angular
+        coordinates.
+
+        Args:
+            lon: Longitude of point on target body.
+            lat: Latitude of point on target body.
+            **angular_kwargs: Additional arguments are used to customise the origin and
+                rotation of the relative angular coordinates. See
+                :func:`radec2angular` for details.
+        
+        Returns:
+            `(angular_x, angular_y)` tuple containing the relative angular coordinates
+            of the point in arcseconds.
+        """
         return self._obsvec2angular(
             self._targvec2obsvec(
                 self._lonlat2targvec_radians(*self._degree_pair2radians(lon, lat))
