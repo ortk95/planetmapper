@@ -616,12 +616,7 @@ class BodyBase(SpiceBase):
         self.target_light_time = cast(float, lt)
         # cast() calls are only here to make type checking play nicely with spice.spkezr
         self.target_distance = self.target_light_time * self.speed_of_light()
-        self._target_ra_radians, self._target_dec_radians = self._obsvec2radec_radians(
-            self._target_obsvec
-        )
-        self.target_ra, self.target_dec = self._radian_pair2degrees(
-            self._target_ra_radians, self._target_dec_radians
-        )
+        self.target_ra, self.target_dec = self._obsvec2radec(self._target_obsvec)
 
     def __repr__(self) -> str:
         return f'BodyBase({self.target!r}, {self.utc!r})'
@@ -658,6 +653,9 @@ class BodyBase(SpiceBase):
             return np.nan, np.nan
         _, ra, dec = spice.recrad(obsvec)
         return ra, dec
+
+    def _obsvec2radec(self, obsvec: np.ndarray) -> tuple[float, float]:
+        return self._radian_pair2degrees(*self._obsvec2radec_radians(obsvec))
 
 
 def load_kernels(*paths, clear_before: bool = False) -> list[str]:

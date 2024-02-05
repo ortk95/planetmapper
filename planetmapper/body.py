@@ -644,6 +644,13 @@ class Body(BodyBase):
         for name in names:
             self.ring_radii.update(self.ring_radii_from_name(name))
 
+    # COORDINATE TRANSFORMATIONS
+    # Generally all transformations in the public API should be built from a pair of
+    # transformations to/from obsvec. Then any new coordinate system can be added by
+    # simply creating a pair of private transformations to/from obsvec, and then adding
+    # the relevant public methods.
+    # See also BodyBase and BodyXY for some transformations.
+
     # Coordinate transformations target -> observer direction
     def _lonlat2targvec_radians(
         self, lon: float, lat: float, alt: float = 0
@@ -714,6 +721,9 @@ class Body(BodyBase):
             return np.array([np.nan, np.nan, np.nan])
         return spice.radrec(1.0, ra, dec)
 
+    def _radec2obsvec_norm(self, ra: float, dec: float) -> np.ndarray:
+        return self._radec2obsvec_norm_radians(*self._degree_pair2radians(ra, dec))
+
     def _obsvec2targvec(self, obsvec: np.ndarray) -> np.ndarray:
         """
         Transform rectangular vector in observer frame to rectangular vector in target
@@ -781,12 +791,25 @@ class Body(BodyBase):
         return lon, lat
 
     # Useful transformations (built from combinations of above transformations)
-    def _lonlat2radec_radians(self, lon: float, lat: float) -> tuple[float, float]:
-        return self._obsvec2radec_radians(
-            self._targvec2obsvec(
-                self._lonlat2targvec_radians(lon, lat),
-            )
+    def _lonlat2obsvec(self, lon: float, lat: float) -> np.ndarray:
+        return self._targvec2obsvec(
+            self._lonlat2targvec_radians(*self._degree_pair2radians(lon, lat)),
         )
+
+    def _obsvec_norm2lonlat(
+        self, obsvec_norm: np.ndarray, not_found_nan: bool
+    ) -> tuple[float, float]:
+        try:
+            lon, lat = self._radian_pair2degrees(
+                *self._targvec2lonlat_radians(self._obsvec_norm2targvec(obsvec_norm))
+            )
+        except NotFoundError:
+            if not_found_nan:
+                lon = np.nan
+                lat = np.nan
+            else:
+                raise
+        return lon, lat
 
     def lonlat2radec(self, lon: float, lat: float) -> tuple[float, float]:
         """
@@ -800,26 +823,7 @@ class Body(BodyBase):
         Returns:
             `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
         """
-        return self._radian_pair2degrees(
-            *self._lonlat2radec_radians(*self._degree_pair2radians(lon, lat))
-        )
-
-    def _radec2lonlat_radians(
-        self, ra: float, dec: float, not_found_nan: bool = True
-    ) -> tuple[float, float]:
-        try:
-            lon, lat = self._targvec2lonlat_radians(
-                self._obsvec_norm2targvec(
-                    self._radec2obsvec_norm_radians(ra, dec),
-                )
-            )
-        except NotFoundError:
-            if not_found_nan:
-                lon = np.nan
-                lat = np.nan
-            else:
-                raise
-        return lon, lat
+        return self._obsvec2radec(self._lonlat2obsvec(lon, lat))
 
     def radec2lonlat(
         self,
@@ -853,11 +857,7 @@ class Body(BodyBase):
             NotFoundError: If the provided RA/Dec coordinates are missing the target
                 body and `not_found_nan` is False, then NotFoundError will be raised.
         """
-        return self._radian_pair2degrees(
-            *self._radec2lonlat_radians(
-                *self._degree_pair2radians(ra, dec), not_found_nan=not_found_nan
-            )
-        )
+        return self._obsvec_norm2lonlat(self._radec2obsvec_norm(ra, dec), not_found_nan)
 
     def lonlat2targvec(self, lon: float, lat: float) -> np.ndarray:
         """
@@ -975,10 +975,11 @@ class Body(BodyBase):
         angular_y: float,
         **angular_kwargs: Unpack[_AngularCoordinateKwargs],
     ) -> np.ndarray:
-        # inverse of a roation matrix is just the transpose
-        return self._get_obsvec2angular_matrix(**angular_kwargs).T @ spice.radrec(
+        vec = spice.radrec(
             1.0, -np.deg2rad(angular_x / 3600.0), np.deg2rad(angular_y / 3600.0)
         )
+        # inverse of a roation matrix is just the transpose
+        return self._get_obsvec2angular_matrix(**angular_kwargs).T @ vec
 
     def radec2angular(
         self,
@@ -1016,7 +1017,7 @@ class Body(BodyBase):
         """
         # XXX add detail to the docstring?
         return self._obsvec2angular(
-            self._radec2obsvec_norm_radians(*self._degree_pair2radians(ra, dec)),
+            self._radec2obsvec_norm(ra, dec),
             origin_ra=origin_ra,
             origin_dec=origin_dec,
             coordinate_rotation=coordinate_rotation,
@@ -1041,10 +1042,8 @@ class Body(BodyBase):
         Returns:
             `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
         """
-        return self._radian_pair2degrees(
-            *self._obsvec2radec_radians(
-                self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs)
-            )
+        return self._obsvec2radec(
+            self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs)
         )
 
     def angular2lonlat(
@@ -1077,23 +1076,10 @@ class Body(BodyBase):
             NotFoundError: If the provided angular coordinates are missing the target
                 body and `not_found_nan` is False, then NotFoundError will be raised.
         """
-        try:
-            lon, lat = self._radian_pair2degrees(
-                *self._targvec2lonlat_radians(
-                    self._obsvec_norm2targvec(
-                        self._angular2obsvec_norm(
-                            angular_x, angular_y, **angular_kwargs
-                        )
-                    )
-                )
-            )
-        except NotFoundError:
-            if not_found_nan:
-                lon = np.nan
-                lat = np.nan
-            else:
-                raise
-        return lon, lat
+        return self._obsvec_norm2lonlat(
+            self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs),
+            not_found_nan,
+        )
 
     def lonlat2angular(
         self,
@@ -1116,12 +1102,7 @@ class Body(BodyBase):
             `(angular_x, angular_y)` tuple containing the relative angular coordinates
             of the point in arcseconds.
         """
-        return self._obsvec2angular(
-            self._targvec2obsvec(
-                self._lonlat2targvec_radians(*self._degree_pair2radians(lon, lat))
-            ),
-            **angular_kwargs,
-        )
+        return self._obsvec2angular(self._lonlat2obsvec(lon, lat), **angular_kwargs)
 
     # Coordinate transformations km <-> angular
     def _get_km2angular_matrix(self) -> np.ndarray:
@@ -1162,9 +1143,7 @@ class Body(BodyBase):
         Returns:
             `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
         """
-        return self._radian_pair2degrees(
-            *self._obsvec2radec_radians(self._km2obsvec_norm(km_x, km_y))
-        )
+        return self._obsvec2radec(self._km2obsvec_norm(km_x, km_y))
 
     def radec2km(self, ra: float, dec: float) -> tuple[float, float]:
         """
@@ -1179,11 +1158,11 @@ class Body(BodyBase):
             `(km_x, km_y)` tuple containing distances in km in the target plane in the
             East-West and North-South directions respectively.
         """
-        return self._obsvec2km(
-            self._radec2obsvec_norm_radians(*self._degree_pair2radians(ra, dec))
-        )
+        return self._obsvec2km(self._radec2obsvec_norm(ra, dec))
 
-    def km2lonlat(self, km_x: float, km_y: float, **kwargs) -> tuple[float, float]:
+    def km2lonlat(
+        self, km_x: float, km_y: float, not_found_nan: bool = True
+    ) -> tuple[float, float]:
         """
         Convert distance in target plane to longitude/latitude coordinates on the target
         body.
@@ -1191,14 +1170,20 @@ class Body(BodyBase):
         Args:
             km_x: Distance in target plane in km in the East-West direction.
             km_y: Distance in target plane in km in the North-South direction.
-            **kwargs: Additional arguments are passed to :func:`Body.radec2lonlat`.
+            not_found_nan: Controls behaviour when the input `km_x` and `km_y`
+                coordinates are missing the target body.
 
         Returns:
             `(lon, lat)` tuple containing the longitude and latitude of the point. If
-            the provided km coordinates are missing the target body, then the `lon`
-            and `lat` values will both be NaN (see :func:`Body.radec2lonlat`).
+            the provided km coordinates are missing the target body, then the `lon` and
+            `lat` values will both be NaN if `not_found_nan` is True, otherwise a
+            NotFoundError will be raised.
+
+        Raises:
+            NotFoundError: If the provided km coordinates are missing the target body
+            and `not_found_nan` is False, then NotFoundError will be raised.
         """
-        return self.radec2lonlat(*self.km2radec(km_x, km_y), **kwargs)
+        return self._obsvec_norm2lonlat(self._km2obsvec_norm(km_x, km_y), not_found_nan)
 
     def lonlat2km(self, lon: float, lat: float) -> tuple[float, float]:
         """
@@ -1213,7 +1198,7 @@ class Body(BodyBase):
             `(km_x, km_y)` tuple containing distances in km in the target plane in the
             East-West and North-South directions respectively.
         """
-        return self.radec2km(*self.lonlat2radec(lon, lat))
+        return self._obsvec2km(self._lonlat2obsvec(lon, lat))
 
     def km2angular(
         self,
@@ -1235,7 +1220,7 @@ class Body(BodyBase):
             `(angular_x, angular_y)` tuple containing the relative angular coordinates
             of the point in arcseconds.
         """
-        return self.radec2angular(*self.km2radec(km_x, km_y), **angular_kwargs)
+        return self._obsvec2angular(self._km2obsvec_norm(km_x, km_y), **angular_kwargs)
 
     def angular2km(
         self,
@@ -1257,8 +1242,8 @@ class Body(BodyBase):
             `(km_x, km_y)` tuple containing distances in km in the target plane in the
             East-West and North-South directions respectively.
         """
-        return self.radec2km(
-            *self.angular2radec(angular_x, angular_y, **angular_kwargs)
+        return self._obsvec2km(
+            self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs)
         )
 
     def _get_matplotlib_radec2km_transform_radians(

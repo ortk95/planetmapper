@@ -353,9 +353,7 @@ class BodyXY(Body):
         Returns:
             `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
         """
-        return self._radian_pair2degrees(
-            *self._obsvec2radec_radians(self._xy2obsvec_norm(x, y))
-        )
+        return self._obsvec2radec(self._xy2obsvec_norm(x, y))
 
     def radec2xy(self, ra: float, dec: float) -> tuple[float, float]:
         """
@@ -368,11 +366,9 @@ class BodyXY(Body):
         Returns:
             `(x, y)` tuple containing the image pixel coordinates of the point.
         """
-        return self._obsvec2xy(
-            self._radec2obsvec_norm_radians(*self._degree_pair2radians(ra, dec))
-        )
+        return self._obsvec2xy(self._radec2obsvec_norm(ra, dec))
 
-    def xy2lonlat(self, x: float, y: float, **kwargs) -> tuple[float, float]:
+    def xy2lonlat(self, x: float, y: float, not_found_nan=True) -> tuple[float, float]:
         """
         Convert image pixel coordinates to longitude/latitude coordinates on the target
         body.
@@ -380,14 +376,19 @@ class BodyXY(Body):
         Args:
             x: Image pixel coordinate in the x direction.
             y: Image pixel coordinate in the y direction.
-            **kwargs: Additional arguments are passed to :func:`Body.radec2lonlat`.
+            not_found_nan: Controls the behaviour when the input `x` and `y` coordinates
+                are missing the target body.
 
         Returns:
             `(lon, lat)` tuple containing the longitude and latitude of the point. If
-            the provided pixel coordinates are missing the target body, then the `lon`
-            and `lat` values will both be NaN (see :func:`Body.radec2lonlat`).
+            the provided pixel coordinates are missing the target body, and
+            `not_found_nan` is `True`, then the `lon` and `lat` values will both be NaN.
+
+        Raises:
+            NotFoundError: if the input `x` and `y` coordinates are missing the target
+                body and `not_found_nan` is `False`.
         """
-        return self.radec2lonlat(*self.xy2radec(x, y), **kwargs)
+        return self._obsvec_norm2lonlat(self._xy2obsvec_norm(x, y), not_found_nan)
 
     def lonlat2xy(self, lon: float, lat: float) -> tuple[float, float]:
         """
@@ -400,7 +401,7 @@ class BodyXY(Body):
         Returns:
             `(x, y)` tuple containing the image pixel coordinates of the point.
         """
-        return self.radec2xy(*self.lonlat2radec(lon, lat))
+        return self._obsvec2xy(self._lonlat2obsvec(lon, lat))
 
     def xy2km(self, x: float, y: float) -> tuple[float, float]:
         """
@@ -414,7 +415,7 @@ class BodyXY(Body):
             `(km_x, km_y)` tuple containing distances in km in the target plane in the
             East-West and North-South directions respectively.
         """
-        return self.radec2km(*self.xy2radec(x, y))
+        return self._obsvec2km(self._xy2obsvec_norm(x, y))
 
     def km2xy(self, km_x: float, km_y: float) -> tuple[float, float]:
         """
@@ -427,7 +428,7 @@ class BodyXY(Body):
         Returns:
             `(x, y)` tuple containing the image pixel coordinates of the point.
         """
-        return self.radec2xy(*self.km2radec(km_x, km_y))
+        return self._obsvec2xy(self._km2obsvec_norm(km_x, km_y))
 
     def xy2angular(
         self, x: float, y: float, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
@@ -447,7 +448,7 @@ class BodyXY(Body):
             of the point in arcseconds.
         """
         # XXX test
-        return self.radec2angular(*self.xy2radec(x, y), **angular_kwargs)
+        return self._obsvec2angular(self._xy2obsvec_norm(x, y), **angular_kwargs)
 
     def angular2xy(
         self,
@@ -468,8 +469,8 @@ class BodyXY(Body):
         Returns:
             `(x, y)` tuple containing the image pixel coordinates of the point.
         """
-        return self.radec2xy(
-            *self.angular2radec(angular_x, angular_y, **angular_kwargs)
+        return self._obsvec2xy(
+            self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs)
         )
 
     def _radec_arrs2xy_arrs(
