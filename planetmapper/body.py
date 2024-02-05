@@ -808,18 +808,18 @@ class Body(BodyBase):
         self, ra: float, dec: float, not_found_nan: bool = True
     ) -> tuple[float, float]:
         try:
-            ra, dec = self._targvec2lonlat_radians(
+            lon, lat = self._targvec2lonlat_radians(
                 self._obsvec_norm2targvec(
                     self._radec2obsvec_norm_radians(ra, dec),
                 )
             )
         except NotFoundError:
             if not_found_nan:
-                ra = np.nan
-                dec = np.nan
+                lon = np.nan
+                lat = np.nan
             else:
                 raise
-        return ra, dec
+        return lon, lat
 
     def radec2lonlat(
         self,
@@ -1052,6 +1052,8 @@ class Body(BodyBase):
         self,
         angular_x: float,
         angular_y: float,
+        *,
+        not_found_nan: bool = True,
         **angular_kwargs: Unpack[_AngularCoordinateKwargs],
     ) -> tuple[float, float]:
         """
@@ -1061,20 +1063,38 @@ class Body(BodyBase):
         Args:
             angular_x: Angular coordinate in the x direction in arcseconds.
             angular_y: Angular coordinate in the y direction in arcseconds.
+            not_found_nan: Controls behaviour when the input `angular_x` and `angular_y`
+                coordinates are missing the target body.
             **angular_kwargs: Additional arguments are used to customise the origin and
                 rotation of the relative angular coordinates. See
                 :func:`radec2angular` for details.
-        
+
         Returns:
-            `(lon, lat)` tuple containing the longitude and latitude of the point.
+            `(lon, lat)` tuple containing the longitude and latitude of the point. If
+            the provided angular coordinates are missing the target body and
+            `not_found_nan` is True, then the `lon` and `lat` values will both be NaN.
+
+        Raises:
+            NotFoundError: If the provided angular coordinates are missing the target
+                body and `not_found_nan` is False, then NotFoundError will be raised.
         """
-        return self._radian_pair2degrees(
-            *self._targvec2lonlat_radians(
-                self._obsvec_norm2targvec(
-                    self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs)
+        try:
+            lon, lat = self._radian_pair2degrees(
+                *self._targvec2lonlat_radians(
+                    self._obsvec_norm2targvec(
+                        self._angular2obsvec_norm(
+                            angular_x, angular_y, **angular_kwargs
+                        )
+                    )
                 )
             )
-        )
+        except NotFoundError:
+            if not_found_nan:
+                lon = np.nan
+                lat = np.nan
+            else:
+                raise
+        return lon, lat
 
     def lonlat2angular(
         self,
@@ -1092,7 +1112,7 @@ class Body(BodyBase):
             **angular_kwargs: Additional arguments are used to customise the origin and
                 rotation of the relative angular coordinates. See
                 :func:`radec2angular` for details.
-        
+
         Returns:
             `(angular_x, angular_y)` tuple containing the relative angular coordinates
             of the point in arcseconds.
