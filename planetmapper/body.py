@@ -2371,6 +2371,7 @@ class Body(BodyBase):
             The axis containing the plotted wireframe.
         """
         # XXX add note about warping at high declinations
+        # TODO make aspect adjustable accept None to skip setting aspect
         ax = self._plot_wireframe(
             coordinate_func=lambda ra, dec: (ra, dec),
             transform=None,

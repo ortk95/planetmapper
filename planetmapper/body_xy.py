@@ -320,7 +320,7 @@ class BodyXY(Body):
         s = self.get_plate_scale_arcsec()  # arcsec/pixel
         theta_radians = self._get_rotation_radians()
         transform_matrix_2x2 = s * self._rotation_matrix_radians(theta_radians)
-        offset_vector = transform_matrix_2x2.dot(
+        offset_vector = -transform_matrix_2x2.dot(
             np.array([self.get_x0(), self.get_y0()])
         )
         transform_matrix_3x3 = np.identity(3)
@@ -1158,8 +1158,12 @@ class BodyXY(Body):
         Returns:
             The axis containing the plotted wireframe.
         """
-        transform = self.matplotlib_radec2xy_transform()
-        ax = self._plot_wireframe(transform=transform, ax=ax, **wireframe_kwargs)
+        ax = self._plot_wireframe(
+            coordinate_func=lambda ra, dec: self.radec2xy(ra, dec),
+            transform=None,  # XXX re-add transform to allow GUI to work
+            ax=ax,
+            **wireframe_kwargs,
+        )
 
         if self._test_if_img_size_valid():
             ax.set_xlim(-0.5, self._nx - 0.5)

@@ -258,6 +258,7 @@ class TestBodyXY(common_testing.BaseTestCase):
 
     def test_xy_conversions(self):
         # xy, radec, lonlat, km
+        # TODO add angular
         coordinates = [
             [
                 (0, 0),
@@ -301,24 +302,19 @@ class TestBodyXY(common_testing.BaseTestCase):
             for body in (self.body, self.body_zero_size):
                 body.set_disc_params(5, 8, 3, 45)
                 with self.subTest(xy=xy, body=body):
-                    self.assertTrue(
-                        np.allclose(body.xy2radec(*xy), radec, equal_nan=True)
+                    self.assertArraysClose(body.xy2radec(*xy), radec, equal_nan=True)
+                    self.assertArraysClose(body.xy2lonlat(*xy), lonlat, equal_nan=True)
+                    self.assertArraysClose(
+                        body.xy2km(*xy), km, equal_nan=True, atol=1e-3
                     )
-                    self.assertTrue(
-                        np.allclose(body.xy2lonlat(*xy), lonlat, equal_nan=True)
-                    )
-                    self.assertTrue(
-                        np.allclose(body.xy2km(*xy), km, equal_nan=True, atol=1e-3)
-                    )
-
-                    self.assertTrue(
-                        np.allclose(body.radec2xy(*radec), xy, equal_nan=True)
-                    )
+                    self.assertArraysClose(body.radec2xy(*radec), xy, equal_nan=True)
                     if not any(np.isnan(lonlat)):
-                        self.assertTrue(
-                            np.allclose(body.lonlat2xy(*lonlat), xy, equal_nan=True)
+                        self.assertArraysClose(
+                            body.lonlat2xy(*lonlat), xy, equal_nan=True
                         )
-                    self.assertTrue(np.allclose(body.km2xy(*km), xy, equal_nan=True))
+                    self.assertArraysClose(
+                        np.allclose(body.km2xy(*km), xy, equal_nan=True)
+                    )
 
         args = [
             (np.nan, np.nan),
@@ -463,7 +459,7 @@ class TestBodyXY(common_testing.BaseTestCase):
     def test_add_arcsec_offset(self):
         self.body.set_disc_params(0, 0, 1, 0)
         self.body.add_arcsec_offset(0, 0)
-        self.assertEqual(self.body.get_disc_params(), (0, 0, 1, 0))
+        self.assertArraysClose(self.body.get_disc_params(), (0, 0, 1, 0))
         self.body.add_arcsec_offset(1, 2)
         self.assertTrue(
             np.allclose(
@@ -474,23 +470,19 @@ class TestBodyXY(common_testing.BaseTestCase):
 
     def test_img_limits(self):
         self.assertEqual(self.body.get_img_limits_xy(), ((-0.5, 14.5), (-0.5, 9.5)))
-        self.assertTrue(
-            np.allclose(
-                self.body.get_img_limits_radec(),
-                (
-                    (196.38091225891438, 196.36417481895663),
-                    (-5.571901975157448, -5.560796287842726),
-                ),
-            )
+        self.assertArraysClose(
+            self.body.get_img_limits_radec(),
+            (
+                (196.38091225891438, 196.36417481895663),
+                (-5.571901975157448, -5.560796287842726),
+            ),
         )
-        self.assertTrue(
-            np.allclose(
-                self.body.get_img_limits_km(),
-                (
-                    (-151773.3647184372, 130762.09502601624),
-                    (-125352.05899906158, 117394.22356271744),
-                ),
-            )
+        self.assertArraysClose(
+            self.body.get_img_limits_km(),
+            (
+                (-151773.3647184372, 130762.09502601624),
+                (-125352.05899906158, 117394.22356271744),
+            ),
         )
 
     def test_limb_xy(self):
