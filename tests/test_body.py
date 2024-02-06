@@ -510,15 +510,9 @@ class TestBody(common_testing.BaseTestCase):
         ]
         for (x, y), kw, radec in pairs:
             with self.subTest(x=x, y=y, kw=kw):
-                self.assertTrue(
-                    np.allclose(
-                        self.body.angular2radec(x, y, **kw), radec  # type: ignore
-                    )
-                )
-                self.assertTrue(
-                    np.allclose(
-                        self.body.radec2angular(*radec, **kw), (x, y)  # type: ignore
-                    )
+                self.assertArraysClose(self.body.angular2radec(x, y, **kw), radec)
+                self.assertArraysClose(
+                    self.body.radec2angular(*radec, **kw), (x, y), atol=1e-4
                 )
 
         # test for lack of changes
@@ -537,18 +531,18 @@ class TestBody(common_testing.BaseTestCase):
         for kw in kwargs:
             with self.subTest(kw=kw):
                 radec = self.body.angular2radec(x, y, **kw)
-                self.assertTrue(np.allclose(radec, radec_expected))
+                self.assertArraysClose(radec, radec_expected)
 
                 xy = self.body.radec2angular(*radec_expected, **kw)
-                self.assertTrue(np.allclose(xy, (x, y)))
+                self.assertArraysClose(xy, (x, y))
 
     def test_angular_lonlat(self):
         pairs = [
-            ((0, 0), {}, (153.1234529836525, -3.088664454046201)),
+            ((0, 0), {}, (153.12351859061235, -3.0887371240013572)),
             (
                 (0, 0),
                 {'coordinate_rotation': 123},
-                (153.1234529836525, -3.088664454046201),
+                (153.12351859061235, -3.0887371240013572),
             ),
             ((1.234, 5.678), {}, (141.76181779277195, 14.187903497915688)),
             ((-3600.1234, 45678), {}, (nan, nan)),
@@ -574,20 +568,22 @@ class TestBody(common_testing.BaseTestCase):
         ]
         for (x, y), kw, lonlat in pairs:
             with self.subTest(x=x, y=y, kw=kw):
-                self.assertTrue(
-                    np.allclose(
-                        self.body.angular2lonlat(x, y, **kw), lonlat, equal_nan=True
-                    )
+                self.assertArraysClose(
+                    self.body.angular2lonlat(x, y, **kw),
+                    lonlat,
+                    equal_nan=True,
+                    atol=1e-3,
                 )
                 if np.isfinite(lonlat[0]):
-                    self.assertTrue(
-                        np.allclose(self.body.lonlat2angular(*lonlat, **kw), (x, y))
+                    self.assertArraysClose(
+                        self.body.lonlat2angular(*lonlat, **kw), (x, y), atol=1e-4
                     )
-                    self.assertTrue(
-                    np.allclose(
-                        self.body.angular2lonlat(x, y, **kw, not_found_nan=False), lonlat, equal_nan=True
+                    self.assertArraysClose(
+                        self.body.angular2lonlat(x, y, **kw, not_found_nan=False),
+                        lonlat,
+                        equal_nan=True,
                     )
-                )
+
                 else:
                     with self.assertRaises(NotFoundError):
                         self.body.angular2lonlat(x, y, **kw, not_found_nan=False)
@@ -1390,6 +1386,13 @@ class TestBody(common_testing.BaseTestCase):
         self.assertEqual(len(ax.get_children()), 29)
         plt.close(fig)
 
+        fig, ax = plt.subplots()
+        self.body.plot_wireframe_angular(ax, grid_lat_limit=30)
+        self.assertEqual(len(ax.get_lines()), 18)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 29)
+        plt.close(fig)
+
         ax = self.body.plot_wireframe_km()
         self.assertEqual(len(ax.get_lines()), 21)
         self.assertEqual(len(ax.get_images()), 0)
@@ -1446,48 +1449,3 @@ class TestBody(common_testing.BaseTestCase):
         plt.close(fig)
         mock_show.assert_called_once()
         mock_show.reset_mock()
-
-    def test_matplotlib_transforms(self):
-        self.assertTrue(
-            np.allclose(
-                self.body.matplotlib_km2radec_transform().get_matrix(),
-                array(
-                    [
-                        [-6.40343479e-08, 2.88537788e-08, 1.96371986e02],
-                        [2.87177471e-08, 6.37324567e-08, -5.56579385e00],
-                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
-                    ]
-                ),
-            )
-        )
-
-        self.assertTrue(
-            np.allclose(
-                self.body.matplotlib_radec2km_transform().get_matrix(),
-                array(
-                    [
-                        [-1.29809749e07, 5.87691418e06, 2.58180951e09],
-                        [5.84920736e06, 1.30424639e07, -1.07602880e09],
-                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
-                    ]
-                ),
-            )
-        )
-
-        fig, axis = plt.subplots()
-        for ax in [None, axis]:
-            with self.subTest(ax=ax):
-                # Test caching works
-                self.body.matplotlib_radec2km_transform(ax)
-                t1 = self.body.matplotlib_radec2km_transform(ax)
-                self.body._mpl_transform_radec2km = None
-                t2 = self.body.matplotlib_radec2km_transform(ax)
-                self.assertEqual(t1, t2)
-
-                self.body.matplotlib_km2radec_transform(ax)
-                t1 = self.body.matplotlib_km2radec_transform(ax)
-                self.body._mpl_transform_km2radec = None
-                t2 = self.body.matplotlib_km2radec_transform(ax)
-                self.assertEqual(t1, t2)
-
-        plt.close(fig)

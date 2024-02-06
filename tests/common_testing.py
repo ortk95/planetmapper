@@ -1,5 +1,6 @@
 import os
 import unittest
+from typing import Sequence
 
 import numpy as np
 
@@ -10,7 +11,7 @@ TEMP_PATH = os.path.join(os.path.dirname(__file__), 'temp')
 
 class BaseTestCase(unittest.TestCase):
     def assertArraysEqual(
-        self, a: np.ndarray, b: np.ndarray, *, equal_nan: bool = False
+        self, a: Sequence, b: Sequence, *, equal_nan: bool = False
     ) -> None:
         self.assertTrue(
             np.array_equal(a, b, equal_nan=equal_nan),
@@ -19,8 +20,8 @@ class BaseTestCase(unittest.TestCase):
 
     def assertArraysClose(
         self,
-        a: np.ndarray,
-        b: np.ndarray,
+        a: Sequence,
+        b: Sequence,
         *,
         rtol: float = 1e-5,
         atol: float = 1e-8,
