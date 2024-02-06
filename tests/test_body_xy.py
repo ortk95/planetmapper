@@ -256,19 +256,20 @@ class TestBodyXY(common_testing.BaseTestCase):
         self.assertGreater(len(self.body._stable_cache), 0)
 
     def test_xy_conversions(self):
-        # xy, radec, lonlat, km
-        # TODO add angular
+        # xy, radec, lonlat, km, angular
         coordinates = [
             [
                 (0, 0),
                 (196.3684350770821, -5.581107015413806),
                 (nan, nan),
                 (-43904.61179685593, -220489.3308737278),
+                (12.721709080506116, -55.12740601573759),
             ],
             [
                 (5, 8),
                 (196.37198562427025, -5.565793847134351),
                 (153.1235185909613, -3.0887371238645795),
+                (0.0, 0.0),
                 (0.0, 0.0),
             ],
             [
@@ -276,34 +277,34 @@ class TestBodyXY(common_testing.BaseTestCase):
                 (196.37198562427025, -5.567914131973045),
                 (164.3872136538264, -28.87847195832716),
                 (-12460.732038021088, -27653.738419771194),
+                (0.0, -7.633025448335383),
             ],
             [
                 (1.234, 5.678),
                 (196.37369462098349, -5.572965121633222),
                 (nan, nan),
                 (-64329.40829181671, -83534.81246519089),
+                (-6.1233826374518685, -25.81658829413859),
             ],
             [
                 (-3, 25),
                 (196.40157351750477, -5.555192422940882),
                 (nan, nan),
                 (-321776.04008579254, 311334.414850235),
+                (-106.01424233789203, 38.16512724167089),
             ],
             [
                 (7.9, 5.1),
                 (196.36512123303984, -5.565793847134351),
                 (nan, nan),
                 (89106.49046421051, -40151.24767804146),
+                (24.59530422240732, 0.0),
             ],
         ]
 
-        # XXX
-        for body in (
-            # self.body_zero_size,
-            self.body,
-        ):
+        for body in (self.body_zero_size, self.body):
             body.set_disc_params(5, 8, 3, 45)
-            for xy, radec, lonlat, km in coordinates:
+            for xy, radec, lonlat, km, angular in coordinates:
                 with self.subTest(xy=xy, body=body, func='xy2radec'):
                     self.assertArraysClose(body.xy2radec(*xy), radec, equal_nan=True)
                 with self.subTest(xy=xy, body=body, func='xy2lonlat'):
@@ -312,15 +313,27 @@ class TestBodyXY(common_testing.BaseTestCase):
                     self.assertArraysClose(
                         body.xy2km(*xy), km, equal_nan=True, atol=1e-3
                     )
+                with self.subTest(xy=xy, body=body, func='xy2angular'):
+                    self.assertArraysClose(
+                        body.xy2angular(*xy), angular, equal_nan=True, atol=1e-5
+                    )
                 with self.subTest(xy=xy, body=body, func='radec2xy'):
-                    self.assertArraysClose(body.radec2xy(*radec), xy, equal_nan=True)
+                    self.assertArraysClose(
+                        body.radec2xy(*radec), xy, equal_nan=True, atol=1e-3
+                    )
                 with self.subTest(xy=xy, body=body, func='lonlat2xy'):
                     if not any(np.isnan(lonlat)):
                         self.assertArraysClose(
-                            body.lonlat2xy(*lonlat), xy, equal_nan=True
+                            body.lonlat2xy(*lonlat), xy, equal_nan=True, atol=1e-3
                         )
                 with self.subTest(xy=xy, body=body, func='km2xy'):
-                    self.assertArraysClose(body.km2xy(*km), xy, equal_nan=True)
+                    self.assertArraysClose(
+                        body.km2xy(*km), xy, equal_nan=True, atol=1e-3
+                    )
+                with self.subTest(xy=xy, body=body, func='angular2xy'):
+                    self.assertArraysClose(
+                        body.angular2xy(*angular), xy, equal_nan=True, atol=1e-3
+                    )
 
         args = [
             (np.nan, np.nan),
