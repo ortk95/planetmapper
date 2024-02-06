@@ -7,7 +7,7 @@ import planetmapper
 from planetmapper import BasicBody
 
 
-class TestBasicBody(unittest.TestCase):
+class TestBasicBody(common_testing.BaseTestCase):
     def setUp(self):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
         self.body = BasicBody('Jupiter', observer='HST', utc='2005-01-01T00:00:00')

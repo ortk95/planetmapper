@@ -9,7 +9,7 @@ import planetmapper
 from planetmapper import kernel_downloader
 
 
-class TestKernelDownloader(unittest.TestCase):
+class TestKernelDownloader(common_testing.BaseTestCase):
     def setUp(self):
         self.kernel_path = os.path.join(common_testing.TEMP_PATH, 'kernels')
         planetmapper.set_kernel_path(self.kernel_path)

@@ -15,7 +15,7 @@ import planetmapper.progress
 from planetmapper import Observation
 
 
-class TestObservation(unittest.TestCase):
+class TestObservation(common_testing.BaseTestCase):
     def setUp(self) -> None:
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
         self.path = os.path.join(common_testing.DATA_PATH, 'inputs', 'test.fits')

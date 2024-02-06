@@ -15,7 +15,7 @@ from planetmapper.body_xy import Backplane, BackplaneNotFoundError
 from planetmapper.body_xy import _MapKwargs as MapKwargs
 
 
-class TestFunctions(unittest.TestCase):
+class TestFunctions(common_testing.BaseTestCase):
     def test_make_backplane_documentation_str(self):
         self.assertIsInstance(
             planetmapper.body_xy._make_backplane_documentation_str(), str
@@ -67,7 +67,7 @@ class TestFunctions(unittest.TestCase):
                 )
 
 
-class TestBodyXY(unittest.TestCase):
+class TestBodyXY(common_testing.BaseTestCase):
     def setUp(self):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
         self.body = BodyXY(

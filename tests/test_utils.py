@@ -13,7 +13,7 @@ import planetmapper
 from planetmapper import utils
 
 
-class TestUtils(unittest.TestCase):
+class TestUtils(common_testing.BaseTestCase):
     def setUp(self) -> None:
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
 

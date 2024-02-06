@@ -18,7 +18,7 @@ import planetmapper.progress
 from planetmapper import Body
 
 
-class TestBody(unittest.TestCase):
+class TestBody(common_testing.BaseTestCase):
     def setUp(self):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
         self.body = Body('Jupiter', observer='HST', utc='2005-01-01T00:00:00')
@@ -583,6 +583,11 @@ class TestBody(unittest.TestCase):
                     self.assertTrue(
                         np.allclose(self.body.lonlat2angular(*lonlat, **kw), (x, y))
                     )
+                    self.assertTrue(
+                    np.allclose(
+                        self.body.angular2lonlat(x, y, **kw, not_found_nan=False), lonlat, equal_nan=True
+                    )
+                )
                 else:
                     with self.assertRaises(NotFoundError):
                         self.body.angular2lonlat(x, y, **kw, not_found_nan=False)

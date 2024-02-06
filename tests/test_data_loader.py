@@ -5,7 +5,7 @@ import unittest
 import planetmapper
 
 
-class TestDataLoader(unittest.TestCase):
+class TestDataLoader(common_testing.BaseTestCase):
     def test_make_data_path(self):
         p = planetmapper.data_loader.make_data_path('text.txt')
         self.assertTrue(p.endswith(os.path.join('planetmapper', 'data', 'text.txt')))
