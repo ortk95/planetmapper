@@ -402,10 +402,6 @@ class Body(BodyBase):
 
         self._matrix_km2angular = None
         self._matrix_angular2km = None
-        self._mpl_transform_km2radec_radians = None
-        self._mpl_transform_radec2km_radians = None
-        self._mpl_transform_km2radec = None
-        self._mpl_transform_radec2km = None
 
         # Run custom setup
         if self.target == 'SATURN':
@@ -1247,69 +1243,6 @@ class Body(BodyBase):
         return self._obsvec2km(
             self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs)
         )
-
-    def _get_matplotlib_radec2km_transform_radians(
-        self,
-    ) -> matplotlib.transforms.Affine2D:
-        # XXX
-        if self._mpl_transform_radec2km_radians is None:
-            self._mpl_transform_radec2km_radians = matplotlib.transforms.Affine2D(
-                self._get_angular2km_matrix()
-            )
-        return self._mpl_transform_radec2km_radians
-
-    def matplotlib_radec2km_transform(
-        self, ax: Axes | None = None
-    ) -> matplotlib.transforms.Transform:
-        """
-        Get matplotlib transform which converts RA/Dec sky coordinates to target plane
-        distance coordinates.
-
-        Args:
-            ax: Optionally specify a matplotlib axis to return
-                `transform_radec2km + ax.transData`. This value can then be used in the
-                `transform` keyword argument of a Matplotlib function without any
-                further modification.
-
-        Returns:
-            Matplotlib transformation from `radec` to `km` coordinates.
-        """
-        # XXX
-        if self._mpl_transform_radec2km is None:
-            transform_rad2deg = matplotlib.transforms.Affine2D().scale(np.deg2rad(1))
-            self._mpl_transform_radec2km = (
-                transform_rad2deg + self._get_matplotlib_radec2km_transform_radians()
-            )
-        transform = self._mpl_transform_radec2km
-        if ax:
-            transform = transform + ax.transData
-        return transform
-
-    def matplotlib_km2radec_transform(
-        self, ax: Axes | None = None
-    ) -> matplotlib.transforms.Transform:
-        """
-        Get matplotlib transform which converts target plane distance coordinates to
-        RA/Dec sky coordinates.
-
-        Args:
-            ax: Optionally specify a matplotlib axis to return
-                `transform_km2radec + ax.transData`. This value can then be used in the
-                `transform` keyword argument of a Matplotlib function without any
-                further modification.
-
-        Returns:
-            Matplotlib transformation from `km` to `radec` coordinates.
-        """
-        # XXX
-        if self._mpl_transform_km2radec is None:
-            self._mpl_transform_km2radec = (
-                self.matplotlib_radec2km_transform().inverted()
-            )
-        transform = self._mpl_transform_km2radec
-        if ax:
-            transform = transform + ax.transData
-        return transform
 
     # General
     def _illumf_from_targvec_radians(
