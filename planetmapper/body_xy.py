@@ -235,15 +235,12 @@ class BodyXY(Body):
             # centre disc if dimensions provided
             self.centre_disc()
 
-        self._mpl_transform_radec2xy: matplotlib.transforms.Affine2D | None = None
-        self._mpl_transform_xy2radec: matplotlib.transforms.Transform | None = None
-        self._mpl_transform_radec2xy_radians: matplotlib.transforms.Affine2D | None = (
+        self._mpl_transform_xy2angular_fixed: matplotlib.transforms.Affine2D | None = (
             None
         )
-        self._mpl_transform_xy2radec_radians: matplotlib.transforms.Affine2D | None = (
+        self._mpl_transform_angular_fixed2xy: matplotlib.transforms.Affine2D | None = (
             None
         )
-
         self.backplanes = {}
         self._register_default_backplanes()
 
@@ -897,107 +894,56 @@ class BodyXY(Body):
         return self._radec_arrs2xy_arrs(*self.ring_radec(radius, **kwargs))
 
     # Matplotlib transforms
-    def _get_matplotlib_radec2xy_transform_radians(
-        self,
-    ) -> matplotlib.transforms.Affine2D:
-        if self._mpl_transform_radec2xy_radians is None:
-            self._mpl_transform_radec2xy_radians = matplotlib.transforms.Affine2D(
-                self._get_radec2xy_matrix_radians()
-            )
-        return self._mpl_transform_radec2xy_radians
+    @_cache_clearable_result
+    def _get_xy2angular_fixed_matrix(self) -> np.ndarray:
+        raise NotImplementedError
 
-    def _get_matplotlib_xy2radec_transform_radians(
+    @_cache_clearable_result
+    def _get_angular_fixed2xy_matrix(self) -> np.ndarray:
+        return np.linalg.inv(self._get_xy2angular_fixed_matrix())
+
+    def _get_matplotlib_xy2angular_fixed_transform(
         self,
     ) -> matplotlib.transforms.Affine2D:
-        if self._mpl_transform_xy2radec_radians is None:
-            self._mpl_transform_xy2radec_radians = matplotlib.transforms.Affine2D(
-                self._get_xy2radec_matrix_radians()
+        if self._mpl_transform_xy2angular_fixed is None:
+            self._mpl_transform_xy2angular_fixed = matplotlib.transforms.Affine2D(
+                self._get_xy2angular_fixed_matrix()
             )
-        return self._mpl_transform_xy2radec_radians
+        return self._mpl_transform_xy2angular_fixed
+
+    def _get_matplotlib_angular_fixed2xy_transform(
+        self
+    ) -> matplotlib.transforms.Affine2D:
+        if self._mpl_transform_angular_fixed2xy is None:
+            self._mpl_transform_angular_fixed2xy = matplotlib.transforms.Affine2D(
+                self._get_angular_fixed2xy_matrix()
+            )
+        return self._mpl_transform_angular_fixed2xy
 
     def matplotlib_xy2radec_transform(
         self, ax: Axes | None = None
     ) -> matplotlib.transforms.Transform:
-        """
-        Get matplotlib transform which converts image pixel coordinates to RA/Dec sky
-        coordinates.
-
-        The transform is a mutable object which can be dynamically updated using
-        :func:`update_transform` when the `radec` to `xy` coordinate conversion changes.
-        This can be useful for plotting data (e.g. an observed image) using image xy
-        coordinates onto an axis using RA/Dec coordinates. ::
-
-            # Plot an observed image on an RA/Dec axis with a wireframe of the target
-            ax = obs.plot_wireframe_radec()
-            ax.autoscale_view()
-            ax.autoscale(False) # Prevent imshow breaking autoscale
-            ax.imshow(
-                img,
-                origin='lower',
-                transform=obs.matplotlib_xy2radec_transform(ax),
-                )
-
-        Args:
-            ax: Optionally specify a matplotlib axis to return
-                `transform_xy2radec + ax.transData`. This value can then be used in the
-                `transform` keyword argument of a Matplotlib function without any
-                further modification.
-
-        Returns:
-            Matplotlib transformation from `xy` to `radec` coordinates.
-        """
-        if self._mpl_transform_xy2radec is None:
-            transform_deg2rad = matplotlib.transforms.Affine2D().scale(np.rad2deg(1))
-            self._mpl_transform_xy2radec = (
-                self._get_matplotlib_xy2radec_transform_radians() + transform_deg2rad
-            )
-        self.update_transform()  # https://github.com/ortk95/planetmapper/issues/310
-        transform = self._mpl_transform_xy2radec
-        if ax:
-            transform = transform + ax.transData
-        return transform
-
-    def matplotlib_radec2xy_transform(
-        self, ax: Axes | None = None
-    ) -> matplotlib.transforms.Transform:
-        if self._mpl_transform_radec2xy is None:
-            transform_rad2deg = matplotlib.transforms.Affine2D().scale(np.deg2rad(1))
-            self._mpl_transform_radec2xy = (
-                transform_rad2deg + self._get_matplotlib_radec2xy_transform_radians()
-            )  # type: ignore
-        self.update_transform()  # https://github.com/ortk95/planetmapper/issues/310
-        transform = self._mpl_transform_radec2xy
-        if ax:
-            transform = transform + ax.transData
-        return transform
-
-    def matplotlib_xy2km_transform(
-        self, ax: Axes | None = None
-    ) -> matplotlib.transforms.Transform:
-        return (
-            self.matplotlib_xy2radec_transform()
-            + self.matplotlib_radec2km_transform(ax)
+        # XXX document (see old code)
+        # XXX test transforms
+        return self._get_matplotlib_xy2angular_fixed_transform() + self._get_matplotlib_transform(
+            self.angular2radec, location=(0.0, 0.0), ax
         )
-
-    def matplotlib_km2xy_transform(
-        self, ax: Axes | None = None
+    
+    def matplotlib_radec2xy_transform(        self, ax: Axes | None = None
     ) -> matplotlib.transforms.Transform:
-        return (
-            self.matplotlib_km2radec_transform()
-            + self.matplotlib_radec2xy_transform(ax)
-        )
-
+        raise NotImplementedError
     def update_transform(self) -> None:
         """
         Update the transformations returned by :func:`matplotlib_radec2xy_transform`
         and :func:`matplotlib_xy2radec_transform` to use the latest disc parameter
         values `(x0, y0, r0, rotation)`.
         """
-        self._get_matplotlib_radec2xy_transform_radians().set_matrix(
-            self._get_radec2xy_matrix_radians()
+        # XXX update docstring
+        self._get_matplotlib_xy2angular_fixed_transform().set_matrix(
+            self._get_xy2angular_fixed_matrix()
         )
-        self._get_matplotlib_xy2radec_transform_radians().set_matrix(
-            self._get_xy2radec_matrix_radians()
+        self._get_matplotlib_angular_fixed2xy_transform().set_matrix(
+            self._get_angular_fixed2xy_matrix()
         )
 
     # Mapping

@@ -1,4 +1,6 @@
 import datetime
+import functools
+import math
 from collections import defaultdict
 from typing import Any, Callable, Literal, TypedDict, cast, overload
 
@@ -10,8 +12,6 @@ try:
     from typing import Self
 except ImportError:
     from typing_extensions import Self
-
-import math
 
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
@@ -2111,6 +2111,98 @@ class Body(BodyBase):
                 poles.append((lon, lat, f'({s})'))
 
         return poles
+
+    @staticmethod
+    def _get_local_affine_transform_matrix(
+        coordinate_func: Callable[[float, float], tuple[float, float]],
+        location: tuple[float, float],
+    ) -> np.ndarray:
+        """
+        Calculate the local affine transformation matrix for a given coordinate
+        transformation around a given location.
+
+        Args:
+            coordinate_func: Function to convert between coordinate systems (e.g.
+                `radec2km`),
+            location: Coordinates (in original coordinate system) to calculate the
+                transformation matrix around. This is usually the location of the
+                target body.
+
+        Returns:
+            Augmented affine transformation matrix representing the transformation
+            between coordinate systems near the provided `location`.
+        """
+        x0, y0 = location
+        eq1, eq2 = coordinate_func(x0, y0)
+        eq3, eq4 = coordinate_func(x0 + 1.0, y0)
+        eq5, eq6 = coordinate_func(x0, y0 + 1.0)
+
+        a = eq3 - eq1
+        b = eq5 - eq1
+        c = eq1 - a * x0 - b * y0
+
+        d = eq4 - eq2
+        e = eq6 - eq2
+        f = eq2 - d * x0 - e * y0
+
+        return np.array([[a, b, c], [d, e, f], [0.0, 0.0, 1.0]])
+
+    def _get_matplotlib_transform(
+        self,
+        coordinate_func: Callable[[float, float], tuple[float, float]],
+        location: tuple[float, float],
+        ax: plt.Axes | None,
+    ) -> matplotlib.transforms.Transform:
+        transform = matplotlib.transforms.Affine2D(
+            self._get_local_affine_transform_matrix(coordinate_func, location)
+        )
+        if ax:
+            transform = transform + ax.transData
+        return transform
+
+    def matplotlib_radec2km_transform(
+        self, ax: Axes | None = None
+    ) -> matplotlib.transforms.Transform:
+        """
+        Get matplotlib transform which converts between coordinate systems.
+
+        Args:
+            ax: Optionally specify a matplotlib axis to return
+                `transform_radec2km + ax.transData`. This value can then be used in the
+                `transform` keyword argument of a Matplotlib function without any
+                further modification.
+
+        Returns:
+            Matplotlib transformation from `radec` to `km` coordinates.
+        """
+        # XXX add note about inexactness
+        # XXX test transforms
+        return self._get_matplotlib_transform(
+            self.radec2km, (self.target_ra, self.target_dec), ax
+        )
+
+    def matplotlib_km2radec_transform(
+        self, ax: Axes | None = None
+    ) -> matplotlib.transforms.Transform:
+        return self._get_matplotlib_transform(self.km2radec, (0.0, 0.0), ax)
+
+    def matplotlib_radec2angular_transform(
+        self, ax: Axes | None = None, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
+    ) -> matplotlib.transforms.Transform:
+        return self._get_matplotlib_transform(
+            functools.partial(self.radec2angular, **angular_kwargs),
+            (self.target_ra, self.target_dec),
+            ax,
+        )
+
+    def matplotlib_angular2radec_transform(
+        self, ax: Axes | None = None, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
+    ) -> matplotlib.transforms.Transform:
+        return self._get_matplotlib_transform(
+            functools.partial(self.angular2radec, **angular_kwargs),
+            (0.0, 0.0),
+            ax,
+        )
 
     @staticmethod
     def _get_wireframe_kw(
