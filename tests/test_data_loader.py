@@ -2,6 +2,8 @@ import json
 import os
 import unittest
 
+import common_testing
+
 import planetmapper
 
 

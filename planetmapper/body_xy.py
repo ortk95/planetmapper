@@ -318,7 +318,7 @@ class BodyXY(Body):
         # - rotate by the rotation angle
         # - translate by the target's disc centre
         s = self.get_plate_scale_arcsec()  # arcsec/pixel
-        theta_radians = self._get_rotation_radians()
+        theta_radians = -self._get_rotation_radians()
         transform_matrix_2x2 = s * self._rotation_matrix_radians(theta_radians)
         offset_vector = -transform_matrix_2x2.dot(
             np.array([self.get_x0(), self.get_y0()])

@@ -961,7 +961,7 @@ class Body(BodyBase):
             return np.nan, np.nan
         vec = self._get_obsvec2angular_matrix(**angular_kwargs) @ obsvec
         _, x, y = spice.recrad(vec)
-        x = (np.rad2deg(x) * -1) % 360.0
+        x = (-np.rad2deg(x)) % 360.0
         if x > 180.0:
             x -= 360.0
         y = np.rad2deg(y)
