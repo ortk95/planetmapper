@@ -1,8 +1,8 @@
 .. _python examples:
 
-Python module
-*************
-This page shows some simple examples of using the `planetmapper` module in Python code. For more details, see the full :ref:`API documentation <api>`.
+Python package
+**************
+This page shows some simple examples of using the `planetmapper` package in Python code. For more details, see the full :ref:`API documentation <api>`.
 
 For PlanetMapper to function, you will need to download a series of :ref:`SPICE kernels <SPICE kernels>` containing the positions and orientations of the solar system bodies you are interested in. The code snippet below will download all the appropriate kernels needed for the examples on this page. For more details about SPICE kernels, including how to choose, download, and use them, see the :ref:`SPICE kernel documentation page <SPICE kernels>`.
 
@@ -18,6 +18,7 @@ For PlanetMapper to function, you will need to download a series of :ref:`SPICE 
         'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/jup365.bsp',
         'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/sat441.bsp',
         'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/nep097.bsp',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/ura111.bsp',
         'https://naif.jpl.nasa.gov/pub/naif/HST/kernels/spk/',
     )
 
@@ -137,6 +138,87 @@ A number of different wireframe plotting options are available:
 .. image:: images/jupiter_wireframes.png
     :width: 600
     :alt: Plot of Jupiter and Io
+
+
+The example below shows how the the same target appears in the `radec`, `km` and `angular` wireframe variants. By default, `plot_wireframe_angular` is centred on the target body, but it can also be customised to have a custom origin and rotation - for example, the fourth plot below is centred on Miranda and rotated by 45°. In addition to the variants shown here, `plot_wireframe_xy` is also available for use with :class:`planetmapper.BodyXY` objects to plot in image pixel coordinates (see the Observations section below).
+
+::
+
+    import planetmapper
+    import matplotlib.pyplot as plt
+    
+    body = planetmapper.Body('uranus', '2020-01-01')
+    body.add_named_rings()
+    body.add_other_bodies_of_interest('miranda')
+
+    fig, ((ax_radec, ax_km), (ax_angular1, ax_angular2)) = plt.subplots(
+        nrows=2,
+        ncols=2,
+        figsize=(10, 8),
+        dpi=200,
+        gridspec_kw=dict(hspace=0.3, wspace=0.3),
+    )
+
+    body.plot_wireframe_radec(ax_radec)
+    ax_radec.set_title('plot_wireframe_radec()')
+
+    body.plot_wireframe_km(ax_km)
+    ax_km.set_title('plot_wireframe_km()')
+
+    body.plot_wireframe_angular(ax_angular1)
+    ax_angular1.set_title('plot_wireframe_angular()')
+
+    miranda = body.create_other_body('miranda')
+    # angular plot centred on custom RA/Dec and with a custom rotation
+    body.plot_wireframe_angular(
+        ax_angular2,
+        origin_ra=miranda.target_ra,
+        origin_dec=miranda.target_dec,
+        coordinate_rotation=-45,
+    )
+    ax_angular2.set_title(f'plot_wireframe_angular(...)')
+
+    plt.show()
+
+.. image:: images/uranus_wireframe_comparison.png
+    :width: 600
+    :alt: Four different wireframe plots of Uranus
+
+
+The appearance of wireframe plots can be fully customised to suit your needs. For example, the example below shows how the `formatting` argument is used to pass arguments to matplotlib when plotting the individual elements of the wireframe. See :func:`planetmapper.Body.plot_wireframe_radec` for more details on formatting individual plots, and changing the default formatting for all wireframe plots.
+
+::
+    
+    import planetmapper
+    import matplotlib.pyplot as plt
+
+    body = planetmapper.Body('saturn', '2020-02-08', observer='iapetus')
+    body.add_other_bodies_of_interest('dione', 'methone')
+    body.plot_wireframe_radec(
+        ax,
+        add_title=False,
+        dms_ticks=False,
+        label_poles=False,
+        indicate_equator=True,
+        indicate_prime_meridian=True,
+        grid_interval=15,
+        grid_lat_limit=75,
+        formatting={
+            'grid': {'linestyle': '-', 'linewidth': 0.5, 'alpha': 0.3},
+            'prime_meridian': {'linewidth': 1, 'color': 'r'},
+            'equator': {'linewidth': 1, 'color': 'r'},
+            'terminator': {'color': 'b'},
+            'limb_illuminated': {'color': 'b'},
+            'ring': {'color': 'g', 'linestyle': ':'},
+            'other_body_of_interest_marker': {'marker': '*'},
+            'other_body_of_interest_label': {'color': 'c', 'rotation': 30, 'alpha': 1},
+        },
+    )
+    plt.show()
+
+.. image:: images/saturn_wireframe_formatting.png
+    :width: 600
+    :alt: Wireframe plot of Saturn with custom formatting
 
 
 Observations, backplanes and mapping

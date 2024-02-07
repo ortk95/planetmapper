@@ -2327,7 +2327,7 @@ class Body(BodyBase):
                     else {}
                 ),
             )
-        lats = np.arange(-90, 90, grid_interval)
+        lats = [l for l in np.arange(-90, 90, grid_interval) if abs(l) <= grid_lat_limit]
         for lat, (ra, dec) in zip(
             lats, self.visible_lat_grid_radec(lats, lat_limit=grid_lat_limit)
         ):
