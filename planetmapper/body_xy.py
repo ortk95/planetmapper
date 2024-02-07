@@ -439,7 +439,7 @@ class BodyXY(Body):
             y: Image pixel coordinate in the y direction.
             **angular_kwargs: Additional arguments are used to customise the origin and
                 rotation of the relative angular coordinates. See
-                :func:`radec2angular` for details.
+                :func:`Body.radec2angular` for details.
 
         Returns:
             `(angular_x, angular_y)` tuple containing the relative angular coordinates
@@ -461,7 +461,7 @@ class BodyXY(Body):
             angular_y: Angular coordinate in the y direction in arcseconds.
             **angular_kwargs: Additional arguments are used to customise the origin and
                 rotation of the relative angular coordinates. See
-                :func:`radec2angular` for details.
+                :func:`Body.radec2angular` for details.
 
         Returns:
             `(x, y)` tuple containing the image pixel coordinates of the point.
@@ -1181,12 +1181,14 @@ class BodyXY(Body):
         coordinates. See :func:`Body.plot_wireframe_radec` for details of accepted
         arguments.
 
-        Returns:
+        Returns:r
             The axis containing the plotted wireframe.
         """
+        # Use combo of corodinate_func and matplotlib transform so that the plot can be
+        # updated with new disc parameters without having to replot the entire thing
         ax = self._plot_wireframe(
-            coordinate_func=lambda ra, dec: self.radec2xy(ra, dec),
-            transform=None,  # XXX re-add transform to allow GUI to work
+            coordinate_func=lambda ra, dec: self.radec2angular(ra, dec),
+            transform=self._get_matplotlib_angular_fixed2xy_transform(),
             ax=ax,
             **wireframe_kwargs,
         )

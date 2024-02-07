@@ -2193,11 +2193,17 @@ class Body(BodyBase):
             The transformations are performed as affine transformations, which are
             linear transformations. This means that the transformations may be inexact
             at large distances from the target body, or near the celestial poles for
-            `radec` coordinates. For the vast majority of purposes, these matplotlib
-            transformations are accurate, but if you are working with extreme geometries
-            or require exact transformations you should convert the coordinates manually
-            before plotting (e.g. using :func:`radec2km` rather than
+            `radec` coordinates.
+
+            For the vast majority of purposes, these matplotlib transformations are
+            accurate, but if you are working with extreme geometries or require exact
+            transformations you should convert the coordinates manually before plotting
+            (e.g. using :func:`radec2km` rather than
             :func:`matplotlib_radec2km_transform`).
+
+            The `km`, `angular` (with the default values for the origin) and `xy`
+            coordinate systems are all affine transformations of each other, so the
+            matplotlib transformations between these coordinate systems should be exact.
 
         Args:
             ax: Optionally specify a matplotlib axis to return
@@ -2393,8 +2399,9 @@ class Body(BodyBase):
         Plot basic wireframe representation of the observation using RA/Dec sky
         coordinates.
 
-        See also :func:`plot_wireframe_km` and :func:`BodyXY.plot_wireframe_xy` to plot
-        the wireframe in other coordinate systems.
+        See also :func:`plot_wireframe_km`, :func:`plot_wireframe_angular` and
+        :func:`BodyXY.plot_wireframe_xy` to plot the wireframe in other coordinate
+        systems.
 
         To plot a wireframe with the default appearance, simply use: ::
 
@@ -2447,6 +2454,20 @@ class Body(BodyBase):
 
             body.plot_wireframe_radec() # This would have a blue dashed grid
             body.plot_wireframe_radec(color='r') # This would be red with a dashed grid
+
+        .. note::
+
+            The plot may appear warped or distorted if the target is near the celestial
+            pole (i.e. the target's declination is near 90° or -90°). This is due to the
+            spherical nature of the RA/Dec coordinate system, which is impossible to
+            represent perfectly on a 2D cartesian plot.
+
+            :func:`plot_wireframe_angular` can be used as an alternative to
+            :func:`plot_wireframe_radec` to plot the wireframe without distortion from
+            the choice of coordinte system. By default, the `angular` coordinate system
+            is centred on the target body, which minimises any distortion, but the
+            origin and rotation of the `angular` coordinates can also be customised as
+            needed (e.g. to align it with an instrument's field of view).
 
         Args:
             ax: Matplotlib axis to use for plotting. If `ax` is None (the default), uses
@@ -2567,17 +2588,23 @@ class Body(BodyBase):
         The `origin_ra`, `origin_dec` and `coordinate_rotation` arguments can be used to
         customise the origin and rotation of the relative angular coordinate frame (see
         see :func:`radec2angular`). For example, to plot the wireframe with the origin
-        at the north pole, use: ::
+        at the north pole, you can use: ::
 
             body.plot_wireframe_angular(origin_ra=0, origin_dec=90)
+
+        .. note::
+
+            If custom values for `origin_ra` and `origin_dec` are provided, the plot may
+            appear warped or distorted if the target is a large distance from the
+            origin. This is because spherical coordinates are impossible to represent
+            perfectly on a 2D cartesian plot. By default, the `angular` coordinates are
+            centred on the target body, minimising any distortion.
 
         Returns:
             The axis containing the plotted wireframe.
         """
         # XXX test
         # XXX document in examples
-        # XXX document in radec wireframe
-        # XXX add note about warping at high angular distances
         ax = self._plot_wireframe(
             coordinate_func=lambda ra, dec: self.radec2angular(
                 ra,

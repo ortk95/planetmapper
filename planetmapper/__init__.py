@@ -35,23 +35,35 @@ with the target's north pole pointing up. This coordinate system is similar to t
 radius is fixed and rotated so that the north pole points up. It can therefore be useful
 for comparing observations of the same target taken at different times.
 
-=============================================   =====
-Dimension                                       Unit
-=============================================   =====
-Angles (RA, Dec, longitude, latitude...)        degrees
-Angles (target angular diameter, plate scale)   arcseconds [#arcsec]_
-Distances                                       km
-Time intervals                                  seconds
-Speeds                                          km/s
-Dates (timezone)                                UTC   
-=============================================   =====
+`angular`: relative angular coordinates in arcseconds. By default, the angular
+coordinates are centred on the target body, with the same rotation as the `radec`
+coordinates, meaning the angular coordinates define the distance in arcseconds from the
+centre of the target body. However, the origin and rotation of the angular coordinates
+can also be customised to measure the angular distance in arcseconds relative to an
+arbitrary point in the sky. See :func:`Body.radec2angular` for more details on
+customising the `angular` coordinates. Similarly to the `km` coordinate system, this
+can be useful for comparing observations of the same target taken at different times. It
+also can be used to minimise the distortion present when plotting `radec` coordinates
+for targets located near the celestial pole.
+
+=====================================================   =====
+Dimension                                               Unit
+=====================================================   =====
+Angles (RA, Dec, longitude, latitude...)                degrees
+Angles (relative angular coordinates, plate scale...)   arcseconds [#arcsec]_
+Distances                                               km
+Time intervals                                          seconds
+Speeds                                                  km/s
+Dates (timezone)                                        UTC   
+=====================================================   =====
 
 .. [#arcsec] 3600 arcseconds = 1 degree
 
 .. note::
     By default, all angles should be degrees unless using a function/value explicitly 
-    named with `_arcsec` or `_radians`. Note that angles in SPICE are radians, so extra
-    care should be taken converting to/from SPICE values.
+    named with `_arcsec` or `_radians`, or using the relative `angular` coordinate 
+    system. Note that angles in SPICE are radians, so extra care should be taken 
+    converting to/from SPICE values.
 
 These additional coordinate systems are mainly used for internal calculations and to
 interface with SPICE:
