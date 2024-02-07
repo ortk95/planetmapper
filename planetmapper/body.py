@@ -2209,7 +2209,6 @@ class Body(BodyBase):
         Returns:
             Matplotlib transformation from `radec` to `km` coordinates.
         """
-        # XXX test transforms
         return self._get_matplotlib_transform(
             self.radec2km, (self.target_ra, self.target_dec), ax
         )
@@ -2600,7 +2599,6 @@ class Body(BodyBase):
         Returns:
             The axis containing the plotted wireframe.
         """
-        # XXX test
         ax = self._plot_wireframe(
             coordinate_func=lambda ra, dec: self.radec2angular(
                 ra,

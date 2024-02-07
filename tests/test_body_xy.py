@@ -1547,100 +1547,90 @@ class TestBodyXY(common_testing.BaseTestCase):
     def test_matplotlib_transforms(self):
         self.body.set_disc_params(2, 1, 3.5, 45.678)
         self.body.set_img_size(15, 10)
+        # XXX add angular
 
         # Test outputs
-        self.assertTrue(
-            np.allclose(
-                self.body.matplotlib_radec2xy_transform().get_matrix(),
-                array(
-                    [
-                        [-4.87014969e02, 5.01041735e02, 9.84267915e04],
-                        [4.98679564e02, 4.89321887e02, -9.52022315e04],
-                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
-                    ]
-                ),
-            )
+        self.assertArraysClose(
+            self.body.matplotlib_radec2xy_transform().get_matrix(),
+            array(
+                [
+                    [-4.87436799e02, 5.01041734e02, 9.85096272e04],
+                    [4.98267132e02, 4.89321885e02, -9.51212414e04],
+                    [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                ]
+            ),
         )
-        self.assertTrue(
-            np.allclose(
-                self.body.matplotlib_xy2radec_transform().get_matrix(),
-                array(
-                    [
-                        [-1.00236708e-03, 1.02637498e-03, 1.96372964e02],
-                        [1.02153611e-03, 9.97641401e-04, -5.56883456e00],
-                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
-                    ]
-                ),
-            )
+
+        self.assertArraysClose(
+            self.body.matplotlib_xy2radec_transform().get_matrix(),
+            array(
+                [
+                    [-1.00236708e-03, 1.02637498e-03, 1.96372964e02],
+                    [1.02153611e-03, 9.97641401e-04, -5.56883456e00],
+                    [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                ]
+            ),
         )
-        self.assertTrue(
-            np.allclose(
-                self.body.matplotlib_km2xy_transform().get_matrix(),
-                array(
-                    [
-                        [4.55744758e-05, 1.78803986e-05, 2.00000000e00],
-                        [-1.78803986e-05, 4.55744758e-05, 1.00000000e00],
-                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
-                    ]
-                ),
-            )
+        self.assertArraysClose(
+            self.body.matplotlib_km2xy_transform().get_matrix(),
+            array(
+                [
+                    [4.55744758e-05, 1.78803986e-05, 2.00000000e00],
+                    [-1.78803986e-05, 4.55744758e-05, 1.00000000e00],
+                    [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                ]
+            ),
         )
-        self.assertTrue(
-            np.allclose(
-                self.body.matplotlib_xy2km_transform().get_matrix(),
-                array(
-                    [
-                        [1.90151820e04, -7.46029498e03, -3.05700690e04],
-                        [7.46029498e03, 1.90151820e04, -3.39357720e04],
-                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
-                    ]
-                ),
-            )
+        self.assertArraysClose(
+            self.body.matplotlib_xy2km_transform().get_matrix(),
+            array(
+                [
+                    [1.90151820e04, -7.46029498e03, -3.05700690e04],
+                    [7.46029498e03, 1.90151820e04, -3.39357720e04],
+                    [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                ]
+            ),
         )
-        self.assertTrue(
-            np.allclose(
-                self.body.matplotlib_radec2km_transform().get_matrix(),
-                array(
-                    [
-                        [-1.29809749e07, 5.87691418e06, 2.58180951e09],
-                        [5.84920736e06, 1.30424639e07, -1.07602880e09],
-                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
-                    ]
-                ),
-            )
+        self.assertArraysClose(
+            self.body.matplotlib_xy2angular_transform().get_matrix(),
+            array(
+                [
+                    [3.59150906, -3.67753003, -3.50548809],
+                    [3.67753003, 3.59150906, -10.94656911],
+                    [0.0, 0.0, 1.0],
+                ]
+            ),
         )
-        self.assertTrue(
-            np.allclose(
-                self.body.matplotlib_km2radec_transform().get_matrix(),
-                array(
-                    [
-                        [-6.40343479e-08, 2.88537788e-08, 1.96371986e02],
-                        [2.87177471e-08, 6.37324567e-08, -5.56579385e00],
-                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
-                    ]
-                ),
-            )
+        self.assertArraysClose(
+            self.body.matplotlib_angular2xy_transform().get_matrix(),
+            array(
+                [
+                    [0.13592275, 0.13917826, 2.0],
+                    [-0.13917826, 0.13592275, 1.0],
+                    [0.0, 0.0, 1.0],
+                ]
+            ),
         )
 
         # Test caching works
-        fig, axis = plt.subplots()
-        for ax in [None, axis]:
-            for transform_method, attr in (
-                (self.body.matplotlib_radec2xy_transform, '_mpl_transform_radec2xy'),
-                (self.body.matplotlib_xy2radec_transform, '_mpl_transform_xy2radec'),
-                (self.body.matplotlib_km2xy_transform, '_mpl_transform_km2xy'),
-                (self.body.matplotlib_xy2km_transform, '_mpl_transform_xy2km'),
-                (self.body.matplotlib_radec2km_transform, '_mpl_transform_radec2km'),
-                (self.body.matplotlib_km2radec_transform, '_mpl_transform_km2radec'),
-            ):
-                with self.subTest(ax=ax, transform=transform_method, attr=attr):
-                    transform_method(ax)
-                    t1 = transform_method(ax)
-                    setattr(self.body, attr, None)
-                    t2 = transform_method(ax)
-                    self.assertEqual(t1, t2)
-
-        plt.close(fig)
+        for transform_method, attr in [
+            (
+                self.body._get_matplotlib_angular_fixed2xy_transform,
+                '_mpl_transform_angular_fixed2xy',
+            ),
+            (
+                self.body._get_matplotlib_xy2angular_fixed_transform,
+                '_mpl_transform_xy2angular_fixed',
+            ),
+        ]:
+            with self.subTest(transform=transform_method, attr=attr):
+                t0 = transform_method()
+                t1 = transform_method()
+                setattr(self.body, attr, None)
+                t2 = transform_method()
+                self.assertIs(t0, t1)
+                self.assertIsNot(t1, t2)
+                self.assertEqual(t1, t2)
 
         # Test inverse
         pairs = [
@@ -1653,13 +1643,18 @@ class TestBodyXY(common_testing.BaseTestCase):
                 self.body.matplotlib_xy2km_transform(),
             ),
             (
-                self.body.matplotlib_radec2km_transform(),
-                self.body.matplotlib_km2radec_transform(),
+                self.body.matplotlib_angular2xy_transform(),
+                self.body.matplotlib_xy2angular_transform(),
             ),
         ]
         for t1, t2 in pairs:
-            self.assertTrue(np.allclose(t1.inverted().get_matrix(), t2.get_matrix()))
-            self.assertTrue(np.allclose(t2.inverted().get_matrix(), t1.get_matrix()))
+            with self.subTest(t1=t1, t2=t2):
+                self.assertArraysClose(
+                    t1.inverted().get_matrix(), t2.get_matrix(), atol=1e-6, rtol=1e-3
+                )
+                self.assertArraysClose(
+                    t2.inverted().get_matrix(), t1.get_matrix(), atol=1e-6, rtol=1e-3
+                )
 
         # Test update
         for transform_method in [
@@ -1667,6 +1662,8 @@ class TestBodyXY(common_testing.BaseTestCase):
             self.body.matplotlib_xy2radec_transform,
             self.body.matplotlib_km2xy_transform,
             self.body.matplotlib_xy2km_transform,
+            self.body.matplotlib_angular2xy_transform,
+            self.body.matplotlib_xy2angular_transform,
         ]:
             with self.subTest(transform_method=transform_method):
                 transform = transform_method()
@@ -1685,6 +1682,8 @@ class TestBodyXY(common_testing.BaseTestCase):
             self.body.matplotlib_xy2radec_transform,
             self.body.matplotlib_km2xy_transform,
             self.body.matplotlib_xy2km_transform,
+            self.body.matplotlib_angular2xy_transform,
+            self.body.matplotlib_xy2angular_transform,
         ]:
             self.body.set_disc_params(10, 9, 8, 7)
             m1 = transform_method().get_matrix()

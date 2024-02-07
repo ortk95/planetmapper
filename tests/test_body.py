@@ -1,5 +1,6 @@
 import datetime
 import unittest
+from typing import Callable
 from unittest.mock import MagicMock, patch
 
 import common_testing
@@ -1449,3 +1450,166 @@ class TestBody(common_testing.BaseTestCase):
         plt.close(fig)
         mock_show.assert_called_once()
         mock_show.reset_mock()
+
+    def test_get_local_affine_transform_matrix(self):
+        tests: list[
+            tuple[
+                Callable[[float, float], tuple[float, float]],
+                tuple[float, float],
+                np.ndarray,
+            ]
+        ] = [
+            (lambda a, b: (a, b), (0, 0), np.eye(3)),
+            (lambda a, b: (a, b), (1.234, -56.789), np.eye(3)),
+            (
+                lambda a, b: (b, a),
+                (1.234, -56.789),
+                array([[0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]),
+            ),
+            (
+                lambda a, b: (2.3 * a, -5.67 * b),
+                (1.234, -56.789),
+                array([[2.3, 0.0, 0.0], [0.0, -5.67, 0.0], [0.0, 0.0, 1.0]]),
+            ),
+            (
+                lambda a, b: (2.3 * a**2, -5.67 * b**3 - a),
+                (1.234, -56.789),
+                array(
+                    [
+                        [7.97640000e00, 0.00000000e00, -6.34053880e00],
+                        [-1.00000000e00, -5.38967779e04, -2.02231771e06],
+                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                    ]
+                ),
+            ),
+            (
+                lambda a, b: (2.3 * a**2, -5.67 * b**3 - a),
+                (100, 300),
+                array(
+                    [
+                        [4.62300000e02, 0.00000000e00, -2.32300000e04],
+                        [-1.00000000e00, -1.53600867e06, 3.07712601e08],
+                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                    ]
+                ),
+            ),
+        ]
+
+        for func, location, expected in tests:
+            with self.subTest(func=func, location=location):
+                self.assertArraysClose(
+                    self.body._get_local_affine_transform_matrix(func, location),
+                    expected,
+                )
+
+    def test_get_matplotlib_transform(self):
+        self.assertArraysClose(
+            self.body._get_matplotlib_transform(
+                lambda a, b: (a, b), (1.234, -56.78), None
+            ).get_matrix(),
+            np.eye(3),
+        )
+
+    def test_matplotlib_transforms(self):
+        with self.subTest('km2radec'):
+            self.assertArraysClose(
+                self.body.matplotlib_km2radec_transform().get_matrix(),
+                array(
+                    [
+                        [-6.40343479e-08, 2.88537788e-08, 1.96371986e02],
+                        [2.87177471e-08, 6.37324567e-08, -5.56579385e00],
+                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                    ]
+                ),
+            )
+        with self.subTest('radec2km'):
+            self.assertArraysClose(
+                self.body.matplotlib_radec2km_transform().get_matrix(),
+                array(
+                    [
+                        [-1.29859192e07, 5.87691416e06, 2.58278044e09],
+                        [5.83821790e06, 1.30424638e07, -1.07387078e09],
+                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                    ]
+                ),
+            )
+        with self.subTest('angular2radec'):
+            self.assertArraysClose(
+                self.body.matplotlib_angular2radec_transform().get_matrix(),
+                array(
+                    [
+                        [-2.79093570e-04, 0.00000000e00, 1.96371986e02],
+                        [6.56168453e-11, 2.77777778e-04, -5.56579385e00],
+                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                    ]
+                ),
+            )
+            self.assertArraysClose(
+                self.body.matplotlib_angular2radec_transform(
+                    coordinate_rotation=45
+                ).get_matrix(),
+                array(
+                    [
+                        [-1.97349022e-04, -1.97348890e-04, 1.96371986e02],
+                        [-1.96418518e-04, 1.96418583e-04, -5.56579385e00],
+                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                    ]
+                ),
+            )
+        with self.subTest('radec2angular'):
+            self.assertArraysClose(
+                self.body.matplotlib_radec2angular_transform().get_matrix(),
+                array(
+                    [
+                        [-3.58302602e03, 0.00000000e00, 7.03605934e05],
+                        [-3.03254848e00, 3.60000000e03, 2.06323654e04],
+                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                    ]
+                ),
+            )
+            self.assertArraysClose(
+                self.body.matplotlib_radec2angular_transform(
+                    coordinate_rotation=45
+                ).get_matrix(),
+                array(
+                    [
+                        [-2.53156508e03, -2.54571365e03, 4.82959545e05],
+                        [-2.53566278e03, 2.54551979e03, 5.12100973e05],
+                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                    ]
+                ),
+            )
+
+        with self.subTest('inverse'):
+            self.assertArraysClose(
+                (
+                    self.body.matplotlib_km2radec_transform()
+                    + self.body.matplotlib_radec2km_transform()
+                ).get_matrix(),
+                np.eye(3),
+                atol=1e-2,
+            )
+            self.assertArraysClose(
+                (
+                    self.body.matplotlib_angular2radec_transform()
+                    + self.body.matplotlib_radec2angular_transform()
+                ).get_matrix(),
+                np.eye(3),
+                atol=1e-2,
+            )
+
+        fig, axis = plt.subplots()
+        for ax in [None, axis]:
+            with self.subTest(ax=ax):
+                # Test consistent results
+                self.body.matplotlib_radec2km_transform(ax)
+                t1 = self.body.matplotlib_radec2km_transform(ax)
+                t2 = self.body.matplotlib_radec2km_transform(ax)
+                self.assertEqual(t1, t2)
+
+                self.body.matplotlib_km2radec_transform(ax)
+                t1 = self.body.matplotlib_km2radec_transform(ax)
+                t2 = self.body.matplotlib_km2radec_transform(ax)
+                self.assertEqual(t1, t2)
+
+        plt.close(fig)

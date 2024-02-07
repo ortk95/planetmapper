@@ -894,20 +894,12 @@ class BodyXY(Body):
         return self._radec_arrs2xy_arrs(*self.ring_radec(radius, **kwargs))
 
     # Matplotlib transforms
-    @_cache_clearable_result
-    def _get_xy2angular_fixed_matrix(self) -> np.ndarray:
-        raise NotImplementedError
-
-    @_cache_clearable_result
-    def _get_angular_fixed2xy_matrix(self) -> np.ndarray:
-        return np.linalg.inv(self._get_xy2angular_fixed_matrix())
-
     def _get_matplotlib_xy2angular_fixed_transform(
         self,
     ) -> matplotlib.transforms.Affine2D:
         if self._mpl_transform_xy2angular_fixed is None:
             self._mpl_transform_xy2angular_fixed = matplotlib.transforms.Affine2D(
-                self._get_xy2angular_fixed_matrix()
+                self._get_xy2angular_matrix()
             )
         return self._mpl_transform_xy2angular_fixed
 
@@ -916,7 +908,7 @@ class BodyXY(Body):
     ) -> matplotlib.transforms.Affine2D:
         if self._mpl_transform_angular_fixed2xy is None:
             self._mpl_transform_angular_fixed2xy = matplotlib.transforms.Affine2D(
-                self._get_angular_fixed2xy_matrix()
+                self._get_angular2xy_matrix()
             )
         return self._mpl_transform_angular_fixed2xy
 
@@ -954,7 +946,7 @@ class BodyXY(Body):
         See :func:`Body.matplotlib_radec2km_transform` for more details and notes on
         limitations of these linear transformations.
         """
-        # XXX test transforms
+        self.update_transform()
         return (
             self._get_matplotlib_xy2angular_fixed_transform()
             + self._get_matplotlib_transform(self.angular2radec, (0.0, 0.0), ax)
@@ -963,6 +955,7 @@ class BodyXY(Body):
     def matplotlib_radec2xy_transform(
         self, ax: Axes | None = None
     ) -> matplotlib.transforms.Transform:
+        self.update_transform()
         return (
             self._get_matplotlib_transform(
                 self.radec2angular, (self.target_ra, self.target_dec), None
@@ -974,6 +967,7 @@ class BodyXY(Body):
     def matplotlib_xy2km_transform(
         self, ax: Axes | None = None
     ) -> matplotlib.transforms.Transform:
+        self.update_transform()
         return (
             self._get_matplotlib_xy2angular_fixed_transform()
             + self._get_matplotlib_transform(self.angular2km, (0.0, 0.0), ax)
@@ -982,6 +976,7 @@ class BodyXY(Body):
     def matplotlib_km2xy_transform(
         self, ax: Axes | None = None
     ) -> matplotlib.transforms.Transform:
+        self.update_transform()
         return (
             self._get_matplotlib_transform(self.km2angular, (0.0, 0.0), None)
             + self._get_matplotlib_angular_fixed2xy_transform()
@@ -991,6 +986,7 @@ class BodyXY(Body):
     def matplotlib_xy2angular_transform(
         self, ax: Axes | None = None, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
     ) -> matplotlib.transforms.Transform:
+        self.update_transform()
         # f transforms from angular (fixed) -> angular (with kwargs)
         f = lambda ax, ay: self._obsvec2angular(
             self._angular2obsvec_norm(ax, ay), **angular_kwargs
@@ -1003,6 +999,7 @@ class BodyXY(Body):
     def matplotlib_angular2xy_transform(
         self, ax: Axes | None = None, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
     ) -> matplotlib.transforms.Transform:
+        self.update_transform()
         # f transforms from angular (with kwargs) -> angular (fixed)
         f = lambda ax, ay: self._obsvec2angular(
             self._angular2obsvec_norm(ax, ay), **angular_kwargs
@@ -1020,10 +1017,10 @@ class BodyXY(Body):
         values `(x0, y0, r0, rotation)`.
         """
         self._get_matplotlib_xy2angular_fixed_transform().set_matrix(
-            self._get_xy2angular_fixed_matrix()
+            self._get_xy2angular_matrix()
         )
         self._get_matplotlib_angular_fixed2xy_transform().set_matrix(
-            self._get_angular_fixed2xy_matrix()
+            self._get_angular2xy_matrix()
         )
 
     # Mapping
