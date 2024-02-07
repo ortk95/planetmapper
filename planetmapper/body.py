@@ -2166,6 +2166,39 @@ class Body(BodyBase):
         """
         Get matplotlib transform which converts between coordinate systems.
 
+        For example, :func:`matplotlib_radec2km_transform` can be used to plot data
+        in RA/Dec coordinates directly on a plot in the km coordinate system: ::
+
+            # Create plot in km coordinates
+            ax = body.plot_wireframe_km()
+
+            # Plot data using RA/Dec coordinates with the transform
+            ax.scatter(
+                body.target_ra,
+                body.target_dec,
+                transform=body.matplotlib_radec2km_transform(ax),
+                color='r',
+            )
+            # This is (almost exactly) equivalent to using
+            # ax.scatter(*body.radec2km(body.target_ra, body.target_dec), color='r')
+
+        A full set of transformations are available in :class:`Body` (below) and
+        :class:`BodyXY` to convert between various coordinate systems. These are
+        mainly convenience functions to simplify plotting data in different coordinate
+        systems, and may not be exact in some extreme geometries, due to the non-linear
+        nature of spherical coordinates.
+
+        .. note::
+
+            The transformations are performed as affine transformations, which are
+            linear transformations. This means that the transformations may be inexact
+            at large distances from the target body, or near the celestial poles for
+            `radec` coordinates. For the vast majority of purposes, these matplotlib
+            transformations are accurate, but if you are working with extreme geometries
+            or require exact transformations you should convert the coordinates manually
+            before plotting (e.g. using :func:`radec2km` rather than
+            :func:`matplotlib_radec2km_transform`).
+
         Args:
             ax: Optionally specify a matplotlib axis to return
                 `transform_radec2km + ax.transData`. This value can then be used in the
@@ -2175,7 +2208,6 @@ class Body(BodyBase):
         Returns:
             Matplotlib transformation from `radec` to `km` coordinates.
         """
-        # XXX add note about inexactness
         # XXX test transforms
         return self._get_matplotlib_transform(
             self.radec2km, (self.target_ra, self.target_dec), ax

@@ -1,4 +1,5 @@
 import datetime
+import functools
 import io
 import math
 import warnings
@@ -444,7 +445,6 @@ class BodyXY(Body):
             `(angular_x, angular_y)` tuple containing the relative angular coordinates
             of the point in arcseconds.
         """
-        # XXX test
         return self._obsvec2angular(self._xy2obsvec_norm(x, y), **angular_kwargs)
 
     def angular2xy(
@@ -912,7 +912,7 @@ class BodyXY(Body):
         return self._mpl_transform_xy2angular_fixed
 
     def _get_matplotlib_angular_fixed2xy_transform(
-        self
+        self,
     ) -> matplotlib.transforms.Affine2D:
         if self._mpl_transform_angular_fixed2xy is None:
             self._mpl_transform_angular_fixed2xy = matplotlib.transforms.Affine2D(
@@ -920,25 +920,105 @@ class BodyXY(Body):
             )
         return self._mpl_transform_angular_fixed2xy
 
+    def _maybe_get_axis_transform(
+        self, ax: Axes | None
+    ) -> matplotlib.transforms.Transform:
+        return (
+            ax.transData
+            if ax is not None
+            else matplotlib.transforms.IdentityTransform()
+        )
+
     def matplotlib_xy2radec_transform(
         self, ax: Axes | None = None
     ) -> matplotlib.transforms.Transform:
-        # XXX document (see old code)
+        """
+        Get matplotlib transform which converts between coordinate systems.
+
+        Transformations to/from the `xy` coordinate system are mutable objects which can
+        be dynamically updated using :func:`update_transform` when the `radec` to `xy`
+        coordinate conversion changes. This can be useful for plotting data (e.g. an
+        observed image) using image xy coordinates onto an axis using RA/Dec
+        coordinates. ::
+
+            # Plot an observed image on an RA/Dec axis with a wireframe of the target
+            ax = obs.plot_wireframe_radec()
+            ax.autoscale_view()
+            ax.autoscale(False) # Prevent imshow breaking autoscale
+            ax.imshow(
+                img,
+                origin='lower',
+                transform=obs.matplotlib_xy2radec_transform(ax),
+                )
+
+        See :func:`Body.matplotlib_radec2km_transform` for more details and notes on
+        limitations of these linear transformations.
+        """
         # XXX test transforms
-        return self._get_matplotlib_xy2angular_fixed_transform() + self._get_matplotlib_transform(
-            self.angular2radec, location=(0.0, 0.0), ax
+        return (
+            self._get_matplotlib_xy2angular_fixed_transform()
+            + self._get_matplotlib_transform(self.angular2radec, (0.0, 0.0), ax)
         )
-    
-    def matplotlib_radec2xy_transform(        self, ax: Axes | None = None
+
+    def matplotlib_radec2xy_transform(
+        self, ax: Axes | None = None
     ) -> matplotlib.transforms.Transform:
-        raise NotImplementedError
+        return (
+            self._get_matplotlib_transform(
+                self.radec2angular, (self.target_ra, self.target_dec), None
+            )
+            + self._get_matplotlib_angular_fixed2xy_transform()
+            + self._maybe_get_axis_transform(ax)
+        )
+
+    def matplotlib_xy2km_transform(
+        self, ax: Axes | None = None
+    ) -> matplotlib.transforms.Transform:
+        return (
+            self._get_matplotlib_xy2angular_fixed_transform()
+            + self._get_matplotlib_transform(self.angular2km, (0.0, 0.0), ax)
+        )
+
+    def matplotlib_km2xy_transform(
+        self, ax: Axes | None = None
+    ) -> matplotlib.transforms.Transform:
+        return (
+            self._get_matplotlib_transform(self.km2angular, (0.0, 0.0), None)
+            + self._get_matplotlib_angular_fixed2xy_transform()
+            + self._maybe_get_axis_transform(ax)
+        )
+
+    def matplotlib_xy2angular_transform(
+        self, ax: Axes | None = None, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
+    ) -> matplotlib.transforms.Transform:
+        # f transforms from angular (fixed) -> angular (with kwargs)
+        f = lambda ax, ay: self._obsvec2angular(
+            self._angular2obsvec_norm(ax, ay), **angular_kwargs
+        )
+        return (
+            self._get_matplotlib_xy2angular_fixed_transform()
+            + self._get_matplotlib_transform(f, (0.0, 0.0), ax)
+        )
+
+    def matplotlib_angular2xy_transform(
+        self, ax: Axes | None = None, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
+    ) -> matplotlib.transforms.Transform:
+        # f transforms from angular (with kwargs) -> angular (fixed)
+        f = lambda ax, ay: self._obsvec2angular(
+            self._angular2obsvec_norm(ax, ay), **angular_kwargs
+        )
+        return (
+            self._get_matplotlib_transform(f, (0.0, 0.0), None)
+            + self._get_matplotlib_angular_fixed2xy_transform()
+            + self._maybe_get_axis_transform(ax)
+        )
+
     def update_transform(self) -> None:
         """
-        Update the transformations returned by :func:`matplotlib_radec2xy_transform`
-        and :func:`matplotlib_xy2radec_transform` to use the latest disc parameter
+        Update the matplotlib transformations involving `xy` coordinates (e.g.
+        :func:`matplotlib_radec2xy_transform`) to use the latest disc parameter
         values `(x0, y0, r0, rotation)`.
         """
-        # XXX update docstring
         self._get_matplotlib_xy2angular_fixed_transform().set_matrix(
             self._get_xy2angular_fixed_matrix()
         )
