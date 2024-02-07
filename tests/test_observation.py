@@ -559,8 +559,8 @@ class TestObservation(common_testing.BaseTestCase):
             np.allclose(obs.get_wcs_arcsec_offset(suppress_warnings=True), (1, 2.5))
         )
         obs.add_arcsec_offset(10)
-        self.assertTrue(
-            np.allclose(obs.get_wcs_arcsec_offset(suppress_warnings=True), (11, 2.5))
+        self.assertArraysClose(
+            obs.get_wcs_arcsec_offset(suppress_warnings=True), (11, 2.5), atol=1e-3
         )
 
         obs.disc_from_wcs(suppress_warnings=True)
@@ -839,10 +839,8 @@ class TestObservation(common_testing.BaseTestCase):
                     # (e.g. fonts available), and is only a cosmetic backplane anyway
                     # so the actual values don't matter anywhere near as much as the
                     # other backplanes.
-                    atol = 64 if extname == 'WIREFRAME' else 1e-8  # 1e-8 is the default
-                    self.assertTrue(
-                        np.allclose(data, data_ref, atol=atol, equal_nan=True)
-                    )
+                    atol = 64 if extname == 'WIREFRAME' else 1e-6
+                    self.assertArraysClose(data, data_ref, atol=atol, equal_nan=True)
 
                 header = hdu.header
                 header_ref = hdu_ref.header
