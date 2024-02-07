@@ -927,10 +927,6 @@ class Body(BodyBase):
     ) -> np.ndarray:
         # any changes to kwargs/defaults should be reflected in radec2angular and
         # plot_wireframe_angular
-        # XXX stabilise names (kwargs)
-        # XXX test
-        # XXX add generic documentation
-        # XXX add full set of derived transformations (km, xy)
         if origin_ra is None:
             origin_ra = self.target_ra
         if origin_dec is None:
@@ -1013,7 +1009,6 @@ class Body(BodyBase):
             `(angular_x, angular_y)` tuple containing the relative angular coordinates
             of the point in arcseconds.
         """
-        # XXX add detail to the docstring?
         return self._obsvec2angular(
             self._radec2obsvec_norm(ra, dec),
             origin_ra=origin_ra,
@@ -2327,7 +2322,9 @@ class Body(BodyBase):
                     else {}
                 ),
             )
-        lats = [l for l in np.arange(-90, 90, grid_interval) if abs(l) <= grid_lat_limit]
+        lats = [
+            l for l in np.arange(-90, 90, grid_interval) if abs(l) <= grid_lat_limit
+        ]
         for lat, (ra, dec) in zip(
             lats, self.visible_lat_grid_radec(lats, lat_limit=grid_lat_limit)
         ):
@@ -2515,7 +2512,7 @@ class Body(BodyBase):
         Returns:
             The axis containing the plotted wireframe.
         """
-        # XXX add note about warping at high declinations
+        # TODO maybe add automated warning at high declinations?
         # TODO make aspect adjustable accept None to skip setting aspect
         ax = self._plot_wireframe(
             coordinate_func=lambda ra, dec: (ra, dec),
@@ -2604,7 +2601,6 @@ class Body(BodyBase):
             The axis containing the plotted wireframe.
         """
         # XXX test
-        # XXX document in examples
         ax = self._plot_wireframe(
             coordinate_func=lambda ra, dec: self.radec2angular(
                 ra,
