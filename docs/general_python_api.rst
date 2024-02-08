@@ -195,7 +195,6 @@ The appearance of wireframe plots can be fully customised to suit your needs. Fo
     body = planetmapper.Body('saturn', '2020-02-08', observer='iapetus')
     body.add_other_bodies_of_interest('dione', 'methone')
     body.plot_wireframe_radec(
-        ax,
         add_title=False,
         dms_ticks=False,
         label_poles=False,
