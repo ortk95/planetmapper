@@ -17,7 +17,7 @@ def format_radec_axes(
     dec: float,
     dms_ticks: bool = True,
     add_axis_labels: bool = True,
-    aspect_adjustable: Literal['box', 'datalim'] = 'datalim',
+    aspect_adjustable: Literal['box', 'datalim'] | None = 'datalim',
 ) -> None:
     """
     Format an axis to display RA/Dec coordinates nicely.
@@ -29,12 +29,15 @@ def format_radec_axes(
             (e.g. 12°34′56″) or decimal degrees (e.g. 12.582).
         add_axis_labels: Add axis labels.
         aspect_adjustable: Set `adjustable` parameter when setting the aspect ratio.
-            Passed to :func:`matplotlib.axes.Axes.set_aspect`.
+            Passed to :func:`matplotlib.axes.Axes.set_aspect`. Set to None to skip
+            setting the aspect ratio (generally this is only recommended if you're
+            setting the aspect ratio yourself).
     """
     if add_axis_labels:
         ax.set_xlabel('Right Ascension')
         ax.set_ylabel('Declination')
-    ax.set_aspect(1 / np.cos(np.deg2rad(dec)), adjustable=aspect_adjustable)
+    if aspect_adjustable is not None:
+        ax.set_aspect(1 / np.cos(np.deg2rad(dec)), adjustable=aspect_adjustable)
     if not ax.xaxis_inverted():
         ax.invert_xaxis()
     if dms_ticks:

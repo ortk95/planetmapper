@@ -1168,7 +1168,7 @@ class BodyXY(Body):
         ax: Axes | None = None,
         *,
         add_axis_labels: bool = True,
-        aspect_adjustable: Literal['box', 'datalim'] = 'box',
+        aspect_adjustable: Literal['box', 'datalim'] | None = 'box',
         show: bool = False,
         **wireframe_kwargs: Unpack[_WireframeKwargs],
     ) -> Axes:

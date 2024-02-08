@@ -2268,6 +2268,7 @@ class Body(BodyBase):
         *,
         coordinate_func: Callable[[float, float], tuple[float, float]],
         transform: matplotlib.transforms.Transform | None,
+        aspect_adjustable: Literal['box', 'datalim'] | None,
         ax: Axes | None = None,
         label_poles: bool = True,
         add_title: bool = True,
@@ -2379,6 +2380,8 @@ class Body(BodyBase):
 
         if add_title:
             ax.set_title(self.get_description(multiline=True))
+        if aspect_adjustable is not None:
+            ax.set_aspect(1, adjustable=aspect_adjustable)
         return ax
 
     def plot_wireframe_radec(
@@ -2387,7 +2390,7 @@ class Body(BodyBase):
         *,
         dms_ticks: bool = True,
         add_axis_labels: bool = True,
-        aspect_adjustable: Literal['box', 'datalim'] = 'datalim',
+        aspect_adjustable: Literal['box', 'datalim'] | None = 'datalim',
         show: bool = False,
         **wireframe_kwargs: Unpack[_WireframeKwargs],
     ) -> Axes:
@@ -2480,7 +2483,9 @@ class Body(BodyBase):
             indicate_prime_meridian: Toggle indicating the prime meridian with a solid
                 line.
             aspect_adjustable: Set `adjustable` parameter when setting the aspect ratio.
-                Passed to :func:`matplotlib.axes.Axes.set_aspect`.
+                Passed to :func:`matplotlib.axes.Axes.set_aspect`. Set to None to skip
+                setting the aspect ratio (generally this is only recommended if you're
+                setting the aspect ratio yourself).
             dms_ticks: Toggle between showing ticks as degrees, minutes and seconds
                 (e.g. 12°34′56″) or decimal degrees (e.g. 12.582). This argument is only
                 applicable for :func:`plot_wireframe_radec`.
@@ -2516,6 +2521,7 @@ class Body(BodyBase):
         ax = self._plot_wireframe(
             coordinate_func=lambda ra, dec: (ra, dec),
             transform=None,
+            aspect_adjustable=None,
             ax=ax,
             **wireframe_kwargs,
         )
@@ -2537,7 +2543,7 @@ class Body(BodyBase):
         ax: Axes | None = None,
         *,
         add_axis_labels: bool = True,
-        aspect_adjustable: Literal['box', 'datalim'] = 'datalim',
+        aspect_adjustable: Literal['box', 'datalim'] | None = 'datalim',
         show: bool = False,
         **wireframe_kwargs: Unpack[_WireframeKwargs],
     ) -> Axes:
@@ -2551,6 +2557,7 @@ class Body(BodyBase):
         ax = self._plot_wireframe(
             coordinate_func=self.radec2km,
             transform=None,
+            aspect_adjustable=aspect_adjustable,
             ax=ax,
             **wireframe_kwargs,
         )
@@ -2558,7 +2565,6 @@ class Body(BodyBase):
             ax.set_xlabel('Projected distance (km)')
             ax.set_ylabel('Projected distance (km)')
             ax.ticklabel_format(style='sci', scilimits=(-3, 3))
-        ax.set_aspect(1, adjustable=aspect_adjustable)
 
         if show:
             plt.show()
@@ -2572,7 +2578,7 @@ class Body(BodyBase):
         origin_dec: float | None = None,
         coordinate_rotation: float = 0.0,
         add_axis_labels: bool = True,
-        aspect_adjustable: Literal['box', 'datalim'] = 'datalim',
+        aspect_adjustable: Literal['box', 'datalim'] | None = 'datalim',
         show: bool = False,
         **wireframe_kwargs: Unpack[_WireframeKwargs],
     ) -> Axes:
@@ -2608,13 +2614,13 @@ class Body(BodyBase):
                 coordinate_rotation=coordinate_rotation,
             ),
             transform=None,
+            aspect_adjustable=aspect_adjustable,
             ax=ax,
             **wireframe_kwargs,
         )
         if add_axis_labels:
             ax.set_xlabel('Angular distance (arcsec)')
             ax.set_ylabel('Angular distance (arcsec)')
-        ax.set_aspect(1, adjustable=aspect_adjustable)
 
         if show:
             plt.show()
