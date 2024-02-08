@@ -1451,6 +1451,12 @@ class TestBody(common_testing.BaseTestCase):
         mock_show.assert_called_once()
         mock_show.reset_mock()
 
+        fig, ax = plt.subplots()
+        jupiter.plot_wireframe_angular(ax, show=True)
+        plt.close(fig)
+        mock_show.assert_called_once()
+        mock_show.reset_mock()
+
     def test_get_local_affine_transform_matrix(self):
         tests: list[
             tuple[
