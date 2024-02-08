@@ -20,7 +20,8 @@ omit = ["planetmapper/gui.py"]
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",
-    "^\\s*\\.\\.\\.$",     # "..." lines (typing overloads etc.)
+    "^\\s*\\.\\.\\.$",     # "..." on line after func def (typing overloads etc.)
+    ":\\s*\\.\\.\\.$",     # ": ..." on same line as func def
     "^if TYPE_CHECKING:$",
 ]
 
