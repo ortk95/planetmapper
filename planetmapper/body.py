@@ -2400,7 +2400,6 @@ class Body(BodyBase):
         Add NaNs into arrays when RA coords wraparound between 0 & 360. Useful for
         preprocessing arrays before plotting.
         """
-        # XXX test
         ra_out = []
         dec_out = []
         ra_prev = np.nan

@@ -1415,8 +1415,8 @@ class TestBody(common_testing.BaseTestCase):
             with self.subTest(ra=ra_in, dec=dec_in):
                 self.assertArraysEqual(
                     self.body._add_nans_for_radec_array_wraparounds(ra_in, dec_in),
-                    (ra_expected, dec_expected),                    equal_nan=True,
-
+                    (ra_expected, dec_expected),
+                    equal_nan=True,
                 )
 
         ras = [1, 1, 0, 270, 0, 270.1, 0, 44.9, 0, 45, 0, 45.1]
