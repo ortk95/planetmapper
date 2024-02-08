@@ -1168,7 +1168,7 @@ class BodyXY(Body):
         ax: Axes | None = None,
         *,
         add_axis_labels: bool = True,
-        aspect_adjustable: Literal['box', 'datalim'] = 'box',
+        aspect_adjustable: Literal['box', 'datalim'] | None = 'box',
         show: bool = False,
         **wireframe_kwargs: Unpack[_WireframeKwargs],
     ) -> Axes:
@@ -1185,6 +1185,7 @@ class BodyXY(Body):
         ax = self._plot_wireframe(
             coordinate_func=self.radec2angular,
             transform=self._get_matplotlib_angular_fixed2xy_transform(),
+            aspect_adjustable=aspect_adjustable,
             ax=ax,
             **wireframe_kwargs,
         )
@@ -1195,7 +1196,6 @@ class BodyXY(Body):
         if add_axis_labels:
             ax.set_xlabel('x (pixels)')
             ax.set_ylabel('y (pixels)')
-        ax.set_aspect(1, adjustable=aspect_adjustable)
 
         if show:
             plt.show()
@@ -1212,7 +1212,7 @@ class BodyXY(Body):
         grid_lat_limit: float = 90,
         indicate_equator: bool = True,
         indicate_prime_meridian: bool = True,
-        aspect_adjustable: Literal['box', 'datalim'] = 'box',
+        aspect_adjustable: Literal['box', 'datalim'] | None = 'box',
         formatting: dict[_WireframeComponent, dict[str, Any]] | None = None,
         **map_and_formatting_kwargs,
     ) -> Axes:
@@ -1249,7 +1249,8 @@ class BodyXY(Body):
         )
         projection = map_kw_used['projection']
 
-        ax.set_aspect(1, adjustable=aspect_adjustable)
+        if aspect_adjustable is not None:
+            ax.set_aspect(1, adjustable=aspect_adjustable)
 
         lon_ticks = np.arange(0, 360.0001, grid_interval)
         lat_ticks = np.arange(-90, 90.0001, grid_interval)

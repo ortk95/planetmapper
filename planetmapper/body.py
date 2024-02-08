@@ -2,7 +2,7 @@ import datetime
 import functools
 import math
 from collections import defaultdict
-from typing import Any, Callable, Literal, TypedDict, cast, overload
+from typing import Any, Callable, Iterable, Literal, TypedDict, cast, overload
 
 try:
     from typing import Unpack
@@ -2183,7 +2183,7 @@ class Body(BodyBase):
         systems, and may not be exact in some extreme geometries, due to the non-linear
         nature of spherical coordinates.
 
-        .. note::
+        .. warning::
 
             The transformations are performed as affine transformations, which are
             linear transformations. This means that the transformations may be inexact
@@ -2268,6 +2268,10 @@ class Body(BodyBase):
         *,
         coordinate_func: Callable[[float, float], tuple[float, float]],
         transform: matplotlib.transforms.Transform | None,
+        aspect_adjustable: Literal['box', 'datalim'] | None,
+        additional_array_func: (
+            Callable[[Iterable, Iterable], tuple[np.ndarray, np.ndarray]] | None
+        ) = None,
         ax: Axes | None = None,
         label_poles: bool = True,
         add_title: bool = True,
@@ -2287,6 +2291,9 @@ class Body(BodyBase):
                 values (x, y).
             transform: Matplotlib transform to apply to the plotted data, after
                 transforming with `coordinate_func`.
+            additional_array_func: Function to apply to arrays of converted (x, y)
+                coordinates before plotting. Useful for adding NaNs to arrays to
+                handle wraparound in RA coordinates.
         """
         if ax is None:
             ax = cast(Axes, plt.gca())
@@ -2300,6 +2307,8 @@ class Body(BodyBase):
         ) -> tuple[np.ndarray, np.ndarray]:
             """Transform arrays of coords with coordinate_func"""
             xs, ys = zip(*(coordinate_func(ra, dec) for ra, dec in zip(ras, decs)))
+            if additional_array_func is not None:
+                xs, ys = additional_array_func(xs, ys)
             return np.array(xs), np.array(ys)
 
         kwargs = self._get_wireframe_kw(
@@ -2379,7 +2388,29 @@ class Body(BodyBase):
 
         if add_title:
             ax.set_title(self.get_description(multiline=True))
+        if aspect_adjustable is not None:
+            ax.set_aspect(1, adjustable=aspect_adjustable)
         return ax
+
+    @staticmethod
+    def _add_nans_for_radec_array_wraparounds(
+        ras: Iterable[float], decs: Iterable[float], *, threshold: float = 270.0
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Add NaNs into arrays when RA coords wraparound between 0 & 360. Useful for
+        preprocessing arrays before plotting.
+        """
+        ra_out = []
+        dec_out = []
+        ra_prev = np.nan
+        for ra, dec in zip(ras, decs):
+            if abs(ra - ra_prev) > threshold:
+                ra_out.append(np.nan)
+                dec_out.append(np.nan)
+            ra_out.append(ra)
+            dec_out.append(dec)
+            ra_prev = ra
+        return np.array(ra_out), np.array(dec_out)
 
     def plot_wireframe_radec(
         self,
@@ -2387,7 +2418,8 @@ class Body(BodyBase):
         *,
         dms_ticks: bool = True,
         add_axis_labels: bool = True,
-        aspect_adjustable: Literal['box', 'datalim'] = 'datalim',
+        aspect_adjustable: Literal['box', 'datalim'] | None = 'datalim',
+        use_shifted_meridian: bool = False,
         show: bool = False,
         **wireframe_kwargs: Unpack[_WireframeKwargs],
     ) -> Axes:
@@ -2451,7 +2483,7 @@ class Body(BodyBase):
             body.plot_wireframe_radec() # This would have a blue dashed grid
             body.plot_wireframe_radec(color='r') # This would be red with a dashed grid
 
-        .. note::
+        .. warning::
 
             The plot may appear warped or distorted if the target is near the celestial
             pole (i.e. the target's declination is near 90° or -90°). This is due to the
@@ -2460,10 +2492,18 @@ class Body(BodyBase):
 
             :func:`plot_wireframe_angular` can be used as an alternative to
             :func:`plot_wireframe_radec` to plot the wireframe without distortion from
-            the choice of coordinte system. By default, the `angular` coordinate system
+            the choice of coordinate system. By default, the `angular` coordinate system
             is centred on the target body, which minimises any distortion, but the
             origin and rotation of the `angular` coordinates can also be customised as
             needed (e.g. to align it with an instrument's field of view).
+
+        .. hint::
+
+            If the target body is near RA=0°, then the wireframe may be split over two
+            halves of the plot. This can be fixed by using
+            `body.plot_wireframe_radec(use_shifted_meridian=True)`, which will plot the
+            wireframe with RA coordinates between -180° and 180°, rather than the
+            default of 0° to 360°.
 
         Args:
             ax: Matplotlib axis to use for plotting. If `ax` is None (the default), uses
@@ -2480,10 +2520,18 @@ class Body(BodyBase):
             indicate_prime_meridian: Toggle indicating the prime meridian with a solid
                 line.
             aspect_adjustable: Set `adjustable` parameter when setting the aspect ratio.
-                Passed to :func:`matplotlib.axes.Axes.set_aspect`.
+                Passed to :func:`matplotlib.axes.Axes.set_aspect`. Set to None to skip
+                setting the aspect ratio (generally this is only recommended if you're
+                setting the aspect ratio yourself).
             dms_ticks: Toggle between showing ticks as degrees, minutes and seconds
                 (e.g. 12°34′56″) or decimal degrees (e.g. 12.582). This argument is only
                 applicable for :func:`plot_wireframe_radec`.
+            use_shifted_meridian: If `use_shifted_meridian=True`, plot the wireframe
+                with RA coordinates between -180° and 180°, rather than the default of
+                0° to 360°. This can be useful for bodies which lie at RA=0°, which can
+                be split over two halves of the plot with the default
+                `use_shifted_meridian=False`. This argument is only applicable for
+                :func:`plot_wireframe_radec`.
             show: Toggle immediately showing the plotted figure with `plt.show()`.
             formatting: Dictionary of formatting options for the wireframe components.
                 The keys of this dictionary are the names of the wireframe components
@@ -2511,12 +2559,20 @@ class Body(BodyBase):
         Returns:
             The axis containing the plotted wireframe.
         """
-        # TODO maybe add automated warning at high declinations?
-        # TODO make aspect adjustable accept None to skip setting aspect
+        # TODO maybe add automated warning at high declinations and for ra wraparound
+        # TODO maybe add some fixed upper xlim/ylim for RA/Dec plots
+
+        if use_shifted_meridian:
+            coordinate_func = lambda ra, dec: ((ra + 180.0) % 360.0 - 180.0, dec)
+        else:
+            coordinate_func = lambda ra, dec: (ra, dec)
+
         ax = self._plot_wireframe(
-            coordinate_func=lambda ra, dec: (ra, dec),
+            coordinate_func=coordinate_func,
             transform=None,
+            aspect_adjustable=None,
             ax=ax,
+            additional_array_func=self._add_nans_for_radec_array_wraparounds,
             **wireframe_kwargs,
         )
 
@@ -2537,7 +2593,7 @@ class Body(BodyBase):
         ax: Axes | None = None,
         *,
         add_axis_labels: bool = True,
-        aspect_adjustable: Literal['box', 'datalim'] = 'datalim',
+        aspect_adjustable: Literal['box', 'datalim'] | None = 'datalim',
         show: bool = False,
         **wireframe_kwargs: Unpack[_WireframeKwargs],
     ) -> Axes:
@@ -2551,6 +2607,7 @@ class Body(BodyBase):
         ax = self._plot_wireframe(
             coordinate_func=self.radec2km,
             transform=None,
+            aspect_adjustable=aspect_adjustable,
             ax=ax,
             **wireframe_kwargs,
         )
@@ -2558,7 +2615,6 @@ class Body(BodyBase):
             ax.set_xlabel('Projected distance (km)')
             ax.set_ylabel('Projected distance (km)')
             ax.ticklabel_format(style='sci', scilimits=(-3, 3))
-        ax.set_aspect(1, adjustable=aspect_adjustable)
 
         if show:
             plt.show()
@@ -2572,7 +2628,7 @@ class Body(BodyBase):
         origin_dec: float | None = None,
         coordinate_rotation: float = 0.0,
         add_axis_labels: bool = True,
-        aspect_adjustable: Literal['box', 'datalim'] = 'datalim',
+        aspect_adjustable: Literal['box', 'datalim'] | None = 'datalim',
         show: bool = False,
         **wireframe_kwargs: Unpack[_WireframeKwargs],
     ) -> Axes:
@@ -2588,7 +2644,7 @@ class Body(BodyBase):
 
             body.plot_wireframe_angular(origin_ra=0, origin_dec=90)
 
-        .. note::
+        .. warning::
 
             If custom values for `origin_ra` and `origin_dec` are provided, the plot may
             appear warped or distorted if the target is a large distance from the
@@ -2608,13 +2664,13 @@ class Body(BodyBase):
                 coordinate_rotation=coordinate_rotation,
             ),
             transform=None,
+            aspect_adjustable=aspect_adjustable,
             ax=ax,
             **wireframe_kwargs,
         )
         if add_axis_labels:
             ax.set_xlabel('Angular distance (arcsec)')
             ax.set_ylabel('Angular distance (arcsec)')
-        ax.set_aspect(1, adjustable=aspect_adjustable)
 
         if show:
             plt.show()
