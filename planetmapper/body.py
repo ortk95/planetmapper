@@ -2533,9 +2533,7 @@ class Body(BodyBase):
         """
         # TODO maybe add automated warning at high declinations and for ra wraparound
         # TODO maybe fix plot() for ra wraparound by inserting NaNs into arrays
-
-        # XXX test wraparound
-        # XXX add wraparound to issues documentation
+        # TODO maybe add some fixed upper xlim/ylim for ra/dec plots
 
         if use_shifted_meridian:
             coordinate_func = lambda ra, dec: ((ra + 180.0) % 360.0 - 180.0, dec)

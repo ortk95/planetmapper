@@ -68,3 +68,8 @@ This is most likely to occur when using :func:`planetmapper.Body.plot_wireframe_
 To fix this, you can use the :func:`planetmapper.Body.plot_wireframe_angular`, which by default uses a coordinate system centred on the target body, which minimises any distortion. The origin of the `angular` coordinate system can also be customised to be any point in the sky, for example, using `body.plot_wireframe_angular(origin_ra=0, origin_dec=90)` may be useful for plotting observations in the sky around the north celestial pole.
 
 Plots may also appear distorted if using :func:`planetmapper.Body.plot_wireframe_angular` with a a custom origin that is a large distance from the target body.
+
+
+RA/Dec wireframe plots appear split into two halves
+===================================================
+If the target body is near RA=0°, the wireframe plot may appear to be split into two halves, due to part of the body having RA values near 0° and part having RA values near 360°. This can be fixed by using `body.plot_wireframe_radec(use_shifted_meridian=True)`, which will plot the wireframe with RA coordinates between -180° and 180°, rather than the default of 0° to 360°.
