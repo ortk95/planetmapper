@@ -31,7 +31,7 @@ from matplotlib.text import Text
 
 from . import base, data_loader, progress, utils
 from .body import BasicBody, Body, NotFoundError
-from .body_xy import _MapKwargs
+from .body_xy import MapKwargs
 from .observation import Observation
 
 Widget = TypeVar('Widget', bound=tk.Widget)
@@ -2127,7 +2127,7 @@ class SaveObservation(Popup):
     def try_run_save(self) -> None:
         save_nav = bool(self.save_nav.get())
         save_map = bool(self.save_map.get())
-        map_kw: _MapKwargs = {}
+        map_kw: MapKwargs = {}
 
         path_map = self.path_map.get().strip()
         path_nav = self.path_nav.get().strip()
@@ -2215,7 +2215,7 @@ class SavingProgress(Popup):
         save_map: bool,
         path_map: str,
         interpolation: str,
-        map_kw: _MapKwargs,
+        map_kw: MapKwargs,
         keep_open: bool,
     ):
         self.parent = parent

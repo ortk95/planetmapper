@@ -31,7 +31,7 @@ from . import data_loader, utils
 from .base import BodyBase, Numeric, _cache_stable_result
 from .basic_body import BasicBody
 
-_WireframeComponent = Literal[
+WireframeComponent = Literal[
     'all',
     'grid',
     'equator',
@@ -49,16 +49,28 @@ _WireframeComponent = Literal[
     'hidden_other_body_of_interest_label',
     'map_boundary',
 ]
+"""
+Literal type containing the names of all possible wireframe components.
+"""
+_WireframeComponent = WireframeComponent  # keep for backward compatibility
 
 
-class _WireframeKwargs(TypedDict, total=False):
+class WireframeKwargs(TypedDict, total=False):
+    """
+    Class to help type hint keyword arguments of wireframe plotting functions. The
+    `color`, `alpha` and `zorder` parameters are a non-exhaustive list of commonly used
+    formatting parameters which are passed to matplotlib functions.
+
+    See :func:`Body.plot_wireframe_radec` for more details.
+    """
+
     label_poles: bool
     add_title: bool
     grid_interval: float
     grid_lat_limit: float
     indicate_equator: bool
     indicate_prime_meridian: bool
-    formatting: dict[_WireframeComponent, dict[str, Any]] | None
+    formatting: dict[WireframeComponent, dict[str, Any]] | None
 
     # Hints for common formatting parameters to make type checking/autocomplete happy
     color: str | tuple[float, float, float]
@@ -66,7 +78,9 @@ class _WireframeKwargs(TypedDict, total=False):
     zorder: float
 
 
-DEFAULT_WIREFRAME_FORMATTING: dict[_WireframeComponent, dict[str, Any]] = {
+_WireframeKwargs = WireframeKwargs  # keep for backward compatibility
+
+DEFAULT_WIREFRAME_FORMATTING: dict[WireframeComponent, dict[str, Any]] = {
     'all': dict(color='k'),
     'grid': dict(alpha=0.5, linestyle=':'),
     'equator': dict(linestyle='-'),
@@ -100,9 +114,22 @@ DEFAULT_WIREFRAME_FORMATTING: dict[_WireframeComponent, dict[str, Any]] = {
     'hidden_other_body_of_interest_label': dict(),
     'map_boundary': dict(),
 }
+"""
+Dictionary containing the default formatting settings for all wireframe components,
+which can be modified to customise the default appearance of wireframe plots.
+
+See :func:`Body.plot_wireframe_radec` for more details.
+"""
 
 
-class _AngularCoordinateKwargs(TypedDict, total=False):
+class AngularCoordinateKwargs(TypedDict, total=False):
+    """
+    Class to help type hint keyword arguments of angular coordinate transformations and
+    plotting functions.
+
+    See :func:`Body.radec2angular` for more details.
+    """
+
     origin_ra: float | None
     origin_dec: float | None
     coordinate_rotation: float
@@ -946,7 +973,7 @@ class Body(BodyBase):
         return rotation_matrix @ dec_matrix @ ra_matrix
 
     def _obsvec2angular(
-        self, obsvec: np.ndarray, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
+        self, obsvec: np.ndarray, **angular_kwargs: Unpack[AngularCoordinateKwargs]
     ) -> tuple[float, float]:
         if not (
             math.isfinite(obsvec[0])
@@ -967,7 +994,7 @@ class Body(BodyBase):
         self,
         angular_x: float,
         angular_y: float,
-        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+        **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> np.ndarray:
         vec = spice.radrec(
             1.0, -np.deg2rad(angular_x / 3600.0), np.deg2rad(angular_y / 3600.0)
@@ -1020,7 +1047,7 @@ class Body(BodyBase):
         self,
         angular_x: float,
         angular_y: float,
-        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+        **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[float, float]:
         """
         Convert relative angular coordinates to RA/Dec sky coordinates for the observer.
@@ -1045,7 +1072,7 @@ class Body(BodyBase):
         angular_y: float,
         *,
         not_found_nan: bool = True,
-        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+        **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[float, float]:
         """
         Convert relative angular coordinates to longitude/latitude coordinates on the
@@ -1078,7 +1105,7 @@ class Body(BodyBase):
         self,
         lon: float,
         lat: float,
-        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+        **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[float, float]:
         """
         Convert longitude/latitude coordinates on the target body to relative angular
@@ -1197,7 +1224,7 @@ class Body(BodyBase):
         self,
         km_x: float,
         km_y: float,
-        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+        **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[float, float]:
         """
         Convert distance in target plane to relative angular coordinates.
@@ -1219,7 +1246,7 @@ class Body(BodyBase):
         self,
         angular_x: float,
         angular_y: float,
-        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+        **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[float, float]:
         """
         Convert relative angular coordinates to distances in the target plane.
@@ -2219,7 +2246,7 @@ class Body(BodyBase):
         return self._get_matplotlib_transform(self.km2radec, (0.0, 0.0), ax)
 
     def matplotlib_radec2angular_transform(
-        self, ax: Axes | None = None, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
+        self, ax: Axes | None = None, **angular_kwargs: Unpack[AngularCoordinateKwargs]
     ) -> matplotlib.transforms.Transform:
         return self._get_matplotlib_transform(
             functools.partial(self.radec2angular, **angular_kwargs),
@@ -2228,7 +2255,7 @@ class Body(BodyBase):
         )
 
     def matplotlib_angular2radec_transform(
-        self, ax: Axes | None = None, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
+        self, ax: Axes | None = None, **angular_kwargs: Unpack[AngularCoordinateKwargs]
     ) -> matplotlib.transforms.Transform:
         return self._get_matplotlib_transform(
             functools.partial(self.angular2radec, **angular_kwargs),
@@ -2241,8 +2268,8 @@ class Body(BodyBase):
         *,
         base_formatting: dict[str, Any] | None = None,
         common_formatting: dict[str, Any] | None = None,
-        formatting: dict[_WireframeComponent, dict[str, Any]] | None = None,
-    ) -> dict[_WireframeComponent, dict[str, Any]]:
+        formatting: dict[WireframeComponent, dict[str, Any]] | None = None,
+    ) -> dict[WireframeComponent, dict[str, Any]]:
         formatting = formatting or {}
         base_formatting = base_formatting or {}
         common_formatting = common_formatting or {}
@@ -2251,7 +2278,7 @@ class Body(BodyBase):
         for k in ('show', 'dms_ticks'):
             common_formatting.pop(k, None)
 
-        kwargs: dict[_WireframeComponent, dict[str, Any]] = defaultdict(dict)
+        kwargs: dict[WireframeComponent, dict[str, Any]] = defaultdict(dict)
         for k in set(DEFAULT_WIREFRAME_FORMATTING.keys()) | set(formatting.keys()):
             kwargs[k] = (
                 base_formatting
@@ -2279,7 +2306,7 @@ class Body(BodyBase):
         grid_lat_limit: float = 90,
         indicate_equator: bool = False,
         indicate_prime_meridian: bool = False,
-        formatting: dict[_WireframeComponent, dict[str, Any]] | None = None,
+        formatting: dict[WireframeComponent, dict[str, Any]] | None = None,
         **common_formatting,
     ) -> Axes:
         """
@@ -2421,7 +2448,7 @@ class Body(BodyBase):
         aspect_adjustable: Literal['box', 'datalim'] | None = 'datalim',
         use_shifted_meridian: bool = False,
         show: bool = False,
-        **wireframe_kwargs: Unpack[_WireframeKwargs],
+        **wireframe_kwargs: Unpack[WireframeKwargs],
     ) -> Axes:
         """
         Plot basic wireframe representation of the observation using RA/Dec sky
@@ -2595,7 +2622,7 @@ class Body(BodyBase):
         add_axis_labels: bool = True,
         aspect_adjustable: Literal['box', 'datalim'] | None = 'datalim',
         show: bool = False,
-        **wireframe_kwargs: Unpack[_WireframeKwargs],
+        **wireframe_kwargs: Unpack[WireframeKwargs],
     ) -> Axes:
         """
         Plot basic wireframe representation of the observation on a target centred
@@ -2630,7 +2657,7 @@ class Body(BodyBase):
         add_axis_labels: bool = True,
         aspect_adjustable: Literal['box', 'datalim'] | None = 'datalim',
         show: bool = False,
-        **wireframe_kwargs: Unpack[_WireframeKwargs],
+        **wireframe_kwargs: Unpack[WireframeKwargs],
     ) -> Axes:
         """
         Plot basic wireframe representation of the observation on a relative angular
