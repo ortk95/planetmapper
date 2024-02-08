@@ -2183,7 +2183,7 @@ class Body(BodyBase):
         systems, and may not be exact in some extreme geometries, due to the non-linear
         nature of spherical coordinates.
 
-        .. note::
+        .. warning::
 
             The transformations are performed as affine transformations, which are
             linear transformations. This means that the transformations may be inexact
@@ -2391,6 +2391,7 @@ class Body(BodyBase):
         dms_ticks: bool = True,
         add_axis_labels: bool = True,
         aspect_adjustable: Literal['box', 'datalim'] | None = 'datalim',
+        use_shifted_meridian: bool = False,  # XXX rename
         show: bool = False,
         **wireframe_kwargs: Unpack[_WireframeKwargs],
     ) -> Axes:
@@ -2454,7 +2455,7 @@ class Body(BodyBase):
             body.plot_wireframe_radec() # This would have a blue dashed grid
             body.plot_wireframe_radec(color='r') # This would be red with a dashed grid
 
-        .. note::
+        .. warning::
 
             The plot may appear warped or distorted if the target is near the celestial
             pole (i.e. the target's declination is near 90° or -90°). This is due to the
@@ -2467,6 +2468,14 @@ class Body(BodyBase):
             is centred on the target body, which minimises any distortion, but the
             origin and rotation of the `angular` coordinates can also be customised as
             needed (e.g. to align it with an instrument's field of view).
+
+        .. hint::
+
+            If the target body is near RA=0°, then the wireframe may be split over two
+            halves of the plot. This can be fixed by using
+            `body.plot_wireframe_radec(use_shifted_meridian=True)`, which will plot the
+            wireframe with RA coordinates between -180° and 180°, rather than the
+            default of 0° to 360°.
 
         Args:
             ax: Matplotlib axis to use for plotting. If `ax` is None (the default), uses
@@ -2489,6 +2498,12 @@ class Body(BodyBase):
             dms_ticks: Toggle between showing ticks as degrees, minutes and seconds
                 (e.g. 12°34′56″) or decimal degrees (e.g. 12.582). This argument is only
                 applicable for :func:`plot_wireframe_radec`.
+            use_shifted_meridian: If `use_shifted_meridian=True`, plot the wireframe
+                with RA coordinates between -180° and 180°, rather than the default of
+                0° to 360°. This can be useful for bodies which lie at RA=0°, which can
+                be split over two halves of the plot with the default
+                `use_shifted_meridian=False`. This argument is only applicable for
+                :func:`plot_wireframe_radec`.
             show: Toggle immediately showing the plotted figure with `plt.show()`.
             formatting: Dictionary of formatting options for the wireframe components.
                 The keys of this dictionary are the names of the wireframe components
@@ -2516,10 +2531,19 @@ class Body(BodyBase):
         Returns:
             The axis containing the plotted wireframe.
         """
-        # TODO maybe add automated warning at high declinations?
-        # TODO make aspect adjustable accept None to skip setting aspect
+        # TODO maybe add automated warning at high declinations and for ra wraparound
+        # TODO maybe fix plot() for ra wraparound by inserting NaNs into arrays
+
+        # XXX test wraparound
+        # XXX add wraparound to issues documentation
+
+        if use_shifted_meridian:
+            coordinate_func = lambda ra, dec: ((ra + 180.0) % 360.0 - 180.0, dec)
+        else:
+            coordinate_func = lambda ra, dec: (ra, dec)
+
         ax = self._plot_wireframe(
-            coordinate_func=lambda ra, dec: (ra, dec),
+            coordinate_func=coordinate_func,
             transform=None,
             aspect_adjustable=None,
             ax=ax,
@@ -2594,7 +2618,7 @@ class Body(BodyBase):
 
             body.plot_wireframe_angular(origin_ra=0, origin_dec=90)
 
-        .. note::
+        .. warning::
 
             If custom values for `origin_ra` and `origin_dec` are provided, the plot may
             appear warped or distorted if the target is a large distance from the
