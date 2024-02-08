@@ -72,4 +72,4 @@ Plots may also appear distorted if using :func:`planetmapper.Body.plot_wireframe
 
 RA/Dec wireframe plots appear split into two halves
 ===================================================
-If the target body is near RA=0°, the wireframe plot may appear to be split into two halves, due to part of the body having RA values near 0° and part having RA values near 360°. This can be fixed by using `body.plot_wireframe_radec(use_shifted_meridian=True)`, which will plot the wireframe with RA coordinates between -180° and 180°, rather than the default of 0° to 360°.
+If the target body is near RA=0°, the `wireframe plot may appear to be split into two halves <https://github.com/ortk95/planetmapper/issues/326#issuecomment-1934275816>`__, due to part of the body having RA values near 0° and part having RA values near 360°. This can be fixed by using `body.plot_wireframe_radec(use_shifted_meridian=True)`, which will plot the wireframe with RA coordinates between -180° and 180°, rather than the default of 0° to 360°.
