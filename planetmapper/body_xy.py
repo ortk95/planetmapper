@@ -26,7 +26,7 @@ from matplotlib.figure import Figure
 from spiceypy.utils.exceptions import NotFoundError
 
 from .base import _cache_clearable_result, _cache_stable_result
-from .body import Body, _WireframeComponent, _WireframeKwargs
+from .body import Body, _AngularCoordinateKwargs, _WireframeComponent, _WireframeKwargs
 from .progress import progress_decorator
 
 
@@ -235,15 +235,12 @@ class BodyXY(Body):
             # centre disc if dimensions provided
             self.centre_disc()
 
-        self._mpl_transform_radec2xy: matplotlib.transforms.Affine2D | None = None
-        self._mpl_transform_xy2radec: matplotlib.transforms.Transform | None = None
-        self._mpl_transform_radec2xy_radians: matplotlib.transforms.Affine2D | None = (
+        self._mpl_transform_xy2angular_fixed: matplotlib.transforms.Affine2D | None = (
             None
         )
-        self._mpl_transform_xy2radec_radians: matplotlib.transforms.Affine2D | None = (
+        self._mpl_transform_angular_fixed2xy: matplotlib.transforms.Affine2D | None = (
             None
         )
-
         self.backplanes = {}
         self._register_default_backplanes()
 
@@ -312,39 +309,33 @@ class BodyXY(Body):
 
     # Coordinate transformations
     @_cache_clearable_result
-    def _get_xy2radec_matrix_radians(self) -> np.ndarray:
-        r_km = self.r_eq
-        r_radians = np.arcsin(r_km / self.target_distance)
-        s = r_radians / self.get_r0()
-        theta = self._get_rotation_radians()
-        direction_matrix = np.array([[-1, 0], [0, 1]])
-        stretch_matrix = np.array(
-            [[1 / np.abs(np.cos(self._target_dec_radians)), 0], [0, 1]]
+    def _get_xy2angular_matrix(self) -> np.ndarray:
+        # angular coords are centred on the target, so just need to:
+        # - convert arcsec to pixels with constant scale factor (s)
+        # - rotate by the rotation angle
+        # - translate by the target's disc centre
+        s = self.get_plate_scale_arcsec()  # arcsec/pixel
+        theta_radians = -self._get_rotation_radians()
+        transform_matrix_2x2 = s * self._rotation_matrix_radians(theta_radians)
+        offset_vector = -transform_matrix_2x2.dot(
+            np.array([self.get_x0(), self.get_y0()])
         )
-        rotation_matrix = self._rotation_matrix_radians(theta)
-        transform_matrix_2x2 = s * np.matmul(stretch_matrix, rotation_matrix)
-        transform_matrix_2x2 = np.matmul(transform_matrix_2x2, direction_matrix)
-
-        v0 = np.array([self.get_x0(), self.get_y0()])
-        a0 = np.array([self._target_ra_radians, self._target_dec_radians])
-        offset_vector = a0 - np.matmul(transform_matrix_2x2, v0)
-
         transform_matrix_3x3 = np.identity(3)
         transform_matrix_3x3[:2, :2] = transform_matrix_2x2
         transform_matrix_3x3[:2, 2] = offset_vector
-
         return transform_matrix_3x3
 
     @_cache_clearable_result
-    def _get_radec2xy_matrix_radians(self) -> np.ndarray:
-        return np.linalg.inv(self._get_xy2radec_matrix_radians())
+    def _get_angular2xy_matrix(self) -> np.ndarray:
+        return np.linalg.inv(self._get_xy2angular_matrix())
 
-    def _xy2radec_radians(self, x: float, y: float) -> tuple[float, float]:
-        a = self._get_xy2radec_matrix_radians().dot(np.array([x, y, 1]))
-        return a[0], a[1]
+    def _xy2obsvec_norm(self, x: float, y: float) -> np.ndarray:
+        a = self._get_xy2angular_matrix().dot(np.array([x, y, 1.0]))
+        return self._angular2obsvec_norm(a[0], a[1])
 
-    def _radec2xy_radians(self, ra: float, dec: float) -> tuple[float, float]:
-        v = self._get_radec2xy_matrix_radians().dot(np.array([ra, dec, 1]))
+    def _obsvec2xy(self, obsvec: np.ndarray) -> tuple[float, float]:
+        angular_x, angular_y = self._obsvec2angular(obsvec)
+        v = self._get_angular2xy_matrix().dot(np.array([angular_x, angular_y, 1.0]))
         return v[0], v[1]
 
     # Composite transformations
@@ -359,7 +350,7 @@ class BodyXY(Body):
         Returns:
             `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
         """
-        return self._radian_pair2degrees(*self._xy2radec_radians(x, y))
+        return self._obsvec2radec(self._xy2obsvec_norm(x, y))
 
     def radec2xy(self, ra: float, dec: float) -> tuple[float, float]:
         """
@@ -372,9 +363,9 @@ class BodyXY(Body):
         Returns:
             `(x, y)` tuple containing the image pixel coordinates of the point.
         """
-        return self._radec2xy_radians(*self._degree_pair2radians(ra, dec))
+        return self._obsvec2xy(self._radec2obsvec_norm(ra, dec))
 
-    def xy2lonlat(self, x: float, y: float, **kwargs) -> tuple[float, float]:
+    def xy2lonlat(self, x: float, y: float, not_found_nan=True) -> tuple[float, float]:
         """
         Convert image pixel coordinates to longitude/latitude coordinates on the target
         body.
@@ -382,14 +373,19 @@ class BodyXY(Body):
         Args:
             x: Image pixel coordinate in the x direction.
             y: Image pixel coordinate in the y direction.
-            **kwargs: Additional arguments are passed to :func:`Body.radec2lonlat`.
+            not_found_nan: Controls the behaviour when the input `x` and `y` coordinates
+                are missing the target body.
 
         Returns:
             `(lon, lat)` tuple containing the longitude and latitude of the point. If
-            the provided pixel coordinates are missing the target body, then the `lon`
-            and `lat` values will both be NaN (see :func:`Body.radec2lonlat`).
+            the provided pixel coordinates are missing the target body, and
+            `not_found_nan` is `True`, then the `lon` and `lat` values will both be NaN.
+
+        Raises:
+            NotFoundError: if the input `x` and `y` coordinates are missing the target
+                body and `not_found_nan` is `False`.
         """
-        return self.radec2lonlat(*self.xy2radec(x, y), **kwargs)
+        return self._obsvec_norm2lonlat(self._xy2obsvec_norm(x, y), not_found_nan)
 
     def lonlat2xy(self, lon: float, lat: float) -> tuple[float, float]:
         """
@@ -402,7 +398,7 @@ class BodyXY(Body):
         Returns:
             `(x, y)` tuple containing the image pixel coordinates of the point.
         """
-        return self.radec2xy(*self.lonlat2radec(lon, lat))
+        return self._obsvec2xy(self._lonlat2obsvec(lon, lat))
 
     def xy2km(self, x: float, y: float) -> tuple[float, float]:
         """
@@ -416,7 +412,7 @@ class BodyXY(Body):
             `(km_x, km_y)` tuple containing distances in km in the target plane in the
             East-West and North-South directions respectively.
         """
-        return self.radec2km(*self.xy2radec(x, y))
+        return self._obsvec2km(self._xy2obsvec_norm(x, y))
 
     def km2xy(self, km_x: float, km_y: float) -> tuple[float, float]:
         """
@@ -429,7 +425,49 @@ class BodyXY(Body):
         Returns:
             `(x, y)` tuple containing the image pixel coordinates of the point.
         """
-        return self.radec2xy(*self.km2radec(km_x, km_y))
+        return self._obsvec2xy(self._km2obsvec_norm(km_x, km_y))
+
+    def xy2angular(
+        self, x: float, y: float, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
+    ) -> tuple[float, float]:
+        """
+        Convert image pixel coordinates to relative angular coordinates.
+
+        Args:
+            x: Image pixel coordinate in the x direction.
+            y: Image pixel coordinate in the y direction.
+            **angular_kwargs: Additional arguments are used to customise the origin and
+                rotation of the relative angular coordinates. See
+                :func:`Body.radec2angular` for details.
+
+        Returns:
+            `(angular_x, angular_y)` tuple containing the relative angular coordinates
+            of the point in arcseconds.
+        """
+        return self._obsvec2angular(self._xy2obsvec_norm(x, y), **angular_kwargs)
+
+    def angular2xy(
+        self,
+        angular_x: float,
+        angular_y: float,
+        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
+        """
+        Convert relative angular coordinates to image pixel coordinates.
+
+        Args:
+            angular_x: Angular coordinate in the x direction in arcseconds.
+            angular_y: Angular coordinate in the y direction in arcseconds.
+            **angular_kwargs: Additional arguments are used to customise the origin and
+                rotation of the relative angular coordinates. See
+                :func:`Body.radec2angular` for details.
+
+        Returns:
+            `(x, y)` tuple containing the image pixel coordinates of the point.
+        """
+        return self._obsvec2xy(
+            self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs)
+        )
 
     def _radec_arrs2xy_arrs(
         self, ra_arr: np.ndarray, dec_arr: np.ndarray
@@ -438,9 +476,7 @@ class BodyXY(Body):
         return np.array(x), np.array(y)
 
     def _xy2targvec(self, x: float, y: float) -> np.ndarray:
-        return self._obsvec_norm2targvec(
-            self._radec2obsvec_norm_radians(*self._xy2radec_radians(x, y))
-        )
+        return self._obsvec_norm2targvec(self._xy2obsvec_norm(x, y))
 
     # Interface
     def set_disc_params(
@@ -857,35 +893,44 @@ class BodyXY(Body):
         return self._radec_arrs2xy_arrs(*self.ring_radec(radius, **kwargs))
 
     # Matplotlib transforms
-    def _get_matplotlib_radec2xy_transform_radians(
+    def _get_matplotlib_xy2angular_fixed_transform(
         self,
     ) -> matplotlib.transforms.Affine2D:
-        if self._mpl_transform_radec2xy_radians is None:
-            self._mpl_transform_radec2xy_radians = matplotlib.transforms.Affine2D(
-                self._get_radec2xy_matrix_radians()
+        if self._mpl_transform_xy2angular_fixed is None:
+            self._mpl_transform_xy2angular_fixed = matplotlib.transforms.Affine2D(
+                self._get_xy2angular_matrix()
             )
-        return self._mpl_transform_radec2xy_radians
+        return self._mpl_transform_xy2angular_fixed
 
-    def _get_matplotlib_xy2radec_transform_radians(
+    def _get_matplotlib_angular_fixed2xy_transform(
         self,
     ) -> matplotlib.transforms.Affine2D:
-        if self._mpl_transform_xy2radec_radians is None:
-            self._mpl_transform_xy2radec_radians = matplotlib.transforms.Affine2D(
-                self._get_xy2radec_matrix_radians()
+        if self._mpl_transform_angular_fixed2xy is None:
+            self._mpl_transform_angular_fixed2xy = matplotlib.transforms.Affine2D(
+                self._get_angular2xy_matrix()
             )
-        return self._mpl_transform_xy2radec_radians
+        return self._mpl_transform_angular_fixed2xy
+
+    def _maybe_get_axis_transform(
+        self, ax: Axes | None
+    ) -> matplotlib.transforms.Transform:
+        return (
+            ax.transData
+            if ax is not None
+            else matplotlib.transforms.IdentityTransform()
+        )
 
     def matplotlib_xy2radec_transform(
         self, ax: Axes | None = None
     ) -> matplotlib.transforms.Transform:
         """
-        Get matplotlib transform which converts image pixel coordinates to RA/Dec sky
-        coordinates.
+        Get matplotlib transform which converts between coordinate systems.
 
-        The transform is a mutable object which can be dynamically updated using
-        :func:`update_transform` when the `radec` to `xy` coordinate conversion changes.
-        This can be useful for plotting data (e.g. an observed image) using image xy
-        coordinates onto an axis using RA/Dec coordinates. ::
+        Transformations to/from the `xy` coordinate system are mutable objects which can
+        be dynamically updated using :func:`update_transform` when the `radec` to `xy`
+        coordinate conversion changes. This can be useful for plotting data (e.g. an
+        observed image) using image xy coordinates onto an axis using RA/Dec
+        coordinates. ::
 
             # Plot an observed image on an RA/Dec axis with a wireframe of the target
             ax = obs.plot_wireframe_radec()
@@ -897,67 +942,84 @@ class BodyXY(Body):
                 transform=obs.matplotlib_xy2radec_transform(ax),
                 )
 
-        Args:
-            ax: Optionally specify a matplotlib axis to return
-                `transform_xy2radec + ax.transData`. This value can then be used in the
-                `transform` keyword argument of a Matplotlib function without any
-                further modification.
-
-        Returns:
-            Matplotlib transformation from `xy` to `radec` coordinates.
+        See :func:`Body.matplotlib_radec2km_transform` for more details and notes on
+        limitations of these linear transformations.
         """
-        if self._mpl_transform_xy2radec is None:
-            transform_deg2rad = matplotlib.transforms.Affine2D().scale(np.rad2deg(1))
-            self._mpl_transform_xy2radec = (
-                self._get_matplotlib_xy2radec_transform_radians() + transform_deg2rad
-            )
-        self.update_transform()  # https://github.com/ortk95/planetmapper/issues/310
-        transform = self._mpl_transform_xy2radec
-        if ax:
-            transform = transform + ax.transData
-        return transform
+        self.update_transform()
+        return (
+            self._get_matplotlib_xy2angular_fixed_transform()
+            + self._get_matplotlib_transform(self.angular2radec, (0.0, 0.0), ax)
+        )
 
     def matplotlib_radec2xy_transform(
         self, ax: Axes | None = None
     ) -> matplotlib.transforms.Transform:
-        if self._mpl_transform_radec2xy is None:
-            transform_rad2deg = matplotlib.transforms.Affine2D().scale(np.deg2rad(1))
-            self._mpl_transform_radec2xy = (
-                transform_rad2deg + self._get_matplotlib_radec2xy_transform_radians()
-            )  # type: ignore
-        self.update_transform()  # https://github.com/ortk95/planetmapper/issues/310
-        transform = self._mpl_transform_radec2xy
-        if ax:
-            transform = transform + ax.transData
-        return transform
+        self.update_transform()
+        return (
+            self._get_matplotlib_transform(
+                self.radec2angular, (self.target_ra, self.target_dec), None
+            )
+            + self._get_matplotlib_angular_fixed2xy_transform()
+            + self._maybe_get_axis_transform(ax)
+        )
 
     def matplotlib_xy2km_transform(
         self, ax: Axes | None = None
     ) -> matplotlib.transforms.Transform:
+        self.update_transform()
         return (
-            self.matplotlib_xy2radec_transform()
-            + self.matplotlib_radec2km_transform(ax)
+            self._get_matplotlib_xy2angular_fixed_transform()
+            + self._get_matplotlib_transform(self.angular2km, (0.0, 0.0), ax)
         )
 
     def matplotlib_km2xy_transform(
         self, ax: Axes | None = None
     ) -> matplotlib.transforms.Transform:
+        self.update_transform()
         return (
-            self.matplotlib_km2radec_transform()
-            + self.matplotlib_radec2xy_transform(ax)
+            self._get_matplotlib_transform(self.km2angular, (0.0, 0.0), None)
+            + self._get_matplotlib_angular_fixed2xy_transform()
+            + self._maybe_get_axis_transform(ax)
+        )
+
+    def matplotlib_xy2angular_transform(
+        self, ax: Axes | None = None, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
+    ) -> matplotlib.transforms.Transform:
+        self.update_transform()
+        # f transforms from angular (fixed) -> angular (with kwargs)
+        f = lambda ax, ay: self._obsvec2angular(
+            self._angular2obsvec_norm(ax, ay), **angular_kwargs
+        )
+        return (
+            self._get_matplotlib_xy2angular_fixed_transform()
+            + self._get_matplotlib_transform(f, (0.0, 0.0), ax)
+        )
+
+    def matplotlib_angular2xy_transform(
+        self, ax: Axes | None = None, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
+    ) -> matplotlib.transforms.Transform:
+        self.update_transform()
+        # f transforms from angular (with kwargs) -> angular (fixed)
+        f = lambda ax, ay: self._obsvec2angular(
+            self._angular2obsvec_norm(ax, ay), **angular_kwargs
+        )
+        return (
+            self._get_matplotlib_transform(f, (0.0, 0.0), None)
+            + self._get_matplotlib_angular_fixed2xy_transform()
+            + self._maybe_get_axis_transform(ax)
         )
 
     def update_transform(self) -> None:
         """
-        Update the transformations returned by :func:`matplotlib_radec2xy_transform`
-        and :func:`matplotlib_xy2radec_transform` to use the latest disc parameter
+        Update the matplotlib transformations involving `xy` coordinates (e.g.
+        :func:`matplotlib_radec2xy_transform`) to use the latest disc parameter
         values `(x0, y0, r0, rotation)`.
         """
-        self._get_matplotlib_radec2xy_transform_radians().set_matrix(
-            self._get_radec2xy_matrix_radians()
+        self._get_matplotlib_xy2angular_fixed_transform().set_matrix(
+            self._get_xy2angular_matrix()
         )
-        self._get_matplotlib_xy2radec_transform_radians().set_matrix(
-            self._get_xy2radec_matrix_radians()
+        self._get_matplotlib_angular_fixed2xy_transform().set_matrix(
+            self._get_angular2xy_matrix()
         )
 
     # Mapping
@@ -1115,11 +1177,17 @@ class BodyXY(Body):
         coordinates. See :func:`Body.plot_wireframe_radec` for details of accepted
         arguments.
 
-        Returns:
+        Returns:r
             The axis containing the plotted wireframe.
         """
-        transform = self.matplotlib_radec2xy_transform()
-        ax = self._plot_wireframe(transform=transform, ax=ax, **wireframe_kwargs)
+        # Use combo of corodinate_func and matplotlib transform so that the plot can be
+        # updated with new disc parameters without having to replot the entire thing
+        ax = self._plot_wireframe(
+            coordinate_func=self.radec2angular,
+            transform=self._get_matplotlib_angular_fixed2xy_transform(),
+            ax=ax,
+            **wireframe_kwargs,
+        )
 
         if self._test_if_img_size_valid():
             ax.set_xlim(-0.5, self._nx - 0.5)
@@ -2323,8 +2391,8 @@ class BodyXY(Body):
     def _get_radec_img(self) -> np.ndarray:
         out = self._make_empty_img(2)
         for y, x in self._iterate_image(out.shape, progress=True):
-            out[y, x] = self._xy2radec_radians(x, y)
-        return np.rad2deg(out)
+            out[y, x] = self.xy2radec(x, y)
+        return out
 
     @_cache_stable_result
     @progress_decorator

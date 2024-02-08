@@ -1,4 +1,6 @@
 import datetime
+import functools
+import math
 from collections import defaultdict
 from typing import Any, Callable, Literal, TypedDict, cast, overload
 
@@ -10,8 +12,6 @@ try:
     from typing import Self
 except ImportError:
     from typing_extensions import Self
-
-import math
 
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
@@ -28,7 +28,7 @@ from spiceypy.utils.exceptions import (
 )
 
 from . import data_loader, utils
-from .base import BodyBase, Numeric
+from .base import BodyBase, Numeric, _cache_stable_result
 from .basic_body import BasicBody
 
 _WireframeComponent = Literal[
@@ -100,6 +100,12 @@ DEFAULT_WIREFRAME_FORMATTING: dict[_WireframeComponent, dict[str, Any]] = {
     'hidden_other_body_of_interest_label': dict(),
     'map_boundary': dict(),
 }
+
+
+class _AngularCoordinateKwargs(TypedDict, total=False):
+    origin_ra: float | None
+    origin_dec: float | None
+    coordinate_rotation: float
 
 
 class Body(BodyBase):
@@ -394,12 +400,8 @@ class Body(BodyBase):
         self.coordinates_of_interest_lonlat = []
         self.coordinates_of_interest_radec = []
 
-        self._matrix_km2radec = None
-        self._matrix_radec2km = None
-        self._mpl_transform_km2radec_radians = None
-        self._mpl_transform_radec2km_radians = None
-        self._mpl_transform_km2radec = None
-        self._mpl_transform_radec2km = None
+        self._matrix_km2angular = None
+        self._matrix_angular2km = None
 
         # Run custom setup
         if self.target == 'SATURN':
@@ -638,6 +640,13 @@ class Body(BodyBase):
         for name in names:
             self.ring_radii.update(self.ring_radii_from_name(name))
 
+    # COORDINATE TRANSFORMATIONS
+    # Generally all transformations in the public API should be built from a pair of
+    # transformations to/from obsvec. Then any new coordinate system can be added by
+    # simply creating a pair of private transformations to/from obsvec, and then adding
+    # the relevant public methods.
+    # See also BodyBase and BodyXY for some transformations.
+
     # Coordinate transformations target -> observer direction
     def _lonlat2targvec_radians(
         self, lon: float, lat: float, alt: float = 0
@@ -706,7 +715,10 @@ class Body(BodyBase):
     def _radec2obsvec_norm_radians(self, ra: float, dec: float) -> np.ndarray:
         if not (math.isfinite(ra) and math.isfinite(dec)):
             return np.array([np.nan, np.nan, np.nan])
-        return spice.radrec(1, ra, dec)
+        return spice.radrec(1.0, ra, dec)
+
+    def _radec2obsvec_norm(self, ra: float, dec: float) -> np.ndarray:
+        return self._radec2obsvec_norm_radians(*self._degree_pair2radians(ra, dec))
 
     def _obsvec2targvec(self, obsvec: np.ndarray) -> np.ndarray:
         """
@@ -775,12 +787,25 @@ class Body(BodyBase):
         return lon, lat
 
     # Useful transformations (built from combinations of above transformations)
-    def _lonlat2radec_radians(self, lon: float, lat: float) -> tuple[float, float]:
-        return self._obsvec2radec_radians(
-            self._targvec2obsvec(
-                self._lonlat2targvec_radians(lon, lat),
-            )
+    def _lonlat2obsvec(self, lon: float, lat: float) -> np.ndarray:
+        return self._targvec2obsvec(
+            self._lonlat2targvec_radians(*self._degree_pair2radians(lon, lat)),
         )
+
+    def _obsvec_norm2lonlat(
+        self, obsvec_norm: np.ndarray, not_found_nan: bool
+    ) -> tuple[float, float]:
+        try:
+            lon, lat = self._radian_pair2degrees(
+                *self._targvec2lonlat_radians(self._obsvec_norm2targvec(obsvec_norm))
+            )
+        except NotFoundError:
+            if not_found_nan:
+                lon = np.nan
+                lat = np.nan
+            else:
+                raise
+        return lon, lat
 
     def lonlat2radec(self, lon: float, lat: float) -> tuple[float, float]:
         """
@@ -794,26 +819,7 @@ class Body(BodyBase):
         Returns:
             `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
         """
-        return self._radian_pair2degrees(
-            *self._lonlat2radec_radians(*self._degree_pair2radians(lon, lat))
-        )
-
-    def _radec2lonlat_radians(
-        self, ra: float, dec: float, not_found_nan: bool = True
-    ) -> tuple[float, float]:
-        try:
-            ra, dec = self._targvec2lonlat_radians(
-                self._obsvec_norm2targvec(
-                    self._radec2obsvec_norm_radians(ra, dec),
-                )
-            )
-        except NotFoundError:
-            if not_found_nan:
-                ra = np.nan
-                dec = np.nan
-            else:
-                raise
-        return ra, dec
+        return self._obsvec2radec(self._lonlat2obsvec(lon, lat))
 
     def radec2lonlat(
         self,
@@ -847,11 +853,7 @@ class Body(BodyBase):
             NotFoundError: If the provided RA/Dec coordinates are missing the target
                 body and `not_found_nan` is False, then NotFoundError will be raised.
         """
-        return self._radian_pair2degrees(
-            *self._radec2lonlat_radians(
-                *self._degree_pair2radians(ra, dec), not_found_nan=not_found_nan
-            )
-        )
+        return self._obsvec_norm2lonlat(self._radec2obsvec_norm(ra, dec), not_found_nan)
 
     def lonlat2targvec(self, lon: float, lat: float) -> np.ndarray:
         """
@@ -914,44 +916,214 @@ class Body(BodyBase):
             *self._targvec_arr2radec_arrs_radians(targvec_arr, condition_func)
         )
 
-    # Coordinate transformations km <-> radec
-    def _get_km2radec_matrix_radians(self) -> np.ndarray:
-        # Based on code in BodyXY._get_xy2radec_matrix_radians()
-        if self._matrix_km2radec is None:
-            r_km = self.r_eq
-            r_radians = np.arcsin(r_km / self.target_distance)
-            s = r_radians / r_km
-            theta = -np.deg2rad(self.north_pole_angle())
-            direction_matrix = np.array([[-1, 0], [0, 1]])
-            stretch_matrix = np.array(
-                [[1 / np.abs(np.cos(self._target_dec_radians)), 0], [0, 1]]
-            )
-            rotation_matrix = self._rotation_matrix_radians(theta)
-            transform_matrix_2x2 = s * np.matmul(stretch_matrix, rotation_matrix)
-            transform_matrix_2x2 = np.matmul(transform_matrix_2x2, direction_matrix)
+    # Coordinate transformations angular plane
+    @_cache_stable_result
+    def _get_obsvec2angular_matrix(
+        self,
+        *,
+        origin_ra: float | None = None,
+        origin_dec: float | None = None,
+        coordinate_rotation: float = 0.0,
+    ) -> np.ndarray:
+        # any changes to kwargs/defaults should be reflected in radec2angular and
+        # plot_wireframe_angular
+        if origin_ra is None:
+            origin_ra = self.target_ra
+        if origin_dec is None:
+            origin_dec = self.target_dec
+        origin_obsvec = self._radec2obsvec_norm_radians(
+            *self._degree_pair2radians(origin_ra, origin_dec)
+        )
 
-            v0 = np.array([0, 0])
-            a0 = np.array([self._target_ra_radians, self._target_dec_radians])
-            offset_vector = a0 - np.matmul(transform_matrix_2x2, v0)
+        _, ra_angle, _ = spice.recrad(origin_obsvec)
+        ra_matrix = spice.rotate(ra_angle, 3)
 
-            transform_matrix_3x3 = np.identity(3)
-            transform_matrix_3x3[:2, :2] = transform_matrix_2x2
-            transform_matrix_3x3[:2, 2] = offset_vector
-            self._matrix_km2radec = transform_matrix_3x3
-        return self._matrix_km2radec
+        _, _, dec_angle = spice.recrad(ra_matrix @ origin_obsvec)
+        dec_matrix = spice.rotate(-dec_angle, 2)
 
-    def _get_radec2km_matrix_radians(self) -> np.ndarray:
-        if self._matrix_radec2km is None:
-            self._matrix_radec2km = np.linalg.inv(self._get_km2radec_matrix_radians())
-        return self._matrix_radec2km
+        rotation_matrix = spice.rotate(np.deg2rad(coordinate_rotation), 1)
 
-    def _km2radec_radians(self, km_x: float, km_y: float) -> tuple[float, float]:
-        a = self._get_km2radec_matrix_radians().dot(np.array([km_x, km_y, 1]))
-        return a[0], a[1]
+        return rotation_matrix @ dec_matrix @ ra_matrix
 
-    def _radec2km_radians(self, ra: float, dec: float) -> tuple[float, float]:
-        v = self._get_radec2km_matrix_radians().dot(np.array([ra, dec, 1]))
-        return v[0], v[1]
+    def _obsvec2angular(
+        self, obsvec: np.ndarray, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
+    ) -> tuple[float, float]:
+        if not (
+            math.isfinite(obsvec[0])
+            and math.isfinite(obsvec[1])
+            and math.isfinite(obsvec[2])
+        ):
+            # ^ profiling suggests this is the fastest NaN check
+            return np.nan, np.nan
+        vec = self._get_obsvec2angular_matrix(**angular_kwargs) @ obsvec
+        _, x, y = spice.recrad(vec)
+        x = (-np.rad2deg(x)) % 360.0
+        if x > 180.0:
+            x -= 360.0
+        y = np.rad2deg(y)
+        return x * 3600.0, y * 3600.0  # convert degrees -> arcseconds
+
+    def _angular2obsvec_norm(
+        self,
+        angular_x: float,
+        angular_y: float,
+        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+    ) -> np.ndarray:
+        vec = spice.radrec(
+            1.0, -np.deg2rad(angular_x / 3600.0), np.deg2rad(angular_y / 3600.0)
+        )
+        # inverse of a roation matrix is just the transpose
+        return self._get_obsvec2angular_matrix(**angular_kwargs).T @ vec
+
+    def radec2angular(
+        self,
+        ra: float,
+        dec: float,
+        *,
+        origin_ra: float | None = None,
+        origin_dec: float | None = None,
+        coordinate_rotation: float = 0.0,
+    ) -> tuple[float, float]:
+        """
+        Convert RA/Dec sky coordinates for the observer to relative angular coordinates.
+
+        The origin and rotation of the relative angular coordinates can be customised
+        using the `origin_ra`, `origin_dec` and `coordinate_rotation` arguments. If
+        these are not provided, the origin will be the centre of the target body and the
+        rotation will be the same as in RA/Dec coordinates.
+
+        Args:
+            ra: Right ascension of point in the sky of the observer.
+            dec: Declination of point in the sky of the observer.
+            origin_ra: Right ascension (RA) of the origin of the relative angular
+                coordinates. If `None`, the RA of the centre of the target body is used.
+            origin_dec: Declination (Dec) of the origin of the relative angular
+                coordinates. If `None`, the Dec of the centre of the target body is
+                used.
+            coordinate_rotation: Angle in degrees to rotate the relative angular
+                coordinates around the origin, relative to the positive declination
+                direction. The default `coordinate_rotation` is 0.0, so the target will
+                have the same orientation as in RA/Dec coordinates.
+
+        Returns:
+            `(angular_x, angular_y)` tuple containing the relative angular coordinates
+            of the point in arcseconds.
+        """
+        return self._obsvec2angular(
+            self._radec2obsvec_norm(ra, dec),
+            origin_ra=origin_ra,
+            origin_dec=origin_dec,
+            coordinate_rotation=coordinate_rotation,
+        )
+
+    def angular2radec(
+        self,
+        angular_x: float,
+        angular_y: float,
+        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
+        """
+        Convert relative angular coordinates to RA/Dec sky coordinates for the observer.
+
+        Args:
+            angular_x: Angular coordinate in the x direction in arcseconds.
+            angular_y: Angular coordinate in the y direction in arcseconds.
+            **angular_kwargs: Additional arguments are used to customise the origin and
+                rotation of the relative angular coordinates. See
+                :func:`radec2angular` for details.
+
+        Returns:
+            `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
+        """
+        return self._obsvec2radec(
+            self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs)
+        )
+
+    def angular2lonlat(
+        self,
+        angular_x: float,
+        angular_y: float,
+        *,
+        not_found_nan: bool = True,
+        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
+        """
+        Convert relative angular coordinates to longitude/latitude coordinates on the
+        target body.
+
+        Args:
+            angular_x: Angular coordinate in the x direction in arcseconds.
+            angular_y: Angular coordinate in the y direction in arcseconds.
+            not_found_nan: Controls behaviour when the input `angular_x` and `angular_y`
+                coordinates are missing the target body.
+            **angular_kwargs: Additional arguments are used to customise the origin and
+                rotation of the relative angular coordinates. See
+                :func:`radec2angular` for details.
+
+        Returns:
+            `(lon, lat)` tuple containing the longitude and latitude of the point. If
+            the provided angular coordinates are missing the target body and
+            `not_found_nan` is True, then the `lon` and `lat` values will both be NaN.
+
+        Raises:
+            NotFoundError: If the provided angular coordinates are missing the target
+                body and `not_found_nan` is False, then NotFoundError will be raised.
+        """
+        return self._obsvec_norm2lonlat(
+            self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs),
+            not_found_nan,
+        )
+
+    def lonlat2angular(
+        self,
+        lon: float,
+        lat: float,
+        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
+        """
+        Convert longitude/latitude coordinates on the target body to relative angular
+        coordinates.
+
+        Args:
+            lon: Longitude of point on target body.
+            lat: Latitude of point on target body.
+            **angular_kwargs: Additional arguments are used to customise the origin and
+                rotation of the relative angular coordinates. See
+                :func:`radec2angular` for details.
+
+        Returns:
+            `(angular_x, angular_y)` tuple containing the relative angular coordinates
+            of the point in arcseconds.
+        """
+        return self._obsvec2angular(self._lonlat2obsvec(lon, lat), **angular_kwargs)
+
+    # Coordinate transformations km <-> angular
+    def _get_km2angular_matrix(self) -> np.ndarray:
+        if self._matrix_km2angular is None:
+            # angular coords are centred on the target, so just need to convert
+            # arcsec to km with a constant scale factor (s), and rotate so the north
+            # pole is at the top
+            s = (self.target_diameter_arcsec / 2) / self.r_eq
+            theta_radians = np.deg2rad(self.north_pole_angle())
+            transform_matrix = s * self._rotation_matrix_radians(theta_radians)
+            self._matrix_km2angular = transform_matrix
+        return self._matrix_km2angular
+
+    def _get_angular2km_matrix(self) -> np.ndarray:
+        if self._matrix_angular2km is None:
+            self._matrix_angular2km = np.linalg.inv(self._get_km2angular_matrix())
+        return self._matrix_angular2km
+
+    def _km2obsvec_norm(self, km_x: float, km_y: float) -> np.ndarray:
+        return self._angular2obsvec_norm(
+            *(self._get_km2angular_matrix().dot(np.array([km_x, km_y])))
+        )
+
+    def _obsvec2km(self, obsvec: np.ndarray) -> tuple[float, float]:
+        km_x, km_y = self._get_angular2km_matrix().dot(
+            np.array(self._obsvec2angular(obsvec))
+        )
+        return km_x, km_y
 
     def km2radec(self, km_x: float, km_y: float) -> tuple[float, float]:
         """
@@ -964,7 +1136,7 @@ class Body(BodyBase):
         Returns:
             `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
         """
-        return self._radian_pair2degrees(*self._km2radec_radians(km_x, km_y))
+        return self._obsvec2radec(self._km2obsvec_norm(km_x, km_y))
 
     def radec2km(self, ra: float, dec: float) -> tuple[float, float]:
         """
@@ -979,9 +1151,11 @@ class Body(BodyBase):
             `(km_x, km_y)` tuple containing distances in km in the target plane in the
             East-West and North-South directions respectively.
         """
-        return self._radec2km_radians(*self._degree_pair2radians(ra, dec))
+        return self._obsvec2km(self._radec2obsvec_norm(ra, dec))
 
-    def km2lonlat(self, km_x: float, km_y: float, **kwargs) -> tuple[float, float]:
+    def km2lonlat(
+        self, km_x: float, km_y: float, not_found_nan: bool = True
+    ) -> tuple[float, float]:
         """
         Convert distance in target plane to longitude/latitude coordinates on the target
         body.
@@ -989,14 +1163,20 @@ class Body(BodyBase):
         Args:
             km_x: Distance in target plane in km in the East-West direction.
             km_y: Distance in target plane in km in the North-South direction.
-            **kwargs: Additional arguments are passed to :func:`Body.radec2lonlat`.
+            not_found_nan: Controls behaviour when the input `km_x` and `km_y`
+                coordinates are missing the target body.
 
         Returns:
             `(lon, lat)` tuple containing the longitude and latitude of the point. If
-            the provided km coordinates are missing the target body, then the `lon`
-            and `lat` values will both be NaN (see :func:`Body.radec2lonlat`).
+            the provided km coordinates are missing the target body, then the `lon` and
+            `lat` values will both be NaN if `not_found_nan` is True, otherwise a
+            NotFoundError will be raised.
+
+        Raises:
+            NotFoundError: If the provided km coordinates are missing the target body
+            and `not_found_nan` is False, then NotFoundError will be raised.
         """
-        return self.radec2lonlat(*self.km2radec(km_x, km_y), **kwargs)
+        return self._obsvec_norm2lonlat(self._km2obsvec_norm(km_x, km_y), not_found_nan)
 
     def lonlat2km(self, lon: float, lat: float) -> tuple[float, float]:
         """
@@ -1011,67 +1191,53 @@ class Body(BodyBase):
             `(km_x, km_y)` tuple containing distances in km in the target plane in the
             East-West and North-South directions respectively.
         """
-        return self.radec2km(*self.lonlat2radec(lon, lat))
+        return self._obsvec2km(self._lonlat2obsvec(lon, lat))
 
-    def _get_matplotlib_radec2km_transform_radians(
+    def km2angular(
         self,
-    ) -> matplotlib.transforms.Affine2D:
-        if self._mpl_transform_radec2km_radians is None:
-            self._mpl_transform_radec2km_radians = matplotlib.transforms.Affine2D(
-                self._get_radec2km_matrix_radians()
-            )
-        return self._mpl_transform_radec2km_radians
-
-    def matplotlib_radec2km_transform(
-        self, ax: Axes | None = None
-    ) -> matplotlib.transforms.Transform:
+        km_x: float,
+        km_y: float,
+        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
         """
-        Get matplotlib transform which converts RA/Dec sky coordinates to target plane
-        distance coordinates.
+        Convert distance in target plane to relative angular coordinates.
 
         Args:
-            ax: Optionally specify a matplotlib axis to return
-                `transform_radec2km + ax.transData`. This value can then be used in the
-                `transform` keyword argument of a Matplotlib function without any
-                further modification.
+            km_x: Distance in target plane in km in the East-West direction.
+            km_y: Distance in target plane in km in the North-South direction.
+            **angular_kwargs: Additional arguments are used to customise the origin and
+                rotation of the relative angular coordinates. See
+                :func:`radec2angular` for details.
 
         Returns:
-            Matplotlib transformation from `radec` to `km` coordinates.
+            `(angular_x, angular_y)` tuple containing the relative angular coordinates
+            of the point in arcseconds.
         """
-        if self._mpl_transform_radec2km is None:
-            transform_rad2deg = matplotlib.transforms.Affine2D().scale(np.deg2rad(1))
-            self._mpl_transform_radec2km = (
-                transform_rad2deg + self._get_matplotlib_radec2km_transform_radians()
-            )
-        transform = self._mpl_transform_radec2km
-        if ax:
-            transform = transform + ax.transData
-        return transform
+        return self._obsvec2angular(self._km2obsvec_norm(km_x, km_y), **angular_kwargs)
 
-    def matplotlib_km2radec_transform(
-        self, ax: Axes | None = None
-    ) -> matplotlib.transforms.Transform:
+    def angular2km(
+        self,
+        angular_x: float,
+        angular_y: float,
+        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
         """
-        Get matplotlib transform which converts target plane distance coordinates to
-        RA/Dec sky coordinates.
+        Convert relative angular coordinates to distances in the target plane.
 
         Args:
-            ax: Optionally specify a matplotlib axis to return
-                `transform_km2radec + ax.transData`. This value can then be used in the
-                `transform` keyword argument of a Matplotlib function without any
-                further modification.
+            angular_x: Angular coordinate in the x direction in arcseconds.
+            angular_y: Angular coordinate in the y direction in arcseconds.
+            **angular_kwargs: Additional arguments are used to customise the origin and
+                rotation of the relative angular coordinates. See
+                :func:`radec2angular` for details.
 
         Returns:
-            Matplotlib transformation from `km` to `radec` coordinates.
+            `(km_x, km_y)` tuple containing distances in km in the target plane in the
+            East-West and North-South directions respectively.
         """
-        if self._mpl_transform_km2radec is None:
-            self._mpl_transform_km2radec = (
-                self.matplotlib_radec2km_transform().inverted()
-            )
-        transform = self._mpl_transform_km2radec
-        if ax:
-            transform = transform + ax.transData
-        return transform
+        return self._obsvec2km(
+            self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs)
+        )
 
     # General
     def _illumf_from_targvec_radians(
@@ -1879,6 +2045,12 @@ class Body(BodyBase):
         Calculate the angle of the north pole of the target body relative to the
         positive declination direction.
 
+        .. note::
+
+            This method calculates the angle between the centre of the target and its
+            north pole, so may produce unexpected results for targets which are located
+            at the celestial pole.
+
         Returns:
             Angle of the north pole in degrees.
         """
@@ -1936,6 +2108,135 @@ class Body(BodyBase):
         return poles
 
     @staticmethod
+    def _get_local_affine_transform_matrix(
+        coordinate_func: Callable[[float, float], tuple[float, float]],
+        location: tuple[float, float],
+    ) -> np.ndarray:
+        """
+        Calculate the local affine transformation matrix for a given coordinate
+        transformation around a given location.
+
+        Args:
+            coordinate_func: Function to convert between coordinate systems (e.g.
+                `radec2km`),
+            location: Coordinates (in original coordinate system) to calculate the
+                transformation matrix around. This is usually the location of the
+                target body.
+
+        Returns:
+            Augmented affine transformation matrix representing the transformation
+            between coordinate systems near the provided `location`.
+        """
+        x0, y0 = location
+        eq1, eq2 = coordinate_func(x0, y0)
+        eq3, eq4 = coordinate_func(x0 + 1.0, y0)
+        eq5, eq6 = coordinate_func(x0, y0 + 1.0)
+
+        a = eq3 - eq1
+        b = eq5 - eq1
+        c = eq1 - a * x0 - b * y0
+
+        d = eq4 - eq2
+        e = eq6 - eq2
+        f = eq2 - d * x0 - e * y0
+
+        return np.array([[a, b, c], [d, e, f], [0.0, 0.0, 1.0]])
+
+    def _get_matplotlib_transform(
+        self,
+        coordinate_func: Callable[[float, float], tuple[float, float]],
+        location: tuple[float, float],
+        ax: plt.Axes | None,
+    ) -> matplotlib.transforms.Transform:
+        transform = matplotlib.transforms.Affine2D(
+            self._get_local_affine_transform_matrix(coordinate_func, location)
+        )
+        if ax:
+            transform = transform + ax.transData
+        return transform
+
+    def matplotlib_radec2km_transform(
+        self, ax: Axes | None = None
+    ) -> matplotlib.transforms.Transform:
+        """
+        Get matplotlib transform which converts between coordinate systems.
+
+        For example, :func:`matplotlib_radec2km_transform` can be used to plot data
+        in RA/Dec coordinates directly on a plot in the km coordinate system: ::
+
+            # Create plot in km coordinates
+            ax = body.plot_wireframe_km()
+
+            # Plot data using RA/Dec coordinates with the transform
+            ax.scatter(
+                body.target_ra,
+                body.target_dec,
+                transform=body.matplotlib_radec2km_transform(ax),
+                color='r',
+            )
+            # This is (almost exactly) equivalent to using
+            # ax.scatter(*body.radec2km(body.target_ra, body.target_dec), color='r')
+
+        A full set of transformations are available in :class:`Body` (below) and
+        :class:`BodyXY` to convert between various coordinate systems. These are
+        mainly convenience functions to simplify plotting data in different coordinate
+        systems, and may not be exact in some extreme geometries, due to the non-linear
+        nature of spherical coordinates.
+
+        .. note::
+
+            The transformations are performed as affine transformations, which are
+            linear transformations. This means that the transformations may be inexact
+            at large distances from the target body, or near the celestial poles for
+            `radec` coordinates.
+
+            For the vast majority of purposes, these matplotlib transformations are
+            accurate, but if you are working with extreme geometries or require exact
+            transformations you should convert the coordinates manually before plotting
+            (e.g. using :func:`radec2km` rather than
+            :func:`matplotlib_radec2km_transform`).
+
+            The `km`, `angular` (with the default values for the origin) and `xy`
+            coordinate systems are all affine transformations of each other, so the
+            matplotlib transformations between these coordinate systems should be exact.
+
+        Args:
+            ax: Optionally specify a matplotlib axis to return
+                `transform_radec2km + ax.transData`. This value can then be used in the
+                `transform` keyword argument of a Matplotlib function without any
+                further modification.
+
+        Returns:
+            Matplotlib transformation from `radec` to `km` coordinates.
+        """
+        return self._get_matplotlib_transform(
+            self.radec2km, (self.target_ra, self.target_dec), ax
+        )
+
+    def matplotlib_km2radec_transform(
+        self, ax: Axes | None = None
+    ) -> matplotlib.transforms.Transform:
+        return self._get_matplotlib_transform(self.km2radec, (0.0, 0.0), ax)
+
+    def matplotlib_radec2angular_transform(
+        self, ax: Axes | None = None, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
+    ) -> matplotlib.transforms.Transform:
+        return self._get_matplotlib_transform(
+            functools.partial(self.radec2angular, **angular_kwargs),
+            (self.target_ra, self.target_dec),
+            ax,
+        )
+
+    def matplotlib_angular2radec_transform(
+        self, ax: Axes | None = None, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
+    ) -> matplotlib.transforms.Transform:
+        return self._get_matplotlib_transform(
+            functools.partial(self.angular2radec, **angular_kwargs),
+            (0.0, 0.0),
+            ax,
+        )
+
+    @staticmethod
     def _get_wireframe_kw(
         *,
         base_formatting: dict[str, Any] | None = None,
@@ -1965,7 +2266,8 @@ class Body(BodyBase):
     def _plot_wireframe(
         self,
         *,
-        transform: None | matplotlib.transforms.Transform,
+        coordinate_func: Callable[[float, float], tuple[float, float]],
+        transform: matplotlib.transforms.Transform | None,
         ax: Axes | None = None,
         label_poles: bool = True,
         add_title: bool = True,
@@ -1976,13 +2278,29 @@ class Body(BodyBase):
         formatting: dict[_WireframeComponent, dict[str, Any]] | None = None,
         **common_formatting,
     ) -> Axes:
-        """Plot generic wireframe representation of the observation"""
+        """
+        Plot generic wireframe representation of the observation.
+
+        Args:
+            coordinate_func: Function to convert RA/Dec coordinates to the desired
+                coordinate system. Takes two arguments (RA, Dec) and returns two
+                values (x, y).
+            transform: Matplotlib transform to apply to the plotted data, after
+                transforming with `coordinate_func`.
+        """
         if ax is None:
             ax = cast(Axes, plt.gca())
         if transform is None:
             transform = ax.transData
         else:
             transform = transform + ax.transData
+
+        def array_func(
+            ras: np.ndarray, decs: np.ndarray
+        ) -> tuple[np.ndarray, np.ndarray]:
+            """Transform arrays of coords with coordinate_func"""
+            xs, ys = zip(*(coordinate_func(ra, dec) for ra, dec in zip(ras, decs)))
+            return np.array(xs), np.array(ys)
 
         kwargs = self._get_wireframe_kw(
             base_formatting=dict(transform=transform),
@@ -1995,8 +2313,7 @@ class Body(BodyBase):
             lons, self.visible_lon_grid_radec(lons, lat_limit=grid_lat_limit)
         ):
             ax.plot(
-                ra,
-                dec,
+                *array_func(ra, dec),
                 **kwargs['grid']
                 | (
                     kwargs['prime_meridian']
@@ -2004,56 +2321,58 @@ class Body(BodyBase):
                     else {}
                 ),
             )
-        lats = np.arange(-90, 90, grid_interval)
+        lats = [
+            l for l in np.arange(-90, 90, grid_interval) if abs(l) <= grid_lat_limit
+        ]
         for lat, (ra, dec) in zip(
             lats, self.visible_lat_grid_radec(lats, lat_limit=grid_lat_limit)
         ):
             ax.plot(
-                ra,
-                dec,
+                *array_func(ra, dec),
                 **kwargs['grid']
                 | (kwargs['equator'] if lat == 0 and indicate_equator else {}),
             )
 
-        ax.plot(*self.limb_radec(), **kwargs['limb'])
-        ax.plot(*self.terminator_radec(), **kwargs['terminator'])
+        ax.plot(*array_func(*self.limb_radec()), **kwargs['limb'])
+        ax.plot(*array_func(*self.terminator_radec()), **kwargs['terminator'])
 
         ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination()
-        ax.plot(ra_day, dec_day, **kwargs['limb_illuminated'])
+        ax.plot(*array_func(ra_day, dec_day), **kwargs['limb_illuminated'])
 
         if label_poles:
             for lon, lat, s in self.get_poles_to_plot():
-                ra, dec = self.lonlat2radec(lon, lat)
-                ax.text(ra, dec, s, **kwargs['pole'])
+                x, y = coordinate_func(*self.lonlat2radec(lon, lat))
+                ax.text(x, y, s, **kwargs['pole'])
 
         for lon, lat in self.coordinates_of_interest_lonlat:
             if self.test_if_lonlat_visible(lon, lat):
-                ra, dec = self.lonlat2radec(lon, lat)
-                ax.scatter(ra, dec, **kwargs['coordinate_of_interest_lonlat'])
+                x, y = coordinate_func(*self.lonlat2radec(lon, lat))
+                ax.scatter(x, y, **kwargs['coordinate_of_interest_lonlat'])
         for ra, dec in self.coordinates_of_interest_radec:
-            ax.scatter(ra, dec, **kwargs['coordinate_of_interest_radec'])
+            ax.scatter(
+                *coordinate_func(ra, dec), **kwargs['coordinate_of_interest_radec']
+            )
 
         for radius in self.ring_radii:
-            ra, dec = self.ring_radec(radius)
-            ax.plot(ra, dec, **kwargs['ring'])
+            x, y = array_func(*self.ring_radec(radius))
+            ax.plot(x, y, **kwargs['ring'])
 
         for body in self.other_bodies_of_interest:
-            ra = body.target_ra
-            dec = body.target_dec
+            x, y = coordinate_func(body.target_ra, body.target_dec)
             label = body.target
             hidden = not self.test_if_other_body_visible(body)
             if hidden:
                 label = f'({label})'
             ax.text(
-                ra,
-                dec,
+                x,
+                y,
                 label + '\n',
                 **kwargs['other_body_of_interest_label']
                 | (kwargs['hidden_other_body_of_interest_label'] if hidden else {}),
             )
             ax.scatter(
-                ra,
-                dec,
+                x,
+                y,
                 **kwargs['other_body_of_interest_marker']
                 | (kwargs['hidden_other_body_of_interest_marker'] if hidden else {}),
             )
@@ -2076,8 +2395,9 @@ class Body(BodyBase):
         Plot basic wireframe representation of the observation using RA/Dec sky
         coordinates.
 
-        See also :func:`plot_wireframe_km` and :func:`BodyXY.plot_wireframe_xy` to plot
-        the wireframe in other coordinate systems.
+        See also :func:`plot_wireframe_km`, :func:`plot_wireframe_angular` and
+        :func:`BodyXY.plot_wireframe_xy` to plot the wireframe in other coordinate
+        systems.
 
         To plot a wireframe with the default appearance, simply use: ::
 
@@ -2131,6 +2451,20 @@ class Body(BodyBase):
             body.plot_wireframe_radec() # This would have a blue dashed grid
             body.plot_wireframe_radec(color='r') # This would be red with a dashed grid
 
+        .. note::
+
+            The plot may appear warped or distorted if the target is near the celestial
+            pole (i.e. the target's declination is near 90° or -90°). This is due to the
+            spherical nature of the RA/Dec coordinate system, which is impossible to
+            represent perfectly on a 2D cartesian plot.
+
+            :func:`plot_wireframe_angular` can be used as an alternative to
+            :func:`plot_wireframe_radec` to plot the wireframe without distortion from
+            the choice of coordinte system. By default, the `angular` coordinate system
+            is centred on the target body, which minimises any distortion, but the
+            origin and rotation of the `angular` coordinates can also be customised as
+            needed (e.g. to align it with an instrument's field of view).
+
         Args:
             ax: Matplotlib axis to use for plotting. If `ax` is None (the default), uses
                 `plt.gca()` to get the currently active axis.
@@ -2177,7 +2511,14 @@ class Body(BodyBase):
         Returns:
             The axis containing the plotted wireframe.
         """
-        ax = self._plot_wireframe(transform=None, ax=ax, **wireframe_kwargs)
+        # TODO maybe add automated warning at high declinations?
+        # TODO make aspect adjustable accept None to skip setting aspect
+        ax = self._plot_wireframe(
+            coordinate_func=lambda ra, dec: (ra, dec),
+            transform=None,
+            ax=ax,
+            **wireframe_kwargs,
+        )
 
         utils.format_radec_axes(
             ax,
@@ -2207,13 +2548,72 @@ class Body(BodyBase):
         Returns:
             The axis containing the plotted wireframe.
         """
-
-        transform = self.matplotlib_radec2km_transform()
-        ax = self._plot_wireframe(transform=transform, ax=ax, **wireframe_kwargs)
+        ax = self._plot_wireframe(
+            coordinate_func=self.radec2km,
+            transform=None,
+            ax=ax,
+            **wireframe_kwargs,
+        )
         if add_axis_labels:
             ax.set_xlabel('Projected distance (km)')
             ax.set_ylabel('Projected distance (km)')
             ax.ticklabel_format(style='sci', scilimits=(-3, 3))
+        ax.set_aspect(1, adjustable=aspect_adjustable)
+
+        if show:
+            plt.show()
+        return ax
+
+    def plot_wireframe_angular(
+        self,
+        ax: Axes | None = None,
+        *,
+        origin_ra: float | None = None,
+        origin_dec: float | None = None,
+        coordinate_rotation: float = 0.0,
+        add_axis_labels: bool = True,
+        aspect_adjustable: Literal['box', 'datalim'] = 'datalim',
+        show: bool = False,
+        **wireframe_kwargs: Unpack[_WireframeKwargs],
+    ) -> Axes:
+        """
+        Plot basic wireframe representation of the observation on a relative angular
+        coordinate frame. See :func:`plot_wireframe_radec` for details of accepted
+        arguments.
+
+        The `origin_ra`, `origin_dec` and `coordinate_rotation` arguments can be used to
+        customise the origin and rotation of the relative angular coordinate frame (see
+        see :func:`radec2angular`). For example, to plot the wireframe with the origin
+        at the north pole, you can use: ::
+
+            body.plot_wireframe_angular(origin_ra=0, origin_dec=90)
+
+        .. note::
+
+            If custom values for `origin_ra` and `origin_dec` are provided, the plot may
+            appear warped or distorted if the target is a large distance from the
+            origin. This is because spherical coordinates are impossible to represent
+            perfectly on a 2D cartesian plot. By default, the `angular` coordinates are
+            centred on the target body, minimising any distortion.
+
+        Returns:
+            The axis containing the plotted wireframe.
+        """
+        ax = self._plot_wireframe(
+            coordinate_func=lambda ra, dec: self.radec2angular(
+                ra,
+                dec,
+                origin_ra=origin_ra,
+                origin_dec=origin_dec,
+                coordinate_rotation=coordinate_rotation,
+            ),
+            transform=None,
+            ax=ax,
+            **wireframe_kwargs,
+        )
+        if add_axis_labels:
+            ax.set_xlabel('Angular distance (arcsec)')
+            ax.set_ylabel('Angular distance (arcsec)')
         ax.set_aspect(1, adjustable=aspect_adjustable)
 
         if show:

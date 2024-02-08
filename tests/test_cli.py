@@ -7,7 +7,7 @@ import planetmapper
 import planetmapper.cli
 
 
-class TestCommon(unittest.TestCase):
+class TestCommon(common_testing.BaseTestCase):
     @patch('planetmapper.cli._run_gui')
     def test_main(self, mock_run_gui: MagicMock):
         planetmapper.cli.main([])

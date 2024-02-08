@@ -1,5 +1,6 @@
 import datetime
 import unittest
+from typing import Callable
 from unittest.mock import MagicMock, patch
 
 import common_testing
@@ -18,7 +19,7 @@ import planetmapper.progress
 from planetmapper import Body
 
 
-class TestBody(unittest.TestCase):
+class TestBody(common_testing.BaseTestCase):
     def setUp(self):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
         self.body = Body('Jupiter', observer='HST', utc='2005-01-01T00:00:00')
@@ -472,6 +473,137 @@ class TestBody(unittest.TestCase):
                     )
                 )
 
+    def test_angular_radec(self):
+        pairs: list[tuple[tuple[float, float], dict, tuple[float, float]]] = [
+            ((0, 0), {}, (196.37198562131056, -5.565793839734843)),
+            (
+                (0, 0),
+                {'coordinate_rotation': 123},
+                (196.37198562131056, -5.565793839734843),
+            ),
+            ((1.234, 5.678), {}, (196.37164122076928, -5.564216617412704)),
+            ((-3600.1234, 45678), {}, (197.35518558863563, 7.1233716685998285)),
+            (
+                (1.234, 5.678),
+                {'coordinate_rotation': 123},
+                (196.3708441579451, -5.566940333059796),
+            ),
+            (
+                (1.234, 5.678),
+                {'origin_ra': 123},
+                (122.99965559945868, -5.564216624812211),
+            ),
+            (
+                (1.234, 5.678),
+                {'origin_dec': 12.3},
+                (196.37163479126497, 12.301577221998656),
+            ),
+            (
+                (1.234, 5.678),
+                {'origin_ra': -123, 'origin_dec': -12.3},
+                (236.99964917120613, -12.298422777554215),
+            ),
+            (
+                (1.234, 5.678),
+                {'origin_ra': -123, 'origin_dec': 12.3, 'coordinate_rotation': -123},
+                (237.001544919471, 12.299428456509167),
+            ),
+        ]
+        for (x, y), kw, radec in pairs:
+            with self.subTest(x=x, y=y, kw=kw):
+                self.assertArraysClose(self.body.angular2radec(x, y, **kw), radec)
+                self.assertArraysClose(
+                    self.body.radec2angular(*radec, **kw), (x, y), atol=1e-4
+                )
+
+        # test for lack of changes
+        ra, dec = self.body.target_ra, self.body.target_dec
+        kwargs: list[dict] = [
+            dict(),
+            dict(coordinate_rotation=0),
+            dict(origin_ra=ra),
+            dict(origin_dec=dec),
+            dict(origin_ra=ra, origin_dec=dec),
+            dict(coordinate_rotation=0, origin_ra=ra, origin_dec=dec),
+            dict(coordinate_rotation=0, origin_ra=None, origin_dec=None),
+        ]
+        x, y = 2.34, -5.67
+        radec_expected = self.body.angular2radec(x, y)
+        for kw in kwargs:
+            with self.subTest(kw=kw):
+                radec = self.body.angular2radec(x, y, **kw)
+                self.assertArraysClose(radec, radec_expected)
+
+                xy = self.body.radec2angular(*radec_expected, **kw)
+                self.assertArraysClose(xy, (x, y))
+
+    def test_angular_lonlat(self):
+        pairs = [
+            ((0, 0), {}, (153.12351859061235, -3.0887371240013572)),
+            (
+                (0, 0),
+                {'coordinate_rotation': 123},
+                (153.12351859061235, -3.0887371240013572),
+            ),
+            ((1.234, 5.678), {}, (141.76181779277195, 14.187903497915688)),
+            ((-3600.1234, 45678), {}, (nan, nan)),
+            (
+                (1.234, 5.678),
+                {'coordinate_rotation': 123},
+                (146.10317442767905, -23.08048248991215),
+            ),
+            (
+                (1.234, 5.678),
+                {'origin_ra': 196.372, 'origin_dec': -5.566},
+                (143.01960641488623, 11.717675615612585),
+            ),
+            (
+                (1.234, 0.678),
+                {
+                    'origin_ra': 196.372,
+                    'origin_dec': -5.566,
+                    'coordinate_rotation': -123,
+                },
+                (156.98171972231182, -1.4107148298315533),
+            ),
+        ]
+        for (x, y), kw, lonlat in pairs:
+            with self.subTest(x=x, y=y, kw=kw):
+                self.assertArraysClose(
+                    self.body.angular2lonlat(x, y, **kw),
+                    lonlat,
+                    equal_nan=True,
+                    atol=1e-3,
+                )
+                if np.isfinite(lonlat[0]):
+                    self.assertArraysClose(
+                        self.body.lonlat2angular(*lonlat, **kw), (x, y), atol=1e-4
+                    )
+                    self.assertArraysClose(
+                        self.body.angular2lonlat(x, y, **kw, not_found_nan=False),
+                        lonlat,
+                        equal_nan=True,
+                    )
+
+                else:
+                    with self.assertRaises(NotFoundError):
+                        self.body.angular2lonlat(x, y, **kw, not_found_nan=False)
+
+        inputs = [
+            (np.nan, np.nan),
+            (np.nan, 0),
+            (0, np.nan),
+            (np.inf, np.inf),
+        ]
+        for a in inputs:
+            with self.subTest(a):
+                self.assertTrue(
+                    all(not np.isfinite(x) for x in self.body.angular2lonlat(*a))
+                )
+                self.assertTrue(
+                    all(not np.isfinite(x) for x in self.body.lonlat2angular(*a))
+                )
+
     def test_km_radec(self):
         pairs = [
             [(0, 0), (196.37198562427025, -5.565793847134351)],
@@ -498,7 +630,7 @@ class TestBody(unittest.TestCase):
             [(0, 0), (153.1235185909613, -3.0887371238645795)],
             [(123, 456.789), (153.02550380815194, -2.6701272595645387)],
             [(-500, -200), (153.52449023101565, -3.2726499274177465)],
-            [(5000, 50001), (147.49451214685632, 47.45177666020315)],
+            [(5000, 50001), (147.49441295554598, 47.45174759079364)],
         ]
         for km, lonlat in pairs:
             with self.subTest(km):
@@ -526,6 +658,51 @@ class TestBody(unittest.TestCase):
                 )
                 self.assertTrue(
                     all(not np.isfinite(x) for x in self.body.lonlat2km(*a))
+                )
+
+    def test_km_angular(self):
+        pairs: list[tuple[tuple[float, float], dict, tuple[float, float]]] = [
+            ((0, 0), {}, (4.6729617106227635e-09, 1.0370567346858554e-08)),
+            (
+                (0, 0),
+                {'coordinate_rotation': 123},
+                (4.6729617106227635e-09, 1.0370567346858554e-08),
+            ),
+            ((1.234, 5.678), {}, (13739.866378614151, 18556.388206846823)),
+            ((-3600.1234, 45678), {}, (61525334.93172047, 171364244.1505089)),
+            (
+                (1.234, 5.678),
+                {'coordinate_rotation': 123},
+                (8079.429074795995, -21629.754904840156),
+            ),
+            (
+                (1.234, 5.678),
+                {'origin_ra': 123},
+                (927957585.3290204, -480110160.1311036),
+            ),
+            (
+                (1.234, 5.678),
+                {'origin_dec': 12.3},
+                (105009703.24513194, 233032424.31876734),
+            ),
+            (
+                (1.234, 5.678),
+                {'origin_ra': -123, 'origin_dec': -12.3},
+                (-568773415.4728397, 129941895.59871267),
+            ),
+            (
+                (1.234, 5.678),
+                {'origin_ra': -123, 'origin_dec': 12.3, 'coordinate_rotation': -123},
+                (-445228360.6330424, 459438707.21556187),
+            ),
+        ]
+        for (x, y), kw, km in pairs:
+            with self.subTest(x=x, y=y, kw=kw):
+                self.assertTrue(
+                    np.allclose(self.body.angular2km(x, y, **kw), km, atol=1e-3)  # type: ignore
+                )
+                self.assertTrue(
+                    np.allclose(self.body.km2angular(*km, **kw), (x, y))  # type: ignore
                 )
 
     def test_limbradec(self):
@@ -1210,6 +1387,13 @@ class TestBody(unittest.TestCase):
         self.assertEqual(len(ax.get_children()), 29)
         plt.close(fig)
 
+        fig, ax = plt.subplots()
+        self.body.plot_wireframe_angular(ax, grid_lat_limit=30)
+        self.assertEqual(len(ax.get_lines()), 18)
+        self.assertEqual(len(ax.get_images()), 0)
+        self.assertEqual(len(ax.get_children()), 29)
+        plt.close(fig)
+
         ax = self.body.plot_wireframe_km()
         self.assertEqual(len(ax.get_lines()), 21)
         self.assertEqual(len(ax.get_images()), 0)
@@ -1267,9 +1451,74 @@ class TestBody(unittest.TestCase):
         mock_show.assert_called_once()
         mock_show.reset_mock()
 
+        fig, ax = plt.subplots()
+        jupiter.plot_wireframe_angular(ax, show=True)
+        plt.close(fig)
+        mock_show.assert_called_once()
+        mock_show.reset_mock()
+
+    def test_get_local_affine_transform_matrix(self):
+        tests: list[
+            tuple[
+                Callable[[float, float], tuple[float, float]],
+                tuple[float, float],
+                np.ndarray,
+            ]
+        ] = [
+            (lambda a, b: (a, b), (0, 0), np.eye(3)),
+            (lambda a, b: (a, b), (1.234, -56.789), np.eye(3)),
+            (
+                lambda a, b: (b, a),
+                (1.234, -56.789),
+                array([[0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]),
+            ),
+            (
+                lambda a, b: (2.3 * a, -5.67 * b),
+                (1.234, -56.789),
+                array([[2.3, 0.0, 0.0], [0.0, -5.67, 0.0], [0.0, 0.0, 1.0]]),
+            ),
+            (
+                lambda a, b: (2.3 * a**2, -5.67 * b**3 - a),
+                (1.234, -56.789),
+                array(
+                    [
+                        [7.97640000e00, 0.00000000e00, -6.34053880e00],
+                        [-1.00000000e00, -5.38967779e04, -2.02231771e06],
+                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                    ]
+                ),
+            ),
+            (
+                lambda a, b: (2.3 * a**2, -5.67 * b**3 - a),
+                (100, 300),
+                array(
+                    [
+                        [4.62300000e02, 0.00000000e00, -2.32300000e04],
+                        [-1.00000000e00, -1.53600867e06, 3.07712601e08],
+                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                    ]
+                ),
+            ),
+        ]
+
+        for func, location, expected in tests:
+            with self.subTest(func=func, location=location):
+                self.assertArraysClose(
+                    self.body._get_local_affine_transform_matrix(func, location),
+                    expected,
+                )
+
+    def test_get_matplotlib_transform(self):
+        self.assertArraysClose(
+            self.body._get_matplotlib_transform(
+                lambda a, b: (a, b), (1.234, -56.78), None
+            ).get_matrix(),
+            np.eye(3),
+        )
+
     def test_matplotlib_transforms(self):
-        self.assertTrue(
-            np.allclose(
+        with self.subTest('km2radec'):
+            self.assertArraysClose(
                 self.body.matplotlib_km2radec_transform().get_matrix(),
                 array(
                     [
@@ -1279,34 +1528,93 @@ class TestBody(unittest.TestCase):
                     ]
                 ),
             )
-        )
-
-        self.assertTrue(
-            np.allclose(
+        with self.subTest('radec2km'):
+            self.assertArraysClose(
                 self.body.matplotlib_radec2km_transform().get_matrix(),
                 array(
                     [
-                        [-1.29809749e07, 5.87691418e06, 2.58180951e09],
-                        [5.84920736e06, 1.30424639e07, -1.07602880e09],
+                        [-1.29859192e07, 5.87691416e06, 2.58278044e09],
+                        [5.83821790e06, 1.30424638e07, -1.07387078e09],
                         [0.00000000e00, 0.00000000e00, 1.00000000e00],
                     ]
                 ),
             )
-        )
+        with self.subTest('angular2radec'):
+            self.assertArraysClose(
+                self.body.matplotlib_angular2radec_transform().get_matrix(),
+                array(
+                    [
+                        [-2.79093570e-04, 0.00000000e00, 1.96371986e02],
+                        [6.56168453e-11, 2.77777778e-04, -5.56579385e00],
+                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                    ]
+                ),
+            )
+            self.assertArraysClose(
+                self.body.matplotlib_angular2radec_transform(
+                    coordinate_rotation=45
+                ).get_matrix(),
+                array(
+                    [
+                        [-1.97349022e-04, -1.97348890e-04, 1.96371986e02],
+                        [-1.96418518e-04, 1.96418583e-04, -5.56579385e00],
+                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                    ]
+                ),
+            )
+        with self.subTest('radec2angular'):
+            self.assertArraysClose(
+                self.body.matplotlib_radec2angular_transform().get_matrix(),
+                array(
+                    [
+                        [-3.58302602e03, 0.00000000e00, 7.03605934e05],
+                        [-3.03254848e00, 3.60000000e03, 2.06323654e04],
+                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                    ]
+                ),
+            )
+            self.assertArraysClose(
+                self.body.matplotlib_radec2angular_transform(
+                    coordinate_rotation=45
+                ).get_matrix(),
+                array(
+                    [
+                        [-2.53156508e03, -2.54571365e03, 4.82959545e05],
+                        [-2.53566278e03, 2.54551979e03, 5.12100973e05],
+                        [0.00000000e00, 0.00000000e00, 1.00000000e00],
+                    ]
+                ),
+            )
+
+        with self.subTest('inverse'):
+            self.assertArraysClose(
+                (
+                    self.body.matplotlib_km2radec_transform()
+                    + self.body.matplotlib_radec2km_transform()
+                ).get_matrix(),
+                np.eye(3),
+                atol=1e-2,
+            )
+            self.assertArraysClose(
+                (
+                    self.body.matplotlib_angular2radec_transform()
+                    + self.body.matplotlib_radec2angular_transform()
+                ).get_matrix(),
+                np.eye(3),
+                atol=1e-2,
+            )
 
         fig, axis = plt.subplots()
         for ax in [None, axis]:
             with self.subTest(ax=ax):
-                # Test caching works
+                # Test consistent results
                 self.body.matplotlib_radec2km_transform(ax)
                 t1 = self.body.matplotlib_radec2km_transform(ax)
-                self.body._mpl_transform_radec2km = None
                 t2 = self.body.matplotlib_radec2km_transform(ax)
                 self.assertEqual(t1, t2)
 
                 self.body.matplotlib_km2radec_transform(ax)
                 t1 = self.body.matplotlib_km2radec_transform(ax)
-                self.body._mpl_transform_km2radec = None
                 t2 = self.body.matplotlib_km2radec_transform(ax)
                 self.assertEqual(t1, t2)
 

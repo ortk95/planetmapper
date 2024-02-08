@@ -27,7 +27,7 @@ from planetmapper.base import (
 P = ParamSpec('P')
 
 
-class TestSpiceBase(unittest.TestCase):
+class TestSpiceBase(common_testing.BaseTestCase):
     def setUp(self):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
         self.obj = planetmapper.SpiceBase()
@@ -240,7 +240,7 @@ class TestSpiceBase(unittest.TestCase):
         self.assertIsNone(self.obj._get_progress_hook())
 
 
-class TestSpiceStringEncoding(unittest.TestCase):
+class TestSpiceStringEncoding(common_testing.BaseTestCase):
     def setUp(self):
         planetmapper.SpiceBase.load_spice_kernels()
         self.obj = planetmapper.SpiceBase(optimize_speed=True)
@@ -364,7 +364,7 @@ class TestSpiceStringEncoding(unittest.TestCase):
         )
 
 
-class TestKernelPath(unittest.TestCase):
+class TestKernelPath(common_testing.BaseTestCase):
     def setUp(self) -> None:
         planetmapper.base.clear_kernels()
 
@@ -469,7 +469,7 @@ class TestKernelPath(unittest.TestCase):
         )
 
 
-class TestBodyBase(unittest.TestCase):
+class TestBodyBase(common_testing.BaseTestCase):
     def setUp(self):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
 
@@ -657,7 +657,7 @@ class TestBodyBase(unittest.TestCase):
         planetmapper.base.clear_kernels()
 
 
-class TestCache(unittest.TestCase):
+class TestCache(common_testing.BaseTestCase):
     def setUp(self):
         self._cache = {}
         self._stable_cache = {}
@@ -728,7 +728,7 @@ class TestCache(unittest.TestCase):
         self.assertEqual(len(self._stable_cache), 3)
 
 
-class TestFunctions(unittest.TestCase):
+class TestFunctions(common_testing.BaseTestCase):
     def test_to_tuple(self):
         pairs = [
             (np.array([1, 2, 3]), (1, 2, 3)),

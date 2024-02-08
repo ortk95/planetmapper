@@ -7,7 +7,7 @@ from packaging import version
 import planetmapper
 
 
-class TestInit(unittest.TestCase):
+class TestInit(common_testing.BaseTestCase):
     def test_init(self):
         self.assertEqual(planetmapper.__author__, 'Oliver King')
         self.assertEqual(planetmapper.__url__, 'https://github.com/ortk95/planetmapper')
