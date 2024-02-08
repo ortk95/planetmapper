@@ -25,6 +25,12 @@ class TestUtils(common_testing.BaseTestCase):
         plt.close(fig)
 
         fig, ax = plt.subplots()
+        utils.format_radec_axes(ax, 45, aspect_adjustable=None)
+        self.assertEqual(ax.get_aspect(), 'auto')
+        self.assertTrue(ax.xaxis_inverted())
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
         ax.invert_xaxis()
         utils.format_radec_axes(
             ax, 0, dms_ticks=False, add_axis_labels=False, aspect_adjustable='box'

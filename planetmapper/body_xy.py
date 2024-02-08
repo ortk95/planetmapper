@@ -1185,6 +1185,7 @@ class BodyXY(Body):
         ax = self._plot_wireframe(
             coordinate_func=self.radec2angular,
             transform=self._get_matplotlib_angular_fixed2xy_transform(),
+            aspect_adjustable=aspect_adjustable,
             ax=ax,
             **wireframe_kwargs,
         )
@@ -1195,7 +1196,6 @@ class BodyXY(Body):
         if add_axis_labels:
             ax.set_xlabel('x (pixels)')
             ax.set_ylabel('y (pixels)')
-        ax.set_aspect(1, adjustable=aspect_adjustable)
 
         if show:
             plt.show()
