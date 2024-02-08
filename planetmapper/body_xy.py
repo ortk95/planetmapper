@@ -26,11 +26,17 @@ from matplotlib.figure import Figure
 from spiceypy.utils.exceptions import NotFoundError
 
 from .base import _cache_clearable_result, _cache_stable_result
-from .body import Body, _AngularCoordinateKwargs, _WireframeComponent, _WireframeKwargs
+from .body import AngularCoordinateKwargs, Body, WireframeComponent, WireframeKwargs
 from .progress import progress_decorator
 
 
-class _MapKwargs(TypedDict, total=False):
+class MapKwargs(TypedDict, total=False):
+    """
+    Class to help type hint keyword arguments of mapping functions.
+
+    See :func:`BodyXY.generate_map_coordinates` for more details.
+    """
+
     projection: str
     degree_interval: float
     lon: float
@@ -44,8 +50,11 @@ class _MapKwargs(TypedDict, total=False):
     ylim: tuple[float, float] | None
 
 
+_MapKwargs = MapKwargs  # keep for backward compatibility
+
+
 class _BackplaneMapGetter(Protocol):
-    def __call__(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray: ...
+    def __call__(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray: ...
 
 
 class Backplane(NamedTuple):
@@ -428,7 +437,7 @@ class BodyXY(Body):
         return self._obsvec2xy(self._km2obsvec_norm(km_x, km_y))
 
     def xy2angular(
-        self, x: float, y: float, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
+        self, x: float, y: float, **angular_kwargs: Unpack[AngularCoordinateKwargs]
     ) -> tuple[float, float]:
         """
         Convert image pixel coordinates to relative angular coordinates.
@@ -450,7 +459,7 @@ class BodyXY(Body):
         self,
         angular_x: float,
         angular_y: float,
-        **angular_kwargs: Unpack[_AngularCoordinateKwargs],
+        **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[float, float]:
         """
         Convert relative angular coordinates to image pixel coordinates.
@@ -983,7 +992,7 @@ class BodyXY(Body):
         )
 
     def matplotlib_xy2angular_transform(
-        self, ax: Axes | None = None, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
+        self, ax: Axes | None = None, **angular_kwargs: Unpack[AngularCoordinateKwargs]
     ) -> matplotlib.transforms.Transform:
         self.update_transform()
         # f transforms from angular (fixed) -> angular (with kwargs)
@@ -996,7 +1005,7 @@ class BodyXY(Body):
         )
 
     def matplotlib_angular2xy_transform(
-        self, ax: Axes | None = None, **angular_kwargs: Unpack[_AngularCoordinateKwargs]
+        self, ax: Axes | None = None, **angular_kwargs: Unpack[AngularCoordinateKwargs]
     ) -> matplotlib.transforms.Transform:
         self.update_transform()
         # f transforms from angular (with kwargs) -> angular (fixed)
@@ -1033,7 +1042,7 @@ class BodyXY(Body):
         spline_smoothing: float = 0,
         propagate_nan: bool = True,
         warn_nan: bool = False,
-        **map_kwargs: Unpack[_MapKwargs],
+        **map_kwargs: Unpack[MapKwargs],
     ) -> np.ndarray:
         """
         Project an observed image to a map. See :func:`generate_map_coordinates` for
@@ -1170,7 +1179,7 @@ class BodyXY(Body):
         add_axis_labels: bool = True,
         aspect_adjustable: Literal['box', 'datalim'] | None = 'box',
         show: bool = False,
-        **wireframe_kwargs: Unpack[_WireframeKwargs],
+        **wireframe_kwargs: Unpack[WireframeKwargs],
     ) -> Axes:
         """
         Plot basic wireframe representation of the observation using image pixel
@@ -1213,7 +1222,7 @@ class BodyXY(Body):
         indicate_equator: bool = True,
         indicate_prime_meridian: bool = True,
         aspect_adjustable: Literal['box', 'datalim'] | None = 'box',
-        formatting: dict[_WireframeComponent, dict[str, Any]] | None = None,
+        formatting: dict[WireframeComponent, dict[str, Any]] | None = None,
         **map_and_formatting_kwargs,
     ) -> Axes:
         """
@@ -1706,7 +1715,7 @@ class BodyXY(Body):
         return self.backplanes[self.standardise_backplane_name(name)].get_img().copy()
 
     def get_backplane_map(
-        self, name: str, **map_kwargs: Unpack[_MapKwargs]
+        self, name: str, **map_kwargs: Unpack[MapKwargs]
     ) -> np.ndarray:
         """
         Generate map of backplane values.
@@ -2172,7 +2181,7 @@ class BodyXY(Body):
     def _make_empty_map(
         self,
         nz: int | None = None,
-        **map_kwargs: Unpack[_MapKwargs],
+        **map_kwargs: Unpack[MapKwargs],
     ) -> np.ndarray:
         lonlat_shape = self._get_lonlat_map(**map_kwargs).shape
         n1 = lonlat_shape[1]
@@ -2223,7 +2232,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
-    def _get_targvec_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def _get_targvec_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(3, **map_kwargs)
         lonlats = self._get_lonlat_map(**map_kwargs)
         for a, b in self._iterate_image(out.shape, progress=True):
@@ -2245,7 +2254,7 @@ class BodyXY(Body):
             yield y, x, targvec
 
     def _enumerate_targvec_map(
-        self, progress: bool = False, **map_kwargs: Unpack[_MapKwargs]
+        self, progress: bool = False, **map_kwargs: Unpack[MapKwargs]
     ) -> Iterator[tuple[int, int, np.ndarray]]:
         targvec_map = self._get_targvec_map(**map_kwargs)
         for a, b in self._iterate_image(targvec_map.shape, progress=progress):
@@ -2267,7 +2276,7 @@ class BodyXY(Body):
         return out
 
     @_cache_stable_result
-    def _get_obsvec_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def _get_obsvec_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(3, **map_kwargs)
         for a, b, targvec in self._enumerate_targvec_map(**map_kwargs):
             out[a, b] = self._targvec2obsvec(targvec)
@@ -2282,7 +2291,7 @@ class BodyXY(Body):
         return np.rad2deg(out)
 
     @_cache_stable_result
-    def _get_lonlat_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def _get_lonlat_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         lons, lats, xx, yy, transformer, info = self.generate_map_coordinates(
             **map_kwargs
         )
@@ -2301,7 +2310,7 @@ class BodyXY(Body):
         """
         return self._get_lonlat_img()[:, :, 0]
 
-    def get_lon_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_lon_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2321,7 +2330,7 @@ class BodyXY(Body):
         """
         return self._get_lonlat_img()[:, :, 1]
 
-    def get_lat_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_lat_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2341,7 +2350,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
-    def _get_lonlat_centric_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def _get_lonlat_centric_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
         for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
             out[a, b] = self._targvec2lonlat_centric(targvec)
@@ -2357,7 +2366,7 @@ class BodyXY(Body):
         """
         return self._get_lonlat_centric_img()[:, :, 0]
 
-    def get_lon_centric_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_lon_centric_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2377,7 +2386,7 @@ class BodyXY(Body):
         """
         return self._get_lonlat_centric_img()[:, :, 1]
 
-    def get_lat_centric_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_lat_centric_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2397,7 +2406,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
-    def _get_radec_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def _get_radec_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
         visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
         obsvec_map = self._get_obsvec_map(**map_kwargs)
@@ -2416,7 +2425,7 @@ class BodyXY(Body):
         """
         return self._get_radec_img()[:, :, 0]
 
-    def get_ra_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_ra_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2436,7 +2445,7 @@ class BodyXY(Body):
         """
         return self._get_radec_img()[:, :, 1]
 
-    def get_dec_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_dec_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2449,7 +2458,7 @@ class BodyXY(Body):
 
     @_cache_clearable_result
     @progress_decorator
-    def _get_xy_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def _get_xy_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
         radec_map = self._get_radec_map(**map_kwargs)
         for a, b in self._iterate_image(out.shape, progress=True):
@@ -2472,7 +2481,7 @@ class BodyXY(Body):
             out[y, x] = x
         return out
 
-    def get_x_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_x_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2496,7 +2505,7 @@ class BodyXY(Body):
             out[y, x] = y
         return out
 
-    def get_y_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_y_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2517,7 +2526,7 @@ class BodyXY(Body):
         return out
 
     @_cache_stable_result
-    def _get_km_xy_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def _get_km_xy_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
         radec_map = self._get_radec_map(**map_kwargs)
         for a, b in self._iterate_image(out.shape, progress=True):
@@ -2536,7 +2545,7 @@ class BodyXY(Body):
         """
         return self._get_km_xy_img()[:, :, 0]
 
-    def get_km_x_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_km_x_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2557,7 +2566,7 @@ class BodyXY(Body):
         """
         return self._get_km_xy_img()[:, :, 1]
 
-    def get_km_y_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_km_y_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2578,7 +2587,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
-    def _get_illumf_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def _get_illumf_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(5, **map_kwargs)
         for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
             out[a, b] = self._illumf_from_targvec_radians(targvec)
@@ -2594,7 +2603,7 @@ class BodyXY(Body):
         """
         return self._get_illumination_gie_img()[:, :, 0]
 
-    def get_phase_angle_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_phase_angle_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2615,7 +2624,7 @@ class BodyXY(Body):
         """
         return self._get_illumination_gie_img()[:, :, 1]
 
-    def get_incidence_angle_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_incidence_angle_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2636,7 +2645,7 @@ class BodyXY(Body):
         """
         return self._get_illumination_gie_img()[:, :, 2]
 
-    def get_emission_angle_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_emission_angle_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2668,7 +2677,7 @@ class BodyXY(Body):
         return np.rad2deg(azimuth_radians)
 
     @_cache_stable_result
-    def get_azimuth_angle_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_azimuth_angle_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2709,7 +2718,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
-    def get_local_solar_time_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_local_solar_time_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2743,7 +2752,7 @@ class BodyXY(Body):
     @_cache_stable_result
     @progress_decorator
     def _get_state_maps(
-        self, **map_kwargs: Unpack[_MapKwargs]
+        self, **map_kwargs: Unpack[MapKwargs]
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         position_map = self._make_empty_map(3, **map_kwargs)
         velocity_map = self._make_empty_map(3, **map_kwargs)
@@ -2767,7 +2776,7 @@ class BodyXY(Body):
         position_img, velocity_img, lt_img = self._get_state_imgs()
         return lt_img * self.speed_of_light()
 
-    def get_distance_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_distance_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2800,7 +2809,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
-    def get_radial_velocity_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_radial_velocity_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2828,7 +2837,7 @@ class BodyXY(Body):
         """
         return self.calculate_doppler_factor(self.get_radial_velocity_img())
 
-    def get_doppler_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_doppler_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2852,7 +2861,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
-    def _get_limb_coordinate_maps(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def _get_limb_coordinate_maps(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(3, **map_kwargs)
         visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
         obsvec_map = self._get_obsvec_map(**map_kwargs)
@@ -2872,7 +2881,7 @@ class BodyXY(Body):
         """
         return self._get_limb_coordinate_imgs()[:, :, 0]
 
-    def get_limb_lon_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_limb_lon_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2895,7 +2904,7 @@ class BodyXY(Body):
         """
         return self._get_limb_coordinate_imgs()[:, :, 1]
 
-    def get_limb_lat_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_limb_lat_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2917,7 +2926,7 @@ class BodyXY(Body):
         """
         return self._get_limb_coordinate_imgs()[:, :, 2]
 
-    def get_limb_distance_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_limb_distance_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -2956,7 +2965,7 @@ class BodyXY(Body):
     @_cache_stable_result
     @progress_decorator
     def _get_ring_plane_coordinate_maps(
-        self, **map_kwargs: Unpack[_MapKwargs]
+        self, **map_kwargs: Unpack[MapKwargs]
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         radius_map = self._make_empty_map(**map_kwargs)
         long_map = self._make_empty_map(**map_kwargs)
@@ -2990,7 +2999,7 @@ class BodyXY(Body):
         """
         return self._get_ring_plane_coordinate_imgs()[0]
 
-    def get_ring_plane_radius_map(self, **map_kwargs: Unpack[_MapKwargs]) -> np.ndarray:
+    def get_ring_plane_radius_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
         :func:`get_backplane_map`.
@@ -3015,7 +3024,7 @@ class BodyXY(Body):
         return self._get_ring_plane_coordinate_imgs()[1]
 
     def get_ring_plane_longitude_map(
-        self, **map_kwargs: Unpack[_MapKwargs]
+        self, **map_kwargs: Unpack[MapKwargs]
     ) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
@@ -3041,7 +3050,7 @@ class BodyXY(Body):
         return self._get_ring_plane_coordinate_imgs()[2]
 
     def get_ring_plane_distance_map(
-        self, **map_kwargs: Unpack[_MapKwargs]
+        self, **map_kwargs: Unpack[MapKwargs]
     ) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
@@ -3291,7 +3300,7 @@ def _make_backplane_documentation_str() -> str:
     return '\n'.join(msg)
 
 
-def _extract_map_kwargs_from_dict(kwargs_dict) -> tuple[_MapKwargs, dict[str, Any]]:
+def _extract_map_kwargs_from_dict(kwargs_dict) -> tuple[MapKwargs, dict[str, Any]]:
     """
     Split a dictionary of keyword arguments into a dictionary of map kwargs and a
     dictionary of other kwargs.
@@ -3303,8 +3312,8 @@ def _extract_map_kwargs_from_dict(kwargs_dict) -> tuple[_MapKwargs, dict[str, An
         Tuple containing a dictionary of map kwargs and a dictionary of other kwargs.
     """
     # pylint: disable-next=no-member
-    map_keys = set(_MapKwargs.__optional_keys__) | set(_MapKwargs.__required_keys__)
-    map_kwargs = _MapKwargs()
+    map_keys = set(MapKwargs.__optional_keys__) | set(MapKwargs.__required_keys__)
+    map_kwargs = MapKwargs()
     other_kwargs = {}
     for k, v in kwargs_dict.items():
         if k in map_keys:

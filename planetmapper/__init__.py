@@ -123,8 +123,14 @@ If you use PlanetMapper in your research, please :ref:`cite the following paper
 from . import base, data_loader, gui, kernel_downloader, utils
 from .base import SpiceBase, get_kernel_path, set_kernel_path
 from .basic_body import BasicBody
-from .body import DEFAULT_WIREFRAME_FORMATTING, Body
-from .body_xy import Backplane, BodyXY
+from .body import (
+    DEFAULT_WIREFRAME_FORMATTING,
+    AngularCoordinateKwargs,
+    Body,
+    WireframeComponent,
+    WireframeKwargs,
+)
+from .body_xy import Backplane, BodyXY, MapKwargs
 from .common import __author__, __description__, __license__, __url__, __version__
 from .observation import Observation
 
@@ -137,10 +143,14 @@ __all__ = [
     'BodyXY',
     'Observation',
     'BasicBody',
+    'AngularCoordinateKwargs',
+    'WireframeKwargs',
+    'WireframeComponent',
+    'DEFAULT_WIREFRAME_FORMATTING',
+    'MapKwargs',
     'base',
     'gui',
     'utils',
     'kernel_downloader',
     'data_loader',
-    'DEFAULT_WIREFRAME_FORMATTING',
 ]
