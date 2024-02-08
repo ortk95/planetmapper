@@ -2549,7 +2549,7 @@ class Body(BodyBase):
             The axis containing the plotted wireframe.
         """
         ax = self._plot_wireframe(
-            coordinate_func=lambda ra, dec: self.radec2km(ra, dec),
+            coordinate_func=self.radec2km,
             transform=None,
             ax=ax,
             **wireframe_kwargs,

@@ -1,5 +1,4 @@
 import datetime
-import functools
 import io
 import math
 import warnings
@@ -1184,7 +1183,7 @@ class BodyXY(Body):
         # Use combo of corodinate_func and matplotlib transform so that the plot can be
         # updated with new disc parameters without having to replot the entire thing
         ax = self._plot_wireframe(
-            coordinate_func=lambda ra, dec: self.radec2angular(ra, dec),
+            coordinate_func=self.radec2angular,
             transform=self._get_matplotlib_angular_fixed2xy_transform(),
             ax=ax,
             **wireframe_kwargs,
