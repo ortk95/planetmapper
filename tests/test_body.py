@@ -1457,6 +1457,25 @@ class TestBody(common_testing.BaseTestCase):
         mock_show.assert_called_once()
         mock_show.reset_mock()
 
+        # Test radec wraparound
+        jupiter_from_amalthea = planetmapper.Body(
+            'jupiter', '2005-01-01', observer='amalthea'
+        )
+
+        fig, ax = plt.subplots()
+        jupiter_from_amalthea.plot_wireframe_radec(ax)
+        xlim = ax.get_xlim()
+        self.assertTrue(400 > xlim[0] > 350)
+        self.assertTrue(10 > xlim[1] > -60)
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
+        jupiter_from_amalthea.plot_wireframe_radec(ax, use_shifted_meridian=True)
+        xlim = ax.get_xlim()
+        self.assertTrue(60 > xlim[0] > 10)
+        self.assertTrue(-10 > xlim[1] > -60)
+        plt.close(fig)
+
     def test_get_local_affine_transform_matrix(self):
         tests: list[
             tuple[

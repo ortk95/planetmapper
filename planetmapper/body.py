@@ -2391,7 +2391,7 @@ class Body(BodyBase):
         dms_ticks: bool = True,
         add_axis_labels: bool = True,
         aspect_adjustable: Literal['box', 'datalim'] | None = 'datalim',
-        use_shifted_meridian: bool = False,  # XXX rename
+        use_shifted_meridian: bool = False,
         show: bool = False,
         **wireframe_kwargs: Unpack[_WireframeKwargs],
     ) -> Axes:
