@@ -632,6 +632,16 @@ class TestBodyXY(common_testing.BaseTestCase):
         self.body.plot_map_wireframe(ax=ax, color='r', zorder=2, alpha=0.5)
         plt.close(fig)
 
+        fig, ax = plt.subplots()
+        self.body.plot_map_wireframe(ax=ax)
+        self.assertEqual(ax.get_aspect(), 1)
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
+        self.body.plot_map_wireframe(ax=ax, aspect_adjustable=None)
+        self.assertEqual(ax.get_aspect(), 'auto')
+        plt.close(fig)
+
         uranus = BodyXY('uranus', utc='2000-01-01', sz=5)  # Uranus is +ve E
         ax = uranus.plot_map_wireframe(ax=ax)
         self.assertEqual(ax.get_xlim(), (0, 360))

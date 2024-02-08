@@ -1212,7 +1212,7 @@ class BodyXY(Body):
         grid_lat_limit: float = 90,
         indicate_equator: bool = True,
         indicate_prime_meridian: bool = True,
-        aspect_adjustable: Literal['box', 'datalim'] = 'box',
+        aspect_adjustable: Literal['box', 'datalim'] | None = 'box',
         formatting: dict[_WireframeComponent, dict[str, Any]] | None = None,
         **map_and_formatting_kwargs,
     ) -> Axes:
@@ -1249,7 +1249,8 @@ class BodyXY(Body):
         )
         projection = map_kw_used['projection']
 
-        ax.set_aspect(1, adjustable=aspect_adjustable)
+        if aspect_adjustable is not None:
+            ax.set_aspect(1, adjustable=aspect_adjustable)
 
         lon_ticks = np.arange(0, 360.0001, grid_interval)
         lat_ticks = np.arange(-90, 90.0001, grid_interval)
