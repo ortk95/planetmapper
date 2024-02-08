@@ -2492,7 +2492,7 @@ class Body(BodyBase):
 
             :func:`plot_wireframe_angular` can be used as an alternative to
             :func:`plot_wireframe_radec` to plot the wireframe without distortion from
-            the choice of coordinte system. By default, the `angular` coordinate system
+            the choice of coordinate system. By default, the `angular` coordinate system
             is centred on the target body, which minimises any distortion, but the
             origin and rotation of the `angular` coordinates can also be customised as
             needed (e.g. to align it with an instrument's field of view).
