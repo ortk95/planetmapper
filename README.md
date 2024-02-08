@@ -8,7 +8,7 @@
 [![Coverage Status](https://coveralls.io/repos/github/ortk95/planetmapper/badge.svg?branch=main)](https://coveralls.io/github/ortk95/planetmapper?branch=main)
 [![JOSS Paper DOI](https://joss.theoj.org/papers/10.21105/joss.05728/status.svg)](https://doi.org/10.21105/joss.05728)
 
-PlanetMapper is an open source Python module for visualising, navigating and mapping Solar System observations.
+PlanetMapper is an open source Python package for visualising, navigating and mapping Solar System observations.
 
 ## [Documentation](https://planetmapper.readthedocs.io)
 For full documentation and [API reference](https://planetmapper.readthedocs.io/en/latest/documentation.html), visit [planetmapper.readthedocs.io](https://planetmapper.readthedocs.io/en/latest/index.html).

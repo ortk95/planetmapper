@@ -13,7 +13,7 @@ import planetmapper
 from planetmapper import utils
 
 
-class TestUtils(unittest.TestCase):
+class TestUtils(common_testing.BaseTestCase):
     def setUp(self) -> None:
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
 
@@ -21,6 +21,12 @@ class TestUtils(unittest.TestCase):
         fig, ax = plt.subplots()
         utils.format_radec_axes(ax, 45)
         self.assertAlmostEqual(ax.get_aspect(), 1 / 0.7071067811865476)  #  type: ignore
+        self.assertTrue(ax.xaxis_inverted())
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
+        utils.format_radec_axes(ax, 45, aspect_adjustable=None)
+        self.assertEqual(ax.get_aspect(), 'auto')
         self.assertTrue(ax.xaxis_inverted())
         plt.close(fig)
 

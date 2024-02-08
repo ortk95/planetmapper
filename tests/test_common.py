@@ -6,7 +6,7 @@ import planetmapper
 import planetmapper.common
 
 
-class TestCommon(unittest.TestCase):
+class TestCommon(common_testing.BaseTestCase):
     def test_init(self):
         self.assertEqual(planetmapper.common.__author__, 'Oliver King')
         self.assertEqual(

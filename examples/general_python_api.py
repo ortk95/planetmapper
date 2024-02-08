@@ -25,6 +25,8 @@ def main():
     # plot_saturn_wireframe()
     # plot_neptune_wireframe()
     # plot_jupiter_wireframe()
+    # plot_uranus_wireframe_comparison()
+    # plot_saturn_wireframe_formatting()
     # plot_europa_backplane()
     # plot_jupiter_backplane()
     # plot_jupiter_mapped()
@@ -39,6 +41,7 @@ def download_spice_kernels():
         'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de430.bsp',
         'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/jup365.bsp',
         'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/sat441.bsp',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/ura111.bsp',
         'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/nep097.bsp',
         'https://naif.jpl.nasa.gov/pub/naif/HST/kernels/spk/',
     )
@@ -100,6 +103,77 @@ def plot_jupiter_wireframe():
 
     fig.tight_layout()
     fig.savefig(os.path.join(PLOT_DIRECTORY, 'jupiter_wireframes.png'))
+    plt.close(fig)
+
+
+def plot_uranus_wireframe_comparison():
+    body = planetmapper.Body('uranus', '2020-01-01')
+    body.add_named_rings()
+    body.add_other_bodies_of_interest('miranda')
+
+    fig, ((ax_radec, ax_km), (ax_angular1, ax_angular2)) = plt.subplots(
+        nrows=2,
+        ncols=2,
+        figsize=(10, 8),
+        dpi=200,
+        gridspec_kw=dict(hspace=0.3, wspace=0.3),
+    )
+
+    body.plot_wireframe_radec(ax_radec)
+    ax_radec.set_title('plot_wireframe_radec()')
+
+    body.plot_wireframe_km(ax_km)
+    ax_km.set_title('plot_wireframe_km()')
+
+    body.plot_wireframe_angular(ax_angular1)
+    ax_angular1.set_title('plot_wireframe_angular()')
+
+    miranda = body.create_other_body('miranda')
+    ra, dec = miranda.target_ra, miranda.target_dec
+    # angular plot centred on custom RA/Dec and with a custom rotation
+    body.plot_wireframe_angular(
+        ax_angular2,
+        origin_ra=ra,
+        origin_dec=dec,
+        coordinate_rotation=-45,
+    )
+    ax_angular2.set_title(f'plot_wireframe_angular(...)')
+
+    fig.savefig(
+        os.path.join(PLOT_DIRECTORY, 'uranus_wireframe_comparison.png'),
+        bbox_inches='tight',
+    )
+    plt.close(fig)
+
+
+def plot_saturn_wireframe_formatting():
+    fig, ax = plt.subplots(figsize=(6, 4), dpi=200)
+
+    body = planetmapper.Body('saturn', '2020-02-08', observer='iapetus')
+    body.add_other_bodies_of_interest('dione', 'methone')
+    body.plot_wireframe_radec(
+        ax,
+        add_title=False,
+        dms_ticks=False,
+        label_poles=False,
+        indicate_equator=True,
+        indicate_prime_meridian=True,
+        grid_interval=15,
+        grid_lat_limit=75,
+        formatting={
+            'grid': {'linestyle': '-', 'linewidth': 0.5, 'alpha': 0.3},
+            'prime_meridian': {'linewidth': 1, 'color': 'r'},
+            'equator': {'linewidth': 1, 'color': 'r'},
+            'terminator': {'color': 'b'},
+            'limb_illuminated': {'color': 'b'},
+            'ring': {'color': 'g', 'linestyle': ':'},
+            'other_body_of_interest_marker': {'marker': '*'},
+            'other_body_of_interest_label': {'color': 'c', 'rotation': 30, 'alpha': 1},
+        },
+    )
+
+    fig.tight_layout()
+    fig.savefig(os.path.join(PLOT_DIRECTORY, 'saturn_wireframe_formatting.png'))
     plt.close(fig)
 
 

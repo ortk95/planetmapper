@@ -6,7 +6,7 @@ import planetmapper
 import planetmapper.progress
 
 
-class TestProgress(unittest.TestCase):
+class TestProgress(common_testing.BaseTestCase):
     def setUp(self):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
 

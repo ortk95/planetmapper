@@ -7,14 +7,14 @@ from packaging import version
 import planetmapper
 
 
-class TestInit(unittest.TestCase):
-    def test_init(self):
+class TestInit(common_testing.BaseTestCase):
+    def test_dunder_info(self):
         self.assertEqual(planetmapper.__author__, 'Oliver King')
         self.assertEqual(planetmapper.__url__, 'https://github.com/ortk95/planetmapper')
         self.assertEqual(planetmapper.__license__, 'MIT')
         self.assertEqual(
             planetmapper.__description__,
-            'PlanetMapper: A Python module for visualising, navigating and mapping Solar System observations',
+            'PlanetMapper: A Python package for visualising, navigating and mapping Solar System observations',
         )
 
     def test_version(self):
@@ -32,3 +32,37 @@ class TestInit(unittest.TestCase):
         self.assertLess(
             version.Version(planetmapper.__version__), version.Version('2.0.0')
         )
+
+    def test_all(self):
+        self.assertEqual(len(planetmapper.__all__), 18)  # ensure tests are up to date
+
+        self.assertIs(planetmapper.set_kernel_path, planetmapper.base.set_kernel_path)
+        self.assertIs(planetmapper.get_kernel_path, planetmapper.base.get_kernel_path)
+        self.assertIs(planetmapper.SpiceBase, planetmapper.base.SpiceBase)
+        self.assertIs(planetmapper.Body, planetmapper.body.Body)
+        self.assertIs(planetmapper.Backplane, planetmapper.body_xy.Backplane)
+        self.assertIs(planetmapper.BodyXY, planetmapper.body_xy.BodyXY)
+        self.assertIs(planetmapper.Observation, planetmapper.observation.Observation)
+        self.assertIs(planetmapper.BasicBody, planetmapper.basic_body.BasicBody)
+        self.assertIs(
+            planetmapper.AngularCoordinateKwargs,
+            planetmapper.body.AngularCoordinateKwargs,
+        )
+        self.assertIs(planetmapper.WireframeKwargs, planetmapper.body.WireframeKwargs)
+        self.assertIs(
+            planetmapper.WireframeComponent, planetmapper.body.WireframeComponent
+        )
+        self.assertIs(
+            planetmapper.DEFAULT_WIREFRAME_FORMATTING,
+            planetmapper.body.DEFAULT_WIREFRAME_FORMATTING,
+        )
+        self.assertIs(planetmapper.MapKwargs, planetmapper.body_xy.MapKwargs)
+
+        # test backward compatible aliases
+        self.assertIs(
+            planetmapper.body._WireframeKwargs, planetmapper.body.WireframeKwargs
+        )
+        self.assertIs(
+            planetmapper.body._WireframeComponent, planetmapper.body.WireframeComponent
+        )
+        self.assertIs(planetmapper.body_xy._MapKwargs, planetmapper.body_xy.MapKwargs)

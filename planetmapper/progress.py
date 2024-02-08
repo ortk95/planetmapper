@@ -1,4 +1,5 @@
 import time
+from abc import ABC, abstractmethod
 from functools import wraps
 from typing import TYPE_CHECKING, Callable, Concatenate, ParamSpec, TypeVar
 
@@ -15,6 +16,8 @@ P = ParamSpec('P')
 def progress_decorator(
     fn: Callable[Concatenate[S, P], T]
 ) -> Callable[Concatenate[S, P], T]:
+    """Decorator for functions which track progress using progress hooks."""
+
     # pylint: disable=protected-access
     @wraps(fn)
     def decorated(self: 'SpiceBase', *args: P.args, **kwargs: P.kwargs):
@@ -38,9 +41,11 @@ def progress_decorator(
     return decorated  # type: ignore
 
 
-class ProgressHook:
-    def __call__(self, progress: float, stack: list[str]) -> None:
-        raise NotImplementedError
+class ProgressHook(ABC):
+    """Base class for progress hooks."""
+
+    @abstractmethod
+    def __call__(self, progress: float, stack: list[str]) -> None: ...
 
 
 class CLIProgressHook(ProgressHook):
@@ -140,14 +145,13 @@ class _SaveProgressHook(ProgressHook):
         self.progress_parts[key] = progress
         self.update_bar(progress_change)
 
-    def update_bar(self, progress_change: float) -> None:
-        raise NotImplementedError
+    @abstractmethod
+    def update_bar(self, progress_change: float) -> None: ...
 
-    def get_description(self) -> str:
-        return ''
+    @abstractmethod
+    def get_description(self) -> str: ...
 
 
-# pylint: disable-next=abstract-method
 class _SaveNavProgressHook(_SaveProgressHook):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -170,7 +174,6 @@ class _SaveNavProgressHook(_SaveProgressHook):
         return 'Saving observation'
 
 
-# pylint: disable-next=abstract-method
 class _SaveMapProgressHook(_SaveProgressHook):
     def __init__(self, n_wavelengths: int, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)

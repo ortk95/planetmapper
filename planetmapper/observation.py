@@ -13,7 +13,7 @@ from astropy.utils.exceptions import AstropyWarning
 
 from . import common, utils
 from .base import _cache_clearable_result, _cache_stable_result
-from .body_xy import BodyXY, Unpack, _MapKwargs
+from .body_xy import BodyXY, MapKwargs, Unpack
 from .progress import SaveMapProgressHookCLI, SaveNavProgressHookCLI, progress_decorator
 
 T = TypeVar('T')
@@ -683,12 +683,12 @@ class Observation(BodyXY):
     # Mapping
     def get_mapped_data(
         self,
-        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic']
-        | int
-        | tuple[int, int] = 'linear',
+        interpolation: (
+            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
+        ) = 'linear',
         *,
         spline_smoothing: float = 0,
-        **map_kwargs: Unpack[_MapKwargs],
+        **map_kwargs: Unpack[MapKwargs],
     ) -> np.ndarray:
         """
         Projects the observed :attr:`data` onto a map. See
@@ -725,11 +725,11 @@ class Observation(BodyXY):
     def _get_mapped_data(
         self,
         *,
-        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic']
-        | int
-        | tuple[int, int],
+        interpolation: (
+            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
+        ),
         spline_smoothing: float,
-        **map_kwargs: Unpack[_MapKwargs],
+        **map_kwargs: Unpack[MapKwargs],
     ):
         projected = []
         if interpolation == 'linear' and np.any(np.isnan(self.data)):
@@ -1112,16 +1112,16 @@ class Observation(BodyXY):
         self,
         path: str,
         *,
-        interpolation: Literal['nearest', 'linear', 'quadratic', 'cubic']
-        | int
-        | tuple[int, int] = 'linear',
+        interpolation: (
+            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
+        ) = 'linear',
         spline_smoothing: float = 0,
         include_backplanes: bool = True,
         include_wireframe: bool = True,
         wireframe_kwargs: dict[str, Any] | None = None,
         show_progress: bool = False,
         print_info: bool = True,
-        **map_kwargs: Unpack[_MapKwargs],
+        **map_kwargs: Unpack[MapKwargs],
     ) -> None:
         """
         Save a FITS file containing the mapped observation in a cylindrical projection.
@@ -1230,7 +1230,7 @@ class Observation(BodyXY):
         *,
         interpolation: str | int | tuple[int, int],
         spline_smoothing: float,
-        **map_kwargs: Unpack[_MapKwargs],
+        **map_kwargs: Unpack[MapKwargs],
     ):
         lons, lats, xx, yy, transformer, info = self.generate_map_coordinates(
             **map_kwargs
@@ -1300,7 +1300,7 @@ class Observation(BodyXY):
     def _add_map_wcs_to_header(
         self,
         header: fits.Header,
-        **map_kwargs: Unpack[_MapKwargs],
+        **map_kwargs: Unpack[MapKwargs],
     ) -> None:
         lons, lats, xx, yy, transformer, info = self.generate_map_coordinates(
             **map_kwargs
