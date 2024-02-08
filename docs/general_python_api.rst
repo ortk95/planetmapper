@@ -17,8 +17,8 @@ For PlanetMapper to function, you will need to download a series of :ref:`SPICE 
         'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de430.bsp',
         'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/jup365.bsp',
         'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/sat441.bsp',
-        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/nep097.bsp',
         'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/ura111.bsp',
+        'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/nep097.bsp',
         'https://naif.jpl.nasa.gov/pub/naif/HST/kernels/spk/',
     )
 

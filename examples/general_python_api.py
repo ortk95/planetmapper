@@ -26,7 +26,7 @@ def main():
     # plot_neptune_wireframe()
     # plot_jupiter_wireframe()
     # plot_uranus_wireframe_comparison()
-    plot_saturn_wireframe_formatting()
+    # plot_saturn_wireframe_formatting()
     # plot_europa_backplane()
     # plot_jupiter_backplane()
     # plot_jupiter_mapped()
