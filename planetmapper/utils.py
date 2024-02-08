@@ -70,9 +70,9 @@ class DMSFormatter(matplotlib.ticker.FuncFormatter):
     def _format(self, dd, pos):
         d, m, s = decimal_degrees_to_dms(dd)
         out = []
-        if 'd' not in self.skip_parts or m == 0 and s == 0:
+        if 'd' not in self.skip_parts or (m == 0 and s == 0):
             out.append(f'{d}°')
-        if 'm' not in self.skip_parts or s == 0:
+        if 'm' not in self.skip_parts or ('d' in self.skip_parts and s == 0):
             out.append(f'{m:02.0f}′')
         if 's' not in self.skip_parts:
             out.append(f'{s:{self.fmt_s}}″')
