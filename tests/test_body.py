@@ -1360,6 +1360,259 @@ class TestBody(common_testing.BaseTestCase):
         moon = Body('moon', utc='2000-01-08 03:00:00')
         self.assertEqual(moon.get_poles_to_plot(), [(0, 90, '(N)'), (0, -90, '(S)')])
 
+    def test_add_nans_for_radec_array_wraparounds(self):
+        pairs: list[tuple[tuple[list, list], tuple[np.ndarray, np.ndarray]]] = [
+            (([], []), (array([]), array([]))),
+            (([1], [2]), (array([1]), array([2]))),
+            (([1, 2], [3, 4]), (array([1, 2]), array([3, 4]))),
+            (([-1, 1], [2, 3]), (array([-1, 1]), array([2, 3]))),
+            (([360, 359], [1, 2]), (array([360, 359]), array([1, 2]))),
+            (([175, 185], [1, 2]), (array([175, 185]), array([1, 2]))),
+            (
+                ([0, 360], [-1, -2]),
+                (array([0.0, nan, 360.0]), array([-1.0, nan, -2.0])),
+            ),
+            (
+                ([360, 0], [-1, -2]),
+                (array([360.0, nan, 0.0]), array([-1.0, nan, -2.0])),
+            ),
+            (
+                ([-175, 175], [-1, -2]),
+                (array([-175.0, nan, 175.0]), array([-1.0, nan, -2.0])),
+            ),
+            (
+                ([175, -175], [-1, -2]),
+                (array([175.0, nan, -175.0]), array([-1.0, nan, -2.0])),
+            ),
+            (
+                ([1, 2, 359, 350, 340.123, 360, 0, 0.1234], [1, 2, 3, 4, 5, 6, 7, 8]),
+                (
+                    array(
+                        [
+                            1.00000e00,
+                            2.00000e00,
+                            nan,
+                            3.59000e02,
+                            3.50000e02,
+                            3.40123e02,
+                            3.60000e02,
+                            nan,
+                            0.00000e00,
+                            1.23400e-01,
+                        ]
+                    ),
+                    array([1.0, 2.0, nan, 3.0, 4.0, 5.0, 6.0, nan, 7.0, 8.0]),
+                ),
+            ),
+            (([0, 269.9, 0], [1, 2]), (array([0.0, 269.9]), array([1, 2]))),
+            (([0, 270, 0], [1, 2]), (array([0, 270]), array([1, 2]))),
+            (
+                ([0, 270.1, 0], [1, 2]),
+                (array([0.0, nan, 270.1]), array([1.0, nan, 2.0])),
+            ),
+        ]
+        for (ra_in, dec_in), (ra_expected, dec_expected) in pairs:
+            with self.subTest(ra=ra_in, dec=dec_in):
+                self.assertArraysEqual(
+                    self.body._add_nans_for_radec_array_wraparounds(ra_in, dec_in),
+                    (ra_expected, dec_expected),                    equal_nan=True,
+
+                )
+
+        ras = [1, 1, 0, 270, 0, 270.1, 0, 44.9, 0, 45, 0, 45.1]
+        decs = np.arange(len(ras))
+        expected: list[tuple[float, np.ndarray, np.ndarray]] = [
+            (
+                270,
+                array(
+                    [
+                        1.0,
+                        1.0,
+                        0.0,
+                        270.0,
+                        0.0,
+                        nan,
+                        270.1,
+                        nan,
+                        0.0,
+                        44.9,
+                        0.0,
+                        45.0,
+                        0.0,
+                        45.1,
+                    ]
+                ),
+                array(
+                    [
+                        0.0,
+                        1.0,
+                        2.0,
+                        3.0,
+                        4.0,
+                        nan,
+                        5.0,
+                        nan,
+                        6.0,
+                        7.0,
+                        8.0,
+                        9.0,
+                        10.0,
+                        11.0,
+                    ]
+                ),
+            ),
+            (
+                45,
+                array(
+                    [
+                        1.0,
+                        1.0,
+                        0.0,
+                        nan,
+                        270.0,
+                        nan,
+                        0.0,
+                        nan,
+                        270.1,
+                        nan,
+                        0.0,
+                        44.9,
+                        0.0,
+                        45.0,
+                        0.0,
+                        nan,
+                        45.1,
+                    ]
+                ),
+                array(
+                    [
+                        0.0,
+                        1.0,
+                        2.0,
+                        nan,
+                        3.0,
+                        nan,
+                        4.0,
+                        nan,
+                        5.0,
+                        nan,
+                        6.0,
+                        7.0,
+                        8.0,
+                        9.0,
+                        10.0,
+                        nan,
+                        11.0,
+                    ]
+                ),
+            ),
+            (
+                45.1,
+                array(
+                    [
+                        1.0,
+                        1.0,
+                        0.0,
+                        nan,
+                        270.0,
+                        nan,
+                        0.0,
+                        nan,
+                        270.1,
+                        nan,
+                        0.0,
+                        44.9,
+                        0.0,
+                        45.0,
+                        0.0,
+                        45.1,
+                    ]
+                ),
+                array(
+                    [
+                        0.0,
+                        1.0,
+                        2.0,
+                        nan,
+                        3.0,
+                        nan,
+                        4.0,
+                        nan,
+                        5.0,
+                        nan,
+                        6.0,
+                        7.0,
+                        8.0,
+                        9.0,
+                        10.0,
+                        11.0,
+                    ]
+                ),
+            ),
+            (
+                1,
+                array(
+                    [
+                        1.0,
+                        1.0,
+                        0.0,
+                        nan,
+                        270.0,
+                        nan,
+                        0.0,
+                        nan,
+                        270.1,
+                        nan,
+                        0.0,
+                        nan,
+                        44.9,
+                        nan,
+                        0.0,
+                        nan,
+                        45.0,
+                        nan,
+                        0.0,
+                        nan,
+                        45.1,
+                    ]
+                ),
+                array(
+                    [
+                        0.0,
+                        1.0,
+                        2.0,
+                        nan,
+                        3.0,
+                        nan,
+                        4.0,
+                        nan,
+                        5.0,
+                        nan,
+                        6.0,
+                        nan,
+                        7.0,
+                        nan,
+                        8.0,
+                        nan,
+                        9.0,
+                        nan,
+                        10.0,
+                        nan,
+                        11.0,
+                    ]
+                ),
+            ),
+        ]
+        for threshold, ra_expected, dec_expected in expected:
+            with self.subTest(threshold=threshold):
+                self.assertArraysEqual(
+                    self.body._add_nans_for_radec_array_wraparounds(
+                        ras, decs, threshold=threshold
+                    ),
+                    (ra_expected, dec_expected),
+                    equal_nan=True,
+                )
+
     @patch('matplotlib.pyplot.show')
     def test_plot_wireframe(self, mock_show: MagicMock):
         # TODO improve these tests by mocking the various matplotlib functions and

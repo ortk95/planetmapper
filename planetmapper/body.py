@@ -2,7 +2,7 @@ import datetime
 import functools
 import math
 from collections import defaultdict
-from typing import Any, Callable, Literal, TypedDict, cast, overload
+from typing import Any, Callable, Iterable, Literal, TypedDict, cast, overload
 
 try:
     from typing import Unpack
@@ -2269,6 +2269,9 @@ class Body(BodyBase):
         coordinate_func: Callable[[float, float], tuple[float, float]],
         transform: matplotlib.transforms.Transform | None,
         aspect_adjustable: Literal['box', 'datalim'] | None,
+        additional_array_func: (
+            Callable[[Iterable, Iterable], tuple[np.ndarray, np.ndarray]] | None
+        ) = None,
         ax: Axes | None = None,
         label_poles: bool = True,
         add_title: bool = True,
@@ -2288,6 +2291,9 @@ class Body(BodyBase):
                 values (x, y).
             transform: Matplotlib transform to apply to the plotted data, after
                 transforming with `coordinate_func`.
+            additional_array_func: Function to apply to arrays of converted (x, y)
+                coordinates before plotting. Useful for adding NaNs to arrays to
+                handle wraparound in RA coordinates.
         """
         if ax is None:
             ax = cast(Axes, plt.gca())
@@ -2301,6 +2307,8 @@ class Body(BodyBase):
         ) -> tuple[np.ndarray, np.ndarray]:
             """Transform arrays of coords with coordinate_func"""
             xs, ys = zip(*(coordinate_func(ra, dec) for ra, dec in zip(ras, decs)))
+            if additional_array_func is not None:
+                xs, ys = additional_array_func(xs, ys)
             return np.array(xs), np.array(ys)
 
         kwargs = self._get_wireframe_kw(
@@ -2383,6 +2391,27 @@ class Body(BodyBase):
         if aspect_adjustable is not None:
             ax.set_aspect(1, adjustable=aspect_adjustable)
         return ax
+
+    @staticmethod
+    def _add_nans_for_radec_array_wraparounds(
+        ras: Iterable[float], decs: Iterable[float], *, threshold: float = 270.0
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Add NaNs into arrays when RA coords wraparound between 0 & 360. Useful for
+        preprocessing arrays before plotting.
+        """
+        # XXX test
+        ra_out = []
+        dec_out = []
+        ra_prev = np.nan
+        for ra, dec in zip(ras, decs):
+            if abs(ra - ra_prev) > threshold:
+                ra_out.append(np.nan)
+                dec_out.append(np.nan)
+            ra_out.append(ra)
+            dec_out.append(dec)
+            ra_prev = ra
+        return np.array(ra_out), np.array(dec_out)
 
     def plot_wireframe_radec(
         self,
@@ -2532,8 +2561,7 @@ class Body(BodyBase):
             The axis containing the plotted wireframe.
         """
         # TODO maybe add automated warning at high declinations and for ra wraparound
-        # TODO maybe fix plot() for ra wraparound by inserting NaNs into arrays
-        # TODO maybe add some fixed upper xlim/ylim for ra/dec plots
+        # TODO maybe add some fixed upper xlim/ylim for RA/Dec plots
 
         if use_shifted_meridian:
             coordinate_func = lambda ra, dec: ((ra + 180.0) % 360.0 - 180.0, dec)
@@ -2545,6 +2573,7 @@ class Body(BodyBase):
             transform=None,
             aspect_adjustable=None,
             ax=ax,
+            additional_array_func=self._add_nans_for_radec_array_wraparounds,
             **wireframe_kwargs,
         )
 
