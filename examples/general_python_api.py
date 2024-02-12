@@ -137,7 +137,7 @@ def plot_uranus_wireframe_comparison():
         origin_dec=dec,
         coordinate_rotation=-45,
     )
-    ax_angular2.set_title(f'plot_wireframe_angular(...)')
+    ax_angular2.set_title('plot_wireframe_angular(...)')
 
     fig.savefig(
         os.path.join(PLOT_DIRECTORY, 'uranus_wireframe_comparison.png'),

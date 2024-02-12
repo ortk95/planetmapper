@@ -176,7 +176,7 @@ The example below shows how the the same target appears in the `radec`, `km` and
         origin_dec=miranda.target_dec,
         coordinate_rotation=-45,
     )
-    ax_angular2.set_title(f'plot_wireframe_angular(...)')
+    ax_angular2.set_title('plot_wireframe_angular(...)')
 
     plt.show()
 
