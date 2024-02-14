@@ -1176,7 +1176,8 @@ class BodyXY(Body):
         self,
         ax: Axes | None = None,
         *,
-        add_axis_labels: bool = True,
+        custom_scaling: float | None = None,  # XXX
+        add_axis_labels: bool | None = True,
         aspect_adjustable: Literal['box', 'datalim'] | None = 'box',
         show: bool = False,
         **wireframe_kwargs: Unpack[WireframeKwargs],
@@ -1186,13 +1187,17 @@ class BodyXY(Body):
         coordinates. See :func:`Body.plot_wireframe_radec` for details of accepted
         arguments.
 
-        Returns:r
+        Returns:
             The axis containing the plotted wireframe.
         """
+        if add_axis_labels is None:
+            add_axis_labels = custom_scaling is None
+
         # Use combo of corodinate_func and matplotlib transform so that the plot can be
         # updated with new disc parameters without having to replot the entire thing
         ax = self._plot_wireframe(
             coordinate_func=self.radec2angular,
+            custom_scaling=custom_scaling,
             transform=self._get_matplotlib_angular_fixed2xy_transform(),
             aspect_adjustable=aspect_adjustable,
             ax=ax,

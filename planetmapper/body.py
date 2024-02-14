@@ -2294,6 +2294,7 @@ class Body(BodyBase):
         self,
         *,
         coordinate_func: Callable[[float, float], tuple[float, float]],
+        custom_scaling: float | None,
         transform: matplotlib.transforms.Transform | None,
         aspect_adjustable: Literal['box', 'datalim'] | None,
         additional_array_func: (
@@ -2312,6 +2313,8 @@ class Body(BodyBase):
         """
         Plot generic wireframe representation of the observation.
 
+        See :func:`plot_wireframe_radec` for more details on most arguments.
+
         Args:
             coordinate_func: Function to convert RA/Dec coordinates to the desired
                 coordinate system. Takes two arguments (RA, Dec) and returns two
@@ -2324,10 +2327,13 @@ class Body(BodyBase):
         """
         if ax is None:
             ax = cast(Axes, plt.gca())
+
         if transform is None:
-            transform = ax.transData
-        else:
-            transform = transform + ax.transData
+            transform = matplotlib.transforms.IdentityTransform()
+        if custom_scaling is not None:
+            # XXX decide if this is the best way to scale the coordinates (i.e. * or /)
+            transform += matplotlib.transforms.Affine2D().scale(1 / custom_scaling)
+        transform += ax.transData
 
         def array_func(
             ras: np.ndarray, decs: np.ndarray
@@ -2443,8 +2449,9 @@ class Body(BodyBase):
         self,
         ax: Axes | None = None,
         *,
-        dms_ticks: bool = True,
-        add_axis_labels: bool = True,
+        custom_scaling: float | None = None,  # XXX
+        dms_ticks: bool | None = None,  # XXX document, test
+        add_axis_labels: bool | None = None,  # XXX document, test
         aspect_adjustable: Literal['box', 'datalim'] | None = 'datalim',
         use_shifted_meridian: bool = False,
         show: bool = False,
@@ -2589,6 +2596,17 @@ class Body(BodyBase):
         # TODO maybe add automated warning at high declinations and for ra wraparound
         # TODO maybe add some fixed upper xlim/ylim for RA/Dec plots
 
+        # XXX document custom_scaling
+        # XXX update examples with custom_scaling
+        # XXX test custom_scaling with all wireframe plots (check branch coverage too)
+        # XXX settle on name for custom_scaling and ensure it's used everywhere
+
+        # By default, enable dms ticks and axis labels if custom_scaling is not used
+        if dms_ticks is None:
+            dms_ticks = custom_scaling is None
+        if add_axis_labels is None:
+            add_axis_labels = custom_scaling is None
+
         if use_shifted_meridian:
             coordinate_func = lambda ra, dec: ((ra + 180.0) % 360.0 - 180.0, dec)
         else:
@@ -2596,6 +2614,7 @@ class Body(BodyBase):
 
         ax = self._plot_wireframe(
             coordinate_func=coordinate_func,
+            custom_scaling=custom_scaling,
             transform=None,
             aspect_adjustable=None,
             ax=ax,
@@ -2619,7 +2638,8 @@ class Body(BodyBase):
         self,
         ax: Axes | None = None,
         *,
-        add_axis_labels: bool = True,
+        custom_scaling: float | None = None,  
+        add_axis_labels: bool | None = None,  
         aspect_adjustable: Literal['box', 'datalim'] | None = 'datalim',
         show: bool = False,
         **wireframe_kwargs: Unpack[WireframeKwargs],
@@ -2631,8 +2651,12 @@ class Body(BodyBase):
         Returns:
             The axis containing the plotted wireframe.
         """
+        if add_axis_labels is None:
+            add_axis_labels = custom_scaling is None
+
         ax = self._plot_wireframe(
             coordinate_func=self.radec2km,
+            custom_scaling=custom_scaling,
             transform=None,
             aspect_adjustable=aspect_adjustable,
             ax=ax,
@@ -2654,7 +2678,8 @@ class Body(BodyBase):
         origin_ra: float | None = None,
         origin_dec: float | None = None,
         coordinate_rotation: float = 0.0,
-        add_axis_labels: bool = True,
+        custom_scaling: float | None = None,
+        add_axis_labels: bool | None = None, 
         aspect_adjustable: Literal['box', 'datalim'] | None = 'datalim',
         show: bool = False,
         **wireframe_kwargs: Unpack[WireframeKwargs],
@@ -2682,6 +2707,9 @@ class Body(BodyBase):
         Returns:
             The axis containing the plotted wireframe.
         """
+        if add_axis_labels is None:
+            add_axis_labels = custom_scaling is None
+
         ax = self._plot_wireframe(
             coordinate_func=lambda ra, dec: self.radec2angular(
                 ra,
@@ -2690,6 +2718,7 @@ class Body(BodyBase):
                 origin_dec=origin_dec,
                 coordinate_rotation=coordinate_rotation,
             ),
+            custom_scaling=custom_scaling,
             transform=None,
             aspect_adjustable=aspect_adjustable,
             ax=ax,
