@@ -1176,7 +1176,7 @@ class BodyXY(Body):
         self,
         ax: Axes | None = None,
         *,
-        scale_factor: float | None = None,  # XXX
+        scale_factor: float | None = None,  
         add_axis_labels: bool | None = True,
         aspect_adjustable: Literal['box', 'datalim'] | None = 'box',
         show: bool = False,
