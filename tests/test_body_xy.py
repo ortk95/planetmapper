@@ -724,6 +724,16 @@ class TestBodyXY(common_testing.BaseTestCase):
             [
                 (None, (-0.5, 14.5), (-0.5, 9.5)),
                 (
+                    1,
+                    (2.6023360665508823, 12.397667359351928),
+                    (0.3152347289140154, 9.684782827744533),
+                ),
+                (
+                    1.0,
+                    (2.6023360665508823, 12.397667359351928),
+                    (0.3152347289140154, 9.684782827744533),
+                ),
+                (
                     50,
                     (130.11680332754412, 619.8833679675964),
                     (15.761736445700745, 484.2391413872267),
@@ -1581,7 +1591,6 @@ class TestBodyXY(common_testing.BaseTestCase):
     def test_matplotlib_transforms(self):
         self.body.set_disc_params(2, 1, 3.5, 45.678)
         self.body.set_img_size(15, 10)
-        # XXX add angular
 
         # Test outputs
         self.assertArraysClose(

@@ -50,11 +50,13 @@ class BaseTestCase(unittest.TestCase):
         atol: float = 1e-5,
         rtol: float = 1e-2,
     ) -> None:
+        scale_factors = set(scaling[0] for scaling in scalings)
         scale_factor, xlim, ylim = next(
             scaling for scaling in scalings if scaling[0] is None
         )
-        scalings.append((1, xlim, ylim))
-        scalings.append((1.0, xlim, ylim))
+        if 1 not in scale_factors:
+            scalings.append((1, xlim, ylim))
+            scalings.append((1.0, xlim, ylim))
 
         with self.subTest(wireframe_func=wireframe_func, scale_factor='<default>'):
             fig, ax = plt.subplots()

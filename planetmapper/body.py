@@ -2622,9 +2622,6 @@ class Body(BodyBase):
         # TODO maybe add automated warning at high declinations and for ra wraparound
         # TODO maybe add some fixed upper xlim/ylim for RA/Dec plots
 
-        # XXX update documentation examples with scale_factor
-        # XXX test scale_factor with all wireframe plots (check branch coverage too)
-
         # By default, enable dms ticks and axis labels if scale_factor is not used
         if dms_ticks is None:
             dms_ticks = scale_factor is None
