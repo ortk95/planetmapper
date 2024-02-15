@@ -100,6 +100,9 @@ More complex plots can also be created using the functionality in :class:`planet
     :alt: Plot of Neptune
 
 
+Wireframe plot variants
+-----------------------
+
 A number of different wireframe plotting options are available:
 
 - :func:`planetmapper.Body.plot_wireframe_radec` plots in RA/Dec coordinates
@@ -107,7 +110,7 @@ A number of different wireframe plotting options are available:
 - :func:`planetmapper.Body.plot_wireframe_angular` plots in a frame showing angular distances from the the target body
 - :func:`planetmapper.BodyXY.plot_wireframe_xy` plots in image x and y coordinates
 
-`plot_wireframe_km` is particularly useful for comparing observations taken at different times, as it standardises the position, orientation and size of the target body. The example below shows multiple observations of Jupiter and Io taken over the space of a few hours. Jupiter moves across the the RA/Dec plot (top), but stays fixed in the km plot (bottom), making it easier to see the relative motion of Io: ::
+:func:`planetmapper.Body.plot_wireframe_km` is particularly useful for comparing observations taken at different times, as it standardises the position, orientation and size of the target body. The example below shows multiple observations of Jupiter and Io taken over the space of a few hours. Jupiter moves across the the RA/Dec plot (top), but stays fixed in the km plot (bottom), making it easier to see the relative motion of Io: ::
 
     import planetmapper
     import matplotlib.pyplot as plt
@@ -140,7 +143,7 @@ A number of different wireframe plotting options are available:
     :alt: Plot of Jupiter and Io
 
 
-The example below shows how the the same target appears in the `radec`, `km` and `angular` wireframe variants. By default, `plot_wireframe_angular` is centred on the target body, but it can also be customised to have a custom origin and rotation - for example, the fourth plot below is centred on Miranda and rotated by 45°. In addition to the variants shown here, `plot_wireframe_xy` is also available for use with :class:`planetmapper.BodyXY` objects to plot in image pixel coordinates (see the Observations section below).
+The example below shows how the the same target appears in the `radec`, `km` and `angular` wireframe variants. By default, :func:`planetmapper.Body.plot_wireframe_angular` is centred on the target body, but it can also be customised to have a custom origin and rotation - for example, the fourth plot below is centred on Miranda and rotated by 45°. In addition to the variants shown here, :func:`planetmapper.BodyXY.plot_wireframe_xy` is also available for use with :class:`planetmapper.BodyXY` objects to plot in image pixel coordinates (see the Observations section below).
 
 ::
 
@@ -185,7 +188,10 @@ The example below shows how the the same target appears in the `radec`, `km` and
     :alt: Four different wireframe plots of Uranus
 
 
-The appearance of wireframe plots can be fully customised to suit your needs. For example, the example below shows how the `formatting` argument is used to pass arguments to matplotlib when plotting the individual elements of the wireframe. See :func:`planetmapper.Body.plot_wireframe_radec` for more details on formatting individual plots, and changing the default formatting for all wireframe plots.
+Customising wireframe plots
+---------------------------
+
+The appearance and units of wireframe plots can be fully customised to suit your needs. For example, the code below shows how the `scale_factor` argument is used to customise the coordinate units, and the `formatting` argument is used to pass arguments to matplotlib when plotting the individual elements of the wireframe. See :func:`planetmapper.Body.plot_wireframe_radec` for more details on formatting individual plots, and changing the default formatting for all wireframe plots.
 
 ::
     
@@ -194,9 +200,10 @@ The appearance of wireframe plots can be fully customised to suit your needs. Fo
 
     body = planetmapper.Body('saturn', '2020-02-08', observer='iapetus')
     body.add_other_bodies_of_interest('dione', 'methone')
-    body.plot_wireframe_radec(
+    body.plot_wireframe_km(
+        ax,
+        scale_factor=1 / body.r_eq,  # use units of Saturn radii rather than km
         add_title=False,
-        dms_ticks=False,
         label_poles=False,
         indicate_equator=True,
         indicate_prime_meridian=True,
@@ -212,6 +219,15 @@ The appearance of wireframe plots can be fully customised to suit your needs. Fo
             'other_body_of_interest_marker': {'marker': '*'},
             'other_body_of_interest_label': {'color': 'c', 'rotation': 30, 'alpha': 1},
         },
+    )
+    ax.set_xlabel('Distance in Saturn radii')
+    ax.set_ylabel('Distance in Saturn radii')
+    ax.annotate(
+        body.get_description(),
+        (0.01, 0.02),
+        xycoords='axes fraction',
+        color='0.5',
+        size='small',
     )
     plt.show()
 
