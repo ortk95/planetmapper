@@ -1204,7 +1204,7 @@ class BodyXY(Body):
             **wireframe_kwargs,
         )
 
-        if self._test_if_img_size_valid():
+        if self._test_if_img_size_valid() and scale_factor is None:
             ax.set_xlim(-0.5, self._nx - 0.5)
             ax.set_ylim(-0.5, self._ny - 0.5)
         if add_axis_labels:
