@@ -1837,6 +1837,30 @@ class TestBody(common_testing.BaseTestCase):
                 )
             plt.close(fig)
 
+            for dms_ticks in (True, False):
+                for scale_factor in (None, 10):
+                    with self.subTest(dms_ticks=dms_ticks, scale_factor=scale_factor):
+                        fig, ax = plt.subplots()
+                        self.body.plot_wireframe_radec(
+                            ax, dms_ticks=dms_ticks, scale_factor=scale_factor
+                        )
+                        for axis in (ax.xaxis, ax.yaxis):
+                            self.assertEqual(
+                                isinstance(
+                                    axis.get_major_formatter(),
+                                    planetmapper.utils.DMSFormatter,
+                                ),
+                                dms_ticks,
+                            )
+                            self.assertEqual(
+                                isinstance(
+                                    axis.get_major_locator(),
+                                    planetmapper.utils.DMSLocator,
+                                ),
+                                dms_ticks,
+                            )
+                        plt.close(fig)
+
     def test_get_local_affine_transform_matrix(self):
         tests: list[
             tuple[
