@@ -26,7 +26,7 @@ def main():
     # plot_neptune_wireframe()
     # plot_jupiter_wireframe()
     # plot_uranus_wireframe_comparison()
-    # plot_saturn_wireframe_formatting()
+    plot_saturn_wireframe_formatting()
     # plot_europa_backplane()
     # plot_jupiter_backplane()
     # plot_jupiter_mapped()
@@ -151,10 +151,10 @@ def plot_saturn_wireframe_formatting():
 
     body = planetmapper.Body('saturn', '2020-02-08', observer='iapetus')
     body.add_other_bodies_of_interest('dione', 'methone')
-    body.plot_wireframe_radec(
+    body.plot_wireframe_km(
         ax,
+        scale_factor=1 / body.r_eq,  # use units of Saturn radii rather than km
         add_title=False,
-        dms_ticks=False,
         label_poles=False,
         indicate_equator=True,
         indicate_prime_meridian=True,
@@ -170,6 +170,15 @@ def plot_saturn_wireframe_formatting():
             'other_body_of_interest_marker': {'marker': '*'},
             'other_body_of_interest_label': {'color': 'c', 'rotation': 30, 'alpha': 1},
         },
+    )
+    ax.set_xlabel('Distance in Saturn radii')
+    ax.set_ylabel('Distance in Saturn radii')
+    ax.annotate(
+        body.get_description(),
+        (0.01, 0.02),
+        xycoords='axes fraction',
+        color='0.5',
+        size='small',
     )
 
     fig.tight_layout()
