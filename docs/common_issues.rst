@@ -9,7 +9,7 @@ Common issues & solutions
 
 General solutions
 =================
-:ref:`Update PlanetMapper <updating_planetmapper>` to make sure you are running the latest version. It is possible that your bug may have been fixed in a recent update (you can also check the release notes for each version `on GitHub <https://github.com/ortk95/planetmapper/releases>`__).
+:ref:`Update PlanetMapper <updating_planetmapper>` to make sure you are running the latest version. It is possible that your bug may have been fixed in a recent update (you can also check the release notes for each version `on GitHub <https://github.com/ortk95/planetmapper/releases>`_).
 
 
 Installation issues
@@ -63,7 +63,7 @@ This tells the PlanetMapper user interface to replace certain characters with AS
 
 Wireframe plots appear warped or distorted
 ==========================================
-This is most likely to occur when using :func:`planetmapper.Body.plot_wireframe_radec` for a target located near the celestial pole (i.e. the target's declination is near 90° or -90°). The plot can be distorted because spherical coordinates (like RA/Dec) are fundamentally impossible to represent perfectly in a 2D cartesian plot, with the distortion increasing at high declinations near the coordinate singularity at the celestial poles.
+This is most likely to occur when using :func:`planetmapper.Body.plot_wireframe_radec` for a target located near the celestial pole (i.e. the target's declination is near 90° or -90°). The `plot can be distorted <https://github.com/ortk95/planetmapper/issues/323>`_ because spherical coordinates (like RA/Dec) are fundamentally impossible to represent perfectly in a 2D cartesian plot, with the distortion increasing at high declinations near the coordinate singularity at the celestial poles.
 
 To fix this, you can use the :func:`planetmapper.Body.plot_wireframe_angular`, which by default uses a coordinate system centred on the target body, which minimises any distortion. The origin of the `angular` coordinate system can also be customised to be any point in the sky, for example, using `body.plot_wireframe_angular(origin_ra=0, origin_dec=90)` may be useful for plotting observations in the sky around the north celestial pole.
 
@@ -72,4 +72,4 @@ Plots may also appear distorted if using :func:`planetmapper.Body.plot_wireframe
 
 RA/Dec wireframe plots appear split into two halves
 ===================================================
-If the target body is near RA=0°, the `wireframe plot may appear to be split into two halves <https://github.com/ortk95/planetmapper/issues/326#issuecomment-1934275816>`__, due to part of the body having RA values near 0° and part having RA values near 360°. This can be fixed by using `body.plot_wireframe_radec(use_shifted_meridian=True)`, which will plot the wireframe with RA coordinates between -180° and 180°, rather than the default of 0° to 360°.
+If the target body is near RA=0°, the `wireframe plot may appear to be split into two halves <https://github.com/ortk95/planetmapper/issues/326#issuecomment-1934275816>`_, due to part of the body having RA values near 0° and part having RA values near 360°. This can be fixed by using `body.plot_wireframe_radec(use_shifted_meridian=True)`, which will plot the wireframe with RA coordinates between -180° and 180°, rather than the default of 0° to 360°.

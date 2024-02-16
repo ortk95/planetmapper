@@ -11,7 +11,7 @@ view of the observer while the `lonlat` coordinate system defines locations on t
 surface of the target body:
 
 `xy`: image pixel coordinates. These coordinates count the number of pixels in an
-observed image with the bottom left pixel defined as `(0,0)`, and the `x` and `y`
+observed image with the bottom left pixel defined as `(0, 0)`, and the `x` and `y`
 coordinates defined as normal. Integer coordinates represent the middle of the
 corresponding pixel, so `(0, 3)` covers `x` values from -0.5 to 0.5 and `y` values from
 2.5 to 3.5.

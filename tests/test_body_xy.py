@@ -717,6 +717,40 @@ class TestBodyXY(common_testing.BaseTestCase):
         self.assertEqual(len(ax.get_children()), 29)
         plt.close(fig)
 
+        self._test_wireframe_scaling(
+            self.body.plot_wireframe_xy,
+            'x (pixels)',
+            'y (pixels)',
+            [
+                (None, (-0.5, 14.5), (-0.5, 9.5)),
+                (
+                    1,
+                    (2.6023360665508823, 12.397667359351928),
+                    (0.3152347289140154, 9.684782827744533),
+                ),
+                (
+                    1.0,
+                    (2.6023360665508823, 12.397667359351928),
+                    (0.3152347289140154, 9.684782827744533),
+                ),
+                (
+                    50,
+                    (130.11680332754412, 619.8833679675964),
+                    (15.761736445700745, 484.2391413872267),
+                ),
+                (
+                    123456.786,
+                    (321276.04686825396, 1530576.166082696),
+                    (38917.86646730556, 1195652.1610213316),
+                ),
+                (
+                    1e-06,
+                    (2.6023360665508817e-06, 1.239766735935193e-05),
+                    (3.152347289140152e-07, 9.684782827744531e-06),
+                ),
+            ],
+        )
+
     def test_get_wireframe_overlay(self):
         img = self.body.get_wireframe_overlay_img(output_size=100)
         self.assertEqual(max(img.shape), 100)
@@ -1557,7 +1591,6 @@ class TestBodyXY(common_testing.BaseTestCase):
     def test_matplotlib_transforms(self):
         self.body.set_disc_params(2, 1, 3.5, 45.678)
         self.body.set_img_size(15, 10)
-        # XXX add angular
 
         # Test outputs
         self.assertArraysClose(

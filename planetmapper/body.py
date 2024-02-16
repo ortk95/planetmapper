@@ -2294,6 +2294,7 @@ class Body(BodyBase):
         self,
         *,
         coordinate_func: Callable[[float, float], tuple[float, float]],
+        scale_factor: float | None,
         transform: matplotlib.transforms.Transform | None,
         aspect_adjustable: Literal['box', 'datalim'] | None,
         additional_array_func: (
@@ -2312,6 +2313,8 @@ class Body(BodyBase):
         """
         Plot generic wireframe representation of the observation.
 
+        See :func:`plot_wireframe_radec` for more details on most arguments.
+
         Args:
             coordinate_func: Function to convert RA/Dec coordinates to the desired
                 coordinate system. Takes two arguments (RA, Dec) and returns two
@@ -2324,10 +2327,12 @@ class Body(BodyBase):
         """
         if ax is None:
             ax = cast(Axes, plt.gca())
+
         if transform is None:
-            transform = ax.transData
-        else:
-            transform = transform + ax.transData
+            transform = matplotlib.transforms.IdentityTransform()
+        if scale_factor is not None:
+            transform += matplotlib.transforms.Affine2D().scale(scale_factor)
+        transform += ax.transData
 
         def array_func(
             ras: np.ndarray, decs: np.ndarray
@@ -2443,8 +2448,9 @@ class Body(BodyBase):
         self,
         ax: Axes | None = None,
         *,
-        dms_ticks: bool = True,
-        add_axis_labels: bool = True,
+        scale_factor: float | None = None,
+        dms_ticks: bool | None = None,
+        add_axis_labels: bool | None = None,
         aspect_adjustable: Literal['box', 'datalim'] | None = 'datalim',
         use_shifted_meridian: bool = False,
         show: bool = False,
@@ -2456,7 +2462,13 @@ class Body(BodyBase):
 
         See also :func:`plot_wireframe_km`, :func:`plot_wireframe_angular` and
         :func:`BodyXY.plot_wireframe_xy` to plot the wireframe in other coordinate
-        systems.
+        systems. :func:`plot_wireframe_custom` can also be used to plot a wireframe
+        with a custom coordinate system.
+
+        .. hint::
+
+            See :ref:`the examples page <wireframes>` for more examples of creating
+            wireframe plots.
 
         To plot a wireframe with the default appearance, simply use: ::
 
@@ -2465,11 +2477,11 @@ class Body(BodyBase):
         To customise the appearance of the plot, you can use the `formatting` and
         `**kwargs` arguments which can be used to pass arguments to the Matplotlib
         plotting functions. The `formatting` argument can be used to customise
-        individual components, and the `**kwargs` argument can be used to customise
-        all components at once.
+        individual components, and the `**kwargs` argument can be used to customise all
+        components at once.
 
-        For example, to change the colour of the entire wireframe to red, you can
-        use: ::
+        For example, to change the colour of the entire wireframe to red, you can use:
+        ::
 
             body.plot_wireframe_radec(color='r')
 
@@ -2477,20 +2489,18 @@ class Body(BodyBase):
 
             body.plot_wireframe_radec(
                 formatting={
-                    'terminator': {'color': 'r'},
-                    'limb_illuminated': {'color': 'r'},
+                    'terminator': {'color': 'r'}, 'limb_illuminated': {'color': 'r'},
                 },
             )
 
         The order of precedence for the formatting is the `formatting` argument, then
-        `**kwargs`, then the default formatting. For example, the following plot will
-        be red with a thin blue grid and green poles: ::
+        `**kwargs`, then the default formatting. For example, the following plot will be
+        red with a thin blue grid and green poles: ::
 
             body.plot_wireframe_radec(
-                color='r',
-                formatting={
-                    'grid': {'color': 'b', 'linewidth': 0.5, 'linestyle': '-'},
-                    'pole': {'color': 'g'},
+                color='r', formatting={
+                    'grid': {'color': 'b', 'linewidth': 0.5, 'linestyle': '-'}, 'pole':
+                    {'color': 'g'},
                 },
             )
 
@@ -2510,12 +2520,28 @@ class Body(BodyBase):
             body.plot_wireframe_radec() # This would have a blue dashed grid
             body.plot_wireframe_radec(color='r') # This would be red with a dashed grid
 
+        The units of the plotted data can be customised with the `scale_factor`
+        argument, which multiplies coordinates by the given `scale_factor` before
+        plotting. For example: ::
+
+            body.plot_wireframe_radec() # units of degrees
+            body.plot_wireframe_radec(scale_factor=3.14159/180) # units of radians
+
+            body.plot_wireframe_km() # units of km
+            body.plot_wireframe_km(scale_factor=1000) # units of m
+            body.plot_wireframe_km(scale_factor=1/body.r_eq) # units of planet radii
+
+            body.plot_wireframe_angular() # units of arcseconds
+            body.plot_wireframe_angular(scale_factor=1/60) # units of arcminutes
+            body.plot_wireframe_angular(scale_factor=1/3600) # units of degrees
+
         .. warning::
 
-            The plot may appear warped or distorted if the target is near the celestial
-            pole (i.e. the target's declination is near 90° or -90°). This is due to the
-            spherical nature of the RA/Dec coordinate system, which is impossible to
-            represent perfectly on a 2D cartesian plot.
+            Even though the numerical values will be correct, the plot may appear warped
+            or distorted if the target is near the celestial pole (i.e. the target's
+            declination is near 90° or -90°). This is due to the spherical nature of the
+            RA/Dec coordinate system, which is impossible to represent perfectly on a 2D
+            cartesian plot.
 
             :func:`plot_wireframe_angular` can be used as an alternative to
             :func:`plot_wireframe_radec` to plot the wireframe without distortion from
@@ -2524,7 +2550,7 @@ class Body(BodyBase):
             origin and rotation of the `angular` coordinates can also be customised as
             needed (e.g. to align it with an instrument's field of view).
 
-        .. hint::
+        .. note::
 
             If the target body is near RA=0°, then the wireframe may be split over two
             halves of the plot. This can be fixed by using
@@ -2535,9 +2561,15 @@ class Body(BodyBase):
         Args:
             ax: Matplotlib axis to use for plotting. If `ax` is None (the default), uses
                 `plt.gca()` to get the currently active axis.
+            scale_factor: Custom scale factor to apply to the plotted wireframe. This
+                can be used to change units of the plot. If `scale_factor` is used, the
+                plotted coordinates will be multiplied by `scale_factor` before
+                plotting. See the examples above for more details.
             label_poles: Toggle labelling the poles of the target body.
             add_title: Add title generated by :func:`get_description` to the axis.
-            add_axis_labels: Add axis labels.
+            add_axis_labels: Add axis labels to the plot. If `add_axis_labels` is None
+                (the default), then labels will only be added if `scale_factor` is not
+                used.
             grid_interval: Spacing between grid lines in degrees.
             grid_lat_limit: Latitude limit for gridlines. For example, if
                 `grid_lat_limit=60`, then gridlines will only be plotted for latitudes
@@ -2552,7 +2584,9 @@ class Body(BodyBase):
                 setting the aspect ratio yourself).
             dms_ticks: Toggle between showing ticks as degrees, minutes and seconds
                 (e.g. 12°34′56″) or decimal degrees (e.g. 12.582). This argument is only
-                applicable for :func:`plot_wireframe_radec`.
+                applicable for :func:`plot_wireframe_radec`. If `dms_ticks` is None (the
+                default), then ticks will only be shown as degrees, minutes and seconds
+                if `scale_factor` is not used.
             use_shifted_meridian: If `use_shifted_meridian=True`, plot the wireframe
                 with RA coordinates between -180° and 180°, rather than the default of
                 0° to 360°. This can be useful for bodies which lie at RA=0°, which can
@@ -2589,6 +2623,12 @@ class Body(BodyBase):
         # TODO maybe add automated warning at high declinations and for ra wraparound
         # TODO maybe add some fixed upper xlim/ylim for RA/Dec plots
 
+        # By default, enable dms ticks and axis labels if scale_factor is not used
+        if dms_ticks is None:
+            dms_ticks = scale_factor is None
+        if add_axis_labels is None:
+            add_axis_labels = scale_factor is None
+
         if use_shifted_meridian:
             coordinate_func = lambda ra, dec: ((ra + 180.0) % 360.0 - 180.0, dec)
         else:
@@ -2596,6 +2636,7 @@ class Body(BodyBase):
 
         ax = self._plot_wireframe(
             coordinate_func=coordinate_func,
+            scale_factor=scale_factor,
             transform=None,
             aspect_adjustable=None,
             ax=ax,
@@ -2619,7 +2660,8 @@ class Body(BodyBase):
         self,
         ax: Axes | None = None,
         *,
-        add_axis_labels: bool = True,
+        scale_factor: float | None = None,
+        add_axis_labels: bool | None = None,
         aspect_adjustable: Literal['box', 'datalim'] | None = 'datalim',
         show: bool = False,
         **wireframe_kwargs: Unpack[WireframeKwargs],
@@ -2631,8 +2673,12 @@ class Body(BodyBase):
         Returns:
             The axis containing the plotted wireframe.
         """
+        if add_axis_labels is None:
+            add_axis_labels = scale_factor is None
+
         ax = self._plot_wireframe(
             coordinate_func=self.radec2km,
+            scale_factor=scale_factor,
             transform=None,
             aspect_adjustable=aspect_adjustable,
             ax=ax,
@@ -2654,7 +2700,8 @@ class Body(BodyBase):
         origin_ra: float | None = None,
         origin_dec: float | None = None,
         coordinate_rotation: float = 0.0,
-        add_axis_labels: bool = True,
+        scale_factor: float | None = None,
+        add_axis_labels: bool | None = None,
         aspect_adjustable: Literal['box', 'datalim'] | None = 'datalim',
         show: bool = False,
         **wireframe_kwargs: Unpack[WireframeKwargs],
@@ -2682,6 +2729,9 @@ class Body(BodyBase):
         Returns:
             The axis containing the plotted wireframe.
         """
+        if add_axis_labels is None:
+            add_axis_labels = scale_factor is None
+
         ax = self._plot_wireframe(
             coordinate_func=lambda ra, dec: self.radec2angular(
                 ra,
@@ -2690,6 +2740,7 @@ class Body(BodyBase):
                 origin_dec=origin_dec,
                 coordinate_rotation=coordinate_rotation,
             ),
+            scale_factor=scale_factor,
             transform=None,
             aspect_adjustable=aspect_adjustable,
             ax=ax,
@@ -2702,3 +2753,128 @@ class Body(BodyBase):
         if show:
             plt.show()
         return ax
+
+    def plot_wireframe_custom(
+        self,
+        ax: Axes | None = None,
+        coordinate_func: Callable[[float, float], tuple[float, float]] | None = None,
+        *,
+        transform: matplotlib.transforms.Transform | None = None,
+        additional_array_func: (
+            Callable[[Iterable, Iterable], tuple[np.ndarray, np.ndarray]] | None
+        ) = None,
+        **wireframe_kwargs: Unpack[WireframeKwargs],
+    ) -> Axes:
+        """
+        Plot a custom wireframe representation of the observation, using a user-defined
+        coordinate system.
+
+        This can be used to create a custom wireframe plot variant, similar to the
+        :func:`plot_wireframe_radec`, :func:`plot_wireframe_km`,
+        :func:`plot_wireframe_angular` and :func:`BodyXY.plot_wireframe_xy` methods. All
+        wireframe variants use the same plotting code internally, and this method allows
+        the internal wireframe plotting code to be accessed directly, with custom
+        arguments. Most wireframe uses are covered by the built-in wireframe plotting
+        methods but this method can be useful when plotting with custom projections or
+        complex coordinate systems.
+
+        .. hint::
+
+            If you just want to change the units of a wireframe plot, this can be done
+            with the `scale_factor` argument of the built-in wireframe plotting methods.
+            For example, `body.plot_wireframe_angular(scale_factor=1/60)` will plot the
+            wireframe with units of arcminutes (rather than the default arcseconds).
+
+        The `coordinate_func` and `transform` arguments are used to convert data in
+        RA/Dec coordinates into the desired coordinate system and apply any additional
+        Matplotlib transforms desired to the plotted data. Both of these arguments are
+        optional, so generally you will only need to specify a value for
+        `coordinate_func`.
+
+        For example, this approximately replicates the :func:`plot_wireframe_km` method,
+        by using :func:`radec2km` to convert RA/Dec coordinates to km coordinates: ::
+
+            ax = body.plot_wireframe_custom(coordinate_func=body.radec2km)
+            ax.set_aspect(1)
+            ax.set_xlabel('Projected distance (km)')
+            ax.set_ylabel('Projected distance (km)')
+
+        Or to plot a wireframe in custom 'angular' coordinates that are reflected in the
+        y direction, you could use: ::
+
+            def coordinate_func(ra, dec):
+                x, y = body.radec2angular(ra, dec)
+                return x, -y
+
+            ax = body.plot_wireframe_custom(coordinate_func=coordinate_func)
+            ax.set_aspect(1)
+
+        The `transform` argument is mainly useful if you wish to create an interactive
+        wireframe plot, where the plotted data can be changed after plotting (like in
+        the PlanetMapper GUI). If both `coordinate_func` and `transform` are provided,
+        then the `transform` is applied to the plotted data after transforming with
+        `coordinate_func`. The plotting functionality when both `coordinate_func` and
+        `transform` are provided can therefore be simplified as: ::
+
+            x, y = coordinate_func(ra, dec)
+            ax.scatter(x, y, transform=transform)
+
+        The `additional_array_func` argument can be used to specify a function to apply
+        to arrays before plotting any linear features (e.g. the limb, gridlines, rings).
+        For example, this is used internally in :func:`plot_wireframe_radec` to add NaNs
+        into arrays of data whenever the coordinates wrap from one side of the axis to
+        the other (to prevent lines being drawn across the entire axis). If specified,
+        this function is applied after first converting the data with `coordinate_func`
+        and before applying any `transform` argument, and is only applied to data
+        plotted with Matplotlib's `plot` function. The plotting functionality when
+        `coordinate_func`, `transform` and `additional_array_func` are provided can
+        therefore be simplified as: ::
+
+            # plotting arrays of ra and dec coordinates
+            xs, ys = zip(*(coordinate_func(ra, dec) for ra, dec in zip(ras, decs)))
+            xs, ys = additional_array_func(xs, ys)
+            ax.plot(xs, ys, transform=transform)
+
+            # plotting individual ra and dec coordinates
+            x, y = coordinate_func(ra, dec)
+            ax.scatter(x, y, transform=transform)
+
+        .. note::
+
+            This method does not set the aspect ratio of the plot, so you will usually
+            need to do this yourself to ensure the plot is not distorted. For example,
+            to set the aspect ratio to 1, you can use `ax.set_aspect(1)`.
+
+        Args:
+            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), uses
+                `plt.gca()` to get the currently active axis.
+            coordinate_func: Function to convert RA/Dec coordinates to the desired
+                coordinate system. Takes two arguments (RA, Dec) and returns two values
+                (x, y). If this is not provided, then the default no-op function
+                `coordinate_func=lambda ra, dec: (ra, dec)` is used.
+            transform: Matplotlib transform to apply to the plotted data, after
+                transforming with `coordinate_func`. If this is not provided, then no
+                additional transform is applied.
+            additional_array_func: Optional function to apply to iterable of converted
+                (x, y) coordinates before plotting any linear features (e.g. the limb,
+                gridlines, rings). This should take two iterables of x and y coordinates
+                and return two arrays x and y coordinates to plot. The lengths of the
+                input coordinates do not have to be the same as the lengths of the
+                output coordinates, so `additional_array_func` can be used to add or
+                remove points from the plotted data as needed. However, the length of
+                the output x array should be the same as the length of the output y
+                array. If this is not provided, then no additional function is applied.
+            **wireframe_kwargs: See :func:`plot_wireframe_radec` for details of
+                additional arguments.
+        """
+        if coordinate_func is None:
+            coordinate_func = lambda ra, dec: (ra, dec)
+        return self._plot_wireframe(
+            coordinate_func=coordinate_func,
+            scale_factor=None,
+            transform=transform,
+            aspect_adjustable=None,
+            ax=ax,
+            additional_array_func=additional_array_func,
+            **wireframe_kwargs,
+        )

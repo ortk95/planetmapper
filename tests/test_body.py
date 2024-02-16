@@ -16,6 +16,7 @@ from spiceypy.utils.exceptions import (
 import planetmapper
 import planetmapper.base
 import planetmapper.progress
+import planetmapper.utils
 from planetmapper import Body
 
 
@@ -1729,6 +1730,137 @@ class TestBody(common_testing.BaseTestCase):
         self.assertTrue(-10 > xlim[1] > -60)
         plt.close(fig)
 
+        # Test scalings
+        self._test_wireframe_scaling(
+            self.body.plot_wireframe_radec,
+            'Right Ascension',
+            'Declination',
+            [
+                (
+                    None,
+                    (196.3774505836621, 196.36652066566225),
+                    (-5.570996600931527, -5.560591073745357),
+                ),
+                (
+                    50,
+                    (9818.872529183103, 9818.326033283114),
+                    (-278.54983004657635, -278.0295536872678),
+                ),
+                (
+                    123456.786,
+                    (24244128.89193274, 24242779.519385245),
+                    (-687777.3351679309, -686492.7022248907),
+                ),
+                (
+                    1e-06,
+                    (0.00019637745058366206, 0.00019636652066566226),
+                    (-5.570996600931527e-06, -5.560591073745357e-06),
+                ),
+            ],
+        )
+        self._test_wireframe_scaling(
+            self.body.plot_wireframe_km,
+            'Projected distance (km)',
+            'Projected distance (km)',
+            [
+                (
+                    None,
+                    (-78640.99608058519, 78641.15962987275),
+                    (-73550.89564237543, 73551.12774884349),
+                ),
+                (
+                    50,
+                    (-3932049.804029259, 3932057.981493638),
+                    (-3677544.782118771, 3677556.387442174),
+                ),
+                (
+                    123456.786,
+                    (-9708764623.947643, 9708784815.21704),
+                    (-9080357183.429073, 9080385838.54763),
+                ),
+                (
+                    1e-06,
+                    (-0.07864099608058517, 0.07864115962987274),
+                    (-0.07355089564237542, 0.07355112774884348),
+                ),
+            ],
+        )
+
+        self._test_wireframe_scaling(
+            self.body.plot_wireframe_angular,
+            'Angular distance (arcsec)',
+            'Angular distance (arcsec)',
+            [
+                (
+                    None,
+                    (-19.581092792776644, 19.58110648969864),
+                    (-18.729913838924922, 18.729984031278835),
+                ),
+                (
+                    50,
+                    (-979.0546396388322, 979.055324484932),
+                    (-936.4956919462461, 936.4992015639417),
+                ),
+                (
+                    123456.786,
+                    (-2417418.7825639686, 2417420.473541936),
+                    (-2312334.9646105925, 2312343.6303330082),
+                ),
+                (
+                    1e-06,
+                    (-1.9581092792776644e-05, 1.9581106489698642e-05),
+                    (-1.872991383892492e-05, 1.8729984031278834e-05),
+                ),
+            ],
+        )
+
+        with self.subTest('radec dms ticks'):
+            fig, ax = plt.subplots()
+            self.body.plot_wireframe_radec(ax)
+            for axis in (ax.xaxis, ax.yaxis):
+                self.assertIsInstance(
+                    axis.get_major_formatter(), planetmapper.utils.DMSFormatter
+                )
+                self.assertIsInstance(
+                    axis.get_major_locator(), planetmapper.utils.DMSLocator
+                )
+            plt.close(fig)
+
+            fig, ax = plt.subplots()
+            self.body.plot_wireframe_radec(ax, scale_factor=10)
+            for axis in (ax.xaxis, ax.yaxis):
+                self.assertNotIsInstance(
+                    axis.get_major_formatter(), planetmapper.utils.DMSFormatter
+                )
+                self.assertNotIsInstance(
+                    axis.get_major_locator(), planetmapper.utils.DMSLocator
+                )
+            plt.close(fig)
+
+            for dms_ticks in (True, False):
+                for scale_factor in (None, 10):
+                    with self.subTest(dms_ticks=dms_ticks, scale_factor=scale_factor):
+                        fig, ax = plt.subplots()
+                        self.body.plot_wireframe_radec(
+                            ax, dms_ticks=dms_ticks, scale_factor=scale_factor
+                        )
+                        for axis in (ax.xaxis, ax.yaxis):
+                            self.assertEqual(
+                                isinstance(
+                                    axis.get_major_formatter(),
+                                    planetmapper.utils.DMSFormatter,
+                                ),
+                                dms_ticks,
+                            )
+                            self.assertEqual(
+                                isinstance(
+                                    axis.get_major_locator(),
+                                    planetmapper.utils.DMSLocator,
+                                ),
+                                dms_ticks,
+                            )
+                        plt.close(fig)
+
     def test_get_local_affine_transform_matrix(self):
         tests: list[
             tuple[
@@ -1891,3 +2023,50 @@ class TestBody(common_testing.BaseTestCase):
                 self.assertEqual(t1, t2)
 
         plt.close(fig)
+
+    def test_plot_wireframe_custom(self):
+        arguments_and_limits: list[
+            tuple[
+                dict,
+                tuple[float, float],
+                tuple[float, float],
+            ]
+        ] = [
+            (
+                {},
+                (196.36652066566225, 196.3774505836621),
+                (-5.570996600931527, -5.560591073745357),
+            ),
+            (
+                dict(coordinate_func=None, transform=None),
+                (196.36652066566225, 196.3774505836621),
+                (-5.570996600931527, -5.560591073745357),
+            ),
+            (
+                dict(coordinate_func=self.body.radec2km),
+                (-78640.99608058519, 78641.15962987275),
+                (-73550.89564237543, 73551.12774884349),
+            ),
+            (
+                dict(transform=self.body.matplotlib_radec2km_transform()),
+                (-78666.01732656956, 78665.97486374379),
+                (-73527.70551617145, 73527.85605175495),
+            ),
+            (
+                dict(
+                    coordinate_func=self.body.radec2angular,
+                    transform=self.body.matplotlib_angular2radec_transform(),
+                ),
+                (196.36652066335904, 196.37745058135863),
+                (-5.570996601039565, -5.560591073731259),
+            ),
+        ]
+        atol = 1e-5
+        rtol = 1e-2
+        for kwargs, xlim, ylim in arguments_and_limits:
+            with self.subTest(kwargs):
+                fig, ax = plt.subplots()
+                self.body.plot_wireframe_custom(ax, **kwargs)
+                self.assertArraysClose(ax.get_xlim(), xlim, atol=atol, rtol=rtol)
+                self.assertArraysClose(ax.get_ylim(), ylim, atol=atol, rtol=rtol)
+                plt.close(fig)
