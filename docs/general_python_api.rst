@@ -109,6 +109,7 @@ A number of different wireframe plotting options are available:
 - :func:`planetmapper.Body.plot_wireframe_km` plots in a frame centred showing distances in km from the target body
 - :func:`planetmapper.Body.plot_wireframe_angular` plots in a frame showing angular distances from the the target body
 - :func:`planetmapper.BodyXY.plot_wireframe_xy` plots in image x and y coordinates
+- :func:`planetmapper.Body.plot_wireframe_custom` plots in a custom, user-defined, coordinate system
 
 :func:`planetmapper.Body.plot_wireframe_km` is particularly useful for comparing observations taken at different times, as it standardises the position, orientation and size of the target body. The example below shows multiple observations of Jupiter and Io taken over the space of a few hours. Jupiter moves across the the RA/Dec plot (top), but stays fixed in the km plot (bottom), making it easier to see the relative motion of Io: ::
 

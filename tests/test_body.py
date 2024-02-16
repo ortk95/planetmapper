@@ -2023,3 +2023,50 @@ class TestBody(common_testing.BaseTestCase):
                 self.assertEqual(t1, t2)
 
         plt.close(fig)
+
+    def test_plot_wireframe_custom(self):
+        arguments_and_limits: list[
+            tuple[
+                dict,
+                tuple[float, float],
+                tuple[float, float],
+            ]
+        ] = [
+            (
+                {},
+                (196.36652066566225, 196.3774505836621),
+                (-5.570996600931527, -5.560591073745357),
+            ),
+            (
+                dict(coordinate_func=None, transform=None),
+                (196.36652066566225, 196.3774505836621),
+                (-5.570996600931527, -5.560591073745357),
+            ),
+            (
+                dict(coordinate_func=self.body.radec2km),
+                (-78640.99608058519, 78641.15962987275),
+                (-73550.89564237543, 73551.12774884349),
+            ),
+            (
+                dict(transform=self.body.matplotlib_radec2km_transform()),
+                (-78666.01732656956, 78665.97486374379),
+                (-73527.70551617145, 73527.85605175495),
+            ),
+            (
+                dict(
+                    coordinate_func=self.body.radec2angular,
+                    transform=self.body.matplotlib_angular2radec_transform(),
+                ),
+                (196.36652066335904, 196.37745058135863),
+                (-5.570996601039565, -5.560591073731259),
+            ),
+        ]
+        atol = 1e-5
+        rtol = 1e-2
+        for kwargs, xlim, ylim in arguments_and_limits:
+            with self.subTest(kwargs):
+                fig, ax = plt.subplots()
+                self.body.plot_wireframe_custom(ax, **kwargs)
+                self.assertArraysClose(ax.get_xlim(), xlim, atol=atol, rtol=rtol)
+                self.assertArraysClose(ax.get_ylim(), ylim, atol=atol, rtol=rtol)
+                plt.close(fig)
