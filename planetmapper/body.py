@@ -2076,7 +2076,7 @@ class Body(BodyBase):
 
             This method calculates the angle between the centre of the target and its
             north pole, so may produce unexpected results for targets which are located
-            at directly the celestial pole.
+            directly at the celestial pole.
 
         Returns:
             Angle of the north pole in degrees (-180 to 180).
