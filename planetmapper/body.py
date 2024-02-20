@@ -2079,12 +2079,15 @@ class Body(BodyBase):
             at directly the celestial pole.
 
         Returns:
-            Angle of the north pole in degrees (0 to 360).
+            Angle of the north pole in degrees (-180 to 180).
         """
         np_x, np_y = self.radec2angular(*self.lonlat2radec(0, 90))
         target_x, target_y = self.radec2angular(self.target_ra, self.target_dec)
         theta = -np.arctan2(target_x - np_x, np_y - target_y)
-        return np.rad2deg(theta) % 360.0
+        theta = np.rad2deg(theta) % 360.0
+        if theta > 180:
+            theta -= 360
+        return theta
 
     # Description
     def get_description(self, multiline: bool = True) -> str:
