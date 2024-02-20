@@ -2076,14 +2076,15 @@ class Body(BodyBase):
 
             This method calculates the angle between the centre of the target and its
             north pole, so may produce unexpected results for targets which are located
-            at the celestial pole.
+            at directly the celestial pole.
 
         Returns:
-            Angle of the north pole in degrees.
+            Angle of the north pole in degrees (0 to 360).
         """
-        np_ra, np_dec = self.lonlat2radec(0, 90)
-        theta = np.arctan2(self.target_ra - np_ra, np_dec - self.target_dec)
-        return np.rad2deg(theta)
+        np_x, np_y = self.radec2angular(*self.lonlat2radec(0, 90))
+        target_x, target_y = self.radec2angular(self.target_ra, self.target_dec)
+        theta = -np.arctan2(target_x - np_x, np_y - target_y)
+        return np.rad2deg(theta) % 360.0
 
     # Description
     def get_description(self, multiline: bool = True) -> str:
