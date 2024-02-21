@@ -605,15 +605,32 @@ class TestBody(common_testing.BaseTestCase):
                     all(not np.isfinite(x) for x in self.body.lonlat2angular(*a))
                 )
 
+    def test_km_rotation(self):
+        x_target, y_target = self.body.radec2km(
+            self.body.target_ra, self.body.target_dec
+        )
+        self.assertAlmostEqual(x_target, 0)
+        self.assertAlmostEqual(y_target, 0)
+        for lat in [-90, 90]:
+            with self.subTest(lat):
+                x, y = self.body.lonlat2km(0, lat)
+                self.assertAlmostEqual(x, x_target, delta=1)
+                if lat > 0:
+                    self.assertGreater(y, y_target)
+                else:
+                    self.assertLess(y, y_target)
+
     def test_km_radec(self):
         pairs = [
-            [(0, 0), (196.37198562427025, -5.565793847134351)],
-            [(99999, 99999), (196.36846760253624, -5.556548919202668)],
+            ((0, 0), (196.3719856242702, -5.56579384713435)),
+            ((99999, 99999), (196.36845127590436, -5.556555100442686)),
+            ((1234, -5678), (196.37174335301282, -5.566120708196197)),
+            ((-0.1234, 9999.5678), (196.37227302705824, -5.565156047930656)),
         ]
         for km, radec in pairs:
             with self.subTest(km):
-                self.assertTrue(np.allclose(self.body.km2radec(*km), radec))
-                self.assertTrue(np.allclose(self.body.radec2km(*radec), km, atol=1e-3))
+                self.assertArraysClose(self.body.km2radec(*km), radec)
+                self.assertArraysClose(self.body.radec2km(*radec), km, atol=1e-3)
 
         inputs = [
             (np.nan, np.nan),
@@ -628,10 +645,10 @@ class TestBody(common_testing.BaseTestCase):
 
     def test_km_lonlat(self):
         pairs = [
-            [(0, 0), (153.1235185909613, -3.0887371238645795)],
-            [(123, 456.789), (153.02550380815194, -2.6701272595645387)],
-            [(-500, -200), (153.52449023101565, -3.2726499274177465)],
-            [(5000, 50001), (147.49441295554598, 47.45174759079364)],
+            ((0, 0), (153.12351859061235, -3.0887371240013572)),
+            ((123, 456.789), (153.02485721448028, -2.6703253305682195)),
+            ((-500, -200), (153.52477375354786, -3.2718421646109985)),
+            ((5000, 50001), (147.39408652731262, 47.4410279733397)),
         ]
         for km, lonlat in pairs:
             with self.subTest(km):
@@ -663,38 +680,34 @@ class TestBody(common_testing.BaseTestCase):
 
     def test_km_angular(self):
         pairs: list[tuple[tuple[float, float], dict, tuple[float, float]]] = [
-            ((0, 0), {}, (4.6729617106227635e-09, 1.0370567346858554e-08)),
-            (
-                (0, 0),
-                {'coordinate_rotation': 123},
-                (4.6729617106227635e-09, 1.0370567346858554e-08),
-            ),
-            ((1.234, 5.678), {}, (13739.866378614151, 18556.388206846823)),
-            ((-3600.1234, 45678), {}, (61525334.93172047, 171364244.1505089)),
+            ((0, 0), {}, (0.0, 0.0)),
+            ((0, 0), {'coordinate_rotation': 123}, (0.0, 0.0)),
+            ((1.234, 5.678), {}, (13707.106875939699, 18580.59989529313)),
+            ((-3600.1234, 45678), {}, (61222909.71285939, 171472523.56580824)),
             (
                 (1.234, 5.678),
                 {'coordinate_rotation': 123},
-                (8079.429074795995, -21629.754904840156),
+                (8117.576807789242, -21615.467104869596),
             ),
             (
                 (1.234, 5.678),
                 {'origin_ra': 123},
-                (927957585.3290204, -480110160.1311036),
+                (928803175.7862874, -478472263.2296324),
             ),
             (
                 (1.234, 5.678),
                 {'origin_dec': 12.3},
-                (105009703.24513194, 233032424.31876734),
+                (104598412.22915992, 233217325.082532),
             ),
             (
                 (1.234, 5.678),
                 {'origin_ra': -123, 'origin_dec': -12.3},
-                (-568773415.4728397, 129941895.59871267),
+                (-569001780.3607075, 128938234.54185842),
             ),
             (
                 (1.234, 5.678),
                 {'origin_ra': -123, 'origin_dec': 12.3, 'coordinate_rotation': -123},
-                (-445228360.6330424, 459438707.21556187),
+                (-446038232.73474604, 458652497.8006319),
             ),
         ]
         for (x, y), kw, km in pairs:
@@ -1347,7 +1360,12 @@ class TestBody(common_testing.BaseTestCase):
                 )
 
     def test_north_pole_angle(self):
-        self.assertAlmostEqual(self.body.north_pole_angle(), -24.256254044782136)
+        # test angle < 0 branch
+        self.assertAlmostEqual(self.body.north_pole_angle(), -24.15516987997688)
+
+        # test angle > 0 branch
+        body2 = planetmapper.Body('Jupiter', observer='HST', utc='2009-01-01T00:00:00')
+        self.assertAlmostEqual(body2.north_pole_angle(), 13.550583134129457)
 
     def test_get_description(self):
         self.assertEqual(
@@ -1937,8 +1955,8 @@ class TestBody(common_testing.BaseTestCase):
                 self.body.matplotlib_radec2km_transform().get_matrix(),
                 array(
                     [
-                        [-1.29859192e07, 5.87691416e06, 2.58278044e09],
-                        [5.83821790e06, 1.30424638e07, -1.07387078e09],
+                        [-1.29961991e07, 5.85389484e06, 2.58467100e09],
+                        [5.81529840e06, 1.30528119e07, -1.06931243e09],
                         [0.00000000e00, 0.00000000e00, 1.00000000e00],
                     ]
                 ),

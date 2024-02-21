@@ -32,13 +32,17 @@ class BaseTestCase(unittest.TestCase):
         atol: float = 1e-8,
         equal_nan: bool = False,
     ) -> None:
-        diff = np.abs(np.array(a) - np.array(b))
-        aerr = np.nanmax(diff)
-        relerr = aerr / np.nanmax(np.abs(b))
-        self.assertTrue(
-            np.allclose(a, b, rtol=rtol, atol=atol, equal_nan=equal_nan),
-            msg=f'Arrays not close (a={aerr:.2e}, r={relerr:.2e}):\n{a!r}\n{b!r}',
-        )
+        if not np.allclose(a, b, rtol=rtol, atol=atol, equal_nan=equal_nan):
+            diff = np.abs(np.array(a) - np.array(b))
+            aerr = np.nanmax(diff)
+            max_b = np.nanmax(np.abs(b))
+            if max_b == 0:
+                relerr = np.inf
+            else:
+                relerr = aerr / np.nanmax(np.abs(b))
+            self.fail(
+                f'Arrays not close (a={aerr:.2e}, r={relerr:.2e}):\n{a!r}\n{b!r}',
+            )
 
     def _test_wireframe_scaling(
         self,
