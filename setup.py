@@ -37,9 +37,11 @@ setuptools.setup(
         'Documentation': 'https://planetmapper.readthedocs.io/',
         'GitHub': common.__url__,
         'Paper': 'https://doi.org/10.21105/joss.05728',
+        'conda-forge': 'https://anaconda.org/conda-forge/planetmapper',
     },
     entry_points={
         # Copy any changes here to the conda-forge recipe (meta.yaml)
+        # https://github.com/conda-forge/planetmapper-feedstock/
         'console_scripts': ['planetmapper=planetmapper.cli:main'],
     },
     python_requires='>=3.10.0',
@@ -63,5 +65,18 @@ setuptools.setup(
         'spice',
         'ephemeris',
         'planetary-science',
+        'geometry',
+    ],
+    classifiers=[
+        'Development Status :: 5 - Production/Stable',
+        'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Topic :: Scientific/Engineering',
+        'Topic :: Scientific/Engineering :: Astronomy',
+        'Topic :: Scientific/Engineering :: Visualization',
+        'Topic :: Scientific/Engineering :: Physics',
+        'Framework :: Matplotlib',
     ],
 )
