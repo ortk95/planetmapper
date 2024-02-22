@@ -1590,7 +1590,7 @@ class OpenObservation(Popup):
         else:
             self.window = tk.Toplevel(self.gui.root)
             self.window.title('Observation settings')
-            self.window.grab_set()
+            self.window.grab_set() # TODO hide root when open?
             self.window.transient(self.gui.root)
             geometry = self.gui.root.geometry()
 
@@ -2324,7 +2324,6 @@ class HeaderDisplay(Popup):
     def make_widget(self) -> None:
         self.window = tk.Toplevel(self.gui.root)
         self.window.title('FITS Header')
-        self.window.grab_set()
         self.window.transient(self.gui.root)
         geometry = self.gui.root.geometry()
 
@@ -2456,7 +2455,6 @@ class ArtistSetting(Popup, ABC):
     def make_window(self) -> None:
         self.window = tk.Toplevel(self.gui.root)
         self.window.title(self.label)
-        self.window.grab_set()
         self.window.transient(self.gui.root)
 
         x, y = (int(s) for s in self.gui.root.geometry().split('+')[1:])
