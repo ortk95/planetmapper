@@ -2385,10 +2385,10 @@ class SavingProgress(Popup):
         )
         save_kwargs = SaveKwargs(show_progress=False, print_info=True)
         observation = self.parent.gui.get_observation()
+        self.is_running_save = True
+        save_nav_done = False
+        save_map_done = False
         try:
-            self.is_running_save = True
-            save_nav_done = False
-            save_map_done = False
             if self.save_nav:
                 observation._set_progress_hook(
                     SaveNavProgressHookGUI(**self.nav_widgets, parent=self)

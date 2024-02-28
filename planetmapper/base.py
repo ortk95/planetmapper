@@ -548,7 +548,7 @@ class SpiceBase:
     def _update_progress_hook(self, progress_frac: float) -> None:
         """
         Update progress hook with progress of current function between 0 & 1.
-        
+
         The progress hook may raise an exception (e.g. if the user wants to cancel a
         save operation from the GUI), so this function should only be called in
         contexts where it is safe for an exception to be raised (i.e. there shouldn't
