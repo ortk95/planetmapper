@@ -156,6 +156,8 @@ class GUI:
     def __init__(self, allow_open: bool = True) -> None:
         self.allow_open = allow_open
 
+        self._popups: list[Popup] = []
+
         self._observation: Observation | None = None
         self.step_size = 1
 
@@ -395,7 +397,6 @@ class GUI:
 
         self.plot_frame = ttk.Frame(self.root)
         self.plot_frame.pack(side='top', fill='both', expand=True)
-
         self.build_plot()
         self.build_help_hint()
         self.build_controls()
@@ -1476,8 +1477,82 @@ class GUI:
     def display_header(self) -> None:
         HeaderDisplay(self)
 
+    def add_popup(self, popup: 'Popup') -> None:
+        self._popups.append(popup)
+
+    def remove_popup(self, popup: 'Popup') -> None:
+        self._popups.remove(popup)
+
+    def get_popups(self) -> list['Popup']:
+        return self._popups
+
+
+class PopupAlreadyOpenError(Exception):
+    pass
+
 
 class Popup:
+    def __init__(
+        self,
+        gui: GUI,
+        *,
+        bind_escape: bool = True,
+        create_window_immediately: bool = True,
+    ) -> None:
+        self.gui = gui
+        self.bind_escape = bind_escape
+        if create_window_immediately:
+            self.create_window()
+
+    def get_popup_id(self) -> str:
+        """
+        ID used to determine if popup already exists when opening.
+
+        Override in subclasses if multiple instances of the same class can exist at the
+        same time.
+        """
+        return self.__class__.__name__
+
+    def create_window(self) -> None:
+        if self.defer_to_any_already_open_popup():
+            print(self, 'Aready open')  # XXX
+            raise PopupAlreadyOpenError
+        self.gui.add_popup(self)
+
+        try:
+            self.window = tk.Toplevel(self.gui.root)
+        except AttributeError:
+            # GUI hasn't been created yet, so create a new window
+            self.window = tk.Tk()
+            self.gui.configure_style(self.window)
+
+        self.window.protocol('WM_DELETE_WINDOW', self.close_window)
+        if self.bind_escape:
+            self.window.bind('<Escape>', self.close_window)
+
+    def close_window(self, *_) -> None:
+        self.window.destroy()
+        self.gui.remove_popup(self)
+
+    def maybe_get_already_open_popup(self) -> 'None | Popup':
+        for other in self.gui.get_popups():
+            if other.get_popup_id() == self.get_popup_id():
+                return other
+        return None
+
+    def defer_to_any_already_open_popup(self) -> bool:
+        already_open = self.maybe_get_already_open_popup()
+        if already_open:
+            already_open.give_focus()
+            return True
+        return False
+
+    def give_focus(self) -> None:
+        """Bring popup to front and give focus"""
+        self.window.lift()
+        self.window.focus()
+
+    # utility methods
     def get_int(
         self,
         string_variable: tk.StringVar | str,
@@ -1569,7 +1644,10 @@ class Popup:
 # File IO popups
 class OpenObservation(Popup):
     def __init__(self, gui: GUI, first_run: bool) -> None:
-        self.gui = gui
+        try:
+            super().__init__(gui)
+        except PopupAlreadyOpenError:
+            return
         self.first_run = first_run
         try:
             self.gui.root
@@ -1583,15 +1661,12 @@ class OpenObservation(Popup):
 
     def make_widget(self) -> None:
         if self.first_run:
-            self.window = tk.Tk()
             self.window.title('PlanetMapper')
-            self.gui.configure_style(self.window)
             geometry = self.gui.DEFAULT_GEOMETRY
         else:
-            self.window = tk.Toplevel(self.gui.root)
             self.window.title('Observation settings')
-            self.window.grab_set() # TODO hide root when open?
-            self.window.transient(self.gui.root)
+            # self.window.grab_set() # XXX hide root when open?
+            # self.gui.root.withdraw()
             geometry = self.gui.root.geometry()
 
         x, y = (int(s) for s in geometry.split('+')[1:])
@@ -1619,8 +1694,6 @@ class OpenObservation(Popup):
                 column=idx,
                 padx=2,
             )
-        if not self.first_run:
-            self.window.bind('<Escape>', self.close_window)
 
         window_frame = ttk.Frame(self.window)
         window_frame.pack(expand=True, fill='both')
@@ -1633,8 +1706,6 @@ class OpenObservation(Popup):
 
         self.grid_frame = ttk.Frame(self.menu_frame)
         self.grid_frame.pack(fill='x')
-
-        self.window.protocol('WM_DELETE_WINDOW', self.close_window)
 
     def make_menu(self):
         kwargs = {}
@@ -1819,8 +1890,10 @@ class OpenObservation(Popup):
         self.close_window()
 
     def close_window(self, *_) -> None:
-        self.window.destroy()
+        super().close_window()
         base.load_kernels(*self.gui.kernels, clear_before=True)
+        # if not self.first_run: # XXX
+        #     self.gui.root.deiconify()
 
     def add_to_menu_grid(
         self, grid: list[tuple[tk.Widget, ...]], frame: ttk.Frame | None = None
@@ -1843,7 +1916,10 @@ class OpenObservation(Popup):
 
 class SaveObservation(Popup):
     def __init__(self, gui: GUI) -> None:
-        self.gui = gui
+        try:
+            super().__init__(gui)
+        except PopupAlreadyOpenError:
+            return
 
         self.make_widget()
         self.make_menu()
@@ -1851,9 +1927,8 @@ class SaveObservation(Popup):
         self.save_map_toggle()
 
     def make_widget(self) -> None:
-        self.window = tk.Toplevel(self.gui.root)
         self.window.title('Save observation')
-        self.window.grab_set()
+        self.window.grab_set()  # XXX
         self.window.transient(self.gui.root)
 
         x, y = (int(s) for s in self.gui.root.geometry().split('+')[1:])
@@ -2121,9 +2196,6 @@ class SaveObservation(Popup):
     def click_cancel(self) -> None:
         self.close_window()
 
-    def close_window(self, *_) -> None:
-        self.window.destroy()
-
     def try_run_save(self) -> None:
         save_nav = bool(self.save_nav.get())
         save_map = bool(self.save_map.get())
@@ -2230,13 +2302,16 @@ class SavingProgress(Popup):
 
         self.keep_open = keep_open
 
+        try:
+            super().__init__(self.parent.gui)
+        except PopupAlreadyOpenError:
+            return
+
         self.make_window()
         self.make_required_widgets()
 
     def make_window(self) -> None:
-        self.window = tk.Toplevel(self.parent.window)
-        self.window.transient(self.parent.window)
-        self.window.grab_set()
+        self.window.grab_set()  # XXX
         self.window.title('Saving files...')
 
         x, y = (int(s) for s in self.parent.window.geometry().split('+')[1:])
@@ -2306,25 +2381,26 @@ class SavingProgress(Popup):
         self.window.title('Saving files complete')
 
     def click_close(self) -> None:
-        self.destroy()
+        self.close_window()
         if not self.keep_open:
             self.parent.close_window()
 
-    def destroy(self) -> None:
-        self.window.destroy()
+    def close_window(self, *_) -> None:
+        super().close_window()
         self.parent.gui.get_observation()._remove_progress_hook()
         self.parent.saving_progress_window = None
 
 
 class HeaderDisplay(Popup):
     def __init__(self, gui: GUI) -> None:
-        self.gui = gui
+        try:
+            super().__init__(gui)
+        except PopupAlreadyOpenError:
+            return
         self.make_widget()
 
     def make_widget(self) -> None:
-        self.window = tk.Toplevel(self.gui.root)
         self.window.title('FITS Header')
-        self.window.transient(self.gui.root)
         geometry = self.gui.root.geometry()
 
         x, y = (int(s) for s in geometry.split('+')[1:])
@@ -2342,9 +2418,6 @@ class HeaderDisplay(Popup):
         self.content_frame = ttk.Frame(self.window_frame)
         self.content_frame.pack(expand=True, fill='both')
 
-        self.window.protocol('WM_DELETE_WINDOW', self.close_window)
-        self.window.bind('<Escape>', self.close_window)
-
         self.add_header_widget()
 
     def add_header_widget(self) -> None:
@@ -2359,9 +2432,6 @@ class HeaderDisplay(Popup):
 
     def click_close(self) -> None:
         self.close_window()
-
-    def close_window(self, *_) -> None:
-        self.window.destroy()
 
 
 # Progress hooks
@@ -2408,7 +2478,7 @@ class ArtistSetting(Popup, ABC):
         hint: str | None = None,
         callbacks: list[Callable[[], None]] | None = None,
         row: int | None = None,
-    ):
+    ) -> None:
         self.parent = parent
         self.key: PlotKey = key
         self.gui = gui
@@ -2417,9 +2487,10 @@ class ArtistSetting(Popup, ABC):
             label = key
         self.label = label
         self.callbacks = callbacks
-
         if row is None:
             row = parent.grid_size()[1]
+
+        super().__init__(gui, create_window_immediately=False)
 
         self.enabled = tk.IntVar()
         self.enabled.set(self.gui.plot_settings[self.key].get('visible', True))
@@ -2450,12 +2521,39 @@ class ArtistSetting(Popup, ABC):
         self.gui.update_plot()
 
     def button_click(self) -> None:
-        self.make_window()
+        self.make_popup()
 
-    def make_window(self) -> None:
-        self.window = tk.Toplevel(self.gui.root)
+    def make_popup(self) -> None:
+        try:
+            self.create_window()
+        except PopupAlreadyOpenError:
+            return
+        self.make_widget()
+        self.make_menu()
+
+    @abstractmethod
+    def make_menu(self) -> None: ...
+
+    @abstractmethod
+    def apply_settings(self) -> bool: ...
+
+    def run_callbacks(self) -> None:
+        if self.callbacks is None:
+            # Update artists in place
+            settings = self.gui.plot_settings[self.key]
+            if settings:
+                plt.setp(self.gui.plot_handles[self.key], **settings)
+        else:
+            # Replot artists
+            for callback in self.callbacks:
+                callback()
+        self.gui.update_plot()
+
+    def get_popup_id(self) -> str:
+        return f'{self.__class__.__name__}:{self.key}'
+
+    def make_widget(self) -> None:
         self.window.title(self.label)
-        self.window.transient(self.gui.root)
 
         x, y = (int(s) for s in self.gui.root.geometry().split('+')[1:])
         self.window.geometry(
@@ -2482,7 +2580,6 @@ class ArtistSetting(Popup, ABC):
                 column=idx,
                 padx=2,
             )
-        self.window.bind('<Escape>', self.close_window)
 
         window_frame = ttk.Frame(self.window)
         window_frame.pack(expand=True, fill='both')
@@ -2491,28 +2588,16 @@ class ArtistSetting(Popup, ABC):
         self.menu_frame.pack(side='top', padx=10, pady=10)
         self.grid_frame = ttk.Frame(self.menu_frame)
         self.grid_frame.pack()
-        self.make_menu()
 
-    @abstractmethod
-    def make_menu(self) -> None: ...
-
-    @abstractmethod
-    def apply_settings(self) -> bool: ...
-
-    def run_callbacks(self) -> None:
-        if self.callbacks is None:
-            # Update artists in place
-            settings = self.gui.plot_settings[self.key]
-            if settings:
-                plt.setp(self.gui.plot_handles[self.key], **settings)
-        else:
-            # Replot artists
-            for callback in self.callbacks:
-                callback()
-        self.gui.update_plot()
-
-    def close_window(self, *_) -> None:
-        self.window.destroy()
+    def add_to_menu_grid(
+        self, grid: list[tuple[tk.Widget, tk.Widget]], frame: ttk.Frame | None = None
+    ) -> None:
+        if frame is None:
+            frame = self.grid_frame
+        for label, widget in grid:
+            row = frame.grid_size()[1]
+            label.grid(row=row, column=0, sticky='w', pady=5)
+            widget.grid(row=row, column=1, sticky='w')
 
     def click_ok(self) -> None:
         if self.apply_settings():
@@ -2525,16 +2610,6 @@ class ArtistSetting(Popup, ABC):
 
     def click_cancel(self) -> None:
         self.close_window()
-
-    def add_to_menu_grid(
-        self, grid: list[tuple[tk.Widget, tk.Widget]], frame: ttk.Frame | None = None
-    ) -> None:
-        if frame is None:
-            frame = self.grid_frame
-        for label, widget in grid:
-            row = frame.grid_size()[1]
-            label.grid(row=row, column=0, sticky='w', pady=5)
-            widget.grid(row=row, column=1, sticky='w')
 
     def get_window_size(self) -> str:
         return '350x350'
