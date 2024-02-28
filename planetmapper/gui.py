@@ -1486,6 +1486,15 @@ class GUI:
     def get_popups(self) -> list['Popup']:
         return self._popups
 
+    def close_all_popups(self, *, keep_open: list['Popup'] | None = None) -> None:
+        if keep_open is None:
+            keep_open = []
+        # use list() as popups will be removed from the list during iteration
+        for popup in list(self.get_popups()):
+            if popup in keep_open:
+                continue
+            popup.close_window()
+
 
 class PopupAlreadyOpenError(Exception):
     pass
@@ -1515,7 +1524,6 @@ class Popup:
 
     def create_window(self) -> None:
         if self.defer_to_any_already_open_popup():
-            print(self, 'Aready open')  # XXX
             raise PopupAlreadyOpenError
         self.gui.add_popup(self)
 
@@ -1665,8 +1673,6 @@ class OpenObservation(Popup):
             geometry = self.gui.DEFAULT_GEOMETRY
         else:
             self.window.title('Observation settings')
-            # self.window.grab_set() # XXX hide root when open?
-            # self.gui.root.withdraw()
             geometry = self.gui.root.geometry()
 
         x, y = (int(s) for s in geometry.split('+')[1:])
@@ -1884,6 +1890,7 @@ class OpenObservation(Popup):
             return False
         self.gui.set_observation(observation)
         self.gui.kernels = kernels
+        self.gui.close_all_popups(keep_open=[self])
         return True
 
     def click_cancel(self) -> None:
@@ -1892,8 +1899,6 @@ class OpenObservation(Popup):
     def close_window(self, *_) -> None:
         super().close_window()
         base.load_kernels(*self.gui.kernels, clear_before=True)
-        # if not self.first_run: # XXX
-        #     self.gui.root.deiconify()
 
     def add_to_menu_grid(
         self, grid: list[tuple[tk.Widget, ...]], frame: ttk.Frame | None = None
@@ -1928,8 +1933,10 @@ class SaveObservation(Popup):
 
     def make_widget(self) -> None:
         self.window.title('Save observation')
-        self.window.grab_set()  # XXX
+        self.window.grab_set()
         self.window.transient(self.gui.root)
+        # Use grab_set and transient for saving popups to help ensure that the state
+        # does not change while the user is in the progress of saving data
 
         x, y = (int(s) for s in self.gui.root.geometry().split('+')[1:])
         self.window.geometry(
@@ -2311,8 +2318,9 @@ class SavingProgress(Popup):
         self.make_required_widgets()
 
     def make_window(self) -> None:
-        self.window.grab_set()  # XXX
         self.window.title('Saving files...')
+        self.window.grab_set()
+        self.window.transient(self.parent.window)
 
         x, y = (int(s) for s in self.parent.window.geometry().split('+')[1:])
         self.window.geometry(
@@ -2457,6 +2465,7 @@ class SaveProgressHookGUI(progress._SaveProgressHook):
             self.bar['value'] = self.overall_progress * 100
             self.message.configure(text=format(self.overall_progress, '.0%'))
         self.bar.update_idletasks()
+        # self.bar.update()
 
 
 class SaveNavProgressHookGUI(progress._SaveNavProgressHook, SaveProgressHookGUI):
