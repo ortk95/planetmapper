@@ -6,6 +6,15 @@ import planetmapper
 import planetmapper.progress
 
 
+class TestError(Exception):
+    pass
+
+
+class ExceptionHook(planetmapper.progress.ProgressHook):
+    def __call__(self, progress: float, stack: list[str]) -> None:
+        raise TestError
+
+
 class TestProgress(common_testing.BaseTestCase):
     def setUp(self):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
@@ -28,3 +37,11 @@ class TestProgress(common_testing.BaseTestCase):
 
                 obj._remove_progress_hook()
                 self.assertIsNone(obj._get_progress_hook())
+
+    def test_exception(self):
+        hook = ExceptionHook()
+        obj = planetmapper.BodyXY('jupiter', '2005-01-01', sz=5)
+        obj._set_progress_hook(hook)
+        with self.assertRaises(TestError):
+            obj.get_backplane_img('EMISSION')
+        obj._remove_progress_hook()

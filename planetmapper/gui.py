@@ -2279,10 +2279,13 @@ class SaveObservation(Popup):
         finally:
             self.gui.get_observation()._remove_progress_hook()
 
-        self.gui.set_help_hint(
-            'File{s} saved successfully'.format(s='s' if save_nav and save_map else ''),
-            color='green',
-        )
+        if saving_process.is_save_success:
+            self.gui.set_help_hint(
+                'File{s} saved successfully'.format(
+                    s='s' if save_nav and save_map else ''
+                ),
+                color='green',
+            )
 
 
 class SavingProgress(Popup):
@@ -2309,8 +2312,12 @@ class SavingProgress(Popup):
 
         self.keep_open = keep_open
 
+        self.should_cancel_save = False
+        self.is_running_save = False
+        self.is_save_success = False
+
         try:
-            super().__init__(self.parent.gui)
+            super().__init__(self.parent.gui, bind_escape=False)
         except PopupAlreadyOpenError:
             return
 
@@ -2330,6 +2337,8 @@ class SavingProgress(Popup):
         self.frame = ttk.Frame(self.window)
         self.frame.pack(expand=True, fill='both')
 
+        self.window.bind('<Escape>', self.press_escape)
+
     def make_required_widgets(self) -> None:
         if self.save_nav:
             self.nav_widgets = self.make_widgets('Saving navigated observation...')
@@ -2343,6 +2352,13 @@ class SavingProgress(Popup):
             text='Close',
             width=10,
         )
+        self.cancel_button = ttk.Button(
+            button_frame,
+            command=self.click_cancel,
+            text='Cancel saving',
+            width=10,
+        )
+        self.cancel_button.pack()
 
     def make_widgets(self, label: str) -> dict[str, tk.Widget]:
         frame = ttk.Frame(self.frame)
@@ -2369,36 +2385,120 @@ class SavingProgress(Popup):
         )
         save_kwargs = SaveKwargs(show_progress=False, print_info=True)
         observation = self.parent.gui.get_observation()
-        if self.save_nav:
-            observation._set_progress_hook(SaveNavProgressHookGUI(**self.nav_widgets))
-            observation.save_observation(self.path_nav, **save_kwargs)
-            observation._remove_progress_hook()
-        if self.save_map:
-            n_wavelengths = len(self.parent.gui.get_observation().data)
-            observation._set_progress_hook(
-                SaveMapProgressHookGUI(n_wavelengths, **self.map_widgets)
-            )
-            observation.save_mapped_observation(
-                self.path_map,
-                interpolation=self.interpolation,  # type: ignore
-                **self.map_kw,
-                **save_kwargs,
-            )
-            observation._remove_progress_hook()
-        self.close_button.pack()
-        self.window.title('Saving files complete')
+        self.is_running_save = True
+        save_nav_done = False
+        save_map_done = False
+        try:
+            if self.save_nav:
+                observation._set_progress_hook(
+                    SaveNavProgressHookGUI(**self.nav_widgets, parent=self)
+                )
+                observation.save_observation(self.path_nav, **save_kwargs)
+                observation._remove_progress_hook()
+                save_nav_done = True
+            if self.save_map:
+                n_wavelengths = len(self.parent.gui.get_observation().data)
+                observation._set_progress_hook(
+                    SaveMapProgressHookGUI(
+                        n_wavelengths, **self.map_widgets, parent=self
+                    )
+                )
+                observation.save_mapped_observation(
+                    self.path_map,
+                    interpolation=self.interpolation,  # type: ignore
+                    **self.map_kw,
+                    **save_kwargs,
+                )
+                observation._remove_progress_hook()
+                save_map_done = True
+            self.is_save_success = True
+            self.window.title('Saving files complete')
+        except CancelSave:
+            print('Cancelled save')
+            self.window.title('Cancelled saving files')
+            if self.save_nav and not save_nav_done:
+                self.nav_widgets['message'].configure(
+                    text='Cancelled', foreground='red3'  # type: ignore
+                )
+            if self.save_map and not save_map_done:
+                self.map_widgets['message'].configure(
+                    text='Cancelled', foreground='red3'  # type: ignore
+                )
+        finally:
+            self.is_running_save = False
+            self.cancel_button.pack_forget()
+            self.close_button.pack()
+
+    def set_abort_trap(self) -> None:
+        """Set the abort trap to cancel the save process."""
+        self.should_cancel_save = True
+
+    def press_escape(self, *_) -> None:
+        if self.is_running_save:
+            return  # only use ESC to close window, not cancel the save
+        self.click_close()
+
+    def click_cancel(self) -> None:
+        self.set_abort_trap()
 
     def click_close(self) -> None:
         self.close_window()
-        if not self.keep_open:
+        if not self.keep_open and self.is_save_success:
             self.parent.close_window()
 
     def close_window(self, *_) -> None:
+        self.set_abort_trap()
+        if self.is_running_save:
+            return  # clicking close while saving should only cancel the save
         super().close_window()
         self.parent.gui.get_observation()._remove_progress_hook()
         self.parent.saving_progress_window = None
 
 
+# Progress hooks
+class CancelSave(Exception):
+    pass
+
+
+class SaveProgressHookGUI(progress._SaveProgressHook):
+    def __init__(
+        self,
+        label: ttk.Label,
+        bar: ttk.Progressbar,
+        message: ttk.Label,
+        *args,
+        parent: SavingProgress,
+        **kwargs,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.label = label
+        self.bar = bar
+        self.message = message
+        self.parent = parent
+
+    def update_bar(self, progress_change: float) -> None:
+        if self.progress_parts.get(self.default_key, 0) >= 1:
+            self.bar['value'] = 100
+            self.message.configure(text='Complete')
+        else:
+            self.bar['value'] = self.overall_progress * 100
+            self.message.configure(text=format(self.overall_progress, '.0%'))
+        # self.bar.update_idletasks()
+        self.bar.update()
+
+        if self.parent.should_cancel_save:
+            raise CancelSave
+
+
+class SaveNavProgressHookGUI(progress._SaveNavProgressHook, SaveProgressHookGUI):
+    pass
+
+
+class SaveMapProgressHookGUI(progress._SaveMapProgressHook, SaveProgressHookGUI):
+    pass
+
+
+# Header
 class HeaderDisplay(Popup):
     def __init__(self, gui: GUI) -> None:
         try:
@@ -2440,40 +2540,6 @@ class HeaderDisplay(Popup):
 
     def click_close(self) -> None:
         self.close_window()
-
-
-# Progress hooks
-class SaveProgressHookGUI(progress._SaveProgressHook):
-    def __init__(
-        self,
-        label: ttk.Label,
-        bar: ttk.Progressbar,
-        message: ttk.Label,
-        *args,
-        **kwargs,
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        self.label = label
-        self.bar = bar
-        self.message = message
-
-    def update_bar(self, progress_change: float) -> None:
-        if self.progress_parts.get(self.default_key, 0) >= 1:
-            self.bar['value'] = 100
-            self.message.configure(text='Complete')
-        else:
-            self.bar['value'] = self.overall_progress * 100
-            self.message.configure(text=format(self.overall_progress, '.0%'))
-        self.bar.update_idletasks()
-        # self.bar.update()
-
-
-class SaveNavProgressHookGUI(progress._SaveNavProgressHook, SaveProgressHookGUI):
-    pass
-
-
-class SaveMapProgressHookGUI(progress._SaveMapProgressHook, SaveProgressHookGUI):
-    pass
 
 
 # Artist settings popups
