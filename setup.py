@@ -31,7 +31,7 @@ setuptools.setup(
     download_url='https://pypi.org/project/planetmapper/',
     packages=['planetmapper'],
     package_dir={'planetmapper': 'planetmapper'},
-    package_data={'planetmapper': ['data/*.json']},
+    package_data={'planetmapper': ['data/*.json', 'py.typed']},
     include_package_data=True,
     project_urls={
         'Documentation': 'https://planetmapper.readthedocs.io/',
