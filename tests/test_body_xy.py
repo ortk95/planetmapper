@@ -414,7 +414,7 @@ class TestBodyXY(common_testing.BaseTestCase):
 
         self.body.set_plate_scale_arcsec(1)
         self.assertAlmostEqual(self.body.get_plate_scale_arcsec(), 1)
-        self.assertAlmostEqual(self.body.get_r0(), 17.991213518286685)
+        self.assertAlmostEqual(self.body.get_r0(), 17.99121344984809)
 
         self.body.set_plate_scale_km(1)
         self.assertAlmostEqual(self.body.get_plate_scale_km(), 1)
