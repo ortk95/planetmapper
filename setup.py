@@ -46,6 +46,7 @@ setuptools.setup(
     },
     python_requires='>=3.10.0',
     install_requires=[
+        # Copy any changes here to the conda-forge recipe & requirements.txt
         'astropy',
         'matplotlib',
         'numpy<2.0',

@@ -8,3 +8,5 @@ photutils
 tqdm
 pyproj
 typing-extensions
+
+# Copy any changes here to the conda-forge recipe & setup.py
