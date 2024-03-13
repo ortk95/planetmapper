@@ -376,28 +376,28 @@ class TestObservation(common_testing.BaseTestCase):
             {
                 'OBJECT': 'jupiter',
                 'DATE-OBS': '2005-01-01',
-                'PLANMAP DEGREE-INTERVAL': 1,
+                'HIERARCH PLANMAP DEGREE-INTERVAL': 1,
             }
         )
         obs = Observation(data=data, header=header)
         with self.assertRaises(ValueError):
             obs.disc_from_header()
 
-        del header['PLANMAP DEGREE-INTERVAL']
-        header['PLANMAP MAP PROJECTION'] = 'rectangular'
+        del header['HIERARCH PLANMAP DEGREE-INTERVAL']
+        header['HIERARCH PLANMAP MAP PROJECTION'] = 'rectangular'
         obs = Observation(data=data, header=header)
         with self.assertRaises(ValueError):
             obs.disc_from_header()
 
-        header['PLANMAP DISC X0'] = 1
-        header['PLANMAP DISC Y0'] = 2
-        header['PLANMAP DISC R0'] = 3
-        header['PLANMAP DISC ROT'] = 4
+        header['HIERARCH PLANMAP DISC X0'] = 1
+        header['HIERARCH PLANMAP DISC Y0'] = 2
+        header['HIERARCH PLANMAP DISC R0'] = 3
+        header['HIERARCH PLANMAP DISC ROT'] = 4
         obs = Observation(data=data, header=header)
         with self.assertRaises(ValueError):
             obs.disc_from_header()
 
-        del header['PLANMAP MAP PROJECTION']
+        del header['HIERARCH PLANMAP MAP PROJECTION']
         obs = Observation(data=data, header=header)
         obs.disc_from_header()
         self.assertAlmostEqual(obs.get_x0(), 1)
