@@ -1153,7 +1153,8 @@ class BodyXY(Body):
                 y = y_map[a, b]  # y should never be nan when x is not nan
                 if propagate_nan and self._should_propagate_nan_to_map(x, y, nans):
                     continue
-                projected[a, b] = interpolator(y, x)
+                # TODO potential performance improvement only calling interpolaotr once
+                projected[a, b] = interpolator(y, x).item()
         else:
             raise ValueError(f'Unknown interpolation method {interpolation!r}')
         return projected
