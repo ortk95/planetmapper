@@ -49,7 +49,7 @@ setuptools.setup(
         # Copy any changes here to the conda-forge recipe & requirements.txt
         'astropy',
         'matplotlib',
-        'numpy<2.0',
+        'numpy',
         'Pillow',
         'spiceypy',
         'scipy',
