@@ -36,6 +36,7 @@ setuptools.setup(
     project_urls={
         'Documentation': 'https://planetmapper.readthedocs.io/',
         'GitHub': common.__url__,
+        'Changelog': 'https://github.com/ortk95/planetmapper/releases',
         'Paper': 'https://doi.org/10.21105/joss.05728',
         'conda-forge': 'https://anaconda.org/conda-forge/planetmapper',
     },

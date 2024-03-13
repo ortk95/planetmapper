@@ -9,7 +9,7 @@ Links
 
     - `Support discussions <https://github.com/ortk95/planetmapper/discussions>`__
 
-    - `Release notes <https://github.com/ortk95/planetmapper/releases>`__
+    - `Release notes (changelog) <https://github.com/ortk95/planetmapper/releases>`__
 
     - `Contributing guide <https://github.com/ortk95/planetmapper/blob/main/CONTRIBUTING.md>`__
 
