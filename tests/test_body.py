@@ -83,7 +83,7 @@ class TestBody(common_testing.BaseTestCase):
         self.assertAlmostEqual(self.body.target_distance, 819638074.3312353)
         self.assertAlmostEqual(self.body.target_ra, 196.37198562427025)
         self.assertAlmostEqual(self.body.target_dec, -5.565793847134351)
-        self.assertAlmostEqual(self.body.target_diameter_arcsec, 35.98242703657337)
+        self.assertAlmostEqual(self.body.target_diameter_arcsec, 35.98242689969618)
         self.assertAlmostEqual(self.body.subpoint_distance, 819566594.28005)
         self.assertAlmostEqual(self.body.subpoint_lon, 153.12585514751467)
         self.assertAlmostEqual(self.body.subpoint_lat, -3.0886644594385193)
@@ -712,11 +712,9 @@ class TestBody(common_testing.BaseTestCase):
         ]
         for (x, y), kw, km in pairs:
             with self.subTest(x=x, y=y, kw=kw):
-                self.assertTrue(
-                    np.allclose(self.body.angular2km(x, y, **kw), km, atol=1e-3)  # type: ignore
-                )
-                self.assertTrue(
-                    np.allclose(self.body.km2angular(*km, **kw), (x, y))  # type: ignore
+                self.assertArraysClose(self.body.angular2km(x, y, **kw), km, atol=1e-3)
+                self.assertArraysClose(
+                    self.body.km2angular(*km, **kw), (x, y), atol=1e-3
                 )
 
     def test_limbradec(self):

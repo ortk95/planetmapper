@@ -265,7 +265,14 @@ class Body(BodyBase):
         self.target_dec: float
         """Declination (Dec) of the target centre."""
         self.target_diameter_arcsec: float
-        """Equatorial angular diameter of the target in arcseconds."""
+        """
+        Equatorial angular diameter of the target in arcseconds.
+        
+        This is calculated using `arcsin(body.r_eq / body.target_distance)`, so can
+        underestimate the diameter if the observer is located very close to the target.
+        If you require exact values for an observer close to the target, you can use
+        the limb coordinates returned by :func:`limb_radec` to calculate the diameter.
+        """
         self.subpoint_distance: float
         """Distance from the observer to the sub-observer point on the target."""
         self.subpoint_lon: float
@@ -371,7 +378,7 @@ class Body(BodyBase):
             self.positive_longitude_direction = 'E'
 
         self.target_diameter_arcsec = (
-            60 * 60 * np.rad2deg(np.arcsin(2 * self.r_eq / self.target_distance))
+            2.0 * 60.0 * 60.0 * np.rad2deg(np.arcsin(self.r_eq / self.target_distance))
         )
 
         # Find sub observer point
