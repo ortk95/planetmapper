@@ -668,7 +668,7 @@ class Observation(BodyXY):
         val_list = []
         for aperture in apertures:
             table = photutils.aperture.aperture_photometry(img, aperture)
-            aperture_sum = float(table['aperture_sum'])  # type: ignore
+            aperture_sum = table['aperture_sum'].item()  # type: ignore
             val_list.append(aperture_sum / aperture.area)
         val_list = np.array(val_list)
 

@@ -1146,6 +1146,16 @@ class BodyXY(Body):
                 ky=ky,
                 s=spline_smoothing,  # type: ignore (docs say s is a float)
             )
+
+            # Collect any coordinates to interpolate in these lists, then perform the
+            # interpolation at the end with a single call to interpolator.ev. This is
+            # directly equivalent to doing the interpolation inside the for loop with
+            # `projected[a, b] = interpolator(y, x).item()`, but can be much faster for
+            # large images.
+            a_vals: list[int] = []
+            b_vals: list[int] = []
+            x_vals: list[float] = []
+            y_vals: list[float] = []
             for a, b in self._iterate_image(projected.shape):
                 x = x_map[a, b]
                 if math.isnan(x):
@@ -1153,7 +1163,11 @@ class BodyXY(Body):
                 y = y_map[a, b]  # y should never be nan when x is not nan
                 if propagate_nan and self._should_propagate_nan_to_map(x, y, nans):
                     continue
-                projected[a, b] = interpolator(y, x)
+                a_vals.append(a)
+                b_vals.append(b)
+                x_vals.append(x)
+                y_vals.append(y)
+            projected[a_vals, b_vals] = interpolator.ev(y_vals, x_vals)
         else:
             raise ValueError(f'Unknown interpolation method {interpolation!r}')
         return projected

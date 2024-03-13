@@ -1,6 +1,6 @@
 astropy
 matplotlib
-numpy<2.0
+numpy
 Pillow
 spiceypy
 scipy
