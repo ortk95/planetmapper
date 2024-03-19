@@ -500,6 +500,9 @@ class Body(BodyBase):
         the SPICE kernel, a :class:`BasicBody` instance will be created instead. This is
         useful for objects such as minor satellites which do not have known radius data.
 
+        See also :func:`SpiceBase.replace` for a similar method which can be used to
+        create new :class:`Body` instances with custom parameters replaced.
+
         Args:
             other_target: Name of the other target, passed to :class:`Body`
             fallback_to_basic_body: If a full :class:`Body` instance cannot be created

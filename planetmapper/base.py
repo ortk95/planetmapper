@@ -277,6 +277,38 @@ class SpiceBase:
         """
         return self.__copy__()
 
+    def __replace__(self, **changes) -> Self:
+        new = self.__class__(**(self._get_kwargs() | changes))
+        self._copy_options_to_other(new)
+        return new
+
+    def replace(self, **changes) -> Self:
+        """
+        Return a copy of this object with the specified changes.
+
+        For example, to change the date and observer of a :class:`planetmapper.Body`
+        object, you can use:
+
+        ::
+
+            body = planetmapper.Body('jupiter', '2020-01-01', observer='earth')
+            new = body.replace(utc='2020-01-01T12:34:56', observer='hst')
+
+            print(body)
+            # Body('JUPITER', '2020-01-01T00:00:00.000000', observer='EARTH')
+
+            print(new)
+            # Body('JUPITER', '2020-01-01T12:34:56.000000', observer='HST')
+
+        See also :func:`Body.create_other_body`.
+
+        Args:
+            **changes: Keyword arguments specifying any changes to make to the object.
+                These should be the same as the arguments used to create the object. Any
+                arguments not specified will be the same as in the original object.
+        """
+        return self.__replace__(**changes)
+
     def _clear_cache(self):
         """
         Clear cached results from `_cache_result`.
