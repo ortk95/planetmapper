@@ -176,6 +176,9 @@ class Body(BodyBase):
         aberration_correction: Aberration correction used to correct light travel time
             in SPICE. Defaults to `'CN'`.
         observer_frame: Observer reference frame. Defaults to `'J2000'`,
+        target_frame: Target reference frame. If `None` (the default), then the target
+            frame is set to `'IAU_{target}'` - e.g. for Jupiter, the default target
+            reference frame is `'IAU_JUPITER'`.
         illumination_source: Illumination source. Defaults to `'SUN'`.
         subpoint_method: Method used to calculate the sub-observer point in SPICE.
             Defaults to `'INTERCEPT/ELLIPSOID'`.
@@ -193,6 +196,7 @@ class Body(BodyBase):
         *,
         aberration_correction: str = 'CN',
         observer_frame: str = 'J2000',
+        target_frame: str | None = None,
         illumination_source: str = 'SUN',
         subpoint_method: str = 'INTERCEPT/ELLIPSOID',
         surface_method: str = 'ELLIPSOID',
@@ -227,6 +231,8 @@ class Body(BodyBase):
         """Aberration correction used to correct light travel time in SPICE."""
         self.observer_frame: str
         """Observer reference frame."""
+        self.target_frame: str
+        """Target reference frame."""
         self.illumination_source: str
         """Illumination source."""
         self.subpoint_method: str
@@ -362,7 +368,10 @@ class Body(BodyBase):
         self._surface_method_encoded = self._encode_str(self.surface_method)
 
         # Get target properties and state
-        self.target_frame = 'IAU_' + self.target
+        if target_frame is None:
+            self.target_frame = 'IAU_' + self.target
+        else:
+            self.target_frame = target_frame
         self._target_frame_encoded = self._encode_str(self.target_frame)
 
         self.radii = spice.bodvar(self.target_body_id, 'RADII', 3)

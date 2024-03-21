@@ -37,6 +37,12 @@ class TestBody(common_testing.BaseTestCase):
             153.12614128206837,
         )
 
+        jupiter_with_frame = Body(
+            'Jupiter', utc='2005-01-01', target_frame='iau_jupiter'
+        )
+        self.assertAlmostEqual(jupiter_with_frame.subpoint_lon, 153.12547767272153)
+        self.assertEqual(jupiter_with_frame.target_frame, 'iau_jupiter')
+
         # Test Saturrn automatically has A, B & C rings added
         saturn = Body('saturn', '2000-01-01')
         self.assertEqual(saturn.target, 'SATURN')
