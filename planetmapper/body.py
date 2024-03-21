@@ -28,7 +28,12 @@ from spiceypy.utils.exceptions import (
 )
 
 from . import data_loader, utils
-from .base import BodyBase, Numeric, _cache_stable_result
+from .base import (
+    BodyBase,
+    Numeric,
+    _add_help_note_to_spice_errors,
+    _cache_stable_result,
+)
 from .basic_body import BasicBody
 
 WireframeComponent = Literal[
@@ -179,6 +184,7 @@ class Body(BodyBase):
         **kwargs: Additional arguments are passed to :class:`SpiceBase`.
     """
 
+    @_add_help_note_to_spice_errors
     def __init__(
         self,
         target: str | int,
