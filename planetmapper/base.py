@@ -317,8 +317,7 @@ class SpiceBase:
         except NotFoundError:
             if raise_if_not_found:
                 raise
-            else:
-                name = str(name)
+            name = str(name)
         return name
 
     def et2dtm(self, et: float) -> datetime.datetime:
