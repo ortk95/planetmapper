@@ -94,13 +94,60 @@ If you are using observations from a spacecraft, you will also need to download 
 
 The directory name for different missions can be found by searching the `NAIF archive <https://naif.jpl.nasa.gov/pub/naif/>`_.
 
+
+Small body kernels
+------------------
+The `JPL Horizons system <https://ssd.jpl.nasa.gov/horizons>`_ can be used to generate SPICE kernels for small bodies, such as asteroids and comets, which may not be available on the NAIF archive. Simply select :guilabel:`Small-Body SPK File` as the ephemeris type in the `Horizons web application <https://ssd.jpl.nasa.gov/horizons/app.html>`_ and download the generated SPK file. You should then place this file in your SPICE kernel directory, where it will automatically be loaded by PlanetMapper (see :ref:`customising the kernel directory<kernel directory>` below). For more information about the JPL Horizons generated kernels, see the `Horizons documentation <https://ssd.jpl.nasa.gov/horizons/manual.html#spk>`_.
+
+Manually defining kernel variables for small bodies
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+For some bodies, the JPL Horizons generated kernels do not contain all the information needed to perform the SPICE calculations required by PlanetMapper. In these cases, you will need to manually create a text kernel file containing this required information, in addition to downloading the generated SPK file from JPL Horizons.
+
+The following is an template for a text kernel file for `Chiron <https://en.wikipedia.org/wiki/2060_Chiron>`_, which will allow PlanetMapper to use JPL Horizons generated Chiron kernels. The placeholder values should be replaced with appropriate values for your target body, then the file should be saved in your kernel directory with a `.tpc` file extension.
+::
+
+    \begindata
+
+        NAIF_BODY_NAME += 'CHIRON'
+        NAIF_BODY_CODE += 20002060
+
+        FRAME_CHIRON_FIXED     =  1234567
+        FRAME_1234567_NAME     = 'CHIRON_FIXED'
+        FRAME_1234567_CLASS    =  2
+        FRAME_1234567_CLASS_ID = 20002060
+        FRAME_1234567_CENTER   = 20002060
+
+        BODY20002060_RADII     = (XXX.XX XXX.XX XXX.XX)
+        BODY20002060_POLE_RA   = (XXX.XX XXX.XX XXX.XX)
+        BODY20002060_POLE_DEC  = (XXX.XX XXX.XX XXX.XX)
+        BODY20002060_PM        = (XXX.XX XXX.XX XXX.XX)
+
+    \begintext
+
+- The `NAIF_BODY_` variables tell SPICE the name(s) that refer to the body with numeric ID 20002060 (`more details <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/bodc2n_c.html#Files>`__). This allows you to call PlanetMapper with the name `'CHIRON'` instead of the numeric ID. The numeric ID code for the target body will usually be in the filename of the JPL Horizons generated SPK file.
+- The `FRAME_` variables define a new reference frame that is centred on Chiron (`more details <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/frames.html>`__). This frame will then be used by PlanetMapper to define any Chiron-centred coordinates (e.g. longitude/latitude).
+
+    - The frame ID code, `1234567`, is arbitrary, but should not conflict with any other frame IDs that you are using. Values from 1400000 to 2000000 are `recommended for public use <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/frames.html#Selecting%20a%20Frame%20ID>`__.
+    - The `'CHIRON_FIXED'` name is also arbitrary, and should be passed to PlanetMapper when creating a :class:`planetmapper.Body` object centred on Chiron:
+
+    ::
+        
+        body = planetmapper.Body('CHIRON', target_frame='CHIRON_FIXED')
+
+- The `BODY20002060_` variables are used to define the properties and orientation of Chiron itself. The `XXX.XX` values here are placeholders, and should be replaced with appropriate values to define the size, orientation and rotation of Chiron. See the `SPICE documentation <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/req/pck.html#Text%20PCK%20Contents>`__ for more details on these parameters. 
+
+
 Other kernels
 -------------
-In some cases, you may require other kernels in addition to those listed above. You should be able to identify the kernels required by searching the `NAIF archive <https://naif.jpl.nasa.gov/pub/naif/>`_. For example, you can download comet ephemerides using ::
+In some cases, you may require other kernels in addition to those listed above. You should be able to identify the kernels required by searching the `NAIF archive <https://naif.jpl.nasa.gov/pub/naif/>`_. For example, you can download some comet ephemerides using ::
 
     from planetmapper.kernel_downloader import download_urls
     download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/comets/')
 
+The `NAIF useful links page <https://naif.jpl.nasa.gov/naif/links.html>`_ may also be useful for finding other information and sources of kernels.
+
+
+----
 
 .. _kernel directory:
 
