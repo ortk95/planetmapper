@@ -95,6 +95,8 @@ If you are using observations from a spacecraft, you will also need to download 
 The directory name for different missions can be found by searching the `NAIF archive <https://naif.jpl.nasa.gov/pub/naif/>`_.
 
 
+.. _small body kernels:
+
 Small body kernels
 ------------------
 The `JPL Horizons system <https://ssd.jpl.nasa.gov/horizons>`_ can be used to generate SPICE kernels for small bodies, such as asteroids and comets, which may not be available on the NAIF archive. Simply select :guilabel:`Small-Body SPK File` as the ephemeris type in the `Horizons web application <https://ssd.jpl.nasa.gov/horizons/app.html>`_ and download the generated SPK file. You should then place this file in your SPICE kernel directory, where it will automatically be loaded by PlanetMapper (see :ref:`customising the kernel directory<kernel directory>` below). For more information about the JPL Horizons generated kernels, see the `Horizons documentation <https://ssd.jpl.nasa.gov/horizons/manual.html#spk>`_.
