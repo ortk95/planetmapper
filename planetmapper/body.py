@@ -459,6 +459,7 @@ class Body(BodyBase):
                     self.ring_radii.add(r)
 
     def __repr__(self) -> str:
+        # TODO include non-default kwargs in repr?
         return f'Body({self.target!r}, {self.utc!r}, observer={self.observer!r})'
 
     def _get_equality_tuple(self) -> tuple:
@@ -466,6 +467,7 @@ class Body(BodyBase):
             self.illumination_source,
             self.subpoint_method,
             self.surface_method,
+            self.target_frame,
             super()._get_equality_tuple(),
         )
 
