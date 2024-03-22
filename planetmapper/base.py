@@ -580,7 +580,6 @@ class BodyBase(SpiceBase):
     or :class:`planetmapper.BasicBody` instead.
     """
 
-    @_add_help_note_to_spice_errors
     def __init__(
         self,
         *,
