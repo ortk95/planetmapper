@@ -120,7 +120,9 @@ def _add_help_note_to_spice_errors(fn: Callable[P, T]) -> Callable[P, T]:
         try:
             return fn(*args, **kwargs)
         except SpiceyPyError as e:
-            e.message += '\n\n' + _get_spice_error_help_note()
+            note = _get_spice_error_help_note()
+            if note not in e.message:
+                e.message += '\n\n' + note
             raise e
 
     return decorated
@@ -580,6 +582,7 @@ class BodyBase(SpiceBase):
     or :class:`planetmapper.BasicBody` instead.
     """
 
+    @_add_help_note_to_spice_errors
     def __init__(
         self,
         *,

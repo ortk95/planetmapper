@@ -51,6 +51,24 @@ class TestBody(common_testing.BaseTestCase):
             saturn.ring_radii, {74658.0, 91975.0, 117507.0, 122340.0, 136780.0}
         )
 
+    def test_kernel_errors(self):
+        try:
+            Body(
+                target='mars',
+                utc='2000-01-01',
+                observer='earth',
+                aberration_correction='CN+S',
+                observer_frame='J2000',
+            )
+        except SpiceSPKINSUFFDATA as e:
+            self.assertIn(planetmapper.base._SPICE_ERROR_HELP_TEXT, e.message)
+            self.assertIn(planetmapper.base.get_kernel_path(), e.message)
+
+            # Ensure help message isn't added twice from nested decorated functions
+            self.assertEquals(
+                e.message.count(planetmapper.base._SPICE_ERROR_HELP_TEXT), 1
+            )
+
     def test_rotation_sense(self):
         comparisons: list[tuple[str, str, bool]] = [
             ('sun', 'E', True),
