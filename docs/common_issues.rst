@@ -38,8 +38,8 @@ This error usually occurs when SPICE has successfully loaded some kernels, but i
 The error message should tell you which body is missing, and you can then identify the correct kernel to download by searching the `NAIF database <https://naif.jpl.nasa.gov/pub/naif/>`_. For example, if you are missing data for a planetary body, you can search the `generic_kernels/spk/satellites/aa_summaries.txt <https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/aa_summaries.txt>`_ file to identify which kernel need downloading.
 
 
-Planets appear are in the wrong position
-========================================
+Planets appear in the wrong position
+====================================
 This is likely to be due to an issue with your SPICE kernels or settings, possible fixes include...
 
 - Make sure you are using the correct observer - e.g. a planet will appear in a different position from Earth and from JWST.
