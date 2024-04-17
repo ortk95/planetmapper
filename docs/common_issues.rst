@@ -17,6 +17,11 @@ Installation issues
 PlanetMapper requires a minimum Python version of 3.10, so if you get `ERROR: No matching distribution found for planetmapper` when trying to :ref:`install PlanetMapper <installation>`, it is likely that your python version is too old. You can check your Python version by running `python3 --version` in a terminal.
 
 
+`ContentTooShortError` when downloading SPICE kernels
+=====================================================
+If you get a `ContentTooShortError` when trying to download SPICE kernels, it is likely that the download was interrupted before the file was fully downloaded (e.g. due to an unstable network connection). You can try re-downloading the kernel by running the download command again, or you can manually download the kernel from the `NAIF database <https://naif.jpl.nasa.gov/pub/naif/>`_ and place it in the correct directory.
+
+
 SPICE Errors
 ============
 If you have any errors caused reported by the SPICE system, it is likely that it doesn't have the correct SPICE kernels loaded. Therefore, make sure you have the :ref:`appropriate SPICE kernels downloaded <SPICE kernels>` to your computer and that you have set :ref:`the kernel directory<kernel directory>` correctly.
