@@ -135,13 +135,13 @@ class Observation(BodyXY):
         if len(self.data.shape) == 2:
             # Turn data into cube for consistency
             self.data = self.data[np.newaxis, ...]
-        if self.header is not None:
+        if self.header is not None:  # type: ignore
             # use values from header to fill in arguments (e.g. target) which aren't
             # specified by the user
             self._add_kw_from_header(kwargs, self.header)
         super().__init__(nx=self.data.shape[-1], ny=self.data.shape[-2], **kwargs)
 
-        if self.header is None:
+        if self.header is None:  # type: ignore
             self.header = fits.Header(
                 {
                     'OBJECT': self.target,

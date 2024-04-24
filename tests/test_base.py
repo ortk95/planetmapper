@@ -749,7 +749,7 @@ class TestFunctions(common_testing.BaseTestCase):
     def test_sort_kernel_paths(self):
         input = [
             '000.txt',
-            '000.txt', # check duplicates are kept
+            '000.txt',  # check duplicates are kept
             'zzz.txt',
             'a/b/c.txt',
             'a/b/file1.txt',
