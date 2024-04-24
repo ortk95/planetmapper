@@ -665,7 +665,7 @@ class BodyBase(SpiceBase):
         return self._radian_pair2degrees(*self._obsvec2radec_radians(obsvec))
 
 
-def load_kernels(*paths, clear_before: bool = False) -> list[str]:
+def load_kernels(*paths: str, clear_before: bool = False) -> list[str]:
     """
     Load spice kernels defined by patterns.
 
@@ -774,7 +774,7 @@ def clear_kernels() -> None:
     _KERNEL_DATA['kernels_loaded'] = False
 
 
-def set_kernel_path(path: str | None) -> None:
+def set_kernel_path(path: str | os.PathLike | None) -> None:
     """
     Set the path of the directory containing SPICE kernels. See
     :ref:`the kernel directory documentation<kernel directory>` for more detail.
@@ -783,6 +783,8 @@ def set_kernel_path(path: str | None) -> None:
         path: Directory which PlanetMapper will search for SPICE kernels. If `None`,
             then the default value of `'~/spice_kernels/'` will be used.
     """
+    if path is not None:
+        path = os.fspath(path)
     _KERNEL_DATA['kernel_path'] = path
 
 
