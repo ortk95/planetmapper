@@ -2,6 +2,7 @@ import fnmatch
 import os
 import unittest
 import warnings
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import common_testing
@@ -64,6 +65,26 @@ class TestObservation(common_testing.BaseTestCase):
             self.assertEqual(obs, obs)
             self.assertNotEqual(obs, self.observation)
             self.assertEqual(obs.path, path)
+            self.assertEqual(obs.target, 'JUPITER')
+            self.assertEqual(obs.observer, 'HST')
+            self.assertEqual(obs.utc, '2005-01-01T12:00:00.000000')
+            self.assertTrue(
+                np.array_equal(
+                    obs.data,
+                    np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]]),
+                )
+            )
+            self.assertAlmostEqual(obs.get_x0(), 1.1)
+            self.assertAlmostEqual(obs.get_y0(), 2.2)
+            self.assertAlmostEqual(obs.get_r0(), 3.3)
+            self.assertAlmostEqual(obs.get_rotation(), 4.4)
+
+        with self.subTest('Path(planmap.fits)'):
+            path = Path(common_testing.DATA_PATH, 'inputs', 'planmap.fits')
+            obs = Observation(path)
+            self.assertEqual(obs, obs)
+            self.assertNotEqual(obs, self.observation)
+            self.assertEqual(obs.path, os.fspath(path))
             self.assertEqual(obs.target, 'JUPITER')
             self.assertEqual(obs.observer, 'HST')
             self.assertEqual(obs.utc, '2005-01-01T12:00:00.000000')
@@ -737,6 +758,14 @@ class TestObservation(common_testing.BaseTestCase):
         )
         self.compare_fits_to_reference(path)
 
+        # test PathLike
+        self.observation.save_observation(
+            Path(path),
+            show_progress=True,
+            include_wireframe=False,
+        )
+        self.compare_fits_to_reference(path, skip_wireframe=True)
+
     def test_save_mapped_observation(self):
         self.observation.set_disc_params(2.5, 3.1, 3.9, 123.456)
         self.observation.set_disc_method('<<<test>>>')
@@ -808,6 +837,15 @@ class TestObservation(common_testing.BaseTestCase):
                     path, **map_kw, wireframe_kwargs=dict(output_size=20, dpi=20)
                 )
                 self.compare_fits_to_reference(path)
+
+        with self.subTest('PathLike'):
+            map_type = 'rectangular-nearest'
+            map_kw = map_kwargs[map_type]
+            path = os.path.join(common_testing.TEMP_PATH, f'map_{map_type}.fits')
+            self.observation.save_mapped_observation(
+                Path(path), **map_kw, wireframe_kwargs=dict(output_size=20, dpi=20)
+            )
+            self.compare_fits_to_reference(path)
 
     def compare_fits_to_reference(self, path: str, skip_wireframe: bool = False):
         filename = os.path.basename(path)
