@@ -4,4 +4,6 @@ isort
 pyright
 pylint
 coverage
+sphinx
+sphinx_rtd_theme
 -r docs/requirements.txt

@@ -31,22 +31,26 @@ setuptools.setup(
     download_url='https://pypi.org/project/planetmapper/',
     packages=['planetmapper'],
     package_dir={'planetmapper': 'planetmapper'},
-    package_data={'planetmapper': ['data/*.json']},
+    package_data={'planetmapper': ['data/*.json', 'py.typed']},
     include_package_data=True,
     project_urls={
         'Documentation': 'https://planetmapper.readthedocs.io/',
         'GitHub': common.__url__,
+        'Changelog': 'https://github.com/ortk95/planetmapper/releases',
         'Paper': 'https://doi.org/10.21105/joss.05728',
+        'conda-forge': 'https://anaconda.org/conda-forge/planetmapper',
     },
     entry_points={
         # Copy any changes here to the conda-forge recipe (meta.yaml)
+        # https://github.com/conda-forge/planetmapper-feedstock/
         'console_scripts': ['planetmapper=planetmapper.cli:main'],
     },
     python_requires='>=3.10.0',
     install_requires=[
+        # Copy any changes here to the conda-forge recipe & requirements.txt
         'astropy',
         'matplotlib',
-        'numpy<2.0',
+        'numpy',
         'Pillow',
         'spiceypy',
         'scipy',
@@ -63,5 +67,18 @@ setuptools.setup(
         'spice',
         'ephemeris',
         'planetary-science',
+        'geometry',
+    ],
+    classifiers=[
+        'Development Status :: 5 - Production/Stable',
+        'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Topic :: Scientific/Engineering',
+        'Topic :: Scientific/Engineering :: Astronomy',
+        'Topic :: Scientific/Engineering :: Visualization',
+        'Topic :: Scientific/Engineering :: Physics',
+        'Framework :: Matplotlib',
     ],
 )

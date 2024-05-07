@@ -25,7 +25,7 @@ except ImportError:
 import astropy.time
 import numpy as np
 import spiceypy as spice
-from spiceypy.utils.exceptions import SpiceyPyError
+from spiceypy.utils.exceptions import NotFoundError, SpiceyPyError
 
 from . import progress
 
@@ -120,7 +120,9 @@ def _add_help_note_to_spice_errors(fn: Callable[P, T]) -> Callable[P, T]:
         try:
             return fn(*args, **kwargs)
         except SpiceyPyError as e:
-            e.message += '\n\n' + _get_spice_error_help_note()
+            note = _get_spice_error_help_note()
+            if note not in e.message:
+                e.message += '\n\n' + note
             raise e
 
     return decorated
@@ -277,6 +279,38 @@ class SpiceBase:
         """
         return self.__copy__()
 
+    def __replace__(self, **changes) -> Self:
+        new = self.__class__(**(self._get_kwargs() | changes))
+        self._copy_options_to_other(new)
+        return new
+
+    def replace(self, **changes) -> Self:
+        """
+        Return a copy of this object with the specified changes.
+
+        For example, to change the date and observer of a :class:`planetmapper.Body`
+        object, you can use:
+
+        ::
+
+            body = planetmapper.Body('jupiter', '2020-01-01', observer='earth')
+            new = body.replace(utc='2020-01-01T12:34:56', observer='hst')
+
+            print(body)
+            # Body('JUPITER', '2020-01-01T00:00:00.000000', observer='EARTH')
+
+            print(new)
+            # Body('JUPITER', '2020-01-01T12:34:56.000000', observer='HST')
+
+        See also :func:`Body.create_other_body`.
+
+        Args:
+            **changes: Keyword arguments specifying any changes to make to the object.
+                These should be the same as the arguments used to create the object. Any
+                arguments not specified will be the same as in the original object.
+        """
+        return self.__replace__(**changes)
+
     def _clear_cache(self):
         """
         Clear cached results from `_cache_result`.
@@ -284,7 +318,12 @@ class SpiceBase:
         # TODO document cache clearing (incl stable cache)
         self._cache.clear()
 
-    def standardise_body_name(self, name: str | int) -> str:
+    def standardise_body_name(
+        self,
+        name: str | int,
+        *,
+        raise_if_not_found: bool = False,
+    ) -> str:
         """
         Return a standardised version of the name of a SPICE body.
 
@@ -296,14 +335,23 @@ class SpiceBase:
         Args:
             name: The name of a body (e.g. a planet). This can also be the numeric ID
                 code of a body.
+            raise_if_not_found: If `True`, raise a `NotFoundError` if SPICE does not
+                recognise the provided `name`. If `False`, then the provided `name` is
+                returned as a string if SPICE does not recognise it.
 
         Returns:
             Standardised version of the body's name preferred by SPICE.
 
         Raises:
-            NotFoundError: If SPICE does not recognise the provided `name`
+            NotFoundError: If SPICE does not recognise the provided `name` and
+                `raise_if_not_found` is `True`.
         """
-        name = spice.bodc2s(spice.bods2c(str(name)))
+        try:
+            name = spice.bodc2s(spice.bods2c(str(name)))
+        except NotFoundError:
+            if raise_if_not_found:
+                raise
+            name = str(name)
         return name
 
     def et2dtm(self, et: float) -> datetime.datetime:
@@ -546,7 +594,14 @@ class SpiceBase:
         self._progress_call_stack = []
 
     def _update_progress_hook(self, progress_frac: float) -> None:
-        """Update progress hook with progress of current function between 0 & 1"""
+        """
+        Update progress hook with progress of current function between 0 & 1.
+
+        The progress hook may raise an exception (e.g. if the user wants to cancel a
+        save operation from the GUI), so this function should only be called in
+        contexts where it is safe for an exception to be raised (i.e. there shouldn't
+        be any side effects if the progress hook raises an exception).
+        """
         if self._progress_hook is not None:
             self._progress_hook(progress_frac, self._progress_call_stack)
 
@@ -595,7 +650,7 @@ class BodyBase(SpiceBase):
         self.et = spice.utc2et(utc)
         self.dtm: datetime.datetime = self.et2dtm(self.et)
         self.utc = self.dtm.strftime(self._DEFAULT_DTM_FORMAT_STRING)
-        self.target_body_id: int = spice.bodn2c(self.target)
+        self.target_body_id: int = spice.bods2c(self.target)
 
         # Encode strings which are regularly passed to spice (for speed)
         self._target_encoded = self._encode_str(self.target)
@@ -658,7 +713,7 @@ class BodyBase(SpiceBase):
         return self._radian_pair2degrees(*self._obsvec2radec_radians(obsvec))
 
 
-def load_kernels(*paths, clear_before: bool = False) -> list[str]:
+def load_kernels(*paths: str, clear_before: bool = False) -> list[str]:
     """
     Load spice kernels defined by patterns.
 
@@ -767,7 +822,7 @@ def clear_kernels() -> None:
     _KERNEL_DATA['kernels_loaded'] = False
 
 
-def set_kernel_path(path: str | None) -> None:
+def set_kernel_path(path: str | os.PathLike | None) -> None:
     """
     Set the path of the directory containing SPICE kernels. See
     :ref:`the kernel directory documentation<kernel directory>` for more detail.
@@ -776,6 +831,8 @@ def set_kernel_path(path: str | None) -> None:
         path: Directory which PlanetMapper will search for SPICE kernels. If `None`,
             then the default value of `'~/spice_kernels/'` will be used.
     """
+    if path is not None:
+        path = os.fspath(path)
     _KERNEL_DATA['kernel_path'] = path
 
 

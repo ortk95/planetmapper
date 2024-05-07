@@ -2,6 +2,7 @@ import datetime
 import glob
 import os
 import unittest
+from pathlib import Path
 from typing import Any, Callable, ParamSpec
 from unittest.mock import MagicMock, Mock, patch
 
@@ -9,6 +10,7 @@ import common_testing
 import numpy as np
 import spiceypy as spice
 from spiceypy.utils.exceptions import (
+    NotFoundError,
     SpiceNOLEAPSECONDS,
     SpiceSPKINSUFFDATA,
     SpiceyPyError,
@@ -63,6 +65,29 @@ class TestSpiceBase(common_testing.BaseTestCase):
         self.assertEqual(self.obj.standardise_body_name('HST'), 'HST')
         self.assertEqual(
             self.obj.standardise_body_name('Hubble Space Telescope'), 'HST'
+        )
+
+        self.assertEqual(self.obj.standardise_body_name(599), 'JUPITER')
+
+        self.assertEqual(self.obj.standardise_body_name('<abc def>'), '<abc def>')
+        self.assertEqual(self.obj.standardise_body_name(1234567890), '1234567890')
+        self.assertEqual(self.obj.standardise_body_name(-1234567890), '-1234567890')
+
+        self.assertEqual(
+            self.obj.standardise_body_name('<abc def>', raise_if_not_found=False),
+            '<abc def>',
+        )
+        with self.assertRaises(NotFoundError):
+            self.obj.standardise_body_name('<abc def>', raise_if_not_found=True)
+        self.assertEqual(
+            self.obj.standardise_body_name('JUPITER', raise_if_not_found=True),
+            'JUPITER',
+        )
+        self.assertEqual(
+            self.obj.standardise_body_name('599', raise_if_not_found=True), 'JUPITER'
+        )
+        self.assertEqual(
+            self.obj.standardise_body_name(599, raise_if_not_found=True), 'JUPITER'
         )
 
     def test_et2dtm(self):
@@ -411,6 +436,12 @@ class TestKernelPath(common_testing.BaseTestCase):
         planetmapper.set_kernel_path(path)
         self.assertEqual(planetmapper.get_kernel_path(), path)
 
+        path = Path(
+            common_testing.TEMP_PATH, 'test_kernel_path', 'set_kernel_path_pathlike'
+        )
+        planetmapper.set_kernel_path(path)
+        self.assertEqual(planetmapper.get_kernel_path(), os.fspath(path))
+
         self.assertEqual(planetmapper.base.load_kernels(), [])
         self.assertEqual(planetmapper.base.load_kernels(clear_before=True), [])
 
@@ -742,6 +773,7 @@ class TestFunctions(common_testing.BaseTestCase):
     def test_sort_kernel_paths(self):
         input = [
             '000.txt',
+            '000.txt',  # check duplicates are kept
             'zzz.txt',
             'a/b/c.txt',
             'a/b/file1.txt',
@@ -763,6 +795,7 @@ class TestFunctions(common_testing.BaseTestCase):
             'x/z/file1.txt',
             'a/kernel.txt',
             'x/000.txt',
+            '000.txt',
             '000.txt',
             'zzz.txt',
         ]

@@ -1,4 +1,6 @@
+import copy
 import datetime
+import sys
 import unittest
 from typing import Callable
 from unittest.mock import MagicMock, patch
@@ -37,6 +39,12 @@ class TestBody(common_testing.BaseTestCase):
             153.12614128206837,
         )
 
+        jupiter_with_frame = Body(
+            'Jupiter', utc='2005-01-01', target_frame='iau_jupiter'
+        )
+        self.assertAlmostEqual(jupiter_with_frame.subpoint_lon, 153.12547767272153)
+        self.assertEqual(jupiter_with_frame.target_frame, 'iau_jupiter')
+
         # Test Saturrn automatically has A, B & C rings added
         saturn = Body('saturn', '2000-01-01')
         self.assertEqual(saturn.target, 'SATURN')
@@ -44,6 +52,24 @@ class TestBody(common_testing.BaseTestCase):
         self.assertEqual(
             saturn.ring_radii, {74658.0, 91975.0, 117507.0, 122340.0, 136780.0}
         )
+
+    def test_kernel_errors(self):
+        try:
+            Body(
+                target='mars',
+                utc='2000-01-01',
+                observer='earth',
+                aberration_correction='CN+S',
+                observer_frame='J2000',
+            )
+        except SpiceSPKINSUFFDATA as e:
+            self.assertIn(planetmapper.base._SPICE_ERROR_HELP_TEXT, e.message)
+            self.assertIn(planetmapper.base.get_kernel_path(), e.message)
+
+            # Ensure help message isn't added twice from nested decorated functions
+            self.assertEquals(
+                e.message.count(planetmapper.base._SPICE_ERROR_HELP_TEXT), 1
+            )
 
     def test_rotation_sense(self):
         comparisons: list[tuple[str, str, bool]] = [
@@ -83,7 +109,7 @@ class TestBody(common_testing.BaseTestCase):
         self.assertAlmostEqual(self.body.target_distance, 819638074.3312353)
         self.assertAlmostEqual(self.body.target_ra, 196.37198562427025)
         self.assertAlmostEqual(self.body.target_dec, -5.565793847134351)
-        self.assertAlmostEqual(self.body.target_diameter_arcsec, 35.98242703657337)
+        self.assertAlmostEqual(self.body.target_diameter_arcsec, 35.98242689969618)
         self.assertAlmostEqual(self.body.subpoint_distance, 819566594.28005)
         self.assertAlmostEqual(self.body.subpoint_lon, 153.12585514751467)
         self.assertAlmostEqual(self.body.subpoint_lat, -3.0886644594385193)
@@ -192,23 +218,85 @@ class TestBody(common_testing.BaseTestCase):
         body.coordinates_of_interest_radec.extend([(1, 2), (3, 4)])
         body.add_named_rings()
 
-        copy = body.copy()
-        self.assertEqual(body, copy)
-        self.assertIsNot(body, copy)
-        self.assertEqual(body._get_kwargs(), copy._get_kwargs())
-        self.assertEqual(body.other_bodies_of_interest, copy.other_bodies_of_interest)
-        self.assertEqual(
-            body.coordinates_of_interest_lonlat, copy.coordinates_of_interest_lonlat
-        )
-        self.assertEqual(
-            body.coordinates_of_interest_radec, copy.coordinates_of_interest_radec
-        )
-        self.assertEqual(body.ring_radii, copy.ring_radii)
+        new = body.copy()
+        self.assertEqual(body, new)
+        self.assertIsNot(body, new)
+        self.assertEqual(body._get_kwargs(), new._get_kwargs())
+        self._test_if_body_has_same_options(body, new)
 
-        body.coordinates_of_interest_lonlat.append((5, 6))
+        new.coordinates_of_interest_lonlat.append((5, 6))
         self.assertNotEqual(
-            body.coordinates_of_interest_lonlat, copy.coordinates_of_interest_lonlat
+            body.coordinates_of_interest_lonlat, new.coordinates_of_interest_lonlat
         )
+
+        with self.subTest('copy.copy'):
+            self.assertEqual(body.copy(), copy.copy(body))
+
+    def test_replace(self):
+        body = Body('Jupiter', observer='HST', utc='2005-01-01T00:00:00')
+        body.add_other_bodies_of_interest('amalthea')
+        body.coordinates_of_interest_lonlat.append((0, 0))
+        body.coordinates_of_interest_radec.extend([(1, 2), (3, 4)])
+        body.add_named_rings()
+
+        with self.subTest('no changes'):
+            new = body.replace()
+            self.assertEqual(body, new)
+            self.assertIsNot(body, new)
+            self.assertEqual(body._get_kwargs(), new._get_kwargs())
+            self._test_if_body_has_same_options(body, new)
+
+            new.coordinates_of_interest_lonlat.append((5, 6))
+            self.assertNotEqual(
+                body.coordinates_of_interest_lonlat, new.coordinates_of_interest_lonlat
+            )
+
+        with self.subTest('change utc'):
+            utc = '2005-01-01T12:34:56'
+            new = body.replace(utc=utc)
+            self.assertNotEqual(body, new)
+            self.assertEqual(new.utc, '2005-01-01T12:34:56.000000')
+            self._test_if_body_has_same_options(body, new)
+
+        with self.subTest('change multiple'):
+            utc = '2005-01-01T12:34:56'
+            observer = 'earth'
+            new = body.replace(utc=utc, observer=observer)
+            self.assertNotEqual(body, new)
+            self.assertEqual(new.utc, '2005-01-01T12:34:56.000000')
+            self.assertEqual(new.observer, 'EARTH')
+            self._test_if_body_has_same_options(body, new)
+
+        with self.subTest('round trip'):
+            new = body.replace(utc='2005-01-01T00:00:00', observer='HST')
+            self.assertEqual(body, new)
+
+            new = body.replace(observer='earth', utc='2005-01-01T12:34:56').replace(
+                utc='2005-01-01T00:00:00', observer='HST'
+            )
+            self.assertEqual(body, new)
+
+        if sys.version_info >= (3, 13):
+            with self.subTest('copy.replace'):
+                self.assertEqual(
+                    body.replace(observer='earth', utc='2005-01-01T12:34:56'),
+                    copy.replace(body, observer='earth', utc='2005-01-01T12:34:56'),
+                )
+
+    def _test_if_body_has_same_options(self, original: Body, new: Body) -> None:
+        with self.subTest(original=original, new=new):
+            self.assertEqual(
+                original.other_bodies_of_interest, new.other_bodies_of_interest
+            )
+            self.assertEqual(
+                original.coordinates_of_interest_lonlat,
+                new.coordinates_of_interest_lonlat,
+            )
+            self.assertEqual(
+                original.coordinates_of_interest_radec,
+                new.coordinates_of_interest_radec,
+            )
+            self.assertEqual(original.ring_radii, new.ring_radii)
 
     def test_create_other_body(self):
         self.assertEqual(
@@ -605,15 +693,32 @@ class TestBody(common_testing.BaseTestCase):
                     all(not np.isfinite(x) for x in self.body.lonlat2angular(*a))
                 )
 
+    def test_km_rotation(self):
+        x_target, y_target = self.body.radec2km(
+            self.body.target_ra, self.body.target_dec
+        )
+        self.assertAlmostEqual(x_target, 0)
+        self.assertAlmostEqual(y_target, 0)
+        for lat in [-90, 90]:
+            with self.subTest(lat):
+                x, y = self.body.lonlat2km(0, lat)
+                self.assertAlmostEqual(x, x_target, delta=1)
+                if lat > 0:
+                    self.assertGreater(y, y_target)
+                else:
+                    self.assertLess(y, y_target)
+
     def test_km_radec(self):
         pairs = [
-            [(0, 0), (196.37198562427025, -5.565793847134351)],
-            [(99999, 99999), (196.36846760253624, -5.556548919202668)],
+            ((0, 0), (196.3719856242702, -5.56579384713435)),
+            ((99999, 99999), (196.36845127590436, -5.556555100442686)),
+            ((1234, -5678), (196.37174335301282, -5.566120708196197)),
+            ((-0.1234, 9999.5678), (196.37227302705824, -5.565156047930656)),
         ]
         for km, radec in pairs:
             with self.subTest(km):
-                self.assertTrue(np.allclose(self.body.km2radec(*km), radec))
-                self.assertTrue(np.allclose(self.body.radec2km(*radec), km, atol=1e-3))
+                self.assertArraysClose(self.body.km2radec(*km), radec)
+                self.assertArraysClose(self.body.radec2km(*radec), km, atol=1e-3)
 
         inputs = [
             (np.nan, np.nan),
@@ -628,10 +733,10 @@ class TestBody(common_testing.BaseTestCase):
 
     def test_km_lonlat(self):
         pairs = [
-            [(0, 0), (153.1235185909613, -3.0887371238645795)],
-            [(123, 456.789), (153.02550380815194, -2.6701272595645387)],
-            [(-500, -200), (153.52449023101565, -3.2726499274177465)],
-            [(5000, 50001), (147.49441295554598, 47.45174759079364)],
+            ((0, 0), (153.12351859061235, -3.0887371240013572)),
+            ((123, 456.789), (153.02485721448028, -2.6703253305682195)),
+            ((-500, -200), (153.52477375354786, -3.2718421646109985)),
+            ((5000, 50001), (147.39408652731262, 47.4410279733397)),
         ]
         for km, lonlat in pairs:
             with self.subTest(km):
@@ -663,47 +768,41 @@ class TestBody(common_testing.BaseTestCase):
 
     def test_km_angular(self):
         pairs: list[tuple[tuple[float, float], dict, tuple[float, float]]] = [
-            ((0, 0), {}, (4.6729617106227635e-09, 1.0370567346858554e-08)),
-            (
-                (0, 0),
-                {'coordinate_rotation': 123},
-                (4.6729617106227635e-09, 1.0370567346858554e-08),
-            ),
-            ((1.234, 5.678), {}, (13739.866378614151, 18556.388206846823)),
-            ((-3600.1234, 45678), {}, (61525334.93172047, 171364244.1505089)),
+            ((0, 0), {}, (0.0, 0.0)),
+            ((0, 0), {'coordinate_rotation': 123}, (0.0, 0.0)),
+            ((1.234, 5.678), {}, (13707.106875939699, 18580.59989529313)),
+            ((-3600.1234, 45678), {}, (61222909.71285939, 171472523.56580824)),
             (
                 (1.234, 5.678),
                 {'coordinate_rotation': 123},
-                (8079.429074795995, -21629.754904840156),
+                (8117.576807789242, -21615.467104869596),
             ),
             (
                 (1.234, 5.678),
                 {'origin_ra': 123},
-                (927957585.3290204, -480110160.1311036),
+                (928803175.7862874, -478472263.2296324),
             ),
             (
                 (1.234, 5.678),
                 {'origin_dec': 12.3},
-                (105009703.24513194, 233032424.31876734),
+                (104598412.22915992, 233217325.082532),
             ),
             (
                 (1.234, 5.678),
                 {'origin_ra': -123, 'origin_dec': -12.3},
-                (-568773415.4728397, 129941895.59871267),
+                (-569001780.3607075, 128938234.54185842),
             ),
             (
                 (1.234, 5.678),
                 {'origin_ra': -123, 'origin_dec': 12.3, 'coordinate_rotation': -123},
-                (-445228360.6330424, 459438707.21556187),
+                (-446038232.73474604, 458652497.8006319),
             ),
         ]
         for (x, y), kw, km in pairs:
             with self.subTest(x=x, y=y, kw=kw):
-                self.assertTrue(
-                    np.allclose(self.body.angular2km(x, y, **kw), km, atol=1e-3)  # type: ignore
-                )
-                self.assertTrue(
-                    np.allclose(self.body.km2angular(*km, **kw), (x, y))  # type: ignore
+                self.assertArraysClose(self.body.angular2km(x, y, **kw), km, atol=1e-3)
+                self.assertArraysClose(
+                    self.body.km2angular(*km, **kw), (x, y), atol=1e-3
                 )
 
     def test_limbradec(self):
@@ -1347,7 +1446,12 @@ class TestBody(common_testing.BaseTestCase):
                 )
 
     def test_north_pole_angle(self):
-        self.assertAlmostEqual(self.body.north_pole_angle(), -24.256254044782136)
+        # test angle < 0 branch
+        self.assertAlmostEqual(self.body.north_pole_angle(), -24.15516987997688)
+
+        # test angle > 0 branch
+        body2 = planetmapper.Body('Jupiter', observer='HST', utc='2009-01-01T00:00:00')
+        self.assertAlmostEqual(body2.north_pole_angle(), 13.550583134129457)
 
     def test_get_description(self):
         self.assertEqual(
@@ -1937,8 +2041,8 @@ class TestBody(common_testing.BaseTestCase):
                 self.body.matplotlib_radec2km_transform().get_matrix(),
                 array(
                     [
-                        [-1.29859192e07, 5.87691416e06, 2.58278044e09],
-                        [5.83821790e06, 1.30424638e07, -1.07387078e09],
+                        [-1.29961991e07, 5.85389484e06, 2.58467100e09],
+                        [5.81529840e06, 1.30528119e07, -1.06931243e09],
                         [0.00000000e00, 0.00000000e00, 1.00000000e00],
                     ]
                 ),

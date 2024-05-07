@@ -84,7 +84,7 @@ class Observation(BodyXY):
 
     def __init__(
         self,
-        path: str | None = None,
+        path: str | os.PathLike | None = None,
         *,
         data: np.ndarray | None = None,
         header: fits.Header | None = None,
@@ -110,7 +110,7 @@ class Observation(BodyXY):
         `utc` parameters.
         """
         if path is not None:
-            path = os.path.expandvars(os.path.expanduser(path))
+            path = str(os.path.expandvars(os.path.expanduser(path)))
 
         self.path = path
         self.header = None  # type: ignore
@@ -135,13 +135,13 @@ class Observation(BodyXY):
         if len(self.data.shape) == 2:
             # Turn data into cube for consistency
             self.data = self.data[np.newaxis, ...]
-        if self.header is not None:
+        if self.header is not None:  # type: ignore
             # use values from header to fill in arguments (e.g. target) which aren't
             # specified by the user
             self._add_kw_from_header(kwargs, self.header)
         super().__init__(nx=self.data.shape[-1], ny=self.data.shape[-2], **kwargs)
 
-        if self.header is None:
+        if self.header is None:  # type: ignore
             self.header = fits.Header(
                 {
                     'OBJECT': self.target,
@@ -668,7 +668,7 @@ class Observation(BodyXY):
         val_list = []
         for aperture in apertures:
             table = photutils.aperture.aperture_photometry(img, aperture)
-            aperture_sum = float(table['aperture_sum'])  # type: ignore
+            aperture_sum = table['aperture_sum'].item()  # type: ignore
             val_list.append(aperture_sum / aperture.area)
         val_list = np.array(val_list)
 
@@ -1025,7 +1025,7 @@ class Observation(BodyXY):
     @progress_decorator
     def save_observation(
         self,
-        path: str,
+        path: str | os.PathLike,
         *,
         include_wireframe: bool = True,
         wireframe_kwargs: dict[str, Any] | None = None,
@@ -1057,6 +1057,7 @@ class Observation(BodyXY):
                 creating this `Observation`.
             print_info: Toggle printing of progress information (defaults to `True`).
         """
+        path = os.fspath(path)
         if show_progress and self._get_progress_hook() is None:
             print_info = False
             self._set_progress_hook(SaveNavProgressHookCLI())
@@ -1110,7 +1111,7 @@ class Observation(BodyXY):
     @progress_decorator
     def save_mapped_observation(
         self,
-        path: str,
+        path: str | os.PathLike,
         *,
         interpolation: (
             Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
@@ -1154,6 +1155,7 @@ class Observation(BodyXY):
                 :func:`BodyXY.generate_map_coordinates` to specify and customise the map
                 projection.
         """
+        path = os.fspath(path)
         if show_progress and self._get_progress_hook() is None:
             print_info = False
             self._set_progress_hook(SaveMapProgressHookCLI(len(self.data)))

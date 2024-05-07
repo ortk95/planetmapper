@@ -1,6 +1,6 @@
 import datetime
 
-from .base import BodyBase
+from .base import BodyBase, _add_help_note_to_spice_errors
 
 
 class BasicBody(BodyBase):
@@ -21,6 +21,7 @@ class BasicBody(BodyBase):
         **kwargs: See :class:`Body` for more details about additional arguments.
     """
 
+    @_add_help_note_to_spice_errors
     def __init__(
         self,
         target: str | int,
