@@ -25,7 +25,7 @@ except ImportError:
 import astropy.time
 import numpy as np
 import spiceypy as spice
-from spiceypy.utils.exceptions import SpiceyPyError
+from spiceypy.utils.exceptions import NotFoundError, SpiceyPyError
 
 from . import progress
 
@@ -120,7 +120,9 @@ def _add_help_note_to_spice_errors(fn: Callable[P, T]) -> Callable[P, T]:
         try:
             return fn(*args, **kwargs)
         except SpiceyPyError as e:
-            e.message += '\n\n' + _get_spice_error_help_note()
+            note = _get_spice_error_help_note()
+            if note not in e.message:
+                e.message += '\n\n' + note
             raise e
 
     return decorated
@@ -316,7 +318,12 @@ class SpiceBase:
         # TODO document cache clearing (incl stable cache)
         self._cache.clear()
 
-    def standardise_body_name(self, name: str | int) -> str:
+    def standardise_body_name(
+        self,
+        name: str | int,
+        *,
+        raise_if_not_found: bool = False,
+    ) -> str:
         """
         Return a standardised version of the name of a SPICE body.
 
@@ -328,14 +335,23 @@ class SpiceBase:
         Args:
             name: The name of a body (e.g. a planet). This can also be the numeric ID
                 code of a body.
+            raise_if_not_found: If `True`, raise a `NotFoundError` if SPICE does not
+                recognise the provided `name`. If `False`, then the provided `name` is
+                returned as a string if SPICE does not recognise it.
 
         Returns:
             Standardised version of the body's name preferred by SPICE.
 
         Raises:
-            NotFoundError: If SPICE does not recognise the provided `name`
+            NotFoundError: If SPICE does not recognise the provided `name` and
+                `raise_if_not_found` is `True`.
         """
-        name = spice.bodc2s(spice.bods2c(str(name)))
+        try:
+            name = spice.bodc2s(spice.bods2c(str(name)))
+        except NotFoundError:
+            if raise_if_not_found:
+                raise
+            name = str(name)
         return name
 
     def et2dtm(self, et: float) -> datetime.datetime:
@@ -634,7 +650,7 @@ class BodyBase(SpiceBase):
         self.et = spice.utc2et(utc)
         self.dtm: datetime.datetime = self.et2dtm(self.et)
         self.utc = self.dtm.strftime(self._DEFAULT_DTM_FORMAT_STRING)
-        self.target_body_id: int = spice.bodn2c(self.target)
+        self.target_body_id: int = spice.bods2c(self.target)
 
         # Encode strings which are regularly passed to spice (for speed)
         self._target_encoded = self._encode_str(self.target)

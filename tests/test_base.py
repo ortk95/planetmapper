@@ -10,6 +10,7 @@ import common_testing
 import numpy as np
 import spiceypy as spice
 from spiceypy.utils.exceptions import (
+    NotFoundError,
     SpiceNOLEAPSECONDS,
     SpiceSPKINSUFFDATA,
     SpiceyPyError,
@@ -64,6 +65,29 @@ class TestSpiceBase(common_testing.BaseTestCase):
         self.assertEqual(self.obj.standardise_body_name('HST'), 'HST')
         self.assertEqual(
             self.obj.standardise_body_name('Hubble Space Telescope'), 'HST'
+        )
+
+        self.assertEqual(self.obj.standardise_body_name(599), 'JUPITER')
+
+        self.assertEqual(self.obj.standardise_body_name('<abc def>'), '<abc def>')
+        self.assertEqual(self.obj.standardise_body_name(1234567890), '1234567890')
+        self.assertEqual(self.obj.standardise_body_name(-1234567890), '-1234567890')
+
+        self.assertEqual(
+            self.obj.standardise_body_name('<abc def>', raise_if_not_found=False),
+            '<abc def>',
+        )
+        with self.assertRaises(NotFoundError):
+            self.obj.standardise_body_name('<abc def>', raise_if_not_found=True)
+        self.assertEqual(
+            self.obj.standardise_body_name('JUPITER', raise_if_not_found=True),
+            'JUPITER',
+        )
+        self.assertEqual(
+            self.obj.standardise_body_name('599', raise_if_not_found=True), 'JUPITER'
+        )
+        self.assertEqual(
+            self.obj.standardise_body_name(599, raise_if_not_found=True), 'JUPITER'
         )
 
     def test_et2dtm(self):

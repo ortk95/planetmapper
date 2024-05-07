@@ -39,6 +39,12 @@ class TestBody(common_testing.BaseTestCase):
             153.12614128206837,
         )
 
+        jupiter_with_frame = Body(
+            'Jupiter', utc='2005-01-01', target_frame='iau_jupiter'
+        )
+        self.assertAlmostEqual(jupiter_with_frame.subpoint_lon, 153.12547767272153)
+        self.assertEqual(jupiter_with_frame.target_frame, 'iau_jupiter')
+
         # Test Saturrn automatically has A, B & C rings added
         saturn = Body('saturn', '2000-01-01')
         self.assertEqual(saturn.target, 'SATURN')
@@ -46,6 +52,24 @@ class TestBody(common_testing.BaseTestCase):
         self.assertEqual(
             saturn.ring_radii, {74658.0, 91975.0, 117507.0, 122340.0, 136780.0}
         )
+
+    def test_kernel_errors(self):
+        try:
+            Body(
+                target='mars',
+                utc='2000-01-01',
+                observer='earth',
+                aberration_correction='CN+S',
+                observer_frame='J2000',
+            )
+        except SpiceSPKINSUFFDATA as e:
+            self.assertIn(planetmapper.base._SPICE_ERROR_HELP_TEXT, e.message)
+            self.assertIn(planetmapper.base.get_kernel_path(), e.message)
+
+            # Ensure help message isn't added twice from nested decorated functions
+            self.assertEquals(
+                e.message.count(planetmapper.base._SPICE_ERROR_HELP_TEXT), 1
+            )
 
     def test_rotation_sense(self):
         comparisons: list[tuple[str, str, bool]] = [
