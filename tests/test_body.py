@@ -1,4 +1,6 @@
+import copy
 import datetime
+import sys
 import unittest
 from typing import Callable
 from unittest.mock import MagicMock, patch
@@ -192,23 +194,85 @@ class TestBody(common_testing.BaseTestCase):
         body.coordinates_of_interest_radec.extend([(1, 2), (3, 4)])
         body.add_named_rings()
 
-        copy = body.copy()
-        self.assertEqual(body, copy)
-        self.assertIsNot(body, copy)
-        self.assertEqual(body._get_kwargs(), copy._get_kwargs())
-        self.assertEqual(body.other_bodies_of_interest, copy.other_bodies_of_interest)
-        self.assertEqual(
-            body.coordinates_of_interest_lonlat, copy.coordinates_of_interest_lonlat
-        )
-        self.assertEqual(
-            body.coordinates_of_interest_radec, copy.coordinates_of_interest_radec
-        )
-        self.assertEqual(body.ring_radii, copy.ring_radii)
+        new = body.copy()
+        self.assertEqual(body, new)
+        self.assertIsNot(body, new)
+        self.assertEqual(body._get_kwargs(), new._get_kwargs())
+        self._test_if_body_has_same_options(body, new)
 
-        body.coordinates_of_interest_lonlat.append((5, 6))
+        new.coordinates_of_interest_lonlat.append((5, 6))
         self.assertNotEqual(
-            body.coordinates_of_interest_lonlat, copy.coordinates_of_interest_lonlat
+            body.coordinates_of_interest_lonlat, new.coordinates_of_interest_lonlat
         )
+
+        with self.subTest('copy.copy'):
+            self.assertEqual(body.copy(), copy.copy(body))
+
+    def test_replace(self):
+        body = Body('Jupiter', observer='HST', utc='2005-01-01T00:00:00')
+        body.add_other_bodies_of_interest('amalthea')
+        body.coordinates_of_interest_lonlat.append((0, 0))
+        body.coordinates_of_interest_radec.extend([(1, 2), (3, 4)])
+        body.add_named_rings()
+
+        with self.subTest('no changes'):
+            new = body.replace()
+            self.assertEqual(body, new)
+            self.assertIsNot(body, new)
+            self.assertEqual(body._get_kwargs(), new._get_kwargs())
+            self._test_if_body_has_same_options(body, new)
+
+            new.coordinates_of_interest_lonlat.append((5, 6))
+            self.assertNotEqual(
+                body.coordinates_of_interest_lonlat, new.coordinates_of_interest_lonlat
+            )
+
+        with self.subTest('change utc'):
+            utc = '2005-01-01T12:34:56'
+            new = body.replace(utc=utc)
+            self.assertNotEqual(body, new)
+            self.assertEqual(new.utc, '2005-01-01T12:34:56.000000')
+            self._test_if_body_has_same_options(body, new)
+
+        with self.subTest('change multiple'):
+            utc = '2005-01-01T12:34:56'
+            observer = 'earth'
+            new = body.replace(utc=utc, observer=observer)
+            self.assertNotEqual(body, new)
+            self.assertEqual(new.utc, '2005-01-01T12:34:56.000000')
+            self.assertEqual(new.observer, 'EARTH')
+            self._test_if_body_has_same_options(body, new)
+
+        with self.subTest('round trip'):
+            new = body.replace(utc='2005-01-01T00:00:00', observer='HST')
+            self.assertEqual(body, new)
+
+            new = body.replace(observer='earth', utc='2005-01-01T12:34:56').replace(
+                utc='2005-01-01T00:00:00', observer='HST'
+            )
+            self.assertEqual(body, new)
+
+        if sys.version_info >= (3, 13):
+            with self.subTest('copy.replace'):
+                self.assertEqual(
+                    body.replace(observer='earth', utc='2005-01-01T12:34:56'),
+                    copy.replace(body, observer='earth', utc='2005-01-01T12:34:56'),
+                )
+
+    def _test_if_body_has_same_options(self, original: Body, new: Body) -> None:
+        with self.subTest(original=original, new=new):
+            self.assertEqual(
+                original.other_bodies_of_interest, new.other_bodies_of_interest
+            )
+            self.assertEqual(
+                original.coordinates_of_interest_lonlat,
+                new.coordinates_of_interest_lonlat,
+            )
+            self.assertEqual(
+                original.coordinates_of_interest_radec,
+                new.coordinates_of_interest_radec,
+            )
+            self.assertEqual(original.ring_radii, new.ring_radii)
 
     def test_create_other_body(self):
         self.assertEqual(
