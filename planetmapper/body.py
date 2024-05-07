@@ -1586,7 +1586,7 @@ class Body(BodyBase):
             1.0 - np.cos(incidence_radians) ** 2
         )
         azimuth_radians = np.pi - np.arccos(a / b)
-        return azimuth_radians
+        return azimuth_radians  # type: ignore
 
     def azimuth_angle_from_lonlat(self, lon: float, lat: float) -> float:
         """

@@ -1,5 +1,6 @@
 import os
 import unittest
+import warnings
 from typing import Callable, Sequence
 
 import matplotlib.pyplot as plt
@@ -11,6 +12,16 @@ TEMP_PATH = os.path.join(os.path.dirname(__file__), 'temp')
 
 
 class BaseTestCase(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        super().setUpClass()
+        warnings.filterwarnings('error')
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        super().tearDownClass()
+        warnings.resetwarnings()
+
     def assertArraysEqual(
         self,
         a: Sequence | np.ndarray,
