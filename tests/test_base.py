@@ -2,6 +2,7 @@ import datetime
 import glob
 import os
 import unittest
+from pathlib import Path
 from typing import Any, Callable, ParamSpec
 from unittest.mock import MagicMock, Mock, patch
 
@@ -435,6 +436,12 @@ class TestKernelPath(common_testing.BaseTestCase):
         planetmapper.set_kernel_path(path)
         self.assertEqual(planetmapper.get_kernel_path(), path)
 
+        path = Path(
+            common_testing.TEMP_PATH, 'test_kernel_path', 'set_kernel_path_pathlike'
+        )
+        planetmapper.set_kernel_path(path)
+        self.assertEqual(planetmapper.get_kernel_path(), os.fspath(path))
+
         self.assertEqual(planetmapper.base.load_kernels(), [])
         self.assertEqual(planetmapper.base.load_kernels(clear_before=True), [])
 
@@ -766,6 +773,7 @@ class TestFunctions(common_testing.BaseTestCase):
     def test_sort_kernel_paths(self):
         input = [
             '000.txt',
+            '000.txt',  # check duplicates are kept
             'zzz.txt',
             'a/b/c.txt',
             'a/b/file1.txt',
@@ -787,6 +795,7 @@ class TestFunctions(common_testing.BaseTestCase):
             'x/z/file1.txt',
             'a/kernel.txt',
             'x/000.txt',
+            '000.txt',
             '000.txt',
             'zzz.txt',
         ]
