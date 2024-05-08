@@ -413,6 +413,16 @@ class TestBody(common_testing.BaseTestCase):
         jupiter.other_bodies_of_interest.clear()
         self.assertEqual(jupiter.other_bodies_of_interest, [])
 
+        # This checks the `except NotFoundError` branch works properly
+        earth = planetmapper.Body('earth', utc, observer='HST')
+        earth.add_satellites_to_bodies_of_interest()
+        self.assertEqual(
+            earth.other_bodies_of_interest,
+            [
+                Body('MOON', utc, observer='HST'),
+            ],
+        )
+
     def test_standardise_ring_name(self):
         pairs = [
             ('a', 'a'),
