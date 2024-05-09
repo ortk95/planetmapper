@@ -392,10 +392,6 @@ class Body(BodyBase):
         else:
             self.positive_longitude_direction = 'E'
 
-        self.target_diameter_arcsec = (
-            2.0 * 60.0 * 60.0 * np.rad2deg(np.arcsin(self.r_eq / self.target_distance))
-        )
-
         # Find sub observer point
         self._subpoint_targvec, self._subpoint_et, self._subpoint_rayvec = spice.subpnt(
             self._subpoint_method_encoded,  # type: ignore
@@ -431,6 +427,14 @@ class Body(BodyBase):
             # If the target is the sun, then there is no sub-solar point
             self.subsol_lon = np.nan
             self.subsol_lat = np.nan
+
+        # Get target diameter
+        # Do this after finding the subpoint so that a SpiceBODIESNOTDISTINCT error
+        # will have already been raised if the target == the observer (which would mean
+        # target_distance=0, causing a numpy warning).
+        self.target_diameter_arcsec = (
+            2.0 * 60.0 * 60.0 * np.rad2deg(np.arcsin(self.r_eq / self.target_distance))
+        )
 
         # Set up equatorial plane (for ring calculations)
         targvec_north_pole = self.lonlat2targvec(0, 90)
