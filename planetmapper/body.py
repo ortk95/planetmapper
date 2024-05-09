@@ -392,10 +392,6 @@ class Body(BodyBase):
         else:
             self.positive_longitude_direction = 'E'
 
-        self.target_diameter_arcsec = (
-            2.0 * 60.0 * 60.0 * np.rad2deg(np.arcsin(self.r_eq / self.target_distance))
-        )
-
         # Find sub observer point
         self._subpoint_targvec, self._subpoint_et, self._subpoint_rayvec = spice.subpnt(
             self._subpoint_method_encoded,  # type: ignore
@@ -431,6 +427,14 @@ class Body(BodyBase):
             # If the target is the sun, then there is no sub-solar point
             self.subsol_lon = np.nan
             self.subsol_lat = np.nan
+
+        # Get target diameter
+        # Do this after finding the subpoint so that a SpiceBODIESNOTDISTINCT error
+        # will have already been raised if the target == the observer (which would mean
+        # target_distance=0, causing a numpy warning).
+        self.target_diameter_arcsec = (
+            2.0 * 60.0 * 60.0 * np.rad2deg(np.arcsin(self.r_eq / self.target_distance))
+        )
 
         # Set up equatorial plane (for ring calculations)
         targvec_north_pole = self.lonlat2targvec(0, 90)
@@ -596,18 +600,24 @@ class Body(BodyBase):
     ) -> 'list[Body | BasicBody]':
         out: 'list[Body | BasicBody]' = []
         id_base = (self.target_body_id // 100) * 100
-        for other_target in range(id_base + 1, id_base + 99):
+        for other_target_id in range(id_base + 1, id_base + 99):
             try:
-                body = self.create_other_body(other_target)
+                body = self.create_other_body(other_target_id)
                 if only_visible and not self.test_if_other_body_visible(body):
                     continue
                 out.append(body)
             except SpiceSPKINSUFFDATA:
                 if skip_insufficient_data:
                     continue
+                try:
+                    spice.bodc2n(other_target_id)
+                except NotFoundError:
+                    # If there is no name defined, then we can skip this ID code as it
+                    # is likely to be for a target that doesn't exist. We only need to
+                    # raise an exception for targets which do exist, but have
+                    # insufficient data.
+                    continue
                 raise
-            except NotFoundError:
-                continue
         return out
 
     def add_satellites_to_bodies_of_interest(
@@ -618,14 +628,16 @@ class Body(BodyBase):
         :attr:`other_bodies_of_interest`.
 
         This uses the NAIF ID codes to identify the satellites. For example, Uranus has
-        an ID of 799, and its satellites have codes 701, 702, 703..., so any object with
-        a code in the range 701 to 798 is added for Uranus.
+        an ID of 799, and its satellites have codes 701, 702, 703..., so any valid
+        object with a code in the range 701 to 798 is added for Uranus.
 
         See also :func:`add_other_bodies_of_interest`.
 
         Args:
             skip_insufficient_data: If True, satellites with insufficient data in the
-                SPICE kernel will be skipped. If False, an exception will be raised.
+                SPICE kernel will be skipped. If False, an exception will be raised if
+                a satellite (a) has a valid ID code (i.e. `spice.bodc2s` works for the
+                satellite) and (b) it has insufficient data.
             only_visible: If `True`, satellites which are hidden behind the target body
                 will not be added.
         """

@@ -11,6 +11,7 @@ import numpy as np
 from numpy import array, nan
 from spiceypy.utils.exceptions import (
     NotFoundError,
+    SpiceBODIESNOTDISTINCT,
     SpiceKERNELVARNOTFOUND,
     SpiceSPKINSUFFDATA,
 )
@@ -52,6 +53,11 @@ class TestBody(common_testing.BaseTestCase):
         self.assertEqual(
             saturn.ring_radii, {74658.0, 91975.0, 117507.0, 122340.0, 136780.0}
         )
+
+        # Test SpiceBODIESNOTDISTINCT is raised appropriately, without any divide by
+        # zero errors occuring first
+        with self.assertRaises(SpiceBODIESNOTDISTINCT):
+            planetmapper.Body('earth', observer='earth', utc='2005-01-01')
 
     def test_kernel_errors(self):
         try:
@@ -412,6 +418,16 @@ class TestBody(common_testing.BaseTestCase):
         )
         jupiter.other_bodies_of_interest.clear()
         self.assertEqual(jupiter.other_bodies_of_interest, [])
+
+        # This checks the `except NotFoundError` branch works properly
+        earth = planetmapper.Body('earth', utc, observer='HST')
+        earth.add_satellites_to_bodies_of_interest()
+        self.assertEqual(
+            earth.other_bodies_of_interest,
+            [
+                Body('MOON', utc, observer='HST'),
+            ],
+        )
 
     def test_standardise_ring_name(self):
         pairs = [
