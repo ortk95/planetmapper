@@ -536,6 +536,8 @@ class BodyXY(Body):
         The default values of all the arguments are zero, so any unspecified values
         (e.g. `dx` and `dr` in the example above) are unchanged.
 
+        See also :func:`add_arcsec_offset`.
+
         Args:
             dx: Adjustment to `x0`.
             dy: Adjustment to `y0`.
@@ -756,6 +758,8 @@ class BodyXY(Body):
         """
         Adjust the disc location `(x0, y0)` by applying offsets in arcseconds to the
         RA/Dec celestial coordinates.
+
+        See also :func:`adjust_disc_params`.
 
         Args:
             dra_arcsec: Offset in arcseconds in the positive right ascension direction.
