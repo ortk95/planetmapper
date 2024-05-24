@@ -2155,7 +2155,6 @@ class BodyXY(Body):
             raise ValueError('x and y coords must have the same shape')
 
         transformer = self._get_pyproj_transformer(projection)
-        # pylint: disable-next=unpacking-non-sequence
         lons, lats = transformer.transform(xx, yy, direction='INVERSE')
         return lons, lats, xx, yy, transformer
 
