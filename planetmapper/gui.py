@@ -3032,7 +3032,7 @@ class PlotImageSetting(ArtistSetting):
         if image_mode in {'single', 'sum'}:
             try:
                 cmap = self.cmap.get()
-                matplotlib.cm.get_cmap(cmap)
+                plt.get_cmap(cmap)  #  type: ignore
             except ValueError:
                 tkinter.messagebox.showwarning(
                     title='Error parsing colormap',
