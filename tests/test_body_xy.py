@@ -152,11 +152,11 @@ class TestBodyXY(common_testing.BaseTestCase):
     def test_repr(self):
         self.assertEqual(
             repr(self.body),
-            "BodyXY('JUPITER', '2005-01-01T00:00:00.000000', 15, 10, observer='HST')",
+            "BodyXY('JUPITER', '2005-01-01T00:00:00.000000', observer='HST', nx=15, ny=10)",
         )
         self.assertEqual(
             repr(self.body_zero_size),
-            "BodyXY('JUPITER', '2005-01-01T00:00:00.000000', 0, 0, observer='HST')",
+            "BodyXY('JUPITER', '2005-01-01T00:00:00.000000', observer='HST', nx=0, ny=0)",
         )
 
     def test_eq(self):
@@ -192,7 +192,12 @@ class TestBodyXY(common_testing.BaseTestCase):
             self.body._get_kwargs(),
             {
                 'optimize_speed': True,
+                'show_progress': False,
+                'auto_load_kernels': True,
+                'kernel_path': None,
+                'manual_kernels': None,
                 'target': 'JUPITER',
+                'target_frame': None,
                 'utc': '2005-01-01T00:00:00.000000',
                 'observer': 'HST',
                 'aberration_correction': 'CN',

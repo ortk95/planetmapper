@@ -307,7 +307,10 @@ class TestObservation(common_testing.BaseTestCase):
         self.assertEqual(self.observation._ny, 10)
 
     def test_repr(self):
-        self.assertEqual(repr(self.observation), f'Observation({self.path!r})')
+        self.assertEqual(
+            repr(self.observation),
+            f"Observation({self.path!r}, target='JUPITER', utc='2005-01-01T00:00:00.000000', observer='HST')",
+        )
 
     def test_to_body_xy(self):
         observation = Observation(

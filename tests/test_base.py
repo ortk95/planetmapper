@@ -55,7 +55,16 @@ class TestSpiceBase(common_testing.BaseTestCase):
         # Hashes for unequal object can be the same, so don't do assertNotEqual here
 
     def test_get_kwargs(self):
-        self.assertEqual(self.obj._get_kwargs(), {'optimize_speed': True})
+        self.assertEqual(
+            self.obj._get_kwargs(),
+            {
+                'optimize_speed': True,
+                'kernel_path': None,
+                'auto_load_kernels': True,
+                'manual_kernels': None,
+                'show_progress': False,
+            },
+        )
 
     def test_standardise_body_name(self):
         self.assertEqual(self.obj.standardise_body_name('JUPITER'), 'JUPITER')

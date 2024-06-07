@@ -309,7 +309,7 @@ class SpiceBase:
         Get kwargs used to __init__ a new object of this class.
 
         This is used by `copy` to copy the options of this object to a new object in
-        conjunction with `_copy_options_to_other`.
+        conjunction with `_copy_options_to_other`. This is also used in `__repr__`.
 
         Subclasses should override this to include any additional information needed to
         build a new object e.g.

@@ -206,7 +206,12 @@ class TestBody(common_testing.BaseTestCase):
             self.body._get_kwargs(),
             {
                 'optimize_speed': True,
+                'show_progress': False,
+                'auto_load_kernels': True,
+                'kernel_path': None,
+                'manual_kernels': None,
                 'target': 'JUPITER',
+                'target_frame': None,
                 'utc': '2005-01-01T00:00:00.000000',
                 'observer': 'HST',
                 'aberration_correction': 'CN',
