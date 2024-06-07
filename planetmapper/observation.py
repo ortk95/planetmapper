@@ -157,9 +157,31 @@ class Observation(BodyXY):
             except ValueError:
                 self.centre_disc()
 
+        # Ensure values used for repr are standardised versions
+        if self._data_arg is not None:
+            self._data_arg = self.data
+        if self._header_arg is not None:
+            self._header_arg = self.header
+
     def __repr__(self) -> str:
-        # XXX use str as formatter for data
         return self._generate_repr('path')
+
+    def __str__(self) -> str:
+        return self._generate_repr(
+            'path',
+            formatters={
+                'data': self._str_array_formatter,
+                'header': self._str_header_formatter,
+            },
+        )
+
+    @staticmethod
+    def _str_array_formatter(array: np.ndarray):
+        return f'<{"x".join(map(str, array.shape))} array>'
+
+    @staticmethod
+    def _str_header_formatter(header: np.ndarray):
+        return f'<{len(header)} card Header>'
 
     def to_body_xy(self) -> BodyXY:
         """
@@ -205,6 +227,7 @@ class Observation(BodyXY):
             path=None,
             data=None,
             header=None,
+            target=None,  # used to position target entry in repr
             **super_defaults,
         )
 

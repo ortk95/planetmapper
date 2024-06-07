@@ -273,7 +273,7 @@ class SpiceBase:
             {
                 k: kwargs[k]
                 for k, d in defaults.items()
-                if (k not in skip_keys and kwargs[k] != d)
+                if (k not in skip_keys and not np.array_equal(kwargs[k], d))
             }
         )
         arguments: list[str] = [formatters.get(k, repr)(kwargs[k]) for k in arg_keys]
