@@ -4,7 +4,7 @@ import glob
 import math
 import numbers
 import os
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from pathlib import Path
 from typing import (
     Any,
@@ -199,7 +199,11 @@ class SpiceBase:
         manual_kernels: None | list[str] = None,
     ) -> None:
         super().__init__()
+        self._show_progress = show_progress
         self._optimize_speed = optimize_speed
+        self._auto_load_kernels = auto_load_kernels
+        self._kernel_path = kernel_path
+        self._manual_kernels = manual_kernels
 
         self._cache = {}
         self._stable_cache = {}
@@ -216,7 +220,67 @@ class SpiceBase:
             )
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}()'
+        return self._generate_repr()
+
+    def _generate_repr(
+        self,
+        *arg_keys: str,
+        kwarg_keys: Sequence[str] = (),
+        skip_keys: Collection[str] = (),
+        formatters: dict[str, Callable[[Any], str]] | None = None,
+    ) -> str:
+        """
+        Automatically generate a repr for the object.
+
+        This uses argument information from _get_kwargs and _get_default_init_kwargs to
+        generate a repr string that only includes arguments that have been changed from
+        their default values. Arguments displayed first, without their keywords, can be
+        specified with arg_keys, and kwargs to always include can be specified with
+        kwarg_keys.
+
+        The ordering of the arguments is arg_keys, then kwarg_keys,  then any other
+        kwargs that aren't included in the defaults,then the order defined in
+        _get_default_init_kwargs. By default, values are formatted with repr, but this
+        can be overridden with the formatters dictionary.
+
+        Args:
+            arg_keys: Arguments to include in the repr without their keywords.
+            kwarg_keys: Keyword arguments to always include in the repr.
+            skip_keys: Arguments to always exclude from the repr.
+            formatters: Dictionary mapping argument names to functions that format the
+                argument value for the repr. By default, repr is used.
+
+        Returns:
+            Repr string for the object.
+        """
+        if formatters is None:
+            formatters = {}
+        kwargs = self._get_kwargs()
+        defaults = self._get_default_init_kwargs()
+
+        # skip maybe-default keys explicitly excluded or already included elsewhere
+        skip_keys = set(skip_keys) | set(kwarg_keys) | set(arg_keys)
+
+        kw_to_include = {k: kwargs[k] for k in kwarg_keys}  # explicitly included keys
+        kw_to_include.update(  # keys not included in the defaults
+            {
+                k: v
+                for k, v in kwargs.items()
+                if (k not in skip_keys and k not in defaults)
+            }
+        )
+        kw_to_include.update(  # other keys that don't have their default values
+            {
+                k: kwargs[k]
+                for k, d in defaults.items()
+                if (k not in skip_keys and kwargs[k] != d)
+            }
+        )
+        arguments: list[str] = [formatters.get(k, repr)(kwargs[k]) for k in arg_keys]
+        arguments.extend(
+            f'{k}={formatters.get(k, repr)(v)}' for k, v in kw_to_include.items()
+        )
+        return f'{self.__class__.__name__}({", ".join(arguments)})'
 
     def __eq__(self, other) -> bool:
         return (
@@ -238,7 +302,27 @@ class SpiceBase:
 
         Used by __eq__ and __hash__.
         """
-        return (self._optimize_speed, repr(self))
+        return (self._optimize_speed,)
+
+    def _get_default_init_kwargs(self) -> dict[str, Any]:
+        """
+        Get default values for keyword arguments used to __init__ a new object of this
+        class.
+
+        The order of the keys in the returned dictionary determines the order in which
+        the arguments are displayed in the repr string.
+
+        Subclasses should override this to include any additional kwargs e.g.
+
+                return dict(a=0, b=1, **super()._get_default_init_kwargs())
+        """
+        return dict(
+            show_progress=False,
+            optimize_speed=True,
+            auto_load_kernels=True,
+            kernel_path=None,
+            manual_kernels=None,
+        )
 
     def _get_kwargs(self) -> dict[str, Any]:
         """
@@ -252,7 +336,13 @@ class SpiceBase:
 
             return super()._get_kwargs() | dict(a=self.a, b=self.b)
         """
-        return dict(optimize_speed=self._optimize_speed)
+        return dict(
+            show_progress=self._show_progress,
+            optimize_speed=self._optimize_speed,
+            auto_load_kernels=self._auto_load_kernels,
+            kernel_path=self._kernel_path,
+            manual_kernels=self._manual_kernels,
+        )
 
     def _copy_options_to_other(self, other: Self) -> None:
         """
