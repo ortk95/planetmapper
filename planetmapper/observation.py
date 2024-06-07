@@ -158,7 +158,7 @@ class Observation(BodyXY):
                 self.centre_disc()
 
     def __repr__(self) -> str:
-        return f'Observation({self.path!r})'
+        return self._generate_repr('path')
 
     def to_body_xy(self) -> BodyXY:
         """
@@ -195,6 +195,17 @@ class Observation(BodyXY):
         kw.pop('nx')
         kw.pop('ny')
         return kw
+
+    def _get_default_init_kwargs(self) -> dict[str, Any]:
+        super_defaults = super()._get_default_init_kwargs()
+        super_defaults.pop('nx')
+        super_defaults.pop('ny')
+        return dict(
+            path=None,
+            data=None,
+            header=None,
+            **super_defaults,
+        )
 
     def _load_data_from_path(self):
         assert self.path is not None

@@ -304,26 +304,6 @@ class SpiceBase:
         """
         return (self._optimize_speed,)
 
-    def _get_default_init_kwargs(self) -> dict[str, Any]:
-        """
-        Get default values for keyword arguments used to __init__ a new object of this
-        class.
-
-        The order of the keys in the returned dictionary determines the order in which
-        the arguments are displayed in the repr string.
-
-        Subclasses should override this to include any additional kwargs e.g.
-
-                return dict(a=0, b=1, **super()._get_default_init_kwargs())
-        """
-        return dict(
-            show_progress=False,
-            optimize_speed=True,
-            auto_load_kernels=True,
-            kernel_path=None,
-            manual_kernels=None,
-        )
-
     def _get_kwargs(self) -> dict[str, Any]:
         """
         Get kwargs used to __init__ a new object of this class.
@@ -342,6 +322,26 @@ class SpiceBase:
             auto_load_kernels=self._auto_load_kernels,
             kernel_path=self._kernel_path,
             manual_kernels=self._manual_kernels,
+        )
+
+    def _get_default_init_kwargs(self) -> dict[str, Any]:
+        """
+        Get default values for keyword arguments used to __init__ a new object of this
+        class.
+
+        The order of the keys in the returned dictionary determines the order in which
+        the arguments are displayed in the repr string.
+
+        Subclasses should override this to include any additional kwargs e.g.
+
+                return dict(a=0, b=1, **super()._get_default_init_kwargs())
+        """
+        return dict(
+            show_progress=False,
+            optimize_speed=True,
+            auto_load_kernels=True,
+            kernel_path=None,
+            manual_kernels=None,
         )
 
     def _copy_options_to_other(self, other: Self) -> None:
@@ -764,7 +764,7 @@ class BodyBase(SpiceBase):
         self.target_ra, self.target_dec = self._obsvec2radec(self._target_obsvec)
 
     def __repr__(self) -> str:
-        return f'BodyBase({self.target!r}, {self.utc!r})'
+        return self._generate_repr('target', 'utc')
 
     def _get_equality_tuple(self) -> tuple:
         return (
@@ -783,6 +783,11 @@ class BodyBase(SpiceBase):
             observer=self.observer,
             aberration_correction=self.aberration_correction,
             observer_frame=self.observer_frame,
+        )
+
+    def _get_default_init_kwargs(self) -> dict[str, Any]:
+        return dict(
+            **super()._get_default_init_kwargs(),
         )
 
     def _obsvec2radec_radians(self, obsvec: np.ndarray) -> tuple[float, float]:

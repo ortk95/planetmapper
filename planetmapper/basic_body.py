@@ -1,4 +1,5 @@
 import datetime
+from typing import Any
 
 from .base import BodyBase, _add_help_note_to_spice_errors
 
@@ -81,7 +82,15 @@ class BasicBody(BodyBase):
         """Declination (Dec) of the target centre."""
 
     def __repr__(self) -> str:
-        return f'BasicBody({self.target!r}, {self.utc!r})'
+        return self._generate_repr('target', 'utc', kwarg_keys=['observer'])
 
     def _get_equality_tuple(self) -> tuple:
         return (super()._get_equality_tuple(),)
+
+    def _get_default_init_kwargs(self) -> dict[str, Any]:
+        return dict(
+            observer='EARTH',
+            aberration_correction='CN',
+            observer_frame='J2000',
+            **super()._get_default_init_kwargs(),
+        )
