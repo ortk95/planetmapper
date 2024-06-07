@@ -819,6 +819,18 @@ class BodyXY(Body):
         """
         return self._get_img_limits(self.xy2km)
 
+    def get_img_limits_angular(self) -> tuple[tuple[float, float], tuple[float, float]]:
+        """
+        Get the limits of the image coordinates in the relative angular coordinate
+        system. See :func:`get_img_limits_radec`
+
+        Returns:
+            `(angular_x_min, angular_x_max), (angular_y_min, angular_y_max)` tuple
+            containing the minimum and maximum relative angular coordinates of the
+            pixels in the image.
+        """
+        return self._get_img_limits(self.xy2angular)
+
     def get_img_limits_xy(self) -> tuple[tuple[float, float], tuple[float, float]]:
         """
         Get the limits of the image coordinates. See :func:`get_img_limits_radec` for

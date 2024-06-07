@@ -711,6 +711,12 @@ class Body(BodyBase):
     # transformations to/from obsvec. Then any new coordinate system can be added by
     # simply creating a pair of private transformations to/from obsvec, and then adding
     # the relevant public methods.
+    # Methods to add for a new coordinate system:
+    # - all coordinate transforms (xxx2lonlat, lonlat2xxx, xxx2radec...)
+    # - matplotlib transforms (matplotlib_xxx2radec_transform &
+    #     matplotlib_radec2xxx_transform)
+    # - wireframe plotting method
+    # - get_img_limits_xxx method
     # See also BodyBase and BodyXY for some transformations.
 
     # Coordinate transformations target -> observer direction

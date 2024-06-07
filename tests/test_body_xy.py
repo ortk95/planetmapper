@@ -488,7 +488,13 @@ class TestBodyXY(common_testing.BaseTestCase):
         )
 
     def test_img_limits(self):
-        self.assertEqual(self.body.get_img_limits_xy(), ((-0.5, 14.5), (-0.5, 9.5)))
+        self.assertEqual(
+            self.body.get_img_limits_xy(),
+            (
+                (-0.5, 14.5),
+                (-0.5, 9.5),
+            ),
+        )
         self.assertArraysClose(
             self.body.get_img_limits_radec(),
             (
@@ -501,6 +507,13 @@ class TestBodyXY(common_testing.BaseTestCase):
             (
                 (-151724.69753899056, 130727.50016257458),
                 (-125236.31445765976, 117241.42226096484),
+            ),
+        )
+        self.assertArraysClose(
+            self.body.get_img_limits_angular(),
+            (
+                (-31.984379466325663, 27.98633203326517),
+                (-21.98926088314898, 17.99121344984992),
             ),
         )
 
