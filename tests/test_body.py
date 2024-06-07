@@ -151,6 +151,20 @@ class TestBody(common_testing.BaseTestCase):
             repr(self.body),
             "Body('JUPITER', '2005-01-01T00:00:00.000000', observer='HST')",
         )
+        self.assertEqual(
+            repr(
+                Body(
+                    'Jupiter',
+                    observer='HST',
+                    utc='2005-01-01T00:00:00',
+                    show_progress=True,
+                    aberration_correction='CN+S',
+                    optimize_speed=False,
+                    auto_load_kernels=True,
+                )
+            ),
+            "Body('JUPITER', '2005-01-01T00:00:00.000000', observer='HST', aberration_correction='CN+S', show_progress=True, optimize_speed=False)",
+        )
 
     def test_eq(self):
         self.assertEqual(self.body, self.body)

@@ -45,6 +45,69 @@ class TestSpiceBase(common_testing.BaseTestCase):
 
     def test_repr(self):
         self.assertEqual(str(self.obj), 'SpiceBase()')
+        self.assertEqual(repr(self.obj), 'SpiceBase()')
+
+        self.assertEqual(
+            str(planetmapper.SpiceBase(show_progress=False)), 'SpiceBase()'
+        )
+        self.assertEqual(
+            str(planetmapper.SpiceBase(show_progress=True)),
+            'SpiceBase(show_progress=True)',
+        )
+        self.assertEqual(
+            str(
+                planetmapper.SpiceBase(
+                    True,
+                    auto_load_kernels=False,
+                    optimize_speed=False,
+                    manual_kernels=['a', 'b', 'c'],
+                )
+            ),
+            "SpiceBase(show_progress=True, optimize_speed=False, auto_load_kernels=False, manual_kernels=['a', 'b', 'c'])",
+        )
+
+    def test_generate_repr(self):
+        obj = planetmapper.SpiceBase(
+            True,
+            auto_load_kernels=False,
+            optimize_speed=False,
+            manual_kernels=['a', 'b', 'c'],
+        )
+        self.assertEqual(
+            obj._generate_repr(),
+            "SpiceBase(show_progress=True, optimize_speed=False, auto_load_kernels=False, manual_kernels=['a', 'b', 'c'])",
+        )
+        self.assertEqual(
+            obj._generate_repr('optimize_speed'),
+            "SpiceBase(False, show_progress=True, auto_load_kernels=False, manual_kernels=['a', 'b', 'c'])",
+        )
+        self.assertEqual(
+            obj._generate_repr('manual_kernels', 'optimize_speed'),
+            "SpiceBase(['a', 'b', 'c'], False, show_progress=True, auto_load_kernels=False)",
+        )
+        self.assertEqual(
+            obj._generate_repr('kernel_path'),
+            "SpiceBase(None, show_progress=True, optimize_speed=False, auto_load_kernels=False, manual_kernels=['a', 'b', 'c'])",
+        )
+        self.assertEqual(
+            obj._generate_repr(kwarg_keys=['kernel_path', 'auto_load_kernels']),
+            "SpiceBase(kernel_path=None, auto_load_kernels=False, show_progress=True, optimize_speed=False, manual_kernels=['a', 'b', 'c'])",
+        )
+        self.assertEqual(
+            obj._generate_repr(
+                skip_keys=['kernel_path', 'auto_load_kernels', 'manual_kernels']
+            ),
+            'SpiceBase(show_progress=True, optimize_speed=False)',
+        )
+        self.assertEqual(
+            obj._generate_repr(
+                formatters={
+                    'show_progress': lambda x: f'>>{x}<<',
+                    'manual_kernels': lambda x: '&'.join(x),
+                }
+            ),
+            'SpiceBase(show_progress=>>True<<, optimize_speed=False, auto_load_kernels=False, manual_kernels=a&b&c)',
+        )
 
     def test_eq(self):
         self.assertEqual(self.obj, planetmapper.SpiceBase())

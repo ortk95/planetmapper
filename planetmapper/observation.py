@@ -158,6 +158,7 @@ class Observation(BodyXY):
                 self.centre_disc()
 
     def __repr__(self) -> str:
+        # XXX use str as formatter for data
         return self._generate_repr('path')
 
     def to_body_xy(self) -> BodyXY:
