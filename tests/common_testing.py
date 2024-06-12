@@ -48,8 +48,14 @@ class BaseTestCase(unittest.TestCase):
     ) -> None:
         if not np.allclose(a, b, rtol=rtol, atol=atol, equal_nan=equal_nan):
             diff = np.abs(np.array(a) - np.array(b))
-            aerr = np.nanmax(diff)
-            max_b = np.nanmax(np.abs(b))
+            if np.all(np.isnan(diff)):
+                aerr = np.nan
+            else:
+                aerr = np.nanmax(diff)
+            if np.all(np.isnan(b)):
+                max_b = np.nan
+            else:
+                max_b = np.nanmax(np.abs(b))
             if max_b == 0:
                 relerr = np.inf
             else:

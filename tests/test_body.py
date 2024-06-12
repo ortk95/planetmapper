@@ -1222,32 +1222,35 @@ class TestBody(common_testing.BaseTestCase):
         )
 
     def test_ring_radec(self):
-        self.assertTrue(
-            np.allclose(
-                self.body.ring_radec(10000, npts=5),
-                (
-                    array([nan, 196.37142013, 196.37228744, nan, nan]),
-                    array([nan, -5.5655251, -5.56589635, nan, nan]),
-                ),
-                equal_nan=True,
-            )
+        # inside jupiter
+        self.assertArraysClose(
+            self.body.ring_radec(10000, npts=5),
+            (
+                array([nan, nan, nan, nan, nan]),
+                array([nan, nan, nan, nan, nan]),
+            ),
+            equal_nan=True,
         )
-        self.assertTrue(
-            np.allclose(
-                self.body.ring_radec(123456.789, npts=3, only_visible=False),
-                (
-                    array([196.36825958, 196.37571178, 196.36825958]),
-                    array([-5.56452821, -5.56705935, -5.56452821]),
-                ),
-                equal_nan=True,
-            )
+        self.assertArraysClose(
+            self.body.ring_radec(100000, npts=5),
+            (
+                array([nan, 196.36633034, 196.37500382, 196.37764017, nan]),
+                array([nan, -5.56310623, -5.56681892, -5.56848105, nan]),
+            ),
+            equal_nan=True,
         )
-        self.assertTrue(
-            np.allclose(
-                self.body.ring_radec(np.nan, npts=2, only_visible=False),
-                (array([nan, nan]), array([nan, nan])),
-                equal_nan=True,
-            )
+        self.assertArraysClose(
+            self.body.ring_radec(123456.789, npts=3, only_visible=False),
+            (
+                array([196.36825958, 196.37571178, 196.36825958]),
+                array([-5.56452821, -5.56705935, -5.56452821]),
+            ),
+            equal_nan=True,
+        )
+        self.assertArraysClose(
+            self.body.ring_radec(np.nan, npts=2, only_visible=False),
+            (array([nan, nan]), array([nan, nan])),
+            equal_nan=True,
         )
 
     def test_visible_lonlat_grid_radec(self):
