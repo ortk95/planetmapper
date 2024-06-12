@@ -360,6 +360,22 @@ class TestBodyXY(common_testing.BaseTestCase):
                 self.assertTrue(not all(np.isfinite(self.body.lonlat2xy(*a))))
                 self.assertTrue(not all(np.isfinite(self.body.km2xy(*a))))
 
+        pairs_with_alts: list[
+            tuple[tuple[float, float, float], tuple[float, float]]
+        ] = [
+            ((42, 23.4, 0), (10.434159101371755, 7.966287562069517)),
+            ((42, 23.4, -123.456), (10.429301150640963, 7.960863231203309)),
+            ((42, 23.4, 1234.567), (10.482738862501428, 8.020531150650195)),
+            ((42, 23.4, nan), (nan, nan)),
+        ]
+        for (lon, lat, alt), expected in pairs_with_alts:
+            with self.subTest((lon, lat, alt)):
+                self.assertArraysClose(
+                    self.body.lonlat2xy(lon, lat, alt=alt),
+                    expected,
+                    equal_nan=True,
+                )
+
     def test_set_disc_params(self):
         x0, y0, r0, rotation = [1.1, 2.2, 3.3, 4.4]
         self.body.set_disc_params(x0, y0, r0, rotation)

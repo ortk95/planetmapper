@@ -1496,22 +1496,62 @@ class Body(BodyBase):
         return lon, lat, dist
 
     # Visibility
-    def _test_if_targvec_visible(self, targvec: np.ndarray) -> bool:
-        phase, incdnc, emissn, visibl, lit = self._illumf_from_targvec_radians(targvec)
-        return visibl
+    def _test_if_targvec_visible(
+        self, targvec: np.ndarray, *, on_surface: bool
+    ) -> bool:
+        if not (
+            math.isfinite(targvec[0])
+            and math.isfinite(targvec[1])
+            and math.isfinite(targvec[2])
+        ):
+            # Ensure a consistent result is returned for invalid points (and also short
+            # curcuit to avoid possibly expensive unnecessary calculations).
+            return False
+        if on_surface:
+            # If POI is on the surface, then use the flag from illumf for speed and to
+            # avoid any floating point errors in the more complex intercept calculation.
+            phase, incdnc, emissn, visibl, lit = self._illumf_from_targvec_radians(
+                targvec
+            )
+            return visibl
+        try:
+            # Search for an intercept between the ray and the target's surface.
+            intercept_targvec, *_ = spice.sincpt(
+                self._surface_method_encoded,
+                self._target_encoded,
+                self.et,
+                self._target_frame_encoded,
+                self._aberration_correction_encoded,
+                self._observer_encoded,
+                self._observer_frame_encoded,
+                self._targvec2obsvec(targvec),
+            )
+            # If we reach this point, then an interept has been found, so we need to
+            # test if the POI is infront or behind the target body.
+            _, _, lt_intercept = self._state_from_targvec(intercept_targvec)
+            _, _, lt_poi = self._state_from_targvec(targvec)
+            return lt_poi < lt_intercept
+        except NotFoundError:
+            # No intercept found with the target's surface, so obsvec is visible.
+            return True
 
-    def test_if_lonlat_visible(self, lon: float, lat: float) -> bool:
+    def test_if_lonlat_visible(
+        self, lon: float, lat: float, *, alt: float = 0.0
+    ) -> bool:
         """
-        Test if longitude/latitude coordinate on the target body are visible.
+        Test if longitude/latitude coordinate on (or above) the target body is visible.
 
         Args:
             lon: Longitude of point on target body.
             lat: Latitude of point on target body.
+            alt: Altitude of point above the surface of the target body in km.
 
         Returns:
             True if the point is visible from the observer, otherwise False.
         """
-        return self._test_if_targvec_visible(self.lonlat2targvec(lon, lat))
+        return self._test_if_targvec_visible(
+            self.lonlat2targvec(lon, lat, alt=alt), on_surface=alt == 0
+        )
 
     def other_body_los_intercept(
         self, other: 'str | int | Body | BasicBody'
@@ -1773,7 +1813,11 @@ class Body(BodyBase):
             targvec_arr = self.close_loop(targvec_arr)
         ra, dec = self._targvec_arr2radec_arrs(
             targvec_arr,
-            condition_func=self._test_if_targvec_visible if only_visible else None,
+            condition_func=(
+                (lambda t: self._test_if_targvec_visible(t, on_surface=True))
+                if only_visible
+                else None
+            ),
         )
         return ra, dec
 
@@ -1783,7 +1827,8 @@ class Body(BodyBase):
 
     def test_if_lonlat_illuminated(self, lon: float, lat: float) -> bool:
         """
-        Test if longitude/latitude coordinate on the target body are illuminated.
+        Test if longitude/latitude coordinate on the surface of the target body is
+        illuminated.
 
         Args:
             lon: Longitude of point on target body.
@@ -1900,43 +1945,16 @@ class Body(BodyBase):
         """
         lons = np.deg2rad(np.linspace(0, 360, npts))
         alt = radius - self.r_eq
-        targvecs = [self._lonlat2targvec_radians(lon, 0, alt) for lon in lons]
-        obsvecs = [self._targvec2obsvec(targvec) for targvec in targvecs]
-
+        targvecs = [self._lonlat2targvec_radians(lon, 0, alt=alt) for lon in lons]
         ra_arr = np.full(npts, np.nan)
         dec_arr = np.full(npts, np.nan)
-        for idx, obsvec in enumerate(obsvecs):
-            if only_visible:
-                # Test the obsvec ray from the observer to this point on the ring to see
-                # if it has a surface intercept with the target body. If there is no
-                # intercept (NotFoundError), then this ring point is definitely visible.
-                # If there is surface intercept, then we see if the ring point is closer
-                # to the observer than the target body's centre (=> this ring point is
-                # visible) or if the ring is behind the target body (=> this ring point
-                # is hidden).
-                try:
-                    spice.sincpt(
-                        self._surface_method_encoded,
-                        self._target_encoded,
-                        self.et,
-                        self._target_frame_encoded,
-                        self._aberration_correction_encoded,
-                        self._observer_encoded,
-                        self._observer_frame_encoded,
-                        obsvec,
-                    )
-                    # If we reach this point then the ring is either infront/behind the
-                    # target body.
-                    if self.vector_magnitude(obsvec) > self.target_distance:
-                        # This part of the ring is hidden behind the target, so leave
-                        # the output array values as NaN.
-                        continue
-                except NotFoundError:
-                    # Ring is to the side of the target body, so is definitely visible,
-                    # so continue with the coordinate conversion for this point.
-                    pass
+        for idx, targvec in enumerate(targvecs):
+            if only_visible and not self._test_if_targvec_visible(
+                targvec, on_surface=False
+            ):
+                continue  # not vible, so leave ra, dec as NaN
             ra_arr[idx], dec_arr[idx] = self._radian_pair2degrees(
-                *self._obsvec2radec_radians(obsvec)
+                *self._obsvec2radec_radians(self._targvec2obsvec(targvec))
             )
         return ra_arr, dec_arr
 
@@ -2006,7 +2024,10 @@ class Body(BodyBase):
         for lon in lons:
             targvecs = [self.lonlat2targvec(lon, lat, alt=alt) for lat in lats]
             ra, dec = self._targvec_arr2radec_arrs(
-                targvecs, condition_func=self._test_if_targvec_visible
+                targvecs,
+                condition_func=lambda t: self._test_if_targvec_visible(
+                    t, on_surface=alt == 0.0
+                ),
             )
             out.append((ra, dec))
         return out
@@ -2042,7 +2063,10 @@ class Body(BodyBase):
                 continue
             targvecs = [self.lonlat2targvec(lon, lat, alt=alt) for lon in lons]
             ra, dec = self._targvec_arr2radec_arrs(
-                targvecs, condition_func=self._test_if_targvec_visible
+                targvecs,
+                condition_func=lambda t: self._test_if_targvec_visible(
+                    t, on_surface=alt == 0.0
+                ),
             )
             out.append((ra, dec))
         return out
