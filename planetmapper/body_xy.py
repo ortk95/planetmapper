@@ -406,18 +406,21 @@ class BodyXY(Body):
         """
         return self._obsvec_norm2lonlat(self._xy2obsvec_norm(x, y), not_found_nan)
 
-    def lonlat2xy(self, lon: float, lat: float) -> tuple[float, float]:
+    def lonlat2xy(
+        self, lon: float, lat: float, *, alt: float = 0.0
+    ) -> tuple[float, float]:
         """
         Convert longitude/latitude on the target body to image pixel coordinates.
 
         Args:
             lon: Longitude of point on target body.
             lat: Latitude of point on target body.
+            alt: Altitude of point above the surface of the target body in km.
 
         Returns:
             `(x, y)` tuple containing the image pixel coordinates of the point.
         """
-        return self._obsvec2xy(self._lonlat2obsvec(lon, lat))
+        return self._obsvec2xy(self._lonlat2obsvec(lon, lat, alt=alt))
 
     def xy2km(self, x: float, y: float) -> tuple[float, float]:
         """

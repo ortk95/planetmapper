@@ -736,7 +736,7 @@ class Body(BodyBase):
 
     # Coordinate transformations target -> observer direction
     def _lonlat2targvec_radians(
-        self, lon: float, lat: float, alt: float = 0
+        self, lon: float, lat: float, *, alt: float
     ) -> np.ndarray:
         """
         Transform lon/lat coordinates on body to rectangular vector in target frame.
@@ -874,9 +874,9 @@ class Body(BodyBase):
         return lon, lat
 
     # Useful transformations (built from combinations of above transformations)
-    def _lonlat2obsvec(self, lon: float, lat: float) -> np.ndarray:
+    def _lonlat2obsvec(self, lon: float, lat: float, *, alt: float) -> np.ndarray:
         return self._targvec2obsvec(
-            self._lonlat2targvec_radians(*self._degree_pair2radians(lon, lat)),
+            self._lonlat2targvec_radians(*self._degree_pair2radians(lon, lat), alt=alt),
         )
 
     def _obsvec_norm2lonlat(
@@ -894,7 +894,9 @@ class Body(BodyBase):
                 raise
         return lon, lat
 
-    def lonlat2radec(self, lon: float, lat: float) -> tuple[float, float]:
+    def lonlat2radec(
+        self, lon: float, lat: float, *, alt: float = 0.0
+    ) -> tuple[float, float]:
         """
         Convert longitude/latitude coordinates on the target body to RA/Dec sky
         coordinates for the observer.
@@ -902,11 +904,12 @@ class Body(BodyBase):
         Args:
             lon: Longitude of point on target body.
             lat: Latitude of point on target body.
+            alt: Altitude of point above the surface of the target body in km.
 
         Returns:
             `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
         """
-        return self._obsvec2radec(self._lonlat2obsvec(lon, lat))
+        return self._obsvec2radec(self._lonlat2obsvec(lon, lat, alt=alt))
 
     def radec2lonlat(
         self,
@@ -942,7 +945,7 @@ class Body(BodyBase):
         """
         return self._obsvec_norm2lonlat(self._radec2obsvec_norm(ra, dec), not_found_nan)
 
-    def lonlat2targvec(self, lon: float, lat: float) -> np.ndarray:
+    def lonlat2targvec(self, lon: float, lat: float, *, alt: float = 0.0) -> np.ndarray:
         """
         Convert longitude/latitude coordinates on the target body to rectangular vector
         centred in the target frame (e.g. for use as an input to a SPICE function).
@@ -950,12 +953,15 @@ class Body(BodyBase):
         Args:
             lon: Longitude of point on target body.
             lat: Latitude of point on target body.
+            alt: Altitude of point above the surface of the target body in km.
 
         Returns:
             Numpy array corresponding to the 3D rectangular vector describing the
             longitude/latitude point in the target frame of reference.
         """
-        return self._lonlat2targvec_radians(*self._degree_pair2radians(lon, lat))
+        return self._lonlat2targvec_radians(
+            *self._degree_pair2radians(lon, lat), alt=alt
+        )
 
     def targvec2lonlat(self, targvec: np.ndarray) -> tuple[float, float]:
         """
@@ -1165,6 +1171,8 @@ class Body(BodyBase):
         self,
         lon: float,
         lat: float,
+        *,
+        alt: float = 0.0,
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[float, float]:
         """
@@ -1174,6 +1182,7 @@ class Body(BodyBase):
         Args:
             lon: Longitude of point on target body.
             lat: Latitude of point on target body.
+            alt: Altitude of point above the surface of the target body in km.
             **angular_kwargs: Additional arguments are used to customise the origin and
                 rotation of the relative angular coordinates. See
                 :func:`radec2angular` for details.
@@ -1182,7 +1191,9 @@ class Body(BodyBase):
             `(angular_x, angular_y)` tuple containing the relative angular coordinates
             of the point in arcseconds.
         """
-        return self._obsvec2angular(self._lonlat2obsvec(lon, lat), **angular_kwargs)
+        return self._obsvec2angular(
+            self._lonlat2obsvec(lon, lat, alt=alt), **angular_kwargs
+        )
 
     # Coordinate transformations km <-> angular
     def _get_km2angular_matrix(self) -> np.ndarray:
@@ -1265,7 +1276,9 @@ class Body(BodyBase):
         """
         return self._obsvec_norm2lonlat(self._km2obsvec_norm(km_x, km_y), not_found_nan)
 
-    def lonlat2km(self, lon: float, lat: float) -> tuple[float, float]:
+    def lonlat2km(
+        self, lon: float, lat: float, *, alt: float = 0.0
+    ) -> tuple[float, float]:
         """
         Convert longitude/latitude coordinates on the target body to distances in the
         target plane.
@@ -1273,12 +1286,13 @@ class Body(BodyBase):
         Args:
             lon: Longitude of point on the target body.
             lat: Latitude of point on the target body.
+            alt: Altitude of point above the surface of the target body in km.
 
         Returns:
             `(km_x, km_y)` tuple containing distances in km in the target plane in the
             East-West and North-South directions respectively.
         """
-        return self._obsvec2km(self._lonlat2obsvec(lon, lat))
+        return self._obsvec2km(self._lonlat2obsvec(lon, lat, alt=alt))
 
     def km2angular(
         self,
@@ -1958,7 +1972,12 @@ class Body(BodyBase):
         return lon_radec + lat_radec
 
     def visible_lon_grid_radec(
-        self, lons: list[float] | np.ndarray, npts: int = 60, *, lat_limit: float = 90
+        self,
+        lons: list[float] | np.ndarray,
+        npts: int = 60,
+        *,
+        lat_limit: float = 90.0,
+        alt: float = 0.0,
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
         Calculates the RA/Dec coordinates for visible lines of constant longitude.
@@ -1975,6 +1994,7 @@ class Body(BodyBase):
             lat_limit: Latitude limit for gridlines. For example, if `lat_limit=60`,
                 the gridlines will be calculated for latitudes between 60°N and 60°S
                 (inclusive).
+            alt: Altitude of gridlines above the surface of the target body in km.
 
         Returns:
             List of `(ra, dec)` tuples, corresponding to the list of input `lons`. `ra`
@@ -1983,7 +2003,7 @@ class Body(BodyBase):
         lats = np.linspace(-lat_limit, lat_limit, npts)
         out: list[tuple[np.ndarray, np.ndarray]] = []
         for lon in lons:
-            targvecs = [self.lonlat2targvec(lon, lat) for lat in lats]
+            targvecs = [self.lonlat2targvec(lon, lat, alt=alt) for lat in lats]
             ra, dec = self._targvec_arr2radec_arrs(
                 targvecs, condition_func=self._test_if_targvec_visible
             )
@@ -1991,7 +2011,12 @@ class Body(BodyBase):
         return out
 
     def visible_lat_grid_radec(
-        self, lats: list[float] | np.ndarray, npts: int = 120, *, lat_limit: float = 90
+        self,
+        lats: list[float] | np.ndarray,
+        npts: int = 120,
+        *,
+        lat_limit: float = 90.0,
+        alt: float = 0.0,
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
         Constant latitude version of :func:`visible_lon_grid_radec`. See also
@@ -2003,6 +2028,7 @@ class Body(BodyBase):
             lat_limit: Latitude limit for gridlines. For example, if `lat_limit=60`,
                 only gridlines with latitudes between 60°N and 60°S (inclusive) will be
                 calculated.
+            alt: Altitude of gridlines above the surface of the target body in km.
 
         Returns:
             List of `(ra, dec)` tuples, corresponding to the list of input `lats`. `ra`
@@ -2013,7 +2039,7 @@ class Body(BodyBase):
         for lat in lats:
             if abs(lat) > lat_limit:
                 continue
-            targvecs = [self.lonlat2targvec(lon, lat) for lon in lons]
+            targvecs = [self.lonlat2targvec(lon, lat, alt=alt) for lon in lons]
             ra, dec = self._targvec_arr2radec_arrs(
                 targvecs, condition_func=self._test_if_targvec_visible
             )
