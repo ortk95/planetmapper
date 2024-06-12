@@ -164,6 +164,7 @@ class BodyXY(Body):
         self,
         target: str,
         utc: str | datetime.datetime | float | None = None,
+        observer: str | int = 'EARTH',
         nx: int = 0,
         ny: int = 0,
         *,
@@ -177,7 +178,7 @@ class BodyXY(Body):
             nx = sz
             ny = sz
 
-        super().__init__(target, utc, **kwargs)
+        super().__init__(target, utc, observer, **kwargs)
 
         # Document instance variables
         self.backplanes: dict[str, Backplane]
@@ -289,8 +290,9 @@ class BodyXY(Body):
         return new
 
     def __repr__(self) -> str:
-        return f'BodyXY({self.target!r}, {self.utc!r}, {self._nx!r}, {self._ny!r}, observer={self.observer!r})'
+        return self._generate_repr('target', 'utc', kwarg_keys=['observer', 'nx', 'ny'])
 
+    # BodyXY is mutable, so make it unhashable
     __hash__ = None  # type: ignore
 
     def _get_equality_tuple(self) -> tuple:
@@ -308,6 +310,14 @@ class BodyXY(Body):
         return super()._get_kwargs() | dict(
             nx=self._nx,
             ny=self._ny,
+        )
+
+    @classmethod
+    def _get_default_init_kwargs(cls) -> dict[str, Any]:
+        return dict(
+            nx=0,
+            ny=0,
+            **super()._get_default_init_kwargs(),
         )
 
     def _copy_options_to_other(self, other: Self) -> None:

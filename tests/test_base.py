@@ -43,8 +43,74 @@ class TestSpiceBase(common_testing.BaseTestCase):
         obj = planetmapper.SpiceBase(show_progress=True)
         self.assertIsNotNone(obj._get_progress_hook())
 
+    def test_get_default_init_kwargs(self):
+        self._test_get_default_init_kwargs(planetmapper.SpiceBase)
+
     def test_repr(self):
         self.assertEqual(str(self.obj), 'SpiceBase()')
+        self.assertEqual(repr(self.obj), 'SpiceBase()')
+
+        self.assertEqual(
+            str(planetmapper.SpiceBase(show_progress=False)), 'SpiceBase()'
+        )
+        self.assertEqual(
+            str(planetmapper.SpiceBase(show_progress=True)),
+            'SpiceBase(show_progress=True)',
+        )
+        self.assertEqual(
+            str(
+                planetmapper.SpiceBase(
+                    True,
+                    auto_load_kernels=False,
+                    optimize_speed=False,
+                    manual_kernels=['a', 'b', 'c'],
+                )
+            ),
+            "SpiceBase(show_progress=True, optimize_speed=False, auto_load_kernels=False, manual_kernels=['a', 'b', 'c'])",
+        )
+
+    def test_generate_repr(self):
+        obj = planetmapper.SpiceBase(
+            True,
+            auto_load_kernels=False,
+            optimize_speed=False,
+            manual_kernels=['a', 'b', 'c'],
+        )
+        self.assertEqual(
+            obj._generate_repr(),
+            "SpiceBase(show_progress=True, optimize_speed=False, auto_load_kernels=False, manual_kernels=['a', 'b', 'c'])",
+        )
+        self.assertEqual(
+            obj._generate_repr('optimize_speed'),
+            "SpiceBase(False, show_progress=True, auto_load_kernels=False, manual_kernels=['a', 'b', 'c'])",
+        )
+        self.assertEqual(
+            obj._generate_repr('manual_kernels', 'optimize_speed'),
+            "SpiceBase(['a', 'b', 'c'], False, show_progress=True, auto_load_kernels=False)",
+        )
+        self.assertEqual(
+            obj._generate_repr('kernel_path'),
+            "SpiceBase(None, show_progress=True, optimize_speed=False, auto_load_kernels=False, manual_kernels=['a', 'b', 'c'])",
+        )
+        self.assertEqual(
+            obj._generate_repr(kwarg_keys=['kernel_path', 'auto_load_kernels']),
+            "SpiceBase(kernel_path=None, auto_load_kernels=False, show_progress=True, optimize_speed=False, manual_kernels=['a', 'b', 'c'])",
+        )
+        self.assertEqual(
+            obj._generate_repr(
+                skip_keys=['kernel_path', 'auto_load_kernels', 'manual_kernels']
+            ),
+            'SpiceBase(show_progress=True, optimize_speed=False)',
+        )
+        self.assertEqual(
+            obj._generate_repr(
+                formatters={
+                    'show_progress': lambda x: f'>>{x}<<',
+                    'manual_kernels': lambda x: '&'.join(x),
+                }
+            ),
+            'SpiceBase(show_progress=>>True<<, optimize_speed=False, auto_load_kernels=False, manual_kernels=a&b&c)',
+        )
 
     def test_eq(self):
         self.assertEqual(self.obj, planetmapper.SpiceBase())
@@ -55,7 +121,16 @@ class TestSpiceBase(common_testing.BaseTestCase):
         # Hashes for unequal object can be the same, so don't do assertNotEqual here
 
     def test_get_kwargs(self):
-        self.assertEqual(self.obj._get_kwargs(), {'optimize_speed': True})
+        self.assertEqual(
+            self.obj._get_kwargs(),
+            {
+                'optimize_speed': True,
+                'kernel_path': None,
+                'auto_load_kernels': True,
+                'manual_kernels': None,
+                'show_progress': False,
+            },
+        )
 
     def test_standardise_body_name(self):
         self.assertEqual(self.obj.standardise_body_name('JUPITER'), 'JUPITER')
@@ -569,6 +644,16 @@ class TestBodyBase(common_testing.BaseTestCase):
             )
             obj = BodyBase(utc=None, **kw)
             self.assertEqual(obj.utc, '2005-01-01T12:30:00.000000')
+
+    def test_get_default_init_kwargs(self):
+        self._test_get_default_init_kwargs(
+            BodyBase,
+            target='jupiter',
+            utc='2005-01-01',
+            observer='earth',
+            aberration_correction='CN+S',
+            observer_frame='J2000',
+        )
 
     def test_eq(self):
         obj = BodyBase(

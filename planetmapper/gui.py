@@ -298,7 +298,7 @@ class GUI:
         self.gui_built = False
 
     def __repr__(self) -> str:
-        return 'InteractiveObservation()'
+        return f'{self.__class__.__name__}()'
 
     def run(self) -> None:
         """

@@ -157,8 +157,28 @@ class Observation(BodyXY):
             except ValueError:
                 self.centre_disc()
 
+        # Ensure values used for repr are standardised versions
+        if self._data_arg is not None:
+            self._data_arg = self.data
+        if self._header_arg is not None:
+            self._header_arg = self.header
+
     def __repr__(self) -> str:
-        return f'Observation({self.path!r})'
+        return self._generate_repr(
+            'path',
+            formatters={
+                'data': self._str_array_formatter,
+                'header': self._str_header_formatter,
+            },
+        )
+
+    @staticmethod
+    def _str_array_formatter(array: np.ndarray):
+        return f'<{"x".join(map(str, array.shape))} array>'
+
+    @staticmethod
+    def _str_header_formatter(header: np.ndarray):
+        return f'<{len(header)} card Header>'
 
     def to_body_xy(self) -> BodyXY:
         """
@@ -195,6 +215,19 @@ class Observation(BodyXY):
         kw.pop('nx')
         kw.pop('ny')
         return kw
+
+    @classmethod
+    def _get_default_init_kwargs(cls) -> dict[str, Any]:
+        super_defaults = super()._get_default_init_kwargs()
+        super_defaults.pop('nx')
+        super_defaults.pop('ny')
+        return dict(
+            path=None,
+            data=None,
+            header=None,
+            target=None,  # used to position target entry in repr
+            **super_defaults,
+        )
 
     def _load_data_from_path(self):
         assert self.path is not None

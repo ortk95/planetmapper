@@ -368,6 +368,7 @@ class Body(BodyBase):
         self._surface_method_encoded = self._encode_str(self.surface_method)
 
         # Get target properties and state
+        self._target_frame_arg = target_frame
         if target_frame is None:
             self.target_frame = 'IAU_' + self.target
         else:
@@ -463,8 +464,7 @@ class Body(BodyBase):
                     self.ring_radii.add(r)
 
     def __repr__(self) -> str:
-        # TODO include non-default kwargs in repr?
-        return f'Body({self.target!r}, {self.utc!r}, observer={self.observer!r})'
+        return self._generate_repr('target', 'utc', kwarg_keys=['observer'])
 
     def _get_equality_tuple(self) -> tuple:
         return (
@@ -477,9 +477,24 @@ class Body(BodyBase):
 
     def _get_kwargs(self) -> dict[str, Any]:
         return super()._get_kwargs() | dict(
+            target_frame=self._target_frame_arg,
             illumination_source=self.illumination_source,
             subpoint_method=self.subpoint_method,
             surface_method=self.surface_method,
+        )
+
+    @classmethod
+    def _get_default_init_kwargs(cls) -> dict[str, Any]:
+        return dict(
+            utc=None,
+            observer='EARTH',
+            aberration_correction='CN',
+            observer_frame='J2000',
+            target_frame=None,
+            illumination_source='SUN',
+            subpoint_method='INTERCEPT/ELLIPSOID',
+            surface_method='ELLIPSOID',
+            **super()._get_default_init_kwargs(),
         )
 
     def _copy_options_to_other(self, other: Self) -> None:

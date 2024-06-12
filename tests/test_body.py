@@ -28,6 +28,11 @@ class TestBody(common_testing.BaseTestCase):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
         self.body = Body('Jupiter', observer='HST', utc='2005-01-01T00:00:00')
 
+    def test_get_default_init_kwargs(self):
+        self._test_get_default_init_kwargs(
+            Body, target='Jupiter', utc='2005-01-01T00:00:00'
+        )
+
     def test_init(self):
         self.assertAlmostEqual(
             Body('Jupiter', utc='2005-01-01').subpoint_lon,
@@ -151,6 +156,20 @@ class TestBody(common_testing.BaseTestCase):
             repr(self.body),
             "Body('JUPITER', '2005-01-01T00:00:00.000000', observer='HST')",
         )
+        self.assertEqual(
+            repr(
+                Body(
+                    'Jupiter',
+                    observer='HST',
+                    utc='2005-01-01T00:00:00',
+                    show_progress=True,
+                    aberration_correction='CN+S',
+                    optimize_speed=False,
+                    auto_load_kernels=True,
+                )
+            ),
+            "Body('JUPITER', '2005-01-01T00:00:00.000000', observer='HST', aberration_correction='CN+S', show_progress=True, optimize_speed=False)",
+        )
 
     def test_eq(self):
         self.assertEqual(self.body, self.body)
@@ -206,7 +225,12 @@ class TestBody(common_testing.BaseTestCase):
             self.body._get_kwargs(),
             {
                 'optimize_speed': True,
+                'show_progress': False,
+                'auto_load_kernels': True,
+                'kernel_path': None,
+                'manual_kernels': None,
                 'target': 'JUPITER',
+                'target_frame': None,
                 'utc': '2005-01-01T00:00:00.000000',
                 'observer': 'HST',
                 'aberration_correction': 'CN',
