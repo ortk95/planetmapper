@@ -87,7 +87,8 @@ class BasicBody(BodyBase):
     def _get_equality_tuple(self) -> tuple:
         return (super()._get_equality_tuple(),)
 
-    def _get_default_init_kwargs(self) -> dict[str, Any]:
+    @classmethod
+    def _get_default_init_kwargs(cls) -> dict[str, Any]:
         return dict(
             observer='EARTH',
             aberration_correction='CN',

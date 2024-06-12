@@ -324,7 +324,8 @@ class SpiceBase:
             manual_kernels=self._manual_kernels,
         )
 
-    def _get_default_init_kwargs(self) -> dict[str, Any]:
+    @classmethod
+    def _get_default_init_kwargs(cls) -> dict[str, Any]:
         """
         Get default values for keyword arguments used to __init__ a new object of this
         class.
@@ -785,7 +786,8 @@ class BodyBase(SpiceBase):
             observer_frame=self.observer_frame,
         )
 
-    def _get_default_init_kwargs(self) -> dict[str, Any]:
+    @classmethod
+    def _get_default_init_kwargs(cls) -> dict[str, Any]:
         return dict(
             **super()._get_default_init_kwargs(),
         )

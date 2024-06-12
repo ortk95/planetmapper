@@ -28,6 +28,11 @@ class TestBody(common_testing.BaseTestCase):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
         self.body = Body('Jupiter', observer='HST', utc='2005-01-01T00:00:00')
 
+    def test_get_default_init_kwargs(self):
+        self._test_get_default_init_kwargs(
+            Body, target='Jupiter', utc='2005-01-01T00:00:00'
+        )
+
     def test_init(self):
         self.assertAlmostEqual(
             Body('Jupiter', utc='2005-01-01').subpoint_lon,

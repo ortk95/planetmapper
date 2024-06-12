@@ -483,7 +483,8 @@ class Body(BodyBase):
             surface_method=self.surface_method,
         )
 
-    def _get_default_init_kwargs(self) -> dict[str, Any]:
+    @classmethod
+    def _get_default_init_kwargs(cls) -> dict[str, Any]:
         return dict(
             utc=None,
             observer='EARTH',

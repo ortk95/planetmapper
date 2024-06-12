@@ -22,6 +22,15 @@ class TestObservation(common_testing.BaseTestCase):
         self.path = os.path.join(common_testing.DATA_PATH, 'inputs', 'test.fits')
         self.observation = Observation(self.path)
 
+    def test_get_default_init_kwargs(self):
+        self._test_get_default_init_kwargs(
+            Observation,
+            path=self.path,
+            target='Jupiter',
+            observer='hst',
+            utc='2005-01-01T00:00:00',
+        )
+
     def test_init(self) -> None:
         with self.assertRaises(ValueError):
             Observation()
@@ -322,7 +331,7 @@ class TestObservation(common_testing.BaseTestCase):
                     aberration_correction='NONE',
                 )
             ),
-            "Observation(None, data=<300x400x500 array>, header=<2 card header>, target='JUPITER', utc='2005-01-01T00:00:00.000000', observer='HST', aberration_correction='NONE')",
+            "Observation(None, data=<300x400x500 array>, header=<2 card Header>, target='JUPITER', utc='2005-01-01T00:00:00.000000', observer='HST', aberration_correction='NONE')",
         )
 
     def test_to_body_xy(self):

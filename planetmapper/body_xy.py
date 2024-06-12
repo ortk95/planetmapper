@@ -312,7 +312,8 @@ class BodyXY(Body):
             ny=self._ny,
         )
 
-    def _get_default_init_kwargs(self) -> dict[str, Any]:
+    @classmethod
+    def _get_default_init_kwargs(cls) -> dict[str, Any]:
         return dict(
             nx=0,
             ny=0,

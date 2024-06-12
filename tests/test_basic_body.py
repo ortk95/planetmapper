@@ -12,6 +12,11 @@ class TestBasicBody(common_testing.BaseTestCase):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
         self.body = BasicBody('Jupiter', observer='HST', utc='2005-01-01T00:00:00')
 
+    def test_get_default_init_kwargs(self):
+        self._test_get_default_init_kwargs(
+            BasicBody, target='Jupiter', utc='2005-01-01T00:00:00'
+        )
+
     def test_attributes(self):
         self.assertEqual(self.body.target, 'JUPITER')
         self.assertEqual(self.body.utc, '2005-01-01T00:00:00.000000')

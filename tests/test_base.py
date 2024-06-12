@@ -43,6 +43,9 @@ class TestSpiceBase(common_testing.BaseTestCase):
         obj = planetmapper.SpiceBase(show_progress=True)
         self.assertIsNotNone(obj._get_progress_hook())
 
+    def test_get_default_init_kwargs(self):
+        self._test_get_default_init_kwargs(planetmapper.SpiceBase)
+
     def test_repr(self):
         self.assertEqual(str(self.obj), 'SpiceBase()')
         self.assertEqual(repr(self.obj), 'SpiceBase()')
@@ -641,6 +644,16 @@ class TestBodyBase(common_testing.BaseTestCase):
             )
             obj = BodyBase(utc=None, **kw)
             self.assertEqual(obj.utc, '2005-01-01T12:30:00.000000')
+
+    def test_get_default_init_kwargs(self):
+        self._test_get_default_init_kwargs(
+            BodyBase,
+            target='jupiter',
+            utc='2005-01-01',
+            observer='earth',
+            aberration_correction='CN+S',
+            observer_frame='J2000',
+        )
 
     def test_eq(self):
         obj = BodyBase(

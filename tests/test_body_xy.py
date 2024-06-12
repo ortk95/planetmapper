@@ -76,6 +76,11 @@ class TestBodyXY(common_testing.BaseTestCase):
             'Jupiter', observer='HST', utc='2005-01-01T00:00:00'
         )
 
+    def test_get_default_init_kwargs(self):
+        self._test_get_default_init_kwargs(
+            BodyXY, target='jupiter', utc='2005-01-01T00:00:00'
+        )
+
     def test_init(self):
         self.assertEqual(
             BodyXY('jupiter', utc='2005-01-01T00:00:00', sz=50),

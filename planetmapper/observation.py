@@ -216,7 +216,8 @@ class Observation(BodyXY):
         kw.pop('ny')
         return kw
 
-    def _get_default_init_kwargs(self) -> dict[str, Any]:
+    @classmethod
+    def _get_default_init_kwargs(cls) -> dict[str, Any]:
         super_defaults = super()._get_default_init_kwargs()
         super_defaults.pop('nx')
         super_defaults.pop('ny')
