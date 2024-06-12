@@ -664,12 +664,18 @@ class SpiceBase:
         Returns:
             Angular distance in degrees between the two points.
         """
+        # Clip to prevent floating point errors causing arccos to return NaN
+        # e.g. https://github.com/ortk95/planetmapper/issues/357
         return np.rad2deg(
             np.arccos(
-                np.sin(np.deg2rad(dec1)) * np.sin(np.deg2rad(dec2))
-                + np.cos(np.deg2rad(dec1))
-                * np.cos(np.deg2rad(dec2))
-                * np.cos(np.deg2rad(ra1) - np.deg2rad(ra2))
+                np.clip(
+                    np.sin(np.deg2rad(dec1)) * np.sin(np.deg2rad(dec2))
+                    + np.cos(np.deg2rad(dec1))
+                    * np.cos(np.deg2rad(dec2))
+                    * np.cos(np.deg2rad(ra1) - np.deg2rad(ra2)),
+                    -1.0,
+                    1.0,
+                )
             )
         )
 
