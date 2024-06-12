@@ -915,6 +915,7 @@ class Body(BodyBase):
         self,
         ra: float,
         dec: float,
+        *,
         not_found_nan: bool = True,
     ) -> tuple[float, float]:
         """
@@ -1252,7 +1253,7 @@ class Body(BodyBase):
         return self._obsvec2km(self._radec2obsvec_norm(ra, dec))
 
     def km2lonlat(
-        self, km_x: float, km_y: float, not_found_nan: bool = True
+        self, km_x: float, km_y: float, *, not_found_nan: bool = True
     ) -> tuple[float, float]:
         """
         Convert distance in target plane to longitude/latitude coordinates on the target

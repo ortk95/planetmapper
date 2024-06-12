@@ -384,7 +384,9 @@ class BodyXY(Body):
         """
         return self._obsvec2xy(self._radec2obsvec_norm(ra, dec))
 
-    def xy2lonlat(self, x: float, y: float, not_found_nan=True) -> tuple[float, float]:
+    def xy2lonlat(
+        self, x: float, y: float, *, not_found_nan=True
+    ) -> tuple[float, float]:
         """
         Convert image pixel coordinates to longitude/latitude coordinates on the target
         body.
