@@ -664,6 +664,20 @@ class TestBodyBase(common_testing.BaseTestCase):
             observer_frame='J2000',
         )
 
+    def test_repr(self):
+        self.assertEqual(
+            repr(
+                BodyBase(
+                    target='jupiter',
+                    utc='2005-01-01',
+                    observer='earth',
+                    aberration_correction='CN+S',
+                    observer_frame='J2000',
+                )
+            ),
+            "BodyBase(target='JUPITER', utc='2005-01-01T00:00:00.000000', observer='EARTH', aberration_correction='CN+S', observer_frame='J2000')",
+        )
+
     def test_eq(self):
         obj = BodyBase(
             target='jupiter',

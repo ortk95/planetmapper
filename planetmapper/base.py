@@ -771,7 +771,7 @@ class BodyBase(SpiceBase):
         self.target_ra, self.target_dec = self._obsvec2radec(self._target_obsvec)
 
     def __repr__(self) -> str:
-        return self._generate_repr('target', 'utc')
+        return self._generate_repr()
 
     def _get_equality_tuple(self) -> tuple:
         return (
