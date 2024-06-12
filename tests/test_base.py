@@ -317,6 +317,15 @@ class TestSpiceBase(common_testing.BaseTestCase):
             ((0, 0, 0, 0), 0),
             ((1, 2, 3, 4), 2.8264172166624126),
             ((-42, 0, 1234.5678, 99), 81.37656372202063),
+            (  # https://github.com/ortk95/planetmapper/issues/357
+                (
+                    33.32295445419726,
+                    12.216622516821692,
+                    33.32295445419726,
+                    12.216622516821692,
+                ),
+                0,
+            ),
         ]
         for angles, dist in pairs:
             with self.subTest(angles):
