@@ -311,6 +311,19 @@ class TestObservation(common_testing.BaseTestCase):
             repr(self.observation),
             f"Observation({self.path!r}, target='JUPITER', utc='2005-01-01T00:00:00.000000', observer='HST')",
         )
+        self.assertEqual(
+            str(
+                planetmapper.Observation(
+                    data=np.ones((300, 400, 500)),
+                    header=fits.Header({'target': 'Jupiter', 'abc': 123}),
+                    target='Jupiter',
+                    observer='HST',
+                    utc='2005-01-01T00:00:00',
+                    aberration_correction='NONE',
+                )
+            ),
+            "Observation(None, data=<300x400x500 array>, header=<2 card header>, target='JUPITER', utc='2005-01-01T00:00:00.000000', observer='HST', aberration_correction='NONE')",
+        )
 
     def test_to_body_xy(self):
         observation = Observation(

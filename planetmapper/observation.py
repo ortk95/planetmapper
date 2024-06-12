@@ -164,9 +164,6 @@ class Observation(BodyXY):
             self._header_arg = self.header
 
     def __repr__(self) -> str:
-        return self._generate_repr('path')
-
-    def __str__(self) -> str:
         return self._generate_repr(
             'path',
             formatters={
