@@ -736,7 +736,7 @@ class Body(BodyBase):
 
     # Coordinate transformations target -> observer direction
     def _lonlat2targvec_radians(
-        self, lon: float, lat: float, alt: float = 0
+        self, lon: float, lat: float, *, alt: float
     ) -> np.ndarray:
         """
         Transform lon/lat coordinates on body to rectangular vector in target frame.
@@ -874,9 +874,9 @@ class Body(BodyBase):
         return lon, lat
 
     # Useful transformations (built from combinations of above transformations)
-    def _lonlat2obsvec(self, lon: float, lat: float) -> np.ndarray:
+    def _lonlat2obsvec(self, lon: float, lat: float, *, alt: float) -> np.ndarray:
         return self._targvec2obsvec(
-            self._lonlat2targvec_radians(*self._degree_pair2radians(lon, lat)),
+            self._lonlat2targvec_radians(*self._degree_pair2radians(lon, lat), alt=alt),
         )
 
     def _obsvec_norm2lonlat(
@@ -894,7 +894,9 @@ class Body(BodyBase):
                 raise
         return lon, lat
 
-    def lonlat2radec(self, lon: float, lat: float) -> tuple[float, float]:
+    def lonlat2radec(
+        self, lon: float, lat: float, *, alt: float = 0.0
+    ) -> tuple[float, float]:
         """
         Convert longitude/latitude coordinates on the target body to RA/Dec sky
         coordinates for the observer.
@@ -902,16 +904,18 @@ class Body(BodyBase):
         Args:
             lon: Longitude of point on target body.
             lat: Latitude of point on target body.
+            alt: Altitude of point above the surface of the target body in km.
 
         Returns:
             `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
         """
-        return self._obsvec2radec(self._lonlat2obsvec(lon, lat))
+        return self._obsvec2radec(self._lonlat2obsvec(lon, lat, alt=alt))
 
     def radec2lonlat(
         self,
         ra: float,
         dec: float,
+        *,
         not_found_nan: bool = True,
     ) -> tuple[float, float]:
         """
@@ -942,7 +946,7 @@ class Body(BodyBase):
         """
         return self._obsvec_norm2lonlat(self._radec2obsvec_norm(ra, dec), not_found_nan)
 
-    def lonlat2targvec(self, lon: float, lat: float) -> np.ndarray:
+    def lonlat2targvec(self, lon: float, lat: float, *, alt: float = 0.0) -> np.ndarray:
         """
         Convert longitude/latitude coordinates on the target body to rectangular vector
         centred in the target frame (e.g. for use as an input to a SPICE function).
@@ -950,12 +954,15 @@ class Body(BodyBase):
         Args:
             lon: Longitude of point on target body.
             lat: Latitude of point on target body.
+            alt: Altitude of point above the surface of the target body in km.
 
         Returns:
             Numpy array corresponding to the 3D rectangular vector describing the
             longitude/latitude point in the target frame of reference.
         """
-        return self._lonlat2targvec_radians(*self._degree_pair2radians(lon, lat))
+        return self._lonlat2targvec_radians(
+            *self._degree_pair2radians(lon, lat), alt=alt
+        )
 
     def targvec2lonlat(self, targvec: np.ndarray) -> tuple[float, float]:
         """
@@ -1165,6 +1172,8 @@ class Body(BodyBase):
         self,
         lon: float,
         lat: float,
+        *,
+        alt: float = 0.0,
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[float, float]:
         """
@@ -1174,6 +1183,7 @@ class Body(BodyBase):
         Args:
             lon: Longitude of point on target body.
             lat: Latitude of point on target body.
+            alt: Altitude of point above the surface of the target body in km.
             **angular_kwargs: Additional arguments are used to customise the origin and
                 rotation of the relative angular coordinates. See
                 :func:`radec2angular` for details.
@@ -1182,7 +1192,9 @@ class Body(BodyBase):
             `(angular_x, angular_y)` tuple containing the relative angular coordinates
             of the point in arcseconds.
         """
-        return self._obsvec2angular(self._lonlat2obsvec(lon, lat), **angular_kwargs)
+        return self._obsvec2angular(
+            self._lonlat2obsvec(lon, lat, alt=alt), **angular_kwargs
+        )
 
     # Coordinate transformations km <-> angular
     def _get_km2angular_matrix(self) -> np.ndarray:
@@ -1241,7 +1253,7 @@ class Body(BodyBase):
         return self._obsvec2km(self._radec2obsvec_norm(ra, dec))
 
     def km2lonlat(
-        self, km_x: float, km_y: float, not_found_nan: bool = True
+        self, km_x: float, km_y: float, *, not_found_nan: bool = True
     ) -> tuple[float, float]:
         """
         Convert distance in target plane to longitude/latitude coordinates on the target
@@ -1265,7 +1277,9 @@ class Body(BodyBase):
         """
         return self._obsvec_norm2lonlat(self._km2obsvec_norm(km_x, km_y), not_found_nan)
 
-    def lonlat2km(self, lon: float, lat: float) -> tuple[float, float]:
+    def lonlat2km(
+        self, lon: float, lat: float, *, alt: float = 0.0
+    ) -> tuple[float, float]:
         """
         Convert longitude/latitude coordinates on the target body to distances in the
         target plane.
@@ -1273,12 +1287,13 @@ class Body(BodyBase):
         Args:
             lon: Longitude of point on the target body.
             lat: Latitude of point on the target body.
+            alt: Altitude of point above the surface of the target body in km.
 
         Returns:
             `(km_x, km_y)` tuple containing distances in km in the target plane in the
             East-West and North-South directions respectively.
         """
-        return self._obsvec2km(self._lonlat2obsvec(lon, lat))
+        return self._obsvec2km(self._lonlat2obsvec(lon, lat, alt=alt))
 
     def km2angular(
         self,
@@ -1481,22 +1496,62 @@ class Body(BodyBase):
         return lon, lat, dist
 
     # Visibility
-    def _test_if_targvec_visible(self, targvec: np.ndarray) -> bool:
-        phase, incdnc, emissn, visibl, lit = self._illumf_from_targvec_radians(targvec)
-        return visibl
+    def _test_if_targvec_visible(
+        self, targvec: np.ndarray, *, on_surface: bool
+    ) -> bool:
+        if not (
+            math.isfinite(targvec[0])
+            and math.isfinite(targvec[1])
+            and math.isfinite(targvec[2])
+        ):
+            # Ensure a consistent result is returned for invalid points (and also short
+            # curcuit to avoid possibly expensive unnecessary calculations).
+            return False
+        if on_surface:
+            # If POI is on the surface, then use the flag from illumf for speed and to
+            # avoid any floating point errors in the more complex intercept calculation.
+            phase, incdnc, emissn, visibl, lit = self._illumf_from_targvec_radians(
+                targvec
+            )
+            return visibl
+        try:
+            # Search for an intercept between the ray and the target's surface.
+            intercept_targvec, *_ = spice.sincpt(
+                self._surface_method_encoded,
+                self._target_encoded,
+                self.et,
+                self._target_frame_encoded,
+                self._aberration_correction_encoded,
+                self._observer_encoded,
+                self._observer_frame_encoded,
+                self._targvec2obsvec(targvec),
+            )
+            # If we reach this point, then an interept has been found, so we need to
+            # test if the POI is infront or behind the target body.
+            _, _, lt_intercept = self._state_from_targvec(intercept_targvec)
+            _, _, lt_poi = self._state_from_targvec(targvec)
+            return lt_poi < lt_intercept
+        except NotFoundError:
+            # No intercept found with the target's surface, so obsvec is visible.
+            return True
 
-    def test_if_lonlat_visible(self, lon: float, lat: float) -> bool:
+    def test_if_lonlat_visible(
+        self, lon: float, lat: float, *, alt: float = 0.0
+    ) -> bool:
         """
-        Test if longitude/latitude coordinate on the target body are visible.
+        Test if longitude/latitude coordinate on (or above) the target body is visible.
 
         Args:
             lon: Longitude of point on target body.
             lat: Latitude of point on target body.
+            alt: Altitude of point above the surface of the target body in km.
 
         Returns:
             True if the point is visible from the observer, otherwise False.
         """
-        return self._test_if_targvec_visible(self.lonlat2targvec(lon, lat))
+        return self._test_if_targvec_visible(
+            self.lonlat2targvec(lon, lat, alt=alt), on_surface=alt == 0
+        )
 
     def other_body_los_intercept(
         self, other: 'str | int | Body | BasicBody'
@@ -1758,7 +1813,11 @@ class Body(BodyBase):
             targvec_arr = self.close_loop(targvec_arr)
         ra, dec = self._targvec_arr2radec_arrs(
             targvec_arr,
-            condition_func=self._test_if_targvec_visible if only_visible else None,
+            condition_func=(
+                (lambda t: self._test_if_targvec_visible(t, on_surface=True))
+                if only_visible
+                else None
+            ),
         )
         return ra, dec
 
@@ -1768,7 +1827,8 @@ class Body(BodyBase):
 
     def test_if_lonlat_illuminated(self, lon: float, lat: float) -> bool:
         """
-        Test if longitude/latitude coordinate on the target body are illuminated.
+        Test if longitude/latitude coordinate on the surface of the target body is
+        illuminated.
 
         Args:
             lon: Longitude of point on target body.
@@ -1885,43 +1945,16 @@ class Body(BodyBase):
         """
         lons = np.deg2rad(np.linspace(0, 360, npts))
         alt = radius - self.r_eq
-        targvecs = [self._lonlat2targvec_radians(lon, 0, alt) for lon in lons]
-        obsvecs = [self._targvec2obsvec(targvec) for targvec in targvecs]
-
+        targvecs = [self._lonlat2targvec_radians(lon, 0, alt=alt) for lon in lons]
         ra_arr = np.full(npts, np.nan)
         dec_arr = np.full(npts, np.nan)
-        for idx, obsvec in enumerate(obsvecs):
-            if only_visible:
-                # Test the obsvec ray from the observer to this point on the ring to see
-                # if it has a surface intercept with the target body. If there is no
-                # intercept (NotFoundError), then this ring point is definitely visible.
-                # If there is surface intercept, then we see if the ring point is closer
-                # to the observer than the target body's centre (=> this ring point is
-                # visible) or if the ring is behind the target body (=> this ring point
-                # is hidden).
-                try:
-                    spice.sincpt(
-                        self._surface_method_encoded,
-                        self._target_encoded,
-                        self.et,
-                        self._target_frame_encoded,
-                        self._aberration_correction_encoded,
-                        self._observer_encoded,
-                        self._observer_frame_encoded,
-                        obsvec,
-                    )
-                    # If we reach this point then the ring is either infront/behind the
-                    # target body.
-                    if self.vector_magnitude(obsvec) > self.target_distance:
-                        # This part of the ring is hidden behind the target, so leave
-                        # the output array values as NaN.
-                        continue
-                except NotFoundError:
-                    # Ring is to the side of the target body, so is definitely visible,
-                    # so continue with the coordinate conversion for this point.
-                    pass
+        for idx, targvec in enumerate(targvecs):
+            if only_visible and not self._test_if_targvec_visible(
+                targvec, on_surface=False
+            ):
+                continue  # not vible, so leave ra, dec as NaN
             ra_arr[idx], dec_arr[idx] = self._radian_pair2degrees(
-                *self._obsvec2radec_radians(obsvec)
+                *self._obsvec2radec_radians(self._targvec2obsvec(targvec))
             )
         return ra_arr, dec_arr
 
@@ -1958,7 +1991,12 @@ class Body(BodyBase):
         return lon_radec + lat_radec
 
     def visible_lon_grid_radec(
-        self, lons: list[float] | np.ndarray, npts: int = 60, *, lat_limit: float = 90
+        self,
+        lons: list[float] | np.ndarray,
+        npts: int = 60,
+        *,
+        lat_limit: float = 90.0,
+        alt: float = 0.0,
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
         Calculates the RA/Dec coordinates for visible lines of constant longitude.
@@ -1975,6 +2013,7 @@ class Body(BodyBase):
             lat_limit: Latitude limit for gridlines. For example, if `lat_limit=60`,
                 the gridlines will be calculated for latitudes between 60°N and 60°S
                 (inclusive).
+            alt: Altitude of gridlines above the surface of the target body in km.
 
         Returns:
             List of `(ra, dec)` tuples, corresponding to the list of input `lons`. `ra`
@@ -1983,15 +2022,23 @@ class Body(BodyBase):
         lats = np.linspace(-lat_limit, lat_limit, npts)
         out: list[tuple[np.ndarray, np.ndarray]] = []
         for lon in lons:
-            targvecs = [self.lonlat2targvec(lon, lat) for lat in lats]
+            targvecs = [self.lonlat2targvec(lon, lat, alt=alt) for lat in lats]
             ra, dec = self._targvec_arr2radec_arrs(
-                targvecs, condition_func=self._test_if_targvec_visible
+                targvecs,
+                condition_func=lambda t: self._test_if_targvec_visible(
+                    t, on_surface=alt == 0.0
+                ),
             )
             out.append((ra, dec))
         return out
 
     def visible_lat_grid_radec(
-        self, lats: list[float] | np.ndarray, npts: int = 120, *, lat_limit: float = 90
+        self,
+        lats: list[float] | np.ndarray,
+        npts: int = 120,
+        *,
+        lat_limit: float = 90.0,
+        alt: float = 0.0,
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
         Constant latitude version of :func:`visible_lon_grid_radec`. See also
@@ -2003,6 +2050,7 @@ class Body(BodyBase):
             lat_limit: Latitude limit for gridlines. For example, if `lat_limit=60`,
                 only gridlines with latitudes between 60°N and 60°S (inclusive) will be
                 calculated.
+            alt: Altitude of gridlines above the surface of the target body in km.
 
         Returns:
             List of `(ra, dec)` tuples, corresponding to the list of input `lats`. `ra`
@@ -2013,9 +2061,12 @@ class Body(BodyBase):
         for lat in lats:
             if abs(lat) > lat_limit:
                 continue
-            targvecs = [self.lonlat2targvec(lon, lat) for lon in lons]
+            targvecs = [self.lonlat2targvec(lon, lat, alt=alt) for lon in lons]
             ra, dec = self._targvec_arr2radec_arrs(
-                targvecs, condition_func=self._test_if_targvec_visible
+                targvecs,
+                condition_func=lambda t: self._test_if_targvec_visible(
+                    t, on_surface=alt == 0.0
+                ),
             )
             out.append((ra, dec))
         return out

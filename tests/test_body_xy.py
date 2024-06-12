@@ -360,6 +360,22 @@ class TestBodyXY(common_testing.BaseTestCase):
                 self.assertTrue(not all(np.isfinite(self.body.lonlat2xy(*a))))
                 self.assertTrue(not all(np.isfinite(self.body.km2xy(*a))))
 
+        pairs_with_alts: list[
+            tuple[tuple[float, float, float], tuple[float, float]]
+        ] = [
+            ((42, 23.4, 0), (7.781497231832574, 8.015145501618983)),
+            ((42, 23.4, -123.456), (7.776650117803703, 8.014878507462662)),
+            ((42, 23.4, 1234.567), (7.829968623728911, 8.017815455484365)),
+            ((42, 23.4, nan), (nan, nan)),
+        ]
+        for (lon, lat, alt), expected in pairs_with_alts:
+            with self.subTest((lon, lat, alt)):
+                self.assertArraysClose(
+                    self.body.lonlat2xy(lon, lat, alt=alt),
+                    expected,
+                    equal_nan=True,
+                )
+
     def test_set_disc_params(self):
         x0, y0, r0, rotation = [1.1, 2.2, 3.3, 4.4]
         self.body.set_disc_params(x0, y0, r0, rotation)
@@ -614,15 +630,22 @@ class TestBodyXY(common_testing.BaseTestCase):
 
     def test_ring_xy(self):
         self.body.set_disc_params(5, 8, 10, 45)
-        self.assertTrue(
-            np.allclose(
-                self.body.ring_xy(1234.5678, npts=4),
-                (
-                    array([nan, 5.09062199, 4.8390282, nan]),
-                    array([nan, 7.97280096, 8.06177746, nan]),
-                ),
-                equal_nan=True,
-            )
+        # inside jupiter
+        self.assertArraysClose(
+            self.body.ring_xy(1234.5678, npts=4),
+            (
+                array([nan, nan, nan, nan]),
+                array([nan, nan, nan, nan]),
+            ),
+            equal_nan=True,
+        )
+        self.assertArraysClose(
+            self.body.ring_xy(123456.789, npts=5),
+            (
+                array([nan, 19.52699622, -2.03791988, -9.52453066, nan]),
+                array([nan, 2.86248741, 11.45672546, 13.13660032, nan]),
+            ),
+            equal_nan=True,
         )
 
     @patch('matplotlib.pyplot.show')
