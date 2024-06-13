@@ -73,6 +73,7 @@ class WireframeKwargs(TypedDict, total=False):
     add_title: bool
     grid_interval: float
     grid_lat_limit: float
+    planetocentric_grid: bool
     indicate_equator: bool
     indicate_prime_meridian: bool
     formatting: dict[WireframeComponent, dict[str, Any]] | None
@@ -138,6 +139,19 @@ class AngularCoordinateKwargs(TypedDict, total=False):
     origin_ra: float | None
     origin_dec: float | None
     coordinate_rotation: float
+
+
+class LonLatGridKwargs(TypedDict, total=False):
+    """
+    Class to help type hint keyword arguments of lon/lat grid functions
+
+    See :func:`Body.visible_lon_grid_radec` for more details.
+    """
+
+    npts: int
+    lat_limit: float
+    alt: float
+    planetocentric: bool
 
 
 class Body(BodyBase):
@@ -1960,7 +1974,7 @@ class Body(BodyBase):
 
     # Lonlat grid
     def visible_lonlat_grid_radec(
-        self, interval: float = 30, **kwargs
+        self, interval: float = 30, **kwargs: Unpack[LonLatGridKwargs]
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
         Convenience function to calculate a grid of equally spaced lines of constant
@@ -1978,8 +1992,8 @@ class Body(BodyBase):
         Args:
             interval: Spacing of gridlines. Generally, this should be an integer factor
                 of 90 to produce nice looking plots (e.g. 10, 30, 45 etc).
-            **kwargs: Additional arguments are passed to :func:`visible_lon_grid_radec` and
-                :func:`visible_lat_grid_radec`.
+            **kwargs: Additional arguments are passed to :func:`visible_lon_grid_radec`
+                and :func:`visible_lat_grid_radec`.
 
         Returns:
             List of `(ra, dec)` tuples, each of which corresponds to a gridline. `ra`
@@ -1997,6 +2011,7 @@ class Body(BodyBase):
         *,
         lat_limit: float = 90.0,
         alt: float = 0.0,
+        planetocentric: bool = False,
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
         Calculates the RA/Dec coordinates for visible lines of constant longitude.
@@ -2014,6 +2029,11 @@ class Body(BodyBase):
                 the gridlines will be calculated for latitudes between 60°N and 60°S
                 (inclusive).
             alt: Altitude of gridlines above the surface of the target body in km.
+            planetocentric: If True, the gridlines are plotted for planetocentric
+                coordinates, and the `lons` and `lat_limits` arguments are interpreted
+                as planetographic coordinates. If False (the default), the gridlines are
+                plotted for planetographic coordinates, and all arguments are
+                interpreted as planetographic coordinates.
 
         Returns:
             List of `(ra, dec)` tuples, corresponding to the list of input `lons`. `ra`
@@ -2022,7 +2042,10 @@ class Body(BodyBase):
         lats = np.linspace(-lat_limit, lat_limit, npts)
         out: list[tuple[np.ndarray, np.ndarray]] = []
         for lon in lons:
-            targvecs = [self.lonlat2targvec(lon, lat, alt=alt) for lat in lats]
+            lonlats = ((lon, lat) for lat in lats)
+            if planetocentric:
+                lonlats = (self.centric2graphic_lonlat(*lonlat) for lonlat in lonlats)
+            targvecs = [self.lonlat2targvec(lon, lat, alt=alt) for lon, lat in lonlats]
             ra, dec = self._targvec_arr2radec_arrs(
                 targvecs,
                 condition_func=lambda t: self._test_if_targvec_visible(
@@ -2039,6 +2062,7 @@ class Body(BodyBase):
         *,
         lat_limit: float = 90.0,
         alt: float = 0.0,
+        planetocentric: bool = False,
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
         Constant latitude version of :func:`visible_lon_grid_radec`. See also
@@ -2051,6 +2075,11 @@ class Body(BodyBase):
                 only gridlines with latitudes between 60°N and 60°S (inclusive) will be
                 calculated.
             alt: Altitude of gridlines above the surface of the target body in km.
+            planetocentric: If True, the gridlines are plotted for planetocentric
+                coordinates, and the `lats` and `lat_limits` arguments are interpreted
+                as planetographic coordinates. If False (the default), the gridlines are
+                plotted for planetographic coordinates, and all arguments are
+                interpreted as planetographic coordinates.
 
         Returns:
             List of `(ra, dec)` tuples, corresponding to the list of input `lats`. `ra`
@@ -2061,7 +2090,10 @@ class Body(BodyBase):
         for lat in lats:
             if abs(lat) > lat_limit:
                 continue
-            targvecs = [self.lonlat2targvec(lon, lat, alt=alt) for lon in lons]
+            lonlats = ((lon, lat) for lon in lons)
+            if planetocentric:
+                lonlats = (self.centric2graphic_lonlat(*lonlat) for lonlat in lonlats)
+            targvecs = [self.lonlat2targvec(lon, lat, alt=alt) for lon, lat in lonlats]
             ra, dec = self._targvec_arr2radec_arrs(
                 targvecs,
                 condition_func=lambda t: self._test_if_targvec_visible(
@@ -2420,6 +2452,7 @@ class Body(BodyBase):
         add_title: bool = True,
         grid_interval: float = 30,
         grid_lat_limit: float = 90,
+        planetocentric_grid: bool = False,
         indicate_equator: bool = False,
         indicate_prime_meridian: bool = False,
         formatting: dict[WireframeComponent, dict[str, Any]] | None = None,
@@ -2466,7 +2499,10 @@ class Body(BodyBase):
 
         lons = np.arange(0, 360, grid_interval)
         for lon, (ra, dec) in zip(
-            lons, self.visible_lon_grid_radec(lons, lat_limit=grid_lat_limit)
+            lons,
+            self.visible_lon_grid_radec(
+                lons, lat_limit=grid_lat_limit, planetocentric=planetocentric_grid
+            ),
         ):
             ax.plot(
                 *array_func(ra, dec),
@@ -2481,7 +2517,10 @@ class Body(BodyBase):
             l for l in np.arange(-90, 90, grid_interval) if abs(l) <= grid_lat_limit
         ]
         for lat, (ra, dec) in zip(
-            lats, self.visible_lat_grid_radec(lats, lat_limit=grid_lat_limit)
+            lats,
+            self.visible_lat_grid_radec(
+                lats, lat_limit=grid_lat_limit, planetocentric=planetocentric_grid
+            ),
         ):
             ax.plot(
                 *array_func(ra, dec),
@@ -2685,11 +2724,14 @@ class Body(BodyBase):
             add_axis_labels: Add axis labels to the plot. If `add_axis_labels` is None
                 (the default), then labels will only be added if `scale_factor` is not
                 used.
-            grid_interval: Spacing between grid lines in degrees.
+            grid_interval: Spacing between gridlines in degrees.
             grid_lat_limit: Latitude limit for gridlines. For example, if
                 `grid_lat_limit=60`, then gridlines will only be plotted for latitudes
                 between 60°N and 60°S (inclusive). This can be useful to reduce visual
                 clutter around the poles.
+            planetocentric_grid: If True, gridlines are plotted for planetocentric
+                coordinates, rather than the default planetographic coordinates. See
+                :func:`visible_lon_grid_radec` for more details.
             indicate_equator: Toggle indicating the equator with a solid line.
             indicate_prime_meridian: Toggle indicating the prime meridian with a solid
                 line.
