@@ -154,6 +154,45 @@ class LonLatGridKwargs(TypedDict, total=False):
     planetocentric: bool
 
 
+class _AdjustedSurfaceAltitude:
+    """
+    Context manager to temporarily change the surface altitude of a Body.
+
+    This adjusts the appropriate BODYNNN_RADII variable in the kernel pool, and the
+    relevant attributes of the body object. These changes are then reverted when the
+    context manager exits.
+
+    If there is no altitude adjustment, (i.e. `alt=0`), then the code short circuits and
+    doesn't change any values. This is to improve performance in the default case.
+
+    For example, this can be used to calculate the (lon, lat) coordinates where a ray
+    intercepts with a shell of a given altitude above the surface of a planet.
+    """
+
+    def __init__(self, body: 'Body', alt: float) -> None:
+        self.do_adjustment = alt != 0
+        if self.do_adjustment:
+            self.body = body
+            self.alt = alt
+
+    def __enter__(self) -> None:
+        if self.do_adjustment:
+            self.original_radii = self.body.radii
+            self.radii_variable_name = f'BODY{self.body.target_body_id}_RADII'
+            self.change_radii(self.original_radii + self.alt)
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        if self.do_adjustment:
+            self.change_radii(self.original_radii)
+
+    def change_radii(self, radii: np.ndarray) -> None:
+        spice.pdpool(self.radii_variable_name, radii)
+        self.body._assign_radius_values(radii)
+        self.body._clear_cache()  # any cached backlplanes will be invalid
+
+    # XXX test
+
+
 class Body(BodyBase):
     """
     Class representing an astronomical body observed at a specific time.
@@ -389,10 +428,7 @@ class Body(BodyBase):
             self.target_frame = target_frame
         self._target_frame_encoded = self._encode_str(self.target_frame)
 
-        self.radii = spice.bodvar(self.target_body_id, 'RADII', 3)
-        self.r_eq = self.radii[0]
-        self.r_polar = self.radii[2]
-        self.flattening = (self.r_eq - self.r_polar) / self.r_eq
+        self._assign_radius_values(spice.bodvar(self.target_body_id, 'RADII', 3))
 
         # Use first degree term of prime meridian Euler angle to identify the spin sense
         # of the target body, then use this spin sense to determine positive longitude
@@ -476,6 +512,14 @@ class Body(BodyBase):
             for k in ['A', 'B', 'C']:
                 for r in self.named_ring_data.get(k, []):
                     self.ring_radii.add(r)
+
+    def _assign_radius_values(self, radii: np.ndarray) -> None:
+        # This is split out into a separate method so that it can be called from
+        # __init__ and from _AdjustedSurfaceAltitude
+        self.radii = radii
+        self.r_eq = self.radii[0]
+        self.r_polar = self.radii[2]
+        self.flattening = (self.r_eq - self.r_polar) / self.r_eq
 
     def __repr__(self) -> str:
         return self._generate_repr('target', 'utc', kwarg_keys=['observer'])
@@ -931,6 +975,7 @@ class Body(BodyBase):
         dec: float,
         *,
         not_found_nan: bool = True,
+        alt: float = 0.0,
     ) -> tuple[float, float]:
         """
         Convert RA/Dec sky coordinates for the observer to longitude/latitude
@@ -947,6 +992,8 @@ class Body(BodyBase):
             dec: Declination of point in the sky of the observer.
             not_found_nan: Controls behaviour when the input `ra` and `dec` coordinates
                 are missing the target body.
+            alt: Altitude of returned `(lon, lat)` point above the surface of the target
+                body in km.
 
         Returns:
             `(lon, lat)` tuple containing the longitude/latitude coordinates on the
@@ -958,7 +1005,10 @@ class Body(BodyBase):
             NotFoundError: If the provided RA/Dec coordinates are missing the target
                 body and `not_found_nan` is False, then NotFoundError will be raised.
         """
-        return self._obsvec_norm2lonlat(self._radec2obsvec_norm(ra, dec), not_found_nan)
+        with _AdjustedSurfaceAltitude(self, alt):
+            return self._obsvec_norm2lonlat(
+                self._radec2obsvec_norm(ra, dec), not_found_nan
+            )
 
     def lonlat2targvec(self, lon: float, lat: float, *, alt: float = 0.0) -> np.ndarray:
         """
@@ -978,7 +1028,9 @@ class Body(BodyBase):
             *self._degree_pair2radians(lon, lat), alt=alt
         )
 
-    def targvec2lonlat(self, targvec: np.ndarray) -> tuple[float, float]:
+    def targvec2lonlat(
+        self, targvec: np.ndarray, *, alt: float = 0.0
+    ) -> tuple[float, float]:
         """
         Convert rectangular vector centred in the target frame to longitude/latitude
         coordinates on the target body (e.g. to convert the output from a SPICE
@@ -986,12 +1038,15 @@ class Body(BodyBase):
 
         Args:
             targvec: 3D rectangular vector in the target frame of reference.
+            alt: Altitude of returned `(lon, lat)` point above the surface of the target
+                body in km.
 
         Returns:
             `(lon, lat)` tuple containing the longitude and latitude corresponding to
             the input vector.
         """
-        return self._radian_pair2degrees(*self._targvec2lonlat_radians(targvec))
+        with _AdjustedSurfaceAltitude(self, alt):
+            return self._radian_pair2degrees(*self._targvec2lonlat_radians(targvec))
 
     def _targvec_arr2radec_arrs_radians(
         self,
@@ -1153,6 +1208,7 @@ class Body(BodyBase):
         angular_y: float,
         *,
         not_found_nan: bool = True,
+        alt: float = 0.0,
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[float, float]:
         """
@@ -1164,6 +1220,8 @@ class Body(BodyBase):
             angular_y: Angular coordinate in the y direction in arcseconds.
             not_found_nan: Controls behaviour when the input `angular_x` and `angular_y`
                 coordinates are missing the target body.
+            alt: Altitude of returned `(lon, lat)` point above the surface of the target
+                body in km.
             **angular_kwargs: Additional arguments are used to customise the origin and
                 rotation of the relative angular coordinates. See
                 :func:`radec2angular` for details.
@@ -1177,10 +1235,11 @@ class Body(BodyBase):
             NotFoundError: If the provided angular coordinates are missing the target
                 body and `not_found_nan` is False, then NotFoundError will be raised.
         """
-        return self._obsvec_norm2lonlat(
-            self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs),
-            not_found_nan,
-        )
+        with _AdjustedSurfaceAltitude(self, alt):
+            return self._obsvec_norm2lonlat(
+                self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs),
+                not_found_nan,
+            )
 
     def lonlat2angular(
         self,
@@ -1267,7 +1326,7 @@ class Body(BodyBase):
         return self._obsvec2km(self._radec2obsvec_norm(ra, dec))
 
     def km2lonlat(
-        self, km_x: float, km_y: float, *, not_found_nan: bool = True
+        self, km_x: float, km_y: float, *, not_found_nan: bool = True, alt: float = 0.0
     ) -> tuple[float, float]:
         """
         Convert distance in target plane to longitude/latitude coordinates on the target
@@ -1278,6 +1337,8 @@ class Body(BodyBase):
             km_y: Distance in target plane in km in the North-South direction.
             not_found_nan: Controls behaviour when the input `km_x` and `km_y`
                 coordinates are missing the target body.
+            alt: Altitude of returned `(lon, lat)` point above the surface of the target
+                body in km.
 
         Returns:
             `(lon, lat)` tuple containing the longitude and latitude of the point. If
@@ -1289,7 +1350,10 @@ class Body(BodyBase):
             NotFoundError: If the provided km coordinates are missing the target body
             and `not_found_nan` is False, then NotFoundError will be raised.
         """
-        return self._obsvec_norm2lonlat(self._km2obsvec_norm(km_x, km_y), not_found_nan)
+        with _AdjustedSurfaceAltitude(self, alt):
+            return self._obsvec_norm2lonlat(
+                self._km2obsvec_norm(km_x, km_y), not_found_nan
+            )
 
     def lonlat2km(
         self, lon: float, lat: float, *, alt: float = 0.0

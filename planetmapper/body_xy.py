@@ -32,6 +32,7 @@ from .body import (
     LonLatGridKwargs,
     WireframeComponent,
     WireframeKwargs,
+    _AdjustedSurfaceAltitude,
 )
 from .progress import progress_decorator
 
@@ -391,7 +392,7 @@ class BodyXY(Body):
         return self._obsvec2xy(self._radec2obsvec_norm(ra, dec))
 
     def xy2lonlat(
-        self, x: float, y: float, *, not_found_nan=True
+        self, x: float, y: float, *, not_found_nan=True, alt: float = 0.0
     ) -> tuple[float, float]:
         """
         Convert image pixel coordinates to longitude/latitude coordinates on the target
@@ -402,6 +403,8 @@ class BodyXY(Body):
             y: Image pixel coordinate in the y direction.
             not_found_nan: Controls the behaviour when the input `x` and `y` coordinates
                 are missing the target body.
+            alt: Altitude of returned `(lon, lat)` point above the surface of the target
+                body in km.
 
         Returns:
             `(lon, lat)` tuple containing the longitude and latitude of the point. If
@@ -412,7 +415,8 @@ class BodyXY(Body):
             NotFoundError: if the input `x` and `y` coordinates are missing the target
                 body and `not_found_nan` is `False`.
         """
-        return self._obsvec_norm2lonlat(self._xy2obsvec_norm(x, y), not_found_nan)
+        with _AdjustedSurfaceAltitude(self, alt):
+            return self._obsvec_norm2lonlat(self._xy2obsvec_norm(x, y), not_found_nan)
 
     def lonlat2xy(
         self, lon: float, lat: float, *, alt: float = 0.0
