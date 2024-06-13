@@ -334,10 +334,17 @@ class Body(BodyBase):
         """
         Equatorial angular diameter of the target in arcseconds.
         
-        This is calculated using `arcsin(body.r_eq / body.target_distance)`, so can
-        underestimate the diameter if the observer is located very close to the target.
-        If you require exact values for an observer close to the target, you can use
-        the limb coordinates returned by :func:`limb_radec` to calculate the diameter.
+        This is calculated using `arcsin(body.r_eq / body.target_distance)`, (i.e.
+        calculates the diameter through the centre of the target) so can underestimate
+        the diameter if the observer is located very close to the target. If you require
+        exact values for an observer close to the target, you can use the limb
+        coordinates returned by :func:`limb_radec` to calculate the diameter.
+        """
+        self.km_per_arcsec: float
+        """
+        The number of km per arcsecond at the target's distance from the observer.
+
+        Calculated as `(2 * body.r_eq) / body.target_diameter_arcsec`.
         """
         self.subpoint_distance: float
         """Distance from the observer to the sub-observer point on the target."""
@@ -430,7 +437,6 @@ class Body(BodyBase):
         self._target_frame_encoded = self._encode_str(self.target_frame)
 
         self._assign_radius_values(spice.bodvar(self.target_body_id, 'RADII', 3))
-        # XXX add a km_per_arcsec variable
 
         # Use first degree term of prime meridian Euler angle to identify the spin sense
         # of the target body, then use this spin sense to determine positive longitude
@@ -488,6 +494,7 @@ class Body(BodyBase):
         self.target_diameter_arcsec = (
             2.0 * 60.0 * 60.0 * np.rad2deg(np.arcsin(self.r_eq / self.target_distance))
         )
+        self.km_per_arcsec = (2.0 * self.r_eq) / self.target_diameter_arcsec  # XXX test
 
         # Set up equatorial plane (for ring calculations)
         targvec_north_pole = self.lonlat2targvec(0, 90)
@@ -522,7 +529,6 @@ class Body(BodyBase):
         self.r_eq = self.radii[0]
         self.r_polar = self.radii[2]
         self.flattening = (self.r_eq - self.r_polar) / self.r_eq
-        # XXX check everywhere these values used
 
     def __repr__(self) -> str:
         return self._generate_repr('target', 'utc', kwarg_keys=['observer'])
@@ -1280,7 +1286,7 @@ class Body(BodyBase):
             # angular coords are centred on the target, so just need to convert
             # arcsec to km with a constant scale factor (s), and rotate so the north
             # pole is at the top
-            s = (self.target_diameter_arcsec / 2) / self.r_eq
+            s = 1 / self.km_per_arcsec
             theta_radians = np.deg2rad(self.north_pole_angle())
             transform_matrix = s * self._rotation_matrix_radians(theta_radians)
             self._matrix_km2angular = transform_matrix

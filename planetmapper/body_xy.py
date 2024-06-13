@@ -706,7 +706,7 @@ class BodyXY(Body):
         Args:
             km_per_px: Kilometres per pixel plate scale at the target body.
         """
-        self.set_r0(self.r_eq / km_per_px)
+        self.set_plate_scale_arcsec(km_per_px / self.km_per_arcsec)
 
     def get_plate_scale_arcsec(self) -> float:
         """
@@ -720,7 +720,7 @@ class BodyXY(Body):
         Returns:
             Plate scale of the observation in km/pixel at the target body.
         """
-        return self.r_eq / self.get_r0()  # XXX
+        return self.get_plate_scale_arcsec() * self.km_per_arcsec
 
     def set_img_size(self, nx: int | None = None, ny: int | None = None) -> None:
         """
