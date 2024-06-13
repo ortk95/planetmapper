@@ -26,7 +26,13 @@ from matplotlib.figure import Figure
 from spiceypy.utils.exceptions import NotFoundError
 
 from .base import _cache_clearable_result, _cache_stable_result
-from .body import AngularCoordinateKwargs, Body, WireframeComponent, WireframeKwargs
+from .body import (
+    AngularCoordinateKwargs,
+    Body,
+    LonLatGridKwargs,
+    WireframeComponent,
+    WireframeKwargs,
+)
 from .progress import progress_decorator
 
 
@@ -902,7 +908,7 @@ class BodyXY(Body):
         return self._radec_arrs2xy_arrs(*self.terminator_radec(**kwargs))
 
     def visible_lonlat_grid_xy(
-        self, *args, **kwargs
+        self, *args, **kwargs: Unpack[LonLatGridKwargs]
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
         Pixel coordinate version of :func:`Body.visible_lonlat_grid_radec`.
