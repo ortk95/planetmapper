@@ -13,7 +13,7 @@ from astropy.utils.exceptions import AstropyWarning
 
 from . import common, utils
 from .base import _cache_clearable_result, _cache_stable_result
-from .body import _AdjustedSurfaceAltitude
+from .body import _adjust_surface_altitude_decorator, _AdjustedSurfaceAltitude
 from .body_xy import BodyXY, MapKwargs, Unpack
 from .progress import SaveMapProgressHookCLI, SaveNavProgressHookCLI, progress_decorator
 
@@ -834,7 +834,7 @@ class Observation(BodyXY):
     def _make_fits_kw(cls, keyword: str) -> str:
         return f'HIERARCH {cls.FITS_KEYWORD} {keyword}'
 
-    def add_header_metadata(self, header: fits.Header | None = None, *, alt:float=0.0):
+    def add_header_metadata(self, header: fits.Header | None = None):
         """
         Add automatically generated metadata a FITS header. This is automatically
         called by :func:`save` so `add_header_metadata` does not normally need to be
@@ -843,7 +843,6 @@ class Observation(BodyXY):
         Args:
             header: FITS Header which the metadata will be added to in-place. If
                 `header` is `None`, then :attr:`header` will be modified.
-            alt: Altitude adjustment in km.
         """
         self.append_to_header(
             'VERSION', common.__version__, 'PlanetMapper version.', header=header
@@ -889,7 +888,12 @@ class Observation(BodyXY):
             'Method used to find disc.',
             header=header,
         )
-        self.append_to_header('ALTITUDE-ADJUSTMENT', alt, '[km] Adjustment to surface altitude.', header=header)
+        self.append_to_header(
+            'ALTITUDE-ADJUSTMENT',
+            self._alt_adjustment,
+            '[km] Adjustment to surface altitude.',
+            header=header,
+        )
         self.append_to_header(
             'UTC-OBS', self.utc, 'UTC date of observation', header=header
         )
@@ -1114,7 +1118,7 @@ class Observation(BodyXY):
 
                 self._update_progress_hook(1 / progress_max)
 
-                self.add_header_metadata(header, alt=alt)
+                self.add_header_metadata(header)
                 hdul = fits.HDUList([fits.PrimaryHDU(data=data, header=header)])
                 for bp_idx, (name, backplane) in enumerate(self.backplanes.items()):
                     self._update_progress_hook((bp_idx + 1) / progress_max)
@@ -1149,6 +1153,7 @@ class Observation(BodyXY):
                 self._remove_progress_hook()
 
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def save_mapped_observation(
         self,
         path: str | os.PathLike,

@@ -32,6 +32,7 @@ from .body import (
     LonLatGridKwargs,
     WireframeComponent,
     WireframeKwargs,
+    _adjust_surface_altitude_decorator,
     _AdjustedSurfaceAltitude,
 )
 from .progress import progress_decorator
@@ -55,6 +56,7 @@ class MapKwargs(TypedDict, total=False):
     projection_y_coords: np.ndarray | None
     xlim: tuple[float, float] | None
     ylim: tuple[float, float] | None
+    alt: float
 
 
 _MapKwargs = MapKwargs  # keep for backward compatibility
@@ -1810,7 +1812,13 @@ class BodyXY(Body):
         )
 
     def plot_backplane_img(
-        self, name: str, ax: Axes | None = None, *, alt: float=0.0, show: bool = False, **kwargs
+        self,
+        name: str,
+        ax: Axes | None = None,
+        *,
+        alt: float = 0.0,
+        show: bool = False,
+        **kwargs,
     ) -> Axes:
         """
         Plot a backplane image with the wireframe outline of the target.
@@ -1887,9 +1895,11 @@ class BodyXY(Body):
 
     # Mapping projection internals
     @_cache_stable_result
+    @_adjust_surface_altitude_decorator
     def generate_map_coordinates(
         self,
         projection: str = 'rectangular',
+        *,
         degree_interval: float = 1,
         lon: float = 0,
         lat: float = 0,
@@ -1900,6 +1910,7 @@ class BodyXY(Body):
         projection_y_coords: np.ndarray | tuple | None = None,
         xlim: tuple[float, float] | None = None,
         ylim: tuple[float, float] | None = None,
+        alt: float = 0.0,
     ) -> tuple[
         np.ndarray,
         np.ndarray,
@@ -2004,6 +2015,7 @@ class BodyXY(Body):
             ylim: Tuple of `(y_min, y_max)` limits in the projected y coordinates of
                 the map. If `None`, the default, then the no limits are applied. See
                 `xlim` for more details.
+            alt: Altitude adjustment to the body's surface in km.
 
         Returns:
             `(lons, lats, xx, yy, transformer, info)` tuple where `lons` and `lats` are
@@ -2117,6 +2129,9 @@ class BodyXY(Body):
         # Standardise invalid lon/lat points (e.g. inf -> nan)
         lons[~np.isfinite(lons)] = np.nan
         lats[~np.isfinite(lats)] = np.nan
+
+        if alt != 0.0:
+            info['alt'] = alt
 
         return lons, lats, xx, yy, transformer, info
 
@@ -2296,6 +2311,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def _get_targvec_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(3, **map_kwargs)
         lonlats = self._get_lonlat_map(**map_kwargs)
@@ -2340,6 +2356,7 @@ class BodyXY(Body):
         return out
 
     @_cache_stable_result
+    @_adjust_surface_altitude_decorator
     def _get_obsvec_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(3, **map_kwargs)
         for a, b, targvec in self._enumerate_targvec_map(**map_kwargs):
@@ -2355,6 +2372,7 @@ class BodyXY(Body):
         return np.rad2deg(out)
 
     @_cache_stable_result
+    @_adjust_surface_altitude_decorator
     def _get_lonlat_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         lons, lats, xx, yy, transformer, info = self.generate_map_coordinates(
             **map_kwargs
@@ -2414,6 +2432,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def _get_lonlat_centric_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
         for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
@@ -2470,6 +2489,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def _get_radec_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
         visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
@@ -2522,6 +2542,7 @@ class BodyXY(Body):
 
     @_cache_clearable_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def _get_xy_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
         radec_map = self._get_radec_map(**map_kwargs)
@@ -2590,6 +2611,7 @@ class BodyXY(Body):
         return out
 
     @_cache_stable_result
+    @_adjust_surface_altitude_decorator
     def _get_km_xy_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
         radec_map = self._get_radec_map(**map_kwargs)
@@ -2651,6 +2673,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def _get_illumf_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(5, **map_kwargs)
         for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
@@ -2741,6 +2764,7 @@ class BodyXY(Body):
         return np.rad2deg(azimuth_radians)
 
     @_cache_stable_result
+    @_adjust_surface_altitude_decorator
     def get_azimuth_angle_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
@@ -2782,6 +2806,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def get_local_solar_time_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
@@ -2815,6 +2840,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def _get_state_maps(
         self, **map_kwargs: Unpack[MapKwargs]
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -2873,6 +2899,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def get_radial_velocity_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
@@ -2925,6 +2952,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def _get_limb_coordinate_maps(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(3, **map_kwargs)
         visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
@@ -3028,6 +3056,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def _get_ring_plane_coordinate_maps(
         self, **map_kwargs: Unpack[MapKwargs]
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:

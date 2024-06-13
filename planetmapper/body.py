@@ -2,7 +2,18 @@ import datetime
 import functools
 import math
 from collections import defaultdict
-from typing import Any, Callable, Iterable, Literal, TypedDict, cast, overload
+from typing import (
+    Any,
+    Callable,
+    Concatenate,
+    Iterable,
+    Literal,
+    ParamSpec,
+    TypedDict,
+    TypeVar,
+    cast,
+    overload,
+)
 
 try:
     from typing import Unpack
@@ -166,25 +177,36 @@ class _AdjustedSurfaceAltitude:
     If there is no altitude adjustment, (i.e. `alt=0`), then the code short circuits and
     doesn't change any values. This is to improve performance in the default case.
 
+    Functions that use _AdjustedSurfaceAltitude should consume the `alt` argument - i.e.
+    any nested calls made within the `with _AdjustedSurfaceAltitude` block should not
+    pass on the `alt` argument to the next call. Any uses where the `alt` argument is
+    passed on should use `_AdjustedSurfaceAltitudeReentrant` instead.
+
     For example, this can be used to calculate the (lon, lat) coordinates where a ray
     intercepts with a shell of a given altitude above the surface of a planet.
     """
 
     def __init__(self, body: 'Body', alt: float) -> None:
-        self.do_adjustment = alt != 0
+        self.do_adjustment = alt != 0.0
         if self.do_adjustment:
             self.body = body
-            self.alt = alt
+            self.alt = float(alt)
 
     def __enter__(self) -> None:
         if self.do_adjustment:
+            if self.body._alt_adjustment != 0.0:
+                raise ValueError(
+                    'Cannot nest _AdjustedSurfaceAltitude context managers with alt!=0'
+                )
             self.original_radii = self.body.radii
             self.radii_variable_name = f'BODY{self.body.target_body_id}_RADII'
             self.change_radii(self.original_radii + self.alt)
+            self.body._alt_adjustment = self.alt
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         if self.do_adjustment:
             self.change_radii(self.original_radii)
+            self.body._alt_adjustment = 0.0
 
     def change_radii(self, radii: np.ndarray) -> None:
         spice.pdpool(self.radii_variable_name, radii)
@@ -192,6 +214,45 @@ class _AdjustedSurfaceAltitude:
         self.body._clear_cache()  # any cached backlplanes will be invalid
 
     # XXX test
+
+
+class _AdjustedSurfaceAltitudeReentrant(_AdjustedSurfaceAltitude):
+    """
+    Reentrant version of _AdjustedSurfaceAltitude only performs adjustments if alt is
+    different from the current adjustment. This also has a default value for alt and
+    silently eats arbitrary keyword arguments to __init__, so that it can be used
+    directly with e.g. **map_kwargs.
+
+    This is mainly designed to work with mapping functions of the BodyXY class, which
+    may consist of multiple nested calls to
+    _AdjustedSurfaceAltitudeReentrant(**map_kwargs).
+    """
+
+    def __init__(self, body: 'Body', alt: float = 0.0, **kwargs) -> None:
+        self.do_adjustment = alt != 0.0 and alt != body._alt_adjustment
+        if self.do_adjustment:
+            self.body = body
+            self.alt = float(alt)
+
+
+T = TypeVar('T')
+S = TypeVar('S', bound='Body')
+P = ParamSpec('P')
+
+
+def _adjust_surface_altitude_decorator(
+    fn: Callable[Concatenate[S, P], T]
+) -> Callable[Concatenate[S, P], T]:
+    """
+    Decorator to apply _AdjustedSurfaceAltitudeReentrant to a function.
+    """
+
+    @functools.wraps(fn)
+    def decorated(self: S, *args: P.args, **kwargs: P.kwargs) -> T:
+        with _AdjustedSurfaceAltitudeReentrant(self, **kwargs):
+            return fn(self, *args, **kwargs)
+
+    return decorated
 
 
 class Body(BodyBase):
@@ -515,6 +576,9 @@ class Body(BodyBase):
 
         self._matrix_km2angular = None
         self._matrix_angular2km = None
+
+        self._alt_adjustment = 0.0
+        # modified by _AdjustedSurfaceAltitude context manager
 
         # Run custom setup
         if self.target == 'SATURN':

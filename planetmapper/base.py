@@ -41,7 +41,7 @@ Numeric = TypeVar('Numeric', bound=float | np.ndarray)
 
 
 T = TypeVar('T')
-S = TypeVar('S')
+S = TypeVar('S', bound='SpiceBase')
 P = ParamSpec('P')
 
 _SPICE_ERROR_HELP_URL = (
@@ -73,11 +73,11 @@ def _cache_clearable_result(
     # pylint: disable=protected-access
 
     @functools.wraps(fn)
-    def decorated(self, *args_in: P.args, **kwargs_in: P.kwargs) -> T:
+    def decorated(self: S, *args_in: P.args, **kwargs_in: P.kwargs) -> T:
         args, kwargs = _replace_np_arrr_args_with_tuples(args_in, kwargs_in)
         k = (fn.__name__, args, frozenset(kwargs.items()))
         if k not in self._cache:
-            self._cache[k] = fn(self, *args, **kwargs)  # type: ignore
+            self._cache[k] = fn(self, *args, **kwargs)
         return self._cache[k]
 
     return decorated
@@ -97,11 +97,11 @@ def _cache_stable_result(
 
     # pylint: disable=protected-access
     @functools.wraps(fn)
-    def decorated(self, *args_in: P.args, **kwargs_in: P.kwargs) -> T:
+    def decorated(self: S, *args_in: P.args, **kwargs_in: P.kwargs) -> T:
         args, kwargs = _replace_np_arrr_args_with_tuples(args_in, kwargs_in)
         k = (fn.__name__, args, frozenset(kwargs.items()))
         if k not in self._stable_cache:
-            self._stable_cache[k] = fn(self, *args, **kwargs)  # type: ignore
+            self._stable_cache[k] = fn(self, *args, **kwargs)
         return self._stable_cache[k]
 
     return decorated
