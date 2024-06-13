@@ -1748,7 +1748,7 @@ class BodyXY(Body):
                 )
             ) from exc
 
-    def get_backplane_img(self, name: str) -> np.ndarray:
+    def get_backplane_img(self, name: str, *, alt: float = 0.0) -> np.ndarray:
         """
         Generate backplane image.
 
@@ -1759,7 +1759,7 @@ class BodyXY(Body):
         returned image can be safely modified without affecting the cached value (unlike
         the return values from functions such as :func:`get_lon_img`).
 
-        This method is equivalent to ::
+        When `alt=0`, this method is equivalent to ::
 
             body.get_backplane(name).get_img().copy()
 
@@ -1767,11 +1767,15 @@ class BodyXY(Body):
             name: Name of the desired backplane. This is standardised with
                 :func:`standardise_backplane_name` and used to choose a registered
                 backplane from :attr:`backplanes`.
+            alt: Altitude adjustment to the body's surface in km.
 
         Returns:
             Array containing the backplane's values for each pixel in the image.
         """
-        return self.backplanes[self.standardise_backplane_name(name)].get_img().copy()
+        with _AdjustedSurfaceAltitude(self, alt):
+            return (
+                self.backplanes[self.standardise_backplane_name(name)].get_img().copy()
+            )
 
     def get_backplane_map(
         self, name: str, **map_kwargs: Unpack[MapKwargs]
@@ -1785,7 +1789,7 @@ class BodyXY(Body):
 
         This method is equivalent to ::
 
-            body.get_backplane(name).get_map(degree_interval).copy()
+            body.get_backplane(name).get_map(**map_kwargs).copy()
 
         Args:
             name: Name of the desired backplane. This is standardised with
@@ -1806,7 +1810,7 @@ class BodyXY(Body):
         )
 
     def plot_backplane_img(
-        self, name: str, ax: Axes | None = None, show: bool = False, **kwargs
+        self, name: str, ax: Axes | None = None, *, alt: float=0.0, show: bool = False, **kwargs
     ) -> Axes:
         """
         Plot a backplane image with the wireframe outline of the target.
@@ -1819,6 +1823,7 @@ class BodyXY(Body):
         Args:
             name: Name of the desired backplane.
             ax: Passed to :func:`plot_wireframe_xy`.
+            alt: Altitude adjustment to the body's surface in km.
             show: Passed to :func:`plot_wireframe_xy`.
             **kwargs: Passed to Matplotlib's `imshow` when plotting the backplane image.
                 For example, can be used to set the colormap of the plot using
@@ -1827,13 +1832,14 @@ class BodyXY(Body):
         Returns:
             The axis containing the plotted data.
         """
-        backplane = self.get_backplane(name)
-        ax = self.plot_wireframe_xy(ax, show=False)
-        im = ax.imshow(backplane.get_img(), origin='lower', **kwargs)
-        plt.colorbar(im, label=backplane.description)
-        if show:
-            plt.show()
-        return ax
+        with _AdjustedSurfaceAltitude(self, alt):
+            backplane = self.get_backplane(name)
+            ax = self.plot_wireframe_xy(ax, show=False)
+            im = ax.imshow(backplane.get_img(), origin='lower', **kwargs)
+            plt.colorbar(im, label=backplane.description)
+            if show:
+                plt.show()
+            return ax
 
     def plot_backplane_map(
         self, name: str, ax: Axes | None = None, show: bool = False, **kwargs
