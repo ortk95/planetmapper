@@ -77,6 +77,7 @@ class WireframeKwargs(TypedDict, total=False):
     indicate_equator: bool
     indicate_prime_meridian: bool
     formatting: dict[WireframeComponent, dict[str, Any]] | None
+    alt: float
 
     # Hints for common formatting parameters to make type checking/autocomplete happy
     color: str | tuple[float, float, float]
@@ -429,6 +430,7 @@ class Body(BodyBase):
         self._target_frame_encoded = self._encode_str(self.target_frame)
 
         self._assign_radius_values(spice.bodvar(self.target_body_id, 'RADII', 3))
+        # XXX add a km_per_arcsec variable
 
         # Use first degree term of prime meridian Euler angle to identify the spin sense
         # of the target body, then use this spin sense to determine positive longitude
@@ -520,6 +522,7 @@ class Body(BodyBase):
         self.r_eq = self.radii[0]
         self.r_polar = self.radii[2]
         self.flattening = (self.r_eq - self.r_polar) / self.r_eq
+        # XXX check everywhere these values used
 
     def __repr__(self) -> str:
         return self._generate_repr('target', 'utc', kwarg_keys=['observer'])
@@ -938,19 +941,22 @@ class Body(BodyBase):
         )
 
     def _obsvec_norm2lonlat(
-        self, obsvec_norm: np.ndarray, not_found_nan: bool
+        self, obsvec_norm: np.ndarray, not_found_nan: bool, alt: float
     ) -> tuple[float, float]:
-        try:
-            lon, lat = self._radian_pair2degrees(
-                *self._targvec2lonlat_radians(self._obsvec_norm2targvec(obsvec_norm))
-            )
-        except NotFoundError:
-            if not_found_nan:
-                lon = np.nan
-                lat = np.nan
-            else:
-                raise
-        return lon, lat
+        with _AdjustedSurfaceAltitude(self, alt):
+            try:
+                lon, lat = self._radian_pair2degrees(
+                    *self._targvec2lonlat_radians(
+                        self._obsvec_norm2targvec(obsvec_norm)
+                    )
+                )
+            except NotFoundError:
+                if not_found_nan:
+                    lon = np.nan
+                    lat = np.nan
+                else:
+                    raise
+            return lon, lat
 
     def lonlat2radec(
         self, lon: float, lat: float, *, alt: float = 0.0
@@ -1005,10 +1011,9 @@ class Body(BodyBase):
             NotFoundError: If the provided RA/Dec coordinates are missing the target
                 body and `not_found_nan` is False, then NotFoundError will be raised.
         """
-        with _AdjustedSurfaceAltitude(self, alt):
-            return self._obsvec_norm2lonlat(
-                self._radec2obsvec_norm(ra, dec), not_found_nan
-            )
+        return self._obsvec_norm2lonlat(
+            self._radec2obsvec_norm(ra, dec), not_found_nan, alt
+        )
 
     def lonlat2targvec(self, lon: float, lat: float, *, alt: float = 0.0) -> np.ndarray:
         """
@@ -1235,11 +1240,11 @@ class Body(BodyBase):
             NotFoundError: If the provided angular coordinates are missing the target
                 body and `not_found_nan` is False, then NotFoundError will be raised.
         """
-        with _AdjustedSurfaceAltitude(self, alt):
-            return self._obsvec_norm2lonlat(
-                self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs),
-                not_found_nan,
-            )
+        return self._obsvec_norm2lonlat(
+            self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs),
+            not_found_nan,
+            alt,
+        )
 
     def lonlat2angular(
         self,
@@ -1350,10 +1355,9 @@ class Body(BodyBase):
             NotFoundError: If the provided km coordinates are missing the target body
             and `not_found_nan` is False, then NotFoundError will be raised.
         """
-        with _AdjustedSurfaceAltitude(self, alt):
-            return self._obsvec_norm2lonlat(
-                self._km2obsvec_norm(km_x, km_y), not_found_nan
-            )
+        return self._obsvec_norm2lonlat(
+            self._km2obsvec_norm(km_x, km_y), not_found_nan, alt
+        )
 
     def lonlat2km(
         self, lon: float, lat: float, *, alt: float = 0.0
@@ -1471,20 +1475,24 @@ class Body(BodyBase):
             points = self.close_loop(points)
         return points
 
-    def limb_radec(self, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+    def limb_radec(
+        self, *, alt: float = 0.0, **kwargs
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Calculate the RA/Dec coordinates of the target body's limb.
 
         Args:
             npts: Number of points in the generated limb.
+            alt: Altitude of the limb above the surface of the target body, in km.
 
         Returns:
             `(ra, dec)` tuple of coordinate arrays.
         """
-        return self._targvec_arr2radec_arrs(self._limb_targvec(**kwargs))
+        with _AdjustedSurfaceAltitude(self, alt):
+            return self._targvec_arr2radec_arrs(self._limb_targvec(**kwargs))
 
     def limb_radec_by_illumination(
-        self, **kwargs
+        self, *, alt: float = 0.0, **kwargs
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
         Calculate RA/Dec coordinates of the dayside and nightside parts of the target
@@ -1496,26 +1504,28 @@ class Body(BodyBase):
 
         Args:
             npts: Number of points in the generated limbs.
+            alt: Altitude of the limbs above the surface of the target body, in km.
 
         Returns:
             `(ra_day, dec_day, ra_night, dec_night)` tuple of coordinate arrays of the
             dayside then nightside parts of the limb.
         """
-        targvec_arr = self._limb_targvec(**kwargs)
-        ra_day, dec_day = self._targvec_arr2radec_arrs(targvec_arr)
-        ra_night = ra_day.copy()
-        dec_night = dec_day.copy()
-        for idx, targvec in enumerate(targvec_arr):
-            if self._test_if_targvec_illuminated(targvec):
-                ra_night[idx] = np.nan
-                dec_night[idx] = np.nan
-            else:
-                ra_day[idx] = np.nan
-                dec_day[idx] = np.nan
-        return ra_day, dec_day, ra_night, dec_night
+        with _AdjustedSurfaceAltitude(self, alt):
+            targvec_arr = self._limb_targvec(**kwargs)
+            ra_day, dec_day = self._targvec_arr2radec_arrs(targvec_arr)
+            ra_night = ra_day.copy()
+            dec_night = dec_day.copy()
+            for idx, targvec in enumerate(targvec_arr):
+                if self._test_if_targvec_illuminated(targvec):
+                    ra_night[idx] = np.nan
+                    dec_night[idx] = np.nan
+                else:
+                    ra_day[idx] = np.nan
+                    dec_day[idx] = np.nan
+            return ra_day, dec_day, ra_night, dec_night
 
     def limb_coordinates_from_radec(
-        self, ra: float, dec: float
+        self, ra: float, dec: float, *, alt: float = 0.0
     ) -> tuple[float, float, float]:
         """
         Calculate the coordinates relative to the target body's limb for a point in the
@@ -1527,6 +1537,8 @@ class Body(BodyBase):
         Args:
             ra: Right ascension of point in the sky of the observer.
             dec: Declination of point in the sky of the observer.
+            alt: Altitude of the reference limb above the surface of the target body, in
+                km.
 
         Returns:
             `(lon, lat, dist)` tuple of coordinates relative to the target body's limb.
@@ -1537,10 +1549,11 @@ class Body(BodyBase):
             values mean that the point is below the limb (i.e. on the target body's
             disc).
         """
-        coords = self._limb_coordinates_from_obsvec(
-            self._radec2obsvec_norm_radians(*self._degree_pair2radians(ra, dec))
-        )
-        return coords
+        with _AdjustedSurfaceAltitude(self, alt):
+            coords = self._limb_coordinates_from_obsvec(
+                self._radec2obsvec_norm_radians(*self._degree_pair2radians(ra, dec))
+            )
+            return coords
 
     def _limb_coordinates_from_obsvec(
         self, obsvec_norm: np.ndarray
@@ -1632,7 +1645,7 @@ class Body(BodyBase):
         )
 
     def other_body_los_intercept(
-        self, other: 'str | int | Body | BasicBody'
+        self, other: 'str | int | Body | BasicBody', *, alt: float = 0.0
     ) -> None | Literal['transit', 'hidden', 'part transit', 'part hidden', 'same']:
         """
         Test for line-of-sight intercept between the target body and another body.
@@ -1652,6 +1665,7 @@ class Body(BodyBase):
             other: Other body to test for intercept with. Can be a :class`Body` (or
                 :class:`BasicBody`) instance, or a string/integer NAIF ID code which is
                 passed to :func:`create_other_body`.
+            alt: Altitude adjustment to the surface of the target body in km.
 
         Returns:
             `None` if there is no intercept, otherwise a string indicating the type of
@@ -1672,34 +1686,35 @@ class Body(BodyBase):
         if not isinstance(other, BodyBase):
             other = self.create_other_body(other)
 
-        if isinstance(other, BasicBody):
-            try:
-                self.radec2lonlat(
-                    other.target_ra, other.target_dec, not_found_nan=False
-                )
-            except NotFoundError:
-                return None  # No intercept with the target body
-            if other.target_distance == self.target_distance:
-                return 'same'
-            elif other.target_distance - self.target_distance > 0:
-                return 'hidden'
-            else:
-                return 'transit'
+        with _AdjustedSurfaceAltitude(self, alt):
+            if isinstance(other, BasicBody):
+                try:
+                    self.radec2lonlat(
+                        other.target_ra, other.target_dec, not_found_nan=False
+                    )
+                except NotFoundError:
+                    return None  # No intercept with the target body
+                if other.target_distance == self.target_distance:
+                    return 'same'
+                elif other.target_distance - self.target_distance > 0:
+                    return 'hidden'
+                else:
+                    return 'transit'
 
-        try:
-            occultation = spice.occult(
-                self.target,
-                'ELLIPSOID',
-                self.target_frame,
-                other.target,
-                'ELLIPSOID',
-                other.target_frame,
-                self.aberration_correction,
-                self.observer,
-                self.et,
-            )
-        except SpiceBODIESNOTDISTINCT:
-            return 'same'
+            try:
+                occultation = spice.occult(
+                    self.target,
+                    'ELLIPSOID',
+                    self.target_frame,
+                    other.target,
+                    'ELLIPSOID',
+                    other.target_frame,
+                    self.aberration_correction,
+                    self.observer,
+                    self.et,
+                )
+            except SpiceBODIESNOTDISTINCT:
+                return 'same'
 
         match occultation:
             case 3:
@@ -1714,7 +1729,9 @@ class Body(BodyBase):
                 return 'transit'
         raise ValueError(f'Unknown occultation code: {occultation}')  # pragma: no cover
 
-    def test_if_other_body_visible(self, other: 'str | int | Body | BasicBody') -> bool:
+    def test_if_other_body_visible(
+        self, other: 'str | int | Body | BasicBody', **kwargs
+    ) -> bool:
         """
         Test if another body is visible, or is hidden behind the target body.
 
@@ -1725,13 +1742,15 @@ class Body(BodyBase):
         Args:
             other: Other body to test for visibility, passed to
                 :func:`other_body_los_intercept`.
+            **kwargs: Additional keyword arguments are passed to
+                :func:`other_body_los_intercept`.
 
         Returns:
             `False` if the other body is hidden behind the target body, otherwise
             `True`. If any part of the other body is visible, this method will return
             `True`.
         """
-        return self.other_body_los_intercept(other) != 'hidden'
+        return self.other_body_los_intercept(other, *kwargs) != 'hidden'
 
     # Illumination
     def _illumination_angles_from_targvec_radians(
@@ -1741,7 +1760,7 @@ class Body(BodyBase):
         return phase, incdnc, emissn
 
     def illumination_angles_from_lonlat(
-        self, lon: float, lat: float
+        self, lon: float, lat: float, *, alt: float = 0.0
     ) -> tuple[float, float, float]:
         """
         Calculate the illumination angles of a longitude/latitude coordinate on the
@@ -1750,12 +1769,13 @@ class Body(BodyBase):
         Args:
             lon: Longitude of point on target body.
             lat: Latitude of point on target body.
+            alt: Altitude of point above the surface of the target body in km.
 
         Returns:
             `(phase, incidence, emission)` tuple containing the illumination angles.
         """
         phase, incdnc, emissn = self._illumination_angles_from_targvec_radians(
-            self.lonlat2targvec(lon, lat)
+            self.lonlat2targvec(lon, lat, alt=alt)
         )
         return np.rad2deg(phase), np.rad2deg(incdnc), np.rad2deg(emissn)
 
@@ -1774,7 +1794,9 @@ class Body(BodyBase):
         azimuth_radians = np.pi - np.arccos(a / b)
         return azimuth_radians  # type: ignore
 
-    def azimuth_angle_from_lonlat(self, lon: float, lat: float) -> float:
+    def azimuth_angle_from_lonlat(
+        self, lon: float, lat: float, *, alt: float = 0.0
+    ) -> float:
         """
         Calculate the azimuth angle of a longitude/latitude coordinate on the target
         body.
@@ -1782,13 +1804,14 @@ class Body(BodyBase):
         Args:
             lon: Longitude of point on target body.
             lat: Latitude of point on target body.
+            alt: Altitude of point above the surface of the target body in km.
 
         Returns:
             Azimuth angle in degrees.
         """
         azimuth_radians = self._azimuth_angle_from_gie_radians(
             *self._illumination_angles_from_targvec_radians(
-                self.lonlat2targvec(lon, lat)
+                self.lonlat2targvec(lon, lat, alt=alt)
             )
         )
         return np.rad2deg(azimuth_radians)
@@ -1849,8 +1872,10 @@ class Body(BodyBase):
     def terminator_radec(
         self,
         npts: int = 360,
+        *,
         only_visible: bool = True,
         close_loop: bool = True,
+        alt: float = 0.0,
         method: str = 'UMBRAL/TANGENT/ELLIPSOID',
         corloc: str = 'ELLIPSOID TERMINATOR',
     ) -> tuple[np.ndarray, np.ndarray]:
@@ -1862,6 +1887,7 @@ class Body(BodyBase):
         Args:
             npts: Number of points in generated terminator.
             only_visible: Toggle only returning visible part of terminator.
+            alt: Altitude adjustment to the surface of the target body in km.
             close_loop: If True, passes coordinate arrays through :func:`close_loop`
                 (e.g. to enable nicer plotting).
             method, corloc: Passed to SPICE function.
@@ -1869,41 +1895,44 @@ class Body(BodyBase):
         Returns:
             `(ra, dec)` tuple of RA/Dec coordinate arrays.
         """
-        refvec = [0, 0, 1]
-        rolstp = 2 * np.pi / npts
-        _, targvec_arr, epochs, trmvcs = spice.termpt(
-            method,
-            self.illumination_source,
-            self.target,
-            self.et,
-            self.target_frame,
-            self.aberration_correction,
-            corloc,
-            self.observer,
-            refvec,
-            rolstp,
-            npts,
-            4,
-            self.target_distance,
-            npts,
-        )
-        if close_loop:
-            targvec_arr = self.close_loop(targvec_arr)
-        ra, dec = self._targvec_arr2radec_arrs(
-            targvec_arr,
-            condition_func=(
-                (lambda t: self._test_if_targvec_visible(t, on_surface=True))
-                if only_visible
-                else None
-            ),
-        )
-        return ra, dec
+        with _AdjustedSurfaceAltitude(self, alt):
+            refvec = [0, 0, 1]
+            rolstp = 2 * np.pi / npts
+            _, targvec_arr, epochs, trmvcs = spice.termpt(
+                method,
+                self.illumination_source,
+                self.target,
+                self.et,
+                self.target_frame,
+                self.aberration_correction,
+                corloc,
+                self.observer,
+                refvec,
+                rolstp,
+                npts,
+                4,
+                self.target_distance,
+                npts,
+            )
+            if close_loop:
+                targvec_arr = self.close_loop(targvec_arr)
+            ra, dec = self._targvec_arr2radec_arrs(
+                targvec_arr,
+                condition_func=(
+                    (lambda t: self._test_if_targvec_visible(t, on_surface=True))
+                    if only_visible
+                    else None
+                ),
+            )
+            return ra, dec
 
     def _test_if_targvec_illuminated(self, targvec: np.ndarray) -> bool:
         phase, incdnc, emissn, visibl, lit = self._illumf_from_targvec_radians(targvec)
         return lit
 
-    def test_if_lonlat_illuminated(self, lon: float, lat: float) -> bool:
+    def test_if_lonlat_illuminated(
+        self, lon: float, lat: float, *, alt: float = 0.0
+    ) -> bool:
         """
         Test if longitude/latitude coordinate on the surface of the target body is
         illuminated.
@@ -1911,11 +1940,12 @@ class Body(BodyBase):
         Args:
             lon: Longitude of point on target body.
             lat: Latitude of point on target body.
+            alt: Altitude of point above the surface of the target body in km.
 
         Returns:
             True if the point is illuminated, otherwise False.
         """
-        return self._test_if_targvec_illuminated(self.lonlat2targvec(lon, lat))
+        return self._test_if_targvec_illuminated(self.lonlat2targvec(lon, lat, alt=alt))
 
     # Rings
     def _ring_coordinates_from_obsvec(
@@ -2196,7 +2226,9 @@ class Body(BodyBase):
     def _radial_velocity_from_targvec(self, targvec: np.ndarray) -> float:
         return self._radial_velocity_from_state(*self._state_from_targvec(targvec))
 
-    def radial_velocity_from_lonlat(self, lon: float, lat: float) -> float:
+    def radial_velocity_from_lonlat(
+        self, lon: float, lat: float, *, alt: float = 0.0
+    ) -> float:
         """
         Calculate radial (i.e. line-of-sight) velocity of a point on the target's
         surface relative to the observer. This can be used to calculate the doppler
@@ -2205,24 +2237,32 @@ class Body(BodyBase):
         Args:
             lon: Longitude of point on target body.
             lat: Latitude of point on target body.
+            alt: Altitude of point above the surface of the target body in km.
 
         Returns:
             Radial velocity of the point in km/s.
         """
-        return self._radial_velocity_from_targvec(self.lonlat2targvec(lon, lat))
+        return self._radial_velocity_from_targvec(
+            self.lonlat2targvec(lon, lat, alt=alt)
+        )
 
-    def distance_from_lonlat(self, lon: float, lat: float) -> float:
+    def distance_from_lonlat(
+        self, lon: float, lat: float, *, alt: float = 0.0
+    ) -> float:
         """
         Calculate distance from observer to a point on the target's surface.
 
         Args:
             lon: Longitude of point on target body.
             lat: Latitude of point on target body.
+            alt: Altitude of point above the surface of the target body in km.
 
         Returns:
             Distance of the point in km.
         """
-        position, velocity, lt = self._state_from_targvec(self.lonlat2targvec(lon, lat))
+        position, velocity, lt = self._state_from_targvec(
+            self.lonlat2targvec(lon, lat, alt=alt)
+        )
         return lt * self.speed_of_light()
 
     # Planetographic <-> planetocentric
@@ -2236,21 +2276,24 @@ class Body(BodyBase):
         radius, lon_centric, lat_centric = spice.reclat(targvec)
         return self._radian_pair2degrees(lon_centric, lat_centric)
 
-    def graphic2centric_lonlat(self, lon: float, lat: float) -> tuple[float, float]:
+    def graphic2centric_lonlat(
+        self, lon: float, lat: float, *, alt: float = 0.0
+    ) -> tuple[float, float]:
         """
         Convert planetographic longitude/latitude to planetocentric.
 
         Args:
             lon: Planetographic longitude.
             lat: Planetographic latitude.
+            alt: Altitude of point above the surface of the target body in km.
 
         Returns:
             `(lon_centric, lat_centric)` tuple of planetocentric coordinates.
         """
-        return self._targvec2lonlat_centric(self.lonlat2targvec(lon, lat))
+        return self._targvec2lonlat_centric(self.lonlat2targvec(lon, lat, alt=alt))
 
     def centric2graphic_lonlat(
-        self, lon_centric: float, lat_centric: float
+        self, lon_centric: float, lat_centric: float, *, alt: float = 0.0
     ) -> tuple[float, float]:
         """
         Convert planetocentric longitude/latitude to planetographic.
@@ -2258,6 +2301,7 @@ class Body(BodyBase):
         Args:
             lon_centric: Planetocentric longitude.
             lat_centric: Planetographic latitude.
+            alt: Altitude of point above the surface of the target body in km.
 
         Returns:
             `(lon, lat)` tuple of planetographic coordinates.
@@ -2271,7 +2315,7 @@ class Body(BodyBase):
             self._target_frame_encoded,  # type: ignore
             [[np.deg2rad(lon_centric), np.deg2rad(lat_centric)]],
         )
-        return self.targvec2lonlat(targvecs[0])
+        return self.targvec2lonlat(targvecs[0], alt=alt)
 
     # Other
     def north_pole_angle(self) -> float:
@@ -2520,6 +2564,7 @@ class Body(BodyBase):
         indicate_equator: bool = False,
         indicate_prime_meridian: bool = False,
         formatting: dict[WireframeComponent, dict[str, Any]] | None = None,
+        alt: float = 0.0,
         **common_formatting,
     ) -> Axes:
         """
@@ -2546,101 +2591,105 @@ class Body(BodyBase):
             transform += matplotlib.transforms.Affine2D().scale(scale_factor)
         transform += ax.transData
 
-        def array_func(
-            ras: np.ndarray, decs: np.ndarray
-        ) -> tuple[np.ndarray, np.ndarray]:
-            """Transform arrays of coords with coordinate_func"""
-            xs, ys = zip(*(coordinate_func(ra, dec) for ra, dec in zip(ras, decs)))
-            if additional_array_func is not None:
-                xs, ys = additional_array_func(xs, ys)
-            return np.array(xs), np.array(ys)
+        with _AdjustedSurfaceAltitude(self, alt):
 
-        kwargs = self._get_wireframe_kw(
-            base_formatting=dict(transform=transform),
-            common_formatting=common_formatting,
-            formatting=formatting,
-        )
+            def array_func(
+                ras: np.ndarray, decs: np.ndarray
+            ) -> tuple[np.ndarray, np.ndarray]:
+                """Transform arrays of coords with coordinate_func"""
+                xs, ys = zip(*(coordinate_func(ra, dec) for ra, dec in zip(ras, decs)))
+                if additional_array_func is not None:
+                    xs, ys = additional_array_func(xs, ys)
+                return np.array(xs), np.array(ys)
 
-        lons = np.arange(0, 360, grid_interval)
-        for lon, (ra, dec) in zip(
-            lons,
-            self.visible_lon_grid_radec(
-                lons, lat_limit=grid_lat_limit, planetocentric=planetocentric_grid
-            ),
-        ):
-            ax.plot(
-                *array_func(ra, dec),
-                **kwargs['grid']
-                | (
-                    kwargs['prime_meridian']
-                    if lon == 0 and indicate_prime_meridian
-                    else {}
+            kwargs = self._get_wireframe_kw(
+                base_formatting=dict(transform=transform),
+                common_formatting=common_formatting,
+                formatting=formatting,
+            )
+
+            lons = np.arange(0, 360, grid_interval)
+            for lon, (ra, dec) in zip(
+                lons,
+                self.visible_lon_grid_radec(
+                    lons, lat_limit=grid_lat_limit, planetocentric=planetocentric_grid
                 ),
-            )
-        lats = [
-            l for l in np.arange(-90, 90, grid_interval) if abs(l) <= grid_lat_limit
-        ]
-        for lat, (ra, dec) in zip(
-            lats,
-            self.visible_lat_grid_radec(
-                lats, lat_limit=grid_lat_limit, planetocentric=planetocentric_grid
-            ),
-        ):
-            ax.plot(
-                *array_func(ra, dec),
-                **kwargs['grid']
-                | (kwargs['equator'] if lat == 0 and indicate_equator else {}),
-            )
+            ):
+                ax.plot(
+                    *array_func(ra, dec),
+                    **kwargs['grid']
+                    | (
+                        kwargs['prime_meridian']
+                        if lon == 0 and indicate_prime_meridian
+                        else {}
+                    ),
+                )
+            lats = [
+                l for l in np.arange(-90, 90, grid_interval) if abs(l) <= grid_lat_limit
+            ]
+            for lat, (ra, dec) in zip(
+                lats,
+                self.visible_lat_grid_radec(
+                    lats, lat_limit=grid_lat_limit, planetocentric=planetocentric_grid
+                ),
+            ):
+                ax.plot(
+                    *array_func(ra, dec),
+                    **kwargs['grid']
+                    | (kwargs['equator'] if lat == 0 and indicate_equator else {}),
+                )
 
-        ax.plot(*array_func(*self.limb_radec()), **kwargs['limb'])
-        ax.plot(*array_func(*self.terminator_radec()), **kwargs['terminator'])
+            ax.plot(*array_func(*self.limb_radec()), **kwargs['limb'])
+            ax.plot(*array_func(*self.terminator_radec()), **kwargs['terminator'])
 
-        ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination()
-        ax.plot(*array_func(ra_day, dec_day), **kwargs['limb_illuminated'])
+            ra_day, dec_day, ra_night, dec_night = self.limb_radec_by_illumination()
+            ax.plot(*array_func(ra_day, dec_day), **kwargs['limb_illuminated'])
 
-        if label_poles:
-            for lon, lat, s in self.get_poles_to_plot():
-                x, y = coordinate_func(*self.lonlat2radec(lon, lat))
-                ax.text(x, y, s, **kwargs['pole'])
+            if label_poles:
+                for lon, lat, s in self.get_poles_to_plot():
+                    x, y = coordinate_func(*self.lonlat2radec(lon, lat))
+                    ax.text(x, y, s, **kwargs['pole'])
 
-        for lon, lat in self.coordinates_of_interest_lonlat:
-            if self.test_if_lonlat_visible(lon, lat):
-                x, y = coordinate_func(*self.lonlat2radec(lon, lat))
-                ax.scatter(x, y, **kwargs['coordinate_of_interest_lonlat'])
-        for ra, dec in self.coordinates_of_interest_radec:
-            ax.scatter(
-                *coordinate_func(ra, dec), **kwargs['coordinate_of_interest_radec']
-            )
+            for lon, lat in self.coordinates_of_interest_lonlat:
+                if self.test_if_lonlat_visible(lon, lat):
+                    x, y = coordinate_func(*self.lonlat2radec(lon, lat))
+                    ax.scatter(x, y, **kwargs['coordinate_of_interest_lonlat'])
+            for ra, dec in self.coordinates_of_interest_radec:
+                ax.scatter(
+                    *coordinate_func(ra, dec), **kwargs['coordinate_of_interest_radec']
+                )
 
-        for radius in self.ring_radii:
-            x, y = array_func(*self.ring_radec(radius))
-            ax.plot(x, y, **kwargs['ring'])
+            for radius in self.ring_radii:
+                x, y = array_func(*self.ring_radec(radius))
+                ax.plot(x, y, **kwargs['ring'])
 
-        for body in self.other_bodies_of_interest:
-            x, y = coordinate_func(body.target_ra, body.target_dec)
-            label = body.target
-            hidden = not self.test_if_other_body_visible(body)
-            if hidden:
-                label = f'({label})'
-            ax.text(
-                x,
-                y,
-                label + '\n',
-                **kwargs['other_body_of_interest_label']
-                | (kwargs['hidden_other_body_of_interest_label'] if hidden else {}),
-            )
-            ax.scatter(
-                x,
-                y,
-                **kwargs['other_body_of_interest_marker']
-                | (kwargs['hidden_other_body_of_interest_marker'] if hidden else {}),
-            )
+            for body in self.other_bodies_of_interest:
+                x, y = coordinate_func(body.target_ra, body.target_dec)
+                label = body.target
+                hidden = not self.test_if_other_body_visible(body)
+                if hidden:
+                    label = f'({label})'
+                ax.text(
+                    x,
+                    y,
+                    label + '\n',
+                    **kwargs['other_body_of_interest_label']
+                    | (kwargs['hidden_other_body_of_interest_label'] if hidden else {}),
+                )
+                ax.scatter(
+                    x,
+                    y,
+                    **kwargs['other_body_of_interest_marker']
+                    | (
+                        kwargs['hidden_other_body_of_interest_marker'] if hidden else {}
+                    ),
+                )
 
-        if add_title:
-            ax.set_title(self.get_description(multiline=True))
-        if aspect_adjustable is not None:
-            ax.set_aspect(1, adjustable=aspect_adjustable)
-        return ax
+            if add_title:
+                ax.set_title(self.get_description(multiline=True))
+            if aspect_adjustable is not None:
+                ax.set_aspect(1, adjustable=aspect_adjustable)
+            return ax
 
     @staticmethod
     def _add_nans_for_radec_array_wraparounds(
@@ -2829,6 +2878,7 @@ class Body(BodyBase):
                 `other_body_of_interest_marker`, `other_body_of_interest_label`,
                 `hidden_other_body_of_interest_marker`,
                 `hidden_other_body_of_interest_label`.
+            alt: Altitude to plot the wireframe above the surface of the target, in km.
 
             **kwargs: Additional arguments are passed to Matplotlib plotting functions
                 for all components. This is useful for specifying properties like

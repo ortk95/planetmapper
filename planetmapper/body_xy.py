@@ -415,8 +415,7 @@ class BodyXY(Body):
             NotFoundError: if the input `x` and `y` coordinates are missing the target
                 body and `not_found_nan` is `False`.
         """
-        with _AdjustedSurfaceAltitude(self, alt):
-            return self._obsvec_norm2lonlat(self._xy2obsvec_norm(x, y), not_found_nan)
+        return self._obsvec_norm2lonlat(self._xy2obsvec_norm(x, y), not_found_nan, alt)
 
     def lonlat2xy(
         self, lon: float, lat: float, *, alt: float = 0.0
@@ -721,7 +720,7 @@ class BodyXY(Body):
         Returns:
             Plate scale of the observation in km/pixel at the target body.
         """
-        return self.r_eq / self.get_r0()
+        return self.r_eq / self.get_r0()  # XXX
 
     def set_img_size(self, nx: int | None = None, ny: int | None = None) -> None:
         """
