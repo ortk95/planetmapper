@@ -9,6 +9,7 @@ from typing import (
     Iterable,
     Literal,
     ParamSpec,
+    Protocol,
     TypedDict,
     TypeVar,
     cast,
@@ -168,26 +169,25 @@ class LonLatGridKwargs(TypedDict, total=False):
 
 class _AdjustedSurfaceAltitude:
     """
-    Context manager to temporarily change the surface altitude of a Body.
+    Context manager to temporarily change the surface altitude of a specific Body
+    instance.
 
     This adjusts the appropriate BODYNNN_RADII variable in the kernel pool, and the
-    relevant attributes of the body object. These changes are then reverted when the
-    context manager exits.
+    relevant attributes of the provided `body` object. These changes are then reverted
+    when the context manager exits.
 
-    If there is no altitude adjustment, (i.e. `alt=0`), then the code short circuits and
+    If there is no altitude adjustment, (e.g. `alt=0`), then the code short circuits and
     doesn't change any values. This is to improve performance in the default case.
 
-    Functions that use _AdjustedSurfaceAltitude should consume the `alt` argument - i.e.
-    any nested calls made within the `with _AdjustedSurfaceAltitude` block should not
-    pass on the `alt` argument to the next call. Any uses where the `alt` argument is
-    passed on should use `_AdjustedSurfaceAltitudeReentrant` instead.
+    __init__ will silently eat any extra keyword arguments, so can be used with e.g.
+    **map_kwargs which may define an `alt` value.
 
     For example, this can be used to calculate the (lon, lat) coordinates where a ray
     intercepts with a shell of a given altitude above the surface of a planet.
     """
 
-    def __init__(self, body: 'Body', alt: float) -> None:
-        self.do_adjustment = alt != 0.0
+    def __init__(self, body: 'Body', alt: float = 0.0, **kwargs) -> None:
+        self.do_adjustment = alt != 0.0 and alt != body._alt_adjustment
         if self.do_adjustment:
             self.body = body
             self.alt = float(alt)
@@ -196,7 +196,7 @@ class _AdjustedSurfaceAltitude:
         if self.do_adjustment:
             if self.body._alt_adjustment != 0.0:
                 raise ValueError(
-                    'Cannot nest _AdjustedSurfaceAltitude context managers with alt!=0'
+                    'Cannot nest _AdjustedSurfaceAltitude context managers with alt != 0'
                 )
             self.original_radii = self.body.radii
             self.radii_variable_name = f'BODY{self.body.target_body_id}_RADII'
@@ -216,25 +216,6 @@ class _AdjustedSurfaceAltitude:
     # XXX test
 
 
-class _AdjustedSurfaceAltitudeReentrant(_AdjustedSurfaceAltitude):
-    """
-    Reentrant version of _AdjustedSurfaceAltitude only performs adjustments if alt is
-    different from the current adjustment. This also has a default value for alt and
-    silently eats arbitrary keyword arguments to __init__, so that it can be used
-    directly with e.g. **map_kwargs.
-
-    This is mainly designed to work with mapping functions of the BodyXY class, which
-    may consist of multiple nested calls to
-    _AdjustedSurfaceAltitudeReentrant(**map_kwargs).
-    """
-
-    def __init__(self, body: 'Body', alt: float = 0.0, **kwargs) -> None:
-        self.do_adjustment = alt != 0.0 and alt != body._alt_adjustment
-        if self.do_adjustment:
-            self.body = body
-            self.alt = float(alt)
-
-
 T = TypeVar('T')
 S = TypeVar('S', bound='Body')
 P = ParamSpec('P')
@@ -244,12 +225,15 @@ def _adjust_surface_altitude_decorator(
     fn: Callable[Concatenate[S, P], T]
 ) -> Callable[Concatenate[S, P], T]:
     """
-    Decorator to apply _AdjustedSurfaceAltitudeReentrant to a function.
+    Decorator to apply _AdjustedSurfaceAltitude to a function.
+
+    Note that the `alt` parameter *must* be a keyword only parameter of `fn` for this to
+    work.
     """
 
     @functools.wraps(fn)
     def decorated(self: S, *args: P.args, **kwargs: P.kwargs) -> T:
-        with _AdjustedSurfaceAltitudeReentrant(self, **kwargs):
+        with _AdjustedSurfaceAltitude(self, **kwargs):
             return fn(self, *args, **kwargs)
 
     return decorated

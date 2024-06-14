@@ -17,10 +17,6 @@ from .body import _adjust_surface_altitude_decorator, _AdjustedSurfaceAltitude
 from .body_xy import BodyXY, MapKwargs, Unpack
 from .progress import SaveMapProgressHookCLI, SaveNavProgressHookCLI, progress_decorator
 
-T = TypeVar('T')
-S = TypeVar('S')
-P = ParamSpec('P')
-
 
 class Observation(BodyXY):
     """
