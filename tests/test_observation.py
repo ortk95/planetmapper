@@ -797,6 +797,15 @@ class TestObservation(common_testing.BaseTestCase):
             )
             self.compare_fits_to_reference(path)
 
+        with self.subTest('alt'):
+            path = os.path.join(common_testing.TEMP_PATH, 'test_nav_alt.fits')
+            self.observation.save_observation(
+                path,
+                alt=34567.8912,
+                wireframe_kwargs=dict(output_size=19, dpi=20),
+            )
+            self.compare_fits_to_reference(path)
+
     def test_save_mapped_observation(self):
         self.observation.set_disc_params(2.5, 3.1, 3.9, 123.456)
         self.observation.set_disc_method('<<<test>>>')
@@ -804,6 +813,11 @@ class TestObservation(common_testing.BaseTestCase):
         map_kwargs = {
             'rectangular-nearest': dict(
                 degree_interval=30, interpolation='nearest', show_progress=True
+            ),
+            'rectangular-nearest-alt': dict(
+                degree_interval=30,
+                interpolation='nearest',
+                alt=34567.8912,
             ),
             'rectangular-linear': dict(
                 degree_interval=30, interpolation='linear', include_wireframe=False

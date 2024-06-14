@@ -169,7 +169,9 @@ class LonLatGridKwargs(TypedDict, total=False):
 class _AdjustedSurfaceAltitude:
     """
     Context manager to temporarily change the surface altitude of a specific Body
-    instance.
+    instance. For example, this can be used to calculate the (lon, lat) coordinates
+    where a ray intercepts with a shell of a given altitude above the surface of a
+    planet.
 
     This adjusts the appropriate BODYNNN_RADII variable in the kernel pool, and the
     relevant attributes of the provided `body` object. These changes are then reverted
@@ -181,8 +183,9 @@ class _AdjustedSurfaceAltitude:
     __init__ will silently eat any extra keyword arguments, so can be used with e.g.
     **map_kwargs which may define an `alt` value.
 
-    For example, this can be used to calculate the (lon, lat) coordinates where a ray
-    intercepts with a shell of a given altitude above the surface of a planet.
+    Generally, use this context manager directly when there is an explicit `alt`
+    argument in a method, and use `_adjust_surface_altitude_decorator` instead when
+    `alt` appears as part of **kwargs in the method.
     """
 
     def __init__(self, body: 'Body', alt: float = 0.0, **kwargs) -> None:
@@ -190,13 +193,17 @@ class _AdjustedSurfaceAltitude:
         if self.do_adjustment:
             self.body = body
             self.alt = float(alt)
-
-    def __enter__(self) -> None:
-        if self.do_adjustment:
+            if not math.isfinite(self.alt):
+                raise ValueError(
+                    'Cannot adjust surface altitude with non-finite alt value'
+                )
             if self.body._alt_adjustment != 0.0:
                 raise ValueError(
                     'Cannot nest _AdjustedSurfaceAltitude context managers with alt != 0'
                 )
+
+    def __enter__(self) -> None:
+        if self.do_adjustment:
             self.original_radii = self.body.radii
             self.radii_variable_name = f'BODY{self.body.target_body_id}_RADII'
             self.change_radii(self.original_radii + self.alt)
@@ -211,8 +218,6 @@ class _AdjustedSurfaceAltitude:
         spice.pdpool(self.radii_variable_name, radii)
         self.body._assign_radius_values(radii)
         self.body._clear_cache()  # any cached backlplanes will be invalid
-
-    # XXX test
 
 
 T = TypeVar('T')
@@ -463,6 +468,10 @@ class Body(BodyBase):
         :func:`add_other_bodies_of_interest`.
         """
 
+        # Set _alt_adjustment first, as it is used in calls to e.g. targvec2lonlat later
+        # in __init__
+        self._alt_adjustment = 0.0  # modified by _AdjustedSurfaceAltitude
+
         # Process inputs
         self.illumination_source = illumination_source
         self.subpoint_method = subpoint_method
@@ -538,7 +547,7 @@ class Body(BodyBase):
         self.target_diameter_arcsec = (
             2.0 * 60.0 * 60.0 * np.rad2deg(np.arcsin(self.r_eq / self.target_distance))
         )
-        self.km_per_arcsec = (2.0 * self.r_eq) / self.target_diameter_arcsec  # XXX test
+        self.km_per_arcsec = (2.0 * self.r_eq) / self.target_diameter_arcsec
 
         # Set up equatorial plane (for ring calculations)
         targvec_north_pole = self.lonlat2targvec(0, 90)
@@ -559,9 +568,6 @@ class Body(BodyBase):
 
         self._matrix_km2angular = None
         self._matrix_angular2km = None
-
-        self._alt_adjustment = 0.0
-        # modified by _AdjustedSurfaceAltitude context manager
 
         # Run custom setup
         if self.target == 'SATURN':

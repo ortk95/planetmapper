@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import common_testing
 import matplotlib.pyplot as plt
 import numpy as np
+import spiceypy as spice
 from numpy import array, nan
 from spiceypy.utils.exceptions import (
     NotFoundError,
@@ -121,6 +122,7 @@ class TestBody(common_testing.BaseTestCase):
         self.assertAlmostEqual(self.body.target_ra, 196.37198562427025)
         self.assertAlmostEqual(self.body.target_dec, -5.565793847134351)
         self.assertAlmostEqual(self.body.target_diameter_arcsec, 35.98242689969618)
+        self.assertAlmostEqual(self.body.km_per_arcsec, 3973.7175149019004)
         self.assertAlmostEqual(self.body.subpoint_distance, 819566594.28005)
         self.assertAlmostEqual(self.body.subpoint_lon, 153.12585514751467)
         self.assertAlmostEqual(self.body.subpoint_lat, -3.0886644594385193)
@@ -140,6 +142,8 @@ class TestBody(common_testing.BaseTestCase):
         self.assertEqual(self.body.coordinates_of_interest_lonlat, [])
         self.assertEqual(self.body.coordinates_of_interest_radec, [])
         self.assertEqual(self.body.other_bodies_of_interest, [])
+
+        self.assertEqual(self.body._alt_adjustment, 0.0)
 
         moon = Body('moon', '2005-01-01')
         self.assertEqual(moon.positive_longitude_direction, 'E')
@@ -577,6 +581,29 @@ class TestBody(common_testing.BaseTestCase):
                         )
                     )
 
+        pairs_with_alts: list[
+            tuple[tuple[float, float, float], tuple[float, float]]
+        ] = [
+            (
+                (196.37198562427025, -5.565793847134351, 0),
+                (153.1235185909613, -3.0887371238645795),
+            ),
+            (
+                (196.37198562427025, -5.565793847134351, 123456.789),
+                (153.12766781084477, -2.834663828028037),
+            ),
+            (
+                (196.37198562427025, -5.565793847134351, -1000),
+                (153.12348498172653, -3.0948138787454225),
+            ),
+            ((nan, -5, 123), (nan, nan)),
+        ]
+        for (ra, dec, alt), expected in pairs_with_alts:
+            with self.subTest((ra, dec, alt)):
+                self.assertArraysClose(
+                    self.body.radec2lonlat(ra, dec, alt=alt), expected, equal_nan=True
+                )
+
     def test_lonlat2targvec(self):
         pairs = [
             ((0, 0), np.array([71492.0, -0.0, 0.0])),
@@ -636,6 +663,23 @@ class TestBody(common_testing.BaseTestCase):
                     np.allclose(
                         self.body.targvec2lonlat(targvec), lonlat, equal_nan=True
                     )
+                )
+        pairs_with_alts: list[tuple[tuple[np.ndarray, float], tuple[float, float]]] = [
+            ((array([0, 0, 0]), 0), (0.0, 90.0)),
+            ((array([1, 2, 3]), 0), (296.565051177078, 89.98665551067639)),
+            ((array([-9876, 543210, 0]), 0), (268.9584308375042, 0.0)),
+            ((array([0, 0, 0]), -123.45), (0.0, 90.0)),
+            ((array([1, 2, 3]), -123.45), (296.565051177078, 89.98665633798927)),
+            ((array([-9876, 543210, 0]), -123.45), (268.9584308375042, 0.0)),
+            ((array([0, 0, 0]), 987654321), (0.0, 90.0)),
+            ((array([1, 2, 3]), 987654321), (296.565051177078, 89.98619280529013)),
+            ((array([-9876, 543210, 0]), 987654321), (268.9584308375042, 0.0)),
+            ((array([-9876, 543210, nan]), 987654321), (nan, nan)),
+        ]
+        for (targvec, alt), lonlat in pairs_with_alts:
+            with self.subTest((targvec, alt)):
+                self.assertArraysClose(
+                    self.body.targvec2lonlat(targvec, alt=alt), lonlat, equal_nan=True
                 )
 
     def test_angular_radec(self):
@@ -784,6 +828,26 @@ class TestBody(common_testing.BaseTestCase):
                     expected,
                     equal_nan=True,
                 )
+        pairs_with_alts = [
+            (
+                (11.730907264131929, 11.859358373960486, 0),
+                (86.30139500952406, 21.109249946237032),
+            ),
+            (
+                (11.730907264131929, 11.859358373960486, 123456.789),
+                (134.58218536012419, 4.708273802335033),
+            ),
+            (
+                (11.730907264131929, 11.859358373960486, -1000),
+                (83.89699519490205, 21.59807910857171),
+            ),
+            ((nan, 11, 123), (nan, nan)),
+        ]
+        for (x, y, alt), expected in pairs_with_alts:
+            with self.subTest((x, y, alt)):
+                self.assertArraysClose(
+                    self.body.angular2lonlat(x, y, alt=alt), expected, equal_nan=True
+                )
 
     def test_km_rotation(self):
         x_target, y_target = self.body.radec2km(
@@ -872,6 +936,26 @@ class TestBody(common_testing.BaseTestCase):
                     self.body.lonlat2km(lon, lat, alt=alt),
                     expected,
                     equal_nan=True,
+                )
+        pairs_with_alts = [
+            (
+                (61817.98981185463, 23924.02130814744, 0),
+                (86.30139500952406, 21.109249946237032),
+            ),
+            (
+                (61817.98981185463, 23924.02130814744, 123456.789),
+                (134.58218536012419, 4.708273802335033),
+            ),
+            (
+                (61817.98981185463, 23924.02130814744, -1000),
+                (83.89699519490205, 21.59807910857171),
+            ),
+            ((nan, 23924, 123), (nan, nan)),
+        ]
+        for (x, y, alt), expected in pairs_with_alts:
+            with self.subTest((x, y, alt)):
+                self.assertArraysClose(
+                    self.body.km2lonlat(x, y, alt=alt), expected, equal_nan=True
                 )
 
     def test_km_angular(self):
@@ -1252,6 +1336,30 @@ class TestBody(common_testing.BaseTestCase):
             (array([nan, nan]), array([nan, nan])),
             equal_nan=True,
         )
+
+        with planetmapper.body._AdjustedSurfaceAltitude(self.body, 20000):
+            # check that the only effect from surface alt is on visibility
+            self.assertArraysClose(
+                self.body.ring_radec(123456.789, npts=3, only_visible=False),
+                (
+                    array([196.36825958, 196.37571178, 196.36825958]),
+                    array([-5.56452821, -5.56705935, -5.56452821]),
+                ),
+                equal_nan=True,
+            )
+            self.assertArraysClose(
+                self.body.ring_radec(100000, npts=5),
+                (
+                    array([nan, 196.36633034, 196.37500382, nan, nan]),
+                    array([nan, -5.56310623, -5.56681892, nan, nan]),
+                ),
+                equal_nan=True,
+            )
+            self.assertArraysClose(
+                self.body.ring_radec(80000, npts=2),
+                (array([nan, nan]), array([nan, nan])),
+                equal_nan=True,
+            )
 
     def test_visible_lonlat_grid_radec(self):
         self.assertTrue(
@@ -1711,6 +1819,16 @@ class TestBody(common_testing.BaseTestCase):
             self.body.get_description(),
             'JUPITER (599)\nfrom HST\nat 2005-01-01 00:00 UTC',
         )
+        self.assertEqual(
+            self.body.get_description(multiline=False),
+            'JUPITER (599) from HST at 2005-01-01 00:00 UTC',
+        )
+
+        with planetmapper.body._AdjustedSurfaceAltitude(self.body, 123.0):
+            self.assertEqual(
+                self.body.get_description(),
+                'JUPITER (599), alt = 123 km\nfrom HST\nat 2005-01-01 00:00 UTC',
+            )
 
     def test_get_poles_to_plot(self):
         self.assertEqual(self.body.get_poles_to_plot(), [(0, -90, 'S')])
@@ -2218,6 +2336,51 @@ class TestBody(common_testing.BaseTestCase):
                             )
                         plt.close(fig)
 
+        with self.subTest('altitude offset'):
+            # change in limits ensures that all elements are scaling properly
+
+            # alt, title, xlim ((x0_min, x0_max), (x1_min, x1_max)), ylim (...)
+            to_test: list[
+                tuple[
+                    float,
+                    str,
+                    tuple[tuple[float, float], tuple[float, float]],
+                    tuple[tuple[float, float], tuple[float, float]],
+                ]
+            ] = [
+                (
+                    0,
+                    'JUPITER (599)\nfrom HST\nat 2005-01-01 00:00 UTC',
+                    ((-39320, -117961), (39320, 117961)),
+                    ((-36775, -110326), (36775, 110326)),
+                ),
+                (
+                    1000000.0,
+                    'JUPITER (599), alt = 1e+06 km\nfrom HST\nat 2005-01-01 00:00 UTC',
+                    ((-589320, -1767962), (589320, 1767962)),
+                    ((-586775, -1760325), (586775, 1760327)),
+                ),
+                (
+                    -50000.0,
+                    'JUPITER (599), alt = -50000 km\nfrom HST\nat 2005-01-01 00:00 UTC',
+                    ((-11820, -35461), (11820, 35461)),
+                    ((-9276, -27828), (9276, 27828)),
+                ),
+            ]
+            for alt, title, xlims, ylims in to_test:
+                with self.subTest(alt=alt):
+                    fig, ax = plt.subplots()
+                    self.body.plot_wireframe_km(ax, alt=alt)
+                    self.assertEqual(ax.get_title(), title)
+                    for i in (0, 1):
+                        self.assertTrue(
+                            min(xlims[i]) < ax.get_xlim()[i] < max(xlims[i])
+                        )
+                        self.assertTrue(
+                            min(ylims[i]) < ax.get_ylim()[i] < max(ylims[i])
+                        )
+                    plt.close(fig)
+
     def test_get_local_affine_transform_matrix(self):
         tests: list[
             tuple[
@@ -2427,3 +2590,127 @@ class TestBody(common_testing.BaseTestCase):
                 self.assertArraysClose(ax.get_xlim(), xlim, atol=atol, rtol=rtol)
                 self.assertArraysClose(ax.get_ylim(), ylim, atol=atol, rtol=rtol)
                 plt.close(fig)
+
+
+class TestAdjustedSurfaceAltitude(common_testing.BaseTestCase):
+    def setUp(self):
+        planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
+        self.body = Body('Jupiter', observer='HST', utc='2005-01-01T00:00:00')
+        self.original_radii = self.body.radii
+        self.original_r_eq = self.body.r_eq
+        self.original_r_polar = self.body.r_polar
+        self.original_flattening = self.body.flattening
+
+        self.adjustments_to_check = [0, 0.0, 0.12345, 1, 1.0, 9e9, -42.12345]
+
+    def check_adjustment(self, alt: float, check_cache: bool = True):
+        self.assertAlmostEqual(self.body._alt_adjustment, alt)
+        self.assertArraysClose(self.body.radii, self.original_radii + alt)
+        self.assertAlmostEqual(self.body.r_eq, self.original_r_eq + alt)
+        self.assertAlmostEqual(self.body.r_polar, self.original_r_polar + alt)
+        self.assertAlmostEqual(
+            self.body.flattening,
+            (self.original_r_eq - self.original_r_polar) / (self.original_r_eq + alt),
+        )
+        self.assertArraysClose(
+            spice.bodvar(self.body.target_body_id, 'RADII', 3),
+            self.original_radii + alt,
+        )
+
+        if check_cache:
+            self.assertEqual(self.body._cache, {})
+        self.body._cache['<<<test>>>'] = None
+
+    def check_reset(self, check_cache: bool = True):
+        self.assertEqual(self.body._alt_adjustment, 0)
+        self.assertArraysClose(self.body.radii, self.original_radii)
+        self.assertAlmostEqual(self.body.r_eq, self.original_r_eq)
+        self.assertAlmostEqual(self.body.r_polar, self.original_r_polar)
+        self.assertAlmostEqual(self.body.flattening, self.original_flattening)
+        self.assertArraysClose(
+            spice.bodvar(self.body.target_body_id, 'RADII', 3), self.original_radii
+        )
+        self.check_adjustment(0, check_cache=check_cache)
+
+    def test_context_manager(self):
+        for alt in self.adjustments_to_check:
+            check_cache = alt != 0
+            with self.subTest('normal', alt=alt):
+                self.body._clear_cache()
+                self.check_reset()
+                with planetmapper.body._AdjustedSurfaceAltitude(self.body, alt):
+                    self.check_adjustment(alt, check_cache=check_cache)
+                self.check_reset(check_cache=check_cache)
+
+            with self.subTest('error', alt=alt):
+                self.body._clear_cache()
+                self.check_reset()
+                with self.assertRaises(CustomTestException):
+                    with planetmapper.body._AdjustedSurfaceAltitude(self.body, alt):
+                        self.check_adjustment(alt, check_cache=check_cache)
+                        raise CustomTestException
+                self.check_reset(check_cache=check_cache)
+
+    def test_decorator(self):
+        @planetmapper.body._adjust_surface_altitude_decorator
+        def func(body: Body, *, alt: float = 0.0) -> None:
+            self.check_adjustment(alt, check_cache=alt != 0)
+
+        @planetmapper.body._adjust_surface_altitude_decorator
+        def func_with_error(body: Body, *, alt: float = 0.0) -> None:
+            self.check_adjustment(alt, check_cache=alt != 0)
+            raise CustomTestException
+
+        for alt in self.adjustments_to_check:
+            check_cache = alt != 0
+            with self.subTest('normal', alt=alt):
+                self.body._clear_cache()
+                self.check_reset()
+                func(self.body, alt=alt)
+                self.check_reset(check_cache=check_cache)
+
+            with self.subTest('error', alt=alt):
+                self.body._clear_cache()
+                self.check_reset()
+                with self.assertRaises(CustomTestException):
+                    func_with_error(self.body, alt=alt)
+                self.check_reset(check_cache=check_cache)
+
+    def test_error_when_nested(self):
+        self.body._clear_cache()
+        self.check_reset()
+        with planetmapper.body._AdjustedSurfaceAltitude(self.body, 123):
+            self.check_adjustment(123)
+            with planetmapper.body._AdjustedSurfaceAltitude(self.body, 123):
+                self.check_adjustment(123, check_cache=False)
+
+            with self.assertRaises(ValueError):
+                with planetmapper.body._AdjustedSurfaceAltitude(self.body, 456):
+                    self.fail('Context manager should not enter')
+
+            self.check_adjustment(123, check_cache=False)
+        self.check_reset()
+        with planetmapper.body._AdjustedSurfaceAltitude(self.body, -42.34):
+            # check everything still works properly after an error
+            self.check_adjustment(-42.34)
+        self.check_reset()
+
+    def test_error_non_finite(self):
+        for v in [np.nan, np.inf, -np.inf]:
+            with self.subTest(v):
+                self.body._clear_cache()
+                self.check_reset()
+                with self.assertRaises(ValueError):
+                    with planetmapper.body._AdjustedSurfaceAltitude(self.body, v):
+                        self.fail('Context manager should not enter')
+                self.check_reset(check_cache=False)
+
+        self.check_reset(check_cache=False)
+        with planetmapper.body._AdjustedSurfaceAltitude(self.body, -42.34):
+            # check everything still works properly after an error
+            self.check_adjustment(-42.34)
+        self.check_reset()
+
+
+class CustomTestException(Exception):
+    pass

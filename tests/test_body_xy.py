@@ -375,6 +375,27 @@ class TestBodyXY(common_testing.BaseTestCase):
                     expected,
                     equal_nan=True,
                 )
+        pairs_with_alts = [
+            (
+                (7.781497231832574, 8.015145501618983, 0),
+                (86.30139500952406, 21.109249946237032),
+            ),
+            (
+                (7.781497231832574, 8.015145501618983, 123456.789),
+                (134.58218536012419, 4.708273802335033),
+            ),
+            (
+                (7.781497231832574, 8.015145501618983, -1000),
+                (83.89699519490205, 21.59807910857171),
+            ),
+            ((nan, 8, 123), (nan, nan)),
+        ]
+        self.body.set_disc_params(5, 8, 3, 45)
+        for (x, y, alt), expected in pairs_with_alts:
+            with self.subTest((x, y, alt)):
+                self.assertArraysClose(
+                    self.body.xy2lonlat(x, y, alt=alt), expected, equal_nan=True
+                )
 
     def test_set_disc_params(self):
         x0, y0, r0, rotation = [1.1, 2.2, 3.3, 4.4]
@@ -796,6 +817,20 @@ class TestBodyXY(common_testing.BaseTestCase):
                 ),
             ],
         )
+
+        fig, ax = plt.subplots()
+        self.body.plot_map_wireframe()
+        self.assertEqual(
+            ax.get_title(), 'JUPITER (599)\nfrom HST\nat 2005-01-01 00:00 UTC'
+        )
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
+        self.body.plot_map_wireframe(alt=-123.456)
+        self.assertEqual(
+            ax.get_title(), 'JUPITER (599), alt = -123.456 km\nfrom HST\nat 2005-01-01 00:00 UTC'
+        )
+        plt.close(fig)
 
     def test_get_wireframe_overlay(self):
         img = self.body.get_wireframe_overlay_img(output_size=100)
