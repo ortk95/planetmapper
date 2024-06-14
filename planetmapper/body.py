@@ -9,7 +9,6 @@ from typing import (
     Iterable,
     Literal,
     ParamSpec,
-    Protocol,
     TypedDict,
     TypeVar,
     cast,
@@ -2406,9 +2405,14 @@ class Body(BodyBase):
         Returns:
             String describing the observation of the body.
         """
-        return '{t} ({tid}){nl}from {o}{nl}at {d}'.format(
+        return '{t} ({tid}){alt}{nl}from {o}{nl}at {d}'.format(
             t=self.target,
             tid=self.target_body_id,
+            alt=(
+                f', alt = {self._alt_adjustment:g} km'
+                if self._alt_adjustment != 0.0
+                else ''
+            ),
             nl=('\n' if multiline else ' '),
             o=self.observer,
             d=self.dtm.strftime('%Y-%m-%d %H:%M %Z'),
