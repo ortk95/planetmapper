@@ -44,6 +44,7 @@ from .base import (
     Numeric,
     _add_help_note_to_spice_errors,
     _cache_stable_result,
+    _replace_np_arrr_args_with_tuples,
 )
 from .basic_body import BasicBody
 
@@ -217,7 +218,6 @@ class _AdjustedSurfaceAltitude:
     def change_radii(self, radii: np.ndarray) -> None:
         spice.pdpool(self.radii_variable_name, radii)
         self.body._assign_radius_values(radii)
-        self.body._clear_cache()  # any cached backlplanes will be invalid
 
 
 T = TypeVar('T')
@@ -239,6 +239,25 @@ def _adjust_surface_altitude_decorator(
     def decorated(self: S, *args: P.args, **kwargs: P.kwargs) -> T:
         with _AdjustedSurfaceAltitude(self, **kwargs):
             return fn(self, *args, **kwargs)
+
+    return decorated
+
+def _cache_clearable_alt_dependent_result(
+    fn: Callable[Concatenate[S, P], T]
+) -> Callable[Concatenate[S, P], T]:
+    """
+    Version of _cache_clearable_result that also includes the current altitude
+    adjustment in the cache key.
+    """
+    # pylint: disable=protected-access
+
+    @functools.wraps(fn)
+    def decorated(self: S, *args_in: P.args, **kwargs_in: P.kwargs) -> T:
+        args, kwargs = _replace_np_arrr_args_with_tuples(args_in, kwargs_in)
+        k = (fn.__name__, args, frozenset(kwargs.items()), self._alt_adjustment)
+        if k not in self._cache:
+            self._cache[k] = fn(self, *args, **kwargs)
+        return self._cache[k]
 
     return decorated
 

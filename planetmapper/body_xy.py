@@ -34,6 +34,7 @@ from .body import (
     WireframeKwargs,
     _adjust_surface_altitude_decorator,
     _AdjustedSurfaceAltitude,
+    _cache_clearable_alt_dependent_result,
 )
 from .progress import progress_decorator
 
@@ -2278,7 +2279,7 @@ class BodyXY(Body):
         r = self.get_r0() * max(self.radii) / self.r_eq
         return r
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def _get_targvec_img(self) -> np.ndarray:
         out = self._make_empty_img(3)
@@ -2364,7 +2365,7 @@ class BodyXY(Body):
             out[a, b] = self._targvec2obsvec(targvec)
         return out
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def _get_lonlat_img(self) -> np.ndarray:
         out = self._make_empty_img(2)
@@ -2423,7 +2424,7 @@ class BodyXY(Body):
         """
         return self._get_lonlat_map(**map_kwargs)[:, :, 1]
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def _get_lonlat_centric_img(self) -> np.ndarray:
         out = self._make_empty_img(2)
@@ -2541,7 +2542,7 @@ class BodyXY(Body):
         """
         return self._get_radec_map(**map_kwargs)[:, :, 1]
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     @_adjust_surface_altitude_decorator
     def _get_xy_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
@@ -2664,7 +2665,7 @@ class BodyXY(Body):
         """
         return self._get_km_xy_map(**map_kwargs)[:, :, 1]
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def _get_illumination_gie_img(self) -> np.ndarray:
         out = self._make_empty_img(3)
@@ -2744,7 +2745,7 @@ class BodyXY(Body):
         """
         return self._get_illumf_map(**map_kwargs)[:, :, 2]
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     def get_azimuth_angle_img(self) -> np.ndarray:
         """
         See also :func:`get_backplane_img`.
@@ -2786,7 +2787,7 @@ class BodyXY(Body):
             )
         return np.rad2deg(azimuth_radians)
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def get_local_solar_time_img(self) -> np.ndarray:
         """
@@ -2825,7 +2826,7 @@ class BodyXY(Body):
                 out[a, b] = self.local_solar_time_from_lon(lon)
         return out
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def _get_state_imgs(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         position_img = self._make_empty_img(3)
@@ -2879,7 +2880,7 @@ class BodyXY(Body):
         position_map, velocity_map, lt_map = self._get_state_maps(**map_kwargs)
         return lt_map * self.speed_of_light()
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def get_radial_velocity_img(self) -> np.ndarray:
         """
@@ -2941,7 +2942,7 @@ class BodyXY(Body):
         """
         return self.calculate_doppler_factor(self.get_radial_velocity_map(**map_kwargs))
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def _get_limb_coordinate_imgs(self) -> np.ndarray:
         out = self._make_empty_img(3)
@@ -3031,7 +3032,7 @@ class BodyXY(Body):
         """
         return self._get_limb_coordinate_maps(**map_kwargs)[:, :, 2]
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def _get_ring_plane_coordinate_imgs(
         self,

@@ -69,6 +69,9 @@ def _cache_clearable_result(
     stable (i.e. backplane maps) then use `_cache_stable_result` instead.
 
     Note that any numpy arguments will be converted to (nested) tuples.
+
+    See also body._cache_clearable_alt_dependent_result for a version of this decorator
+    that includes the altitude adjustment in the cache key.
     """
     # pylint: disable=protected-access
 

@@ -12,8 +12,12 @@ from astropy.io import fits
 from astropy.utils.exceptions import AstropyWarning
 
 from . import common, utils
-from .base import _cache_clearable_result, _cache_stable_result
-from .body import _adjust_surface_altitude_decorator, _AdjustedSurfaceAltitude
+from .base import _cache_stable_result
+from .body import (
+    _adjust_surface_altitude_decorator,
+    _AdjustedSurfaceAltitude,
+    _cache_clearable_alt_dependent_result,
+)
 from .body_xy import BodyXY, MapKwargs, Unpack
 from .progress import SaveMapProgressHookCLI, SaveNavProgressHookCLI, progress_decorator
 
@@ -750,7 +754,7 @@ class Observation(BodyXY):
             interpolation=interpolation, spline_smoothing=spline_smoothing, **map_kwargs
         ).copy()
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def _get_mapped_data(
         self,

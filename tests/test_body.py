@@ -2603,7 +2603,7 @@ class TestAdjustedSurfaceAltitude(common_testing.BaseTestCase):
 
         self.adjustments_to_check = [0, 0.0, 0.12345, 1, 1.0, 9e9, -42.12345]
 
-    def check_adjustment(self, alt: float, check_cache: bool = True):
+    def check_adjustment(self, alt: float):
         self.assertAlmostEqual(self.body._alt_adjustment, alt)
         self.assertArraysClose(self.body.radii, self.original_radii + alt)
         self.assertAlmostEqual(self.body.r_eq, self.original_r_eq + alt)
@@ -2617,11 +2617,7 @@ class TestAdjustedSurfaceAltitude(common_testing.BaseTestCase):
             self.original_radii + alt,
         )
 
-        if check_cache:
-            self.assertEqual(self.body._cache, {})
-        self.body._cache['<<<test>>>'] = None
-
-    def check_reset(self, check_cache: bool = True):
+    def check_reset(self):
         self.assertEqual(self.body._alt_adjustment, 0)
         self.assertArraysClose(self.body.radii, self.original_radii)
         self.assertAlmostEqual(self.body.r_eq, self.original_r_eq)
@@ -2630,65 +2626,58 @@ class TestAdjustedSurfaceAltitude(common_testing.BaseTestCase):
         self.assertArraysClose(
             spice.bodvar(self.body.target_body_id, 'RADII', 3), self.original_radii
         )
-        self.check_adjustment(0, check_cache=check_cache)
+        self.check_adjustment(0)
 
     def test_context_manager(self):
         for alt in self.adjustments_to_check:
-            check_cache = alt != 0
             with self.subTest('normal', alt=alt):
-                self.body._clear_cache()
                 self.check_reset()
                 with planetmapper.body._AdjustedSurfaceAltitude(self.body, alt):
-                    self.check_adjustment(alt, check_cache=check_cache)
-                self.check_reset(check_cache=check_cache)
+                    self.check_adjustment(alt)
+                self.check_reset()
 
             with self.subTest('error', alt=alt):
-                self.body._clear_cache()
                 self.check_reset()
                 with self.assertRaises(CustomTestException):
                     with planetmapper.body._AdjustedSurfaceAltitude(self.body, alt):
-                        self.check_adjustment(alt, check_cache=check_cache)
+                        self.check_adjustment(alt)
                         raise CustomTestException
-                self.check_reset(check_cache=check_cache)
+                self.check_reset()
 
     def test_decorator(self):
         @planetmapper.body._adjust_surface_altitude_decorator
         def func(body: Body, *, alt: float = 0.0) -> None:
-            self.check_adjustment(alt, check_cache=alt != 0)
+            self.check_adjustment(alt)
 
         @planetmapper.body._adjust_surface_altitude_decorator
         def func_with_error(body: Body, *, alt: float = 0.0) -> None:
-            self.check_adjustment(alt, check_cache=alt != 0)
+            self.check_adjustment(alt)
             raise CustomTestException
 
         for alt in self.adjustments_to_check:
-            check_cache = alt != 0
             with self.subTest('normal', alt=alt):
-                self.body._clear_cache()
                 self.check_reset()
                 func(self.body, alt=alt)
-                self.check_reset(check_cache=check_cache)
+                self.check_reset()
 
             with self.subTest('error', alt=alt):
-                self.body._clear_cache()
                 self.check_reset()
                 with self.assertRaises(CustomTestException):
                     func_with_error(self.body, alt=alt)
-                self.check_reset(check_cache=check_cache)
+                self.check_reset()
 
     def test_error_when_nested(self):
-        self.body._clear_cache()
         self.check_reset()
         with planetmapper.body._AdjustedSurfaceAltitude(self.body, 123):
             self.check_adjustment(123)
             with planetmapper.body._AdjustedSurfaceAltitude(self.body, 123):
-                self.check_adjustment(123, check_cache=False)
+                self.check_adjustment(123)
 
             with self.assertRaises(ValueError):
                 with planetmapper.body._AdjustedSurfaceAltitude(self.body, 456):
                     self.fail('Context manager should not enter')
 
-            self.check_adjustment(123, check_cache=False)
+            self.check_adjustment(123)
         self.check_reset()
         with planetmapper.body._AdjustedSurfaceAltitude(self.body, -42.34):
             # check everything still works properly after an error
@@ -2698,18 +2687,131 @@ class TestAdjustedSurfaceAltitude(common_testing.BaseTestCase):
     def test_error_non_finite(self):
         for v in [np.nan, np.inf, -np.inf]:
             with self.subTest(v):
-                self.body._clear_cache()
                 self.check_reset()
                 with self.assertRaises(ValueError):
                     with planetmapper.body._AdjustedSurfaceAltitude(self.body, v):
                         self.fail('Context manager should not enter')
-                self.check_reset(check_cache=False)
+                self.check_reset()
 
-        self.check_reset(check_cache=False)
+        self.check_reset()
         with planetmapper.body._AdjustedSurfaceAltitude(self.body, -42.34):
             # check everything still works properly after an error
             self.check_adjustment(-42.34)
         self.check_reset()
+
+    def test_cache(self):
+        functions_called = []
+
+        @planetmapper.base._cache_clearable_result
+        def f_clearable(body, a, b=1):
+            functions_called.append('f_clearable')
+            return ('f_clearable', a * b)
+
+        @planetmapper.body._cache_clearable_alt_dependent_result
+        def f_clearable_alt_dependent(body, a, b=1):
+            functions_called.append('f_clearable_alt_dependent')
+            return ('f_clearable_alt_dependent', a * b + body._alt_adjustment)
+
+        @planetmapper.base._cache_stable_result
+        def f_stable(body, a, b=1):
+            functions_called.append('f_stable')
+            return ('f_stable', a * b)
+
+        self.body._clear_cache()
+
+        # Initial runs to populate cache, then retrieve cached values
+        for run in (1, 2):
+            with self.subTest(run):
+                self.assertEqual(f_clearable(self.body, 1), ('f_clearable', 1))
+                self.assertEqual(
+                    f_clearable_alt_dependent(self.body, 1),
+                    ('f_clearable_alt_dependent', 1),
+                )
+                self.assertEqual(f_stable(self.body, 1), ('f_stable', 1))
+                self.assertEqual(
+                    functions_called,
+                    ['f_clearable', 'f_clearable_alt_dependent', 'f_stable'],
+                )
+                self.assertEqual(len(self.body._cache), 2)
+                self.assertEqual(len(self.body._stable_cache), 1)
+
+        # Populate cache with new args
+        functions_called.clear()
+        for run in (1, 2):
+            with self.subTest(run):
+                self.assertEqual(f_clearable(self.body, 2, b=3), ('f_clearable', 6))
+                self.assertEqual(
+                    f_clearable_alt_dependent(self.body, 2, b=3),
+                    ('f_clearable_alt_dependent', 6),
+                )
+                self.assertEqual(f_stable(self.body, 2, b=3), ('f_stable', 6))
+                self.assertEqual(
+                    functions_called,
+                    [
+                        'f_clearable',
+                        'f_clearable_alt_dependent',
+                        'f_stable',
+                    ],
+                )
+                self.assertEqual(len(self.body._cache), 4)
+                self.assertEqual(len(self.body._stable_cache), 2)
+
+        # Test alt adjustment
+        functions_called.clear()
+        with planetmapper.body._AdjustedSurfaceAltitude(self.body, 100):
+            for run in (1, 2):
+                with self.subTest(run):
+                    self.assertEqual(f_clearable(self.body, 2, b=3), ('f_clearable', 6))
+                    self.assertEqual(
+                        f_clearable_alt_dependent(self.body, 2, b=3),
+                        ('f_clearable_alt_dependent', 106),
+                    )
+                    self.assertEqual(f_stable(self.body, 2, b=3), ('f_stable', 6))
+                    self.assertEqual(
+                        functions_called,
+                        [
+                            'f_clearable_alt_dependent',
+                        ],
+                    )
+                    self.assertEqual(len(self.body._cache), 5)
+                    self.assertEqual(len(self.body._stable_cache), 2)
+
+        # Test that we re-hit cache on exit
+        functions_called.clear()
+        self.assertEqual(f_clearable(self.body, 2, b=3), ('f_clearable', 6))
+        self.assertEqual(
+            f_clearable_alt_dependent(self.body, 2, b=3),
+            ('f_clearable_alt_dependent', 6),
+        )
+        self.assertEqual(f_stable(self.body, 2, b=3), ('f_stable', 6))
+        self.assertEqual(
+            functions_called,
+            [],
+        )
+        self.assertEqual(len(self.body._cache), 5)
+        self.assertEqual(len(self.body._stable_cache), 2)
+
+        # Test that cache clears properly
+        self.body._clear_cache()
+        self.assertEqual(len(self.body._cache), 0)
+        self.assertEqual(len(self.body._stable_cache), 2)
+
+        functions_called.clear()
+        self.assertEqual(f_clearable(self.body, 2, b=3), ('f_clearable', 6))
+        self.assertEqual(
+            f_clearable_alt_dependent(self.body, 2, b=3),
+            ('f_clearable_alt_dependent', 6),
+        )
+        self.assertEqual(f_stable(self.body, 2, b=3), ('f_stable', 6))
+        self.assertEqual(
+            functions_called,
+            [
+                'f_clearable',
+                'f_clearable_alt_dependent',
+            ],
+        )
+        self.assertEqual(len(self.body._cache), 2)
+        self.assertEqual(len(self.body._stable_cache), 2)
 
 
 class CustomTestException(Exception):
