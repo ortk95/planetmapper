@@ -883,14 +883,14 @@ class Body(BodyBase):
 
     # Coordinate transformations target -> observer direction
     def _lonlat2targvec_radians(
-        self, lon: float, lat: float, *, alt: float
+        self, lon: float, lat: float, *, alt: float, not_visible_nan: bool
     ) -> np.ndarray:
         """
         Transform lon/lat coordinates on body to rectangular vector in target frame.
         """
         if not (math.isfinite(lon) and math.isfinite(lat) and math.isfinite(alt)):
             return np.array([np.nan, np.nan, np.nan])
-        return spice.pgrrec(
+        targvec = spice.pgrrec(
             self._target_encoded,  # type: ignore
             lon,
             lat,
@@ -898,6 +898,11 @@ class Body(BodyBase):
             self.r_eq,
             self.flattening,
         )
+        if not_visible_nan and not self._test_if_targvec_visible(
+            targvec, on_surface=alt == 0.0
+        ):
+            return np.array([np.nan, np.nan, np.nan])
+        return targvec
 
     def _targvec2obsvec(self, targvec: np.ndarray) -> np.ndarray:
         """
@@ -1021,9 +1026,15 @@ class Body(BodyBase):
         return lon, lat
 
     # Useful transformations (built from combinations of above transformations)
-    def _lonlat2obsvec(self, lon: float, lat: float, *, alt: float) -> np.ndarray:
+    def _lonlat2obsvec(
+        self, lon: float, lat: float, *, alt: float, not_visible_nan: bool
+    ) -> np.ndarray:
         return self._targvec2obsvec(
-            self._lonlat2targvec_radians(*self._degree_pair2radians(lon, lat), alt=alt),
+            self._lonlat2targvec_radians(
+                *self._degree_pair2radians(lon, lat),
+                alt=alt,
+                not_visible_nan=not_visible_nan,
+            ),
         )
 
     def _obsvec_norm2lonlat(
@@ -1045,7 +1056,7 @@ class Body(BodyBase):
             return lon, lat
 
     def lonlat2radec(
-        self, lon: float, lat: float, *, alt: float = 0.0
+        self, lon: float, lat: float, *, alt: float = 0.0, not_visible_nan: bool = False
     ) -> tuple[float, float]:
         """
         Convert longitude/latitude coordinates on the target body to RA/Dec sky
@@ -1055,11 +1066,17 @@ class Body(BodyBase):
             lon: Longitude of point on target body.
             lat: Latitude of point on target body.
             alt: Altitude of point above the surface of the target body in km.
+            not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
+                the point is not visible to the observer (e.g. it is on the far side of
+                the target). If `False` (the default), then `(ra, dec)` coordinates will
+                be returned, even if the point is not directly visible.
 
         Returns:
             `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
         """
-        return self._obsvec2radec(self._lonlat2obsvec(lon, lat, alt=alt))
+        return self._obsvec2radec(
+            self._lonlat2obsvec(lon, lat, alt=alt, not_visible_nan=not_visible_nan)
+        )
 
     def radec2lonlat(
         self,
@@ -1101,7 +1118,9 @@ class Body(BodyBase):
             self._radec2obsvec_norm(ra, dec), not_found_nan, alt
         )
 
-    def lonlat2targvec(self, lon: float, lat: float, *, alt: float = 0.0) -> np.ndarray:
+    def lonlat2targvec(
+        self, lon: float, lat: float, *, alt: float = 0.0, not_visible_nan: bool = False
+    ) -> np.ndarray:
         """
         Convert longitude/latitude coordinates on the target body to rectangular vector
         centred in the target frame (e.g. for use as an input to a SPICE function).
@@ -1110,13 +1129,19 @@ class Body(BodyBase):
             lon: Longitude of point on target body.
             lat: Latitude of point on target body.
             alt: Altitude of point above the surface of the target body in km.
+            not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
+                the point is not visible to the observer (e.g. it is on the far side of
+                the target). If `False` (the default), then `(ra, dec)` coordinates will
+                be returned, even if the point is not directly visible.
 
         Returns:
             Numpy array corresponding to the 3D rectangular vector describing the
             longitude/latitude point in the target frame of reference.
         """
         return self._lonlat2targvec_radians(
-            *self._degree_pair2radians(lon, lat), alt=alt
+            *self._degree_pair2radians(lon, lat),
+            alt=alt,
+            not_visible_nan=not_visible_nan,
         )
 
     def targvec2lonlat(
@@ -1338,6 +1363,7 @@ class Body(BodyBase):
         lat: float,
         *,
         alt: float = 0.0,
+        not_visible_nan: bool = False,
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[float, float]:
         """
@@ -1348,6 +1374,10 @@ class Body(BodyBase):
             lon: Longitude of point on target body.
             lat: Latitude of point on target body.
             alt: Altitude of point above the surface of the target body in km.
+            not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
+                the point is not visible to the observer (e.g. it is on the far side of
+                the target). If `False` (the default), then `(ra, dec)` coordinates will
+                be returned, even if the point is not directly visible.
             **angular_kwargs: Additional arguments are used to customise the origin and
                 rotation of the relative angular coordinates. See
                 :func:`radec2angular` for details.
@@ -1357,7 +1387,8 @@ class Body(BodyBase):
             of the point in arcseconds.
         """
         return self._obsvec2angular(
-            self._lonlat2obsvec(lon, lat, alt=alt), **angular_kwargs
+            self._lonlat2obsvec(lon, lat, alt=alt, not_visible_nan=not_visible_nan),
+            **angular_kwargs,
         )
 
     # Coordinate transformations km <-> angular
@@ -1446,7 +1477,7 @@ class Body(BodyBase):
         )
 
     def lonlat2km(
-        self, lon: float, lat: float, *, alt: float = 0.0
+        self, lon: float, lat: float, *, alt: float = 0.0, not_visible_nan: bool = False
     ) -> tuple[float, float]:
         """
         Convert longitude/latitude coordinates on the target body to distances in the
@@ -1456,12 +1487,18 @@ class Body(BodyBase):
             lon: Longitude of point on the target body.
             lat: Latitude of point on the target body.
             alt: Altitude of point above the surface of the target body in km.
+            not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
+                the point is not visible to the observer (e.g. it is on the far side of
+                the target). If `False` (the default), then `(ra, dec)` coordinates will
+                be returned, even if the point is not directly visible.
 
         Returns:
             `(km_x, km_y)` tuple containing distances in km in the target plane in the
             East-West and North-South directions respectively.
         """
-        return self._obsvec2km(self._lonlat2obsvec(lon, lat, alt=alt))
+        return self._obsvec2km(
+            self._lonlat2obsvec(lon, lat, alt=alt, not_visible_nan=not_visible_nan)
+        )
 
     def km2angular(
         self,
@@ -1727,7 +1764,7 @@ class Body(BodyBase):
             True if the point is visible from the observer, otherwise False.
         """
         return self._test_if_targvec_visible(
-            self.lonlat2targvec(lon, lat, alt=alt), on_surface=alt == 0
+            self.lonlat2targvec(lon, lat, alt=alt), on_surface=alt == 0.0
         )
 
     def other_body_los_intercept(
@@ -2139,14 +2176,13 @@ class Body(BodyBase):
         """
         lons = np.deg2rad(np.linspace(0, 360, npts))
         alt = radius - self.r_eq
-        targvecs = [self._lonlat2targvec_radians(lon, 0, alt=alt) for lon in lons]
+        targvecs = [
+            self._lonlat2targvec_radians(lon, 0, alt=alt, not_visible_nan=only_visible)
+            for lon in lons
+        ]
         ra_arr = np.full(npts, np.nan)
         dec_arr = np.full(npts, np.nan)
         for idx, targvec in enumerate(targvecs):
-            if only_visible and not self._test_if_targvec_visible(
-                targvec, on_surface=False
-            ):
-                continue  # not vible, so leave ra, dec as NaN
             ra_arr[idx], dec_arr[idx] = self._radian_pair2degrees(
                 *self._obsvec2radec_radians(self._targvec2obsvec(targvec))
             )
