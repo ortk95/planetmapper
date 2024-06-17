@@ -763,33 +763,48 @@ class TestObservation(common_testing.BaseTestCase):
 
         path = os.path.join(common_testing.TEMP_PATH, 'test_nav.fits')
 
-        # test skip wireframe here
-        self.observation.save_observation(
-            path,
-            show_progress=True,
-            include_wireframe=False,
-        )
-        self.compare_fits_to_reference(path, skip_wireframe=True)
-
-        # test print info here
-        self.observation.save_observation(
-            path, print_info=True, wireframe_kwargs=dict(output_size=20, dpi=20)
-        )
-        self.compare_fits_to_reference(path)
-
         # test progress bar here too
-        self.observation.save_observation(
-            path, show_progress=True, wireframe_kwargs=dict(output_size=20, dpi=20)
-        )
-        self.compare_fits_to_reference(path)
+        with self.subTest('progress bar'):
+            self.observation.save_observation(
+                path, show_progress=True, wireframe_kwargs=dict(output_size=20, dpi=20)
+            )
+            self.compare_fits_to_reference(path)
+
+        # test skip wireframe here
+        with self.subTest('skip wireframe'):
+            self.observation.save_observation(
+                path,
+                show_progress=True,
+                include_wireframe=False,
+            )
+            self.compare_fits_to_reference(path, skip_wireframe=True)
 
         # test PathLike
-        self.observation.save_observation(
-            Path(path),
-            show_progress=True,
-            include_wireframe=False,
-        )
-        self.compare_fits_to_reference(path, skip_wireframe=True)
+        with self.subTest('PathLike'):
+            self.observation.save_observation(
+                Path(path),
+                show_progress=True,
+                include_wireframe=False,
+            )
+            self.compare_fits_to_reference(path, skip_wireframe=True)
+
+        # test print info here
+        # run this one last so that the file in temp has a wireframe and can be used as
+        # the expected output
+        with self.subTest('print info'):
+            self.observation.save_observation(
+                path, print_info=True, wireframe_kwargs=dict(output_size=20, dpi=20)
+            )
+            self.compare_fits_to_reference(path)
+
+        with self.subTest('alt'):
+            path = os.path.join(common_testing.TEMP_PATH, 'test_nav_alt.fits')
+            self.observation.save_observation(
+                path,
+                alt=34567.8912,
+                wireframe_kwargs=dict(output_size=19, dpi=20),
+            )
+            self.compare_fits_to_reference(path)
 
     def test_save_mapped_observation(self):
         self.observation.set_disc_params(2.5, 3.1, 3.9, 123.456)
@@ -798,6 +813,11 @@ class TestObservation(common_testing.BaseTestCase):
         map_kwargs = {
             'rectangular-nearest': dict(
                 degree_interval=30, interpolation='nearest', show_progress=True
+            ),
+            'rectangular-nearest-alt': dict(
+                degree_interval=30,
+                interpolation='nearest',
+                alt=34567.8912,
             ),
             'rectangular-linear': dict(
                 degree_interval=30, interpolation='linear', include_wireframe=False

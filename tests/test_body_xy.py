@@ -1,3 +1,4 @@
+from typing import Callable
 from unittest.mock import MagicMock, patch
 
 import common_testing
@@ -375,6 +376,27 @@ class TestBodyXY(common_testing.BaseTestCase):
                     expected,
                     equal_nan=True,
                 )
+        pairs_with_alts = [
+            (
+                (7.781497231832574, 8.015145501618983, 0),
+                (86.30139500952406, 21.109249946237032),
+            ),
+            (
+                (7.781497231832574, 8.015145501618983, 123456.789),
+                (134.58218536012419, 4.708273802335033),
+            ),
+            (
+                (7.781497231832574, 8.015145501618983, -1000),
+                (83.89699519490205, 21.59807910857171),
+            ),
+            ((nan, 8, 123), (nan, nan)),
+        ]
+        self.body.set_disc_params(5, 8, 3, 45)
+        for (x, y, alt), expected in pairs_with_alts:
+            with self.subTest((x, y, alt)):
+                self.assertArraysClose(
+                    self.body.xy2lonlat(x, y, alt=alt), expected, equal_nan=True
+                )
 
     def test_set_disc_params(self):
         x0, y0, r0, rotation = [1.1, 2.2, 3.3, 4.4]
@@ -476,7 +498,9 @@ class TestBodyXY(common_testing.BaseTestCase):
         self.assertEqual(self.body, self.body_zero_size)
         self.assertTrue(self.body_zero_size._test_if_img_size_valid())
 
+        self.body_zero_size._cache[' test '] = None
         self.body_zero_size.set_img_size(0, 0)
+        self.assertEqual(self.body_zero_size._cache, {})
         self.assertEqual(self.body_zero_size.get_img_size(), (0, 0))
         self.assertNotEqual(self.body, self.body_zero_size)
         self.assertFalse(self.body_zero_size._test_if_img_size_valid())
@@ -796,6 +820,21 @@ class TestBodyXY(common_testing.BaseTestCase):
                 ),
             ],
         )
+
+        fig, ax = plt.subplots()
+        self.body.plot_map_wireframe()
+        self.assertEqual(
+            ax.get_title(), 'JUPITER (599)\nfrom HST\nat 2005-01-01 00:00 UTC'
+        )
+        plt.close(fig)
+
+        fig, ax = plt.subplots()
+        self.body.plot_map_wireframe(alt=-123.456)
+        self.assertEqual(
+            ax.get_title(),
+            'JUPITER (599), alt = -123.456 km\nfrom HST\nat 2005-01-01 00:00 UTC',
+        )
+        plt.close(fig)
 
     def test_get_wireframe_overlay(self):
         img = self.body.get_wireframe_overlay_img(output_size=100)
@@ -1783,5 +1822,102 @@ class TestBodyXY(common_testing.BaseTestCase):
 
             self.assertFalse(np.array_equal(m1, m2))
             self.assertTrue(np.array_equal(m1, m3))
+
+    def test_backplane_cache(self):
+        def make_body() -> planetmapper.BodyXY:
+            body = BodyXY(
+                'Jupiter', observer='HST', utc='2005-01-01T00:00:00', nx=6, ny=5
+            )
+            body.set_disc_params(2.5, 2, 2, 45)
+            return body
+
+        # {name: (reset_func, change_func, change_alt)}
+        changes: dict[
+            str,
+            tuple[
+                Callable[[planetmapper.BodyXY], None],
+                Callable[[planetmapper.BodyXY], None],
+                float,
+            ],
+        ] = {
+            'set_disc_params': (
+                lambda body: body.set_disc_params(3, 1.5, 2.5, 42),
+                lambda body: body.set_disc_params(5, 3, 2, 123),
+                0.0,
+            ),
+            'set_img_size': (
+                lambda body: body.set_img_size(6, 2),
+                lambda body: body.set_img_size(3, 4),
+                0.0,
+            ),
+            'alt': (
+                lambda body: None,
+                lambda body: None,
+                123.456,
+            ),
+            'set_disc_params+alt': (
+                lambda body: body.set_disc_params(3, 1.5, 2.5, 42),
+                lambda body: body.set_disc_params(5, 3, 2, 123),
+                123.456,
+            ),
+            'set_img_size+alt': (
+                lambda body: body.set_img_size(6, 2),
+                lambda body: body.set_img_size(3, 4),
+                123.456,
+            ),
+        }
+
+        # Test that the cache clears properly when changing e.g. disc parameters. Do
+        # this by changing the disc parameters and then changing then back on one object
+        # (generating backplane images every time), and comparing these generated
+        # backplanes to the output of a new, clean, object with the same parameters.
+        # We might get slight floating point variations on reset (e.g. on the order of
+        # mm for the KM backplanes), so use assertArraysClose rather than
+        # assertArraysEqual.
+        for change_name, (reset_func, change_func, alt) in changes.items():
+            for bp_name in self.body.backplanes.keys():
+                backplane_funcs: dict[
+                    str, Callable[[planetmapper.BodyXY, float], np.ndarray]
+                ] = {
+                    'img': lambda body, alt: body.get_backplane_img(bp_name, alt=alt),
+                    'map': lambda body, alt: body.get_backplane_map(
+                        bp_name, alt=alt, degree_interval=45
+                    ),
+                }
+                for bp_func_name, bp_func in backplane_funcs.items():
+                    with self.subTest(
+                        change_name=change_name, backplane=bp_name, func=bp_func_name
+                    ):
+                        # fill cache
+                        body = make_body()
+                        reset_func(body)
+                        before = bp_func(body, 0.0)
+
+                        # test adjusted disc params
+                        # - this should clear cache if needed
+                        clean_body = make_body()
+                        change_func(body)
+                        change_func(clean_body)
+                        self.assertArraysClose(
+                            bp_func(body, alt),
+                            bp_func(clean_body, alt),
+                            equal_nan=True,
+                        )
+
+                        # reset to original params
+                        # - this should again clear cache if needed
+                        clean_body = make_body()
+                        reset_func(body)
+                        reset_func(clean_body)
+                        self.assertArraysClose(
+                            bp_func(body, 0.0),
+                            bp_func(clean_body, 0.0),
+                            equal_nan=True,
+                        )
+                        self.assertArraysClose(
+                            bp_func(body, 0.0),
+                            before,
+                            equal_nan=True,
+                        )
 
     # Backplane contents tested against FITS reference in test_observation

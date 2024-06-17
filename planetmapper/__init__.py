@@ -27,7 +27,12 @@ longitude and latitude coordinates of a point on the surface of the target body.
 coordinates are expressed in degrees. See 
 `Wikipedia <https://en.wikipedia.org/wiki/Planetary_coordinate_system>`__ and 
 `the SPICE documentation <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/recpgr_c.html#Particulars>`__
-for more details.
+for more details. The surface altitude can also be customised with the `alt` parameter,
+for example, `body.lonlat2radec(12, 34, alt=1000)` will calculate the RA/Dec coordinates
+of the point at planetographic coordinates (12, 34) and with an altitude of 1000 km. If
+planetocentric coordinates are desired, then functions
+:func:`Body.graphic2centric_lonlat` and :func:`Body.centric2graphic_lonlat` can be used
+to convert between planetographic and planetocentric coordinates.
 
 `km`: defines the distance in the image plane from the centre of the target body in km
 with the target's north pole pointing up. This coordinate system is similar to the
