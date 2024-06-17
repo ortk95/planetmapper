@@ -189,7 +189,9 @@ class _AdjustedSurfaceAltitude:
     `alt` appears as part of **kwargs in the method.
     """
 
+    # pylint: disable-next=unused-argument
     def __init__(self, body: 'Body', alt: float = 0.0, **kwargs) -> None:
+        # pylint: disable-next=consider-using-in # use `and` for speed
         self.do_adjustment = alt != 0.0 and alt != body._alt_adjustment
         if self.do_adjustment:
             self.body = body
@@ -204,6 +206,10 @@ class _AdjustedSurfaceAltitude:
                 )
 
     def __enter__(self) -> None:
+        # pylint: disable=attribute-defined-outside-init
+        # Store original_radii here (rather than init) to guarantee that the values
+        # aren't changed between __init__ and __enter__. Also, only need to store them
+        # if do_adjustment is True, improving performance for the default case.
         if self.do_adjustment:
             self.original_radii = self.body.radii
             self.radii_variable_name = f'BODY{self.body.target_body_id}_RADII'
@@ -217,6 +223,7 @@ class _AdjustedSurfaceAltitude:
 
     def change_radii(self, radii: np.ndarray) -> None:
         spice.pdpool(self.radii_variable_name, radii)
+        # pylint: disable-next=protected-access
         self.body._assign_radius_values(radii)
 
 
@@ -241,6 +248,7 @@ def _adjust_surface_altitude_decorator(
             return fn(self, *args, **kwargs)
 
     return decorated
+
 
 def _cache_clearable_alt_dependent_result(
     fn: Callable[Concatenate[S, P], T]

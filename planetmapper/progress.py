@@ -22,12 +22,12 @@ def progress_decorator(
     @wraps(fn)
     def decorated(self: S, *args: P.args, **kwargs: P.kwargs) -> T:
         if self._progress_hook is None:
-            return fn(self, *args, **kwargs)  
+            return fn(self, *args, **kwargs)
         else:
             self._progress_call_stack.append(fn.__qualname__)
             self._update_progress_hook(0)
             try:
-                out = fn(self, *args, **kwargs)  
+                out = fn(self, *args, **kwargs)
             except:
                 self._progress_call_stack.pop()
                 raise
@@ -38,7 +38,7 @@ def progress_decorator(
                 pass
             return out
 
-    return decorated  
+    return decorated
 
 
 class ProgressHook(ABC):

@@ -1272,7 +1272,7 @@ class BodyXY(Body):
             plt.show()
         return ax
 
-    @_adjust_surface_altitude_decorator 
+    @_adjust_surface_altitude_decorator
     def plot_map_wireframe(
         self,
         ax: Axes | None = None,

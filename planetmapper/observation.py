@@ -1,7 +1,7 @@
 import datetime
 import os
 import warnings
-from typing import Any, Callable, Literal, ParamSpec, TypeVar
+from typing import Any, Callable, Literal
 
 import astropy.wcs
 import numpy as np
