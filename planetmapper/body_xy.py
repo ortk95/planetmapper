@@ -421,7 +421,7 @@ class BodyXY(Body):
         return self._obsvec_norm2lonlat(self._xy2obsvec_norm(x, y), not_found_nan, alt)
 
     def lonlat2xy(
-        self, lon: float, lat: float, *, alt: float = 0.0
+        self, lon: float, lat: float, *, alt: float = 0.0, not_visible_nan: bool = False
     ) -> tuple[float, float]:
         """
         Convert longitude/latitude on the target body to image pixel coordinates.
@@ -430,11 +430,17 @@ class BodyXY(Body):
             lon: Longitude of point on target body.
             lat: Latitude of point on target body.
             alt: Altitude of point above the surface of the target body in km.
+            not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
+                the point is not visible to the observer (e.g. it is on the far side of
+                the target). If `False` (the default), then `(ra, dec)` coordinates will
+                be returned, even if the point is not directly visible.
 
         Returns:
             `(x, y)` tuple containing the image pixel coordinates of the point.
         """
-        return self._obsvec2xy(self._lonlat2obsvec(lon, lat, alt=alt))
+        return self._obsvec2xy(
+            self._lonlat2obsvec(lon, lat, alt=alt, not_visible_nan=not_visible_nan)
+        )
 
     def xy2km(self, x: float, y: float) -> tuple[float, float]:
         """
