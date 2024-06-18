@@ -714,11 +714,13 @@ class SpiceBase:
         if isinstance(arg1, numeric_types) and isinstance(arg2, numeric_types):
             return func(arg1, arg2, *args, **kwargs)  # type: ignore
         else:
-            with np.nditer([arg1, arg2, None, None]) as it:  # type: ignore
+            # the op_dtypes argument ensures that the output arrays are floats, as
+            # otherwise we could end up with e.g. int arrays which would then truncate
+            # values, potentially leading to errors
+            with np.nditer([arg1, arg2, None, None], op_dtypes=[None, None, float, float]) as it:  # type: ignore
                 for a, b, u, v in it:
                     u[...], v[...] = func(a, b, *args, **kwargs)  #  type: ignore
                 return it.operands[2], it.operands[3]  #  type: ignore
-        # XXX test
         # TODO improve performance by using alt context manager for arrays
         # (e.g. add context manager in radec2lonlat)
 
