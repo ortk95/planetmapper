@@ -41,6 +41,7 @@ from spiceypy.utils.exceptions import (
 from . import data_loader, utils
 from .base import (
     BodyBase,
+    FloatOrArray,
     Numeric,
     _add_help_note_to_spice_errors,
     _cache_stable_result,
@@ -1056,15 +1057,26 @@ class Body(BodyBase):
             return lon, lat
 
     def lonlat2radec(
-        self, lon: float, lat: float, *, alt: float = 0.0, not_visible_nan: bool = False
-    ) -> tuple[float, float]:
+        self,
+        lon: FloatOrArray,
+        lat: FloatOrArray,
+        *,
+        alt: float = 0.0,
+        not_visible_nan: bool = False,
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert longitude/latitude coordinates on the target body to RA/Dec sky
         coordinates for the observer.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            lon: Longitude of point on target body.
-            lat: Latitude of point on target body.
+            lon: Longitude of point(s) on target body.
+            lat: Latitude of point(s) on target body.
             alt: Altitude of point above the surface of the target body in km.
             not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
                 the point is not visible to the observer (e.g. it is on the far side of
@@ -1072,20 +1084,27 @@ class Body(BodyBase):
                 be returned, even if the point is not directly visible.
 
         Returns:
-            `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
+            `(ra, dec)` tuple containing the RA/Dec coordinates of the point(s).
         """
+        return self._maybe_transform_as_arrays(
+            self._lonlat2radec, lon, lat, alt=alt, not_visible_nan=not_visible_nan
+        )
+
+    def _lonlat2radec(
+        self, lon: float, lat: float, *, alt: float, not_visible_nan: bool
+    ) -> tuple[float, float]:
         return self._obsvec2radec(
             self._lonlat2obsvec(lon, lat, alt=alt, not_visible_nan=not_visible_nan)
         )
 
     def radec2lonlat(
         self,
-        ra: float,
-        dec: float,
+        ra: FloatOrArray,
+        dec: FloatOrArray,
         *,
         not_found_nan: bool = True,
         alt: float = 0.0,
-    ) -> tuple[float, float]:
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert RA/Dec sky coordinates for the observer to longitude/latitude
         coordinates on the target body.
@@ -1096,9 +1115,15 @@ class Body(BodyBase):
         if `not_found_nan` is True (the default) or this function will raise an error if
         `not_found_nan` is False.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            ra: Right ascension of point in the sky of the observer.
-            dec: Declination of point in the sky of the observer.
+            ra: Right ascension of point(s) in the sky of the observer.
+            dec: Declination of point(s) in the sky of the observer.
             not_found_nan: Controls behaviour when the input `ra` and `dec` coordinates
                 are missing the target body.
             alt: Altitude of returned `(lon, lat)` point above the surface of the target
@@ -1114,6 +1139,13 @@ class Body(BodyBase):
             NotFoundError: If the provided RA/Dec coordinates are missing the target
                 body and `not_found_nan` is False, then NotFoundError will be raised.
         """
+        return self._maybe_transform_as_arrays(
+            self._radec2lonlat, ra, dec, not_found_nan=not_found_nan, alt=alt
+        )
+
+    def _radec2lonlat(
+        self, ra: float, dec: float, *, not_found_nan: bool, alt: float
+    ) -> tuple[float, float]:
         return self._obsvec_norm2lonlat(
             self._radec2obsvec_norm(ra, dec), not_found_nan, alt
         )
@@ -1256,13 +1288,13 @@ class Body(BodyBase):
 
     def radec2angular(
         self,
-        ra: float,
-        dec: float,
+        ra: FloatOrArray,
+        dec: FloatOrArray,
         *,
         origin_ra: float | None = None,
         origin_dec: float | None = None,
         coordinate_rotation: float = 0.0,
-    ) -> tuple[float, float]:
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert RA/Dec sky coordinates for the observer to relative angular coordinates.
 
@@ -1271,9 +1303,15 @@ class Body(BodyBase):
         these are not provided, the origin will be the centre of the target body and the
         rotation will be the same as in RA/Dec coordinates.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            ra: Right ascension of point in the sky of the observer.
-            dec: Declination of point in the sky of the observer.
+            ra: Right ascension of point(s) in the sky of the observer.
+            dec: Declination of point(s) in the sky of the observer.
             origin_ra: Right ascension (RA) of the origin of the relative angular
                 coordinates. If `None`, the RA of the centre of the target body is used.
             origin_dec: Declination (Dec) of the origin of the relative angular
@@ -1286,8 +1324,26 @@ class Body(BodyBase):
 
         Returns:
             `(angular_x, angular_y)` tuple containing the relative angular coordinates
-            of the point in arcseconds.
+            of the point(s) in arcseconds.
         """
+        return self._maybe_transform_as_arrays(
+            self._radec2angular,
+            ra,
+            dec,
+            origin_ra=origin_ra,
+            origin_dec=origin_dec,
+            coordinate_rotation=coordinate_rotation,
+        )
+
+    def _radec2angular(
+        self,
+        ra: float,
+        dec: float,
+        *,
+        origin_ra: float | None,
+        origin_dec: float | None,
+        coordinate_rotation: float,
+    ) -> tuple[float, float]:
         return self._obsvec2angular(
             self._radec2obsvec_norm(ra, dec),
             origin_ra=origin_ra,
@@ -1297,43 +1353,65 @@ class Body(BodyBase):
 
     def angular2radec(
         self,
-        angular_x: float,
-        angular_y: float,
+        angular_x: FloatOrArray,
+        angular_y: FloatOrArray,
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
-    ) -> tuple[float, float]:
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert relative angular coordinates to RA/Dec sky coordinates for the observer.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            angular_x: Angular coordinate in the x direction in arcseconds.
-            angular_y: Angular coordinate in the y direction in arcseconds.
+            angular_x: Angular coordinate(s) in the x direction in arcseconds.
+            angular_y: Angular coordinate(s) in the y direction in arcseconds.
             **angular_kwargs: Additional arguments are used to customise the origin and
                 rotation of the relative angular coordinates. See
                 :func:`radec2angular` for details.
 
         Returns:
-            `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
+            `(ra, dec)` tuple containing the RA/Dec coordinates of the point(s).
         """
+        return self._maybe_transform_as_arrays(
+            self._angular2radec, angular_x, angular_y, **angular_kwargs
+        )
+
+    def _angular2radec(
+        self,
+        angular_x: float,
+        angular_y: float,
+        **angular_kwargs: Unpack[AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
         return self._obsvec2radec(
             self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs)
         )
 
     def angular2lonlat(
         self,
-        angular_x: float,
-        angular_y: float,
+        angular_x: FloatOrArray,
+        angular_y: FloatOrArray,
         *,
         not_found_nan: bool = True,
         alt: float = 0.0,
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
-    ) -> tuple[float, float]:
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert relative angular coordinates to longitude/latitude coordinates on the
         target body.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            angular_x: Angular coordinate in the x direction in arcseconds.
-            angular_y: Angular coordinate in the y direction in arcseconds.
+            angular_x: Angular coordinate(s) in the x direction in arcseconds.
+            angular_y: Angular coordinate(s) in the y direction in arcseconds.
             not_found_nan: Controls behaviour when the input `angular_x` and `angular_y`
                 coordinates are missing the target body.
             alt: Altitude of returned `(lon, lat)` point above the surface of the target
@@ -1343,7 +1421,7 @@ class Body(BodyBase):
                 :func:`radec2angular` for details.
 
         Returns:
-            `(lon, lat)` tuple containing the longitude and latitude of the point. If
+            `(lon, lat)` tuple containing the longitude and latitude of the point(s). If
             the provided angular coordinates are missing the target body and
             `not_found_nan` is True, then the `lon` and `lat` values will both be NaN.
 
@@ -1351,6 +1429,24 @@ class Body(BodyBase):
             NotFoundError: If the provided angular coordinates are missing the target
                 body and `not_found_nan` is False, then NotFoundError will be raised.
         """
+        return self._maybe_transform_as_arrays(
+            self._angular2lonlat,
+            angular_x,
+            angular_y,
+            not_found_nan=not_found_nan,
+            alt=alt,
+            **angular_kwargs,
+        )
+
+    def _angular2lonlat(
+        self,
+        angular_x: float,
+        angular_y: float,
+        *,
+        not_found_nan: bool,
+        alt: float,
+        **angular_kwargs: Unpack[AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
         return self._obsvec_norm2lonlat(
             self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs),
             not_found_nan,
@@ -1359,20 +1455,26 @@ class Body(BodyBase):
 
     def lonlat2angular(
         self,
-        lon: float,
-        lat: float,
+        lon: FloatOrArray,
+        lat: FloatOrArray,
         *,
         alt: float = 0.0,
         not_visible_nan: bool = False,
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
-    ) -> tuple[float, float]:
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert longitude/latitude coordinates on the target body to relative angular
         coordinates.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            lon: Longitude of point on target body.
-            lat: Latitude of point on target body.
+            lon: Longitude of point(s) on target body.
+            lat: Latitude of point(s) on target body.
             alt: Altitude of point above the surface of the target body in km.
             not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
                 the point is not visible to the observer (e.g. it is on the far side of
@@ -1384,8 +1486,26 @@ class Body(BodyBase):
 
         Returns:
             `(angular_x, angular_y)` tuple containing the relative angular coordinates
-            of the point in arcseconds.
+            of the point(s) in arcseconds.
         """
+        return self._maybe_transform_as_arrays(
+            self._lonlat2angular,
+            lon,
+            lat,
+            alt=alt,
+            not_visible_nan=not_visible_nan,
+            **angular_kwargs,
+        )
+
+    def _lonlat2angular(
+        self,
+        lon: float,
+        lat: float,
+        *,
+        alt: float,
+        not_visible_nan: bool,
+        **angular_kwargs: Unpack[AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
         return self._obsvec2angular(
             self._lonlat2obsvec(lon, lat, alt=alt, not_visible_nan=not_visible_nan),
             **angular_kwargs,
@@ -1419,51 +1539,84 @@ class Body(BodyBase):
         )
         return km_x, km_y
 
-    def km2radec(self, km_x: float, km_y: float) -> tuple[float, float]:
+    def km2radec(
+        self, km_x: FloatOrArray, km_y: FloatOrArray
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert distance in target plane to RA/Dec sky coordinates for the observer.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            km_x: Distance in target plane in km in the East-West direction.
-            km_y: Distance in target plane in km in the North-South direction.
+            km_x: Distance(s) in target plane in km in the East-West direction.
+            km_y: Distance(s) in target plane in km in the North-South direction.
 
         Returns:
-            `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
+            `(ra, dec)` tuple containing the RA/Dec coordinates of the point(s).
         """
+        return self._maybe_transform_as_arrays(self._km2radec, km_x, km_y)
+
+    def _km2radec(self, km_x: float, km_y: float) -> tuple[float, float]:
         return self._obsvec2radec(self._km2obsvec_norm(km_x, km_y))
 
-    def radec2km(self, ra: float, dec: float) -> tuple[float, float]:
+    def radec2km(
+        self, ra: FloatOrArray, dec: FloatOrArray
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert RA/Dec sky coordinates for the observer to distances in the target
         plane.
 
+                The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            ra: Right ascension of point in the sky of the observer.
-            dec: Declination of point in the sky of the observer.
+            ra: Right ascension of point(s) in the sky of the observer.
+            dec: Declination of point(s) in the sky of the observer.
 
         Returns:
             `(km_x, km_y)` tuple containing distances in km in the target plane in the
             East-West and North-South directions respectively.
         """
+        return self._maybe_transform_as_arrays(self._radec2km, ra, dec)
+
+    def _radec2km(self, ra: float, dec: float) -> tuple[float, float]:
         return self._obsvec2km(self._radec2obsvec_norm(ra, dec))
 
     def km2lonlat(
-        self, km_x: float, km_y: float, *, not_found_nan: bool = True, alt: float = 0.0
-    ) -> tuple[float, float]:
+        self,
+        km_x: FloatOrArray,
+        km_y: FloatOrArray,
+        *,
+        not_found_nan: bool = True,
+        alt: float = 0.0,
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert distance in target plane to longitude/latitude coordinates on the target
         body.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            km_x: Distance in target plane in km in the East-West direction.
-            km_y: Distance in target plane in km in the North-South direction.
+            km_x: Distance(s) in target plane in km in the East-West direction.
+            km_y: Distance(s) in target plane in km in the North-South direction.
             not_found_nan: Controls behaviour when the input `km_x` and `km_y`
                 coordinates are missing the target body.
             alt: Altitude of returned `(lon, lat)` point above the surface of the target
                 body in km.
 
         Returns:
-            `(lon, lat)` tuple containing the longitude and latitude of the point. If
+            `(lon, lat)` tuple containing the longitude and latitude of the point(s). If
             the provided km coordinates are missing the target body, then the `lon` and
             `lat` values will both be NaN if `not_found_nan` is True, otherwise a
             NotFoundError will be raised.
@@ -1472,20 +1625,38 @@ class Body(BodyBase):
             NotFoundError: If the provided km coordinates are missing the target body
             and `not_found_nan` is False, then NotFoundError will be raised.
         """
+        return self._maybe_transform_as_arrays(
+            self._km2lonlat, km_x, km_y, not_found_nan=not_found_nan, alt=alt
+        )
+
+    def _km2lonlat(
+        self, km_x: float, km_y: float, *, not_found_nan: bool, alt: float
+    ) -> tuple[float, float]:
         return self._obsvec_norm2lonlat(
             self._km2obsvec_norm(km_x, km_y), not_found_nan, alt
         )
 
     def lonlat2km(
-        self, lon: float, lat: float, *, alt: float = 0.0, not_visible_nan: bool = False
-    ) -> tuple[float, float]:
+        self,
+        lon: FloatOrArray,
+        lat: FloatOrArray,
+        *,
+        alt: float = 0.0,
+        not_visible_nan: bool = False,
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert longitude/latitude coordinates on the target body to distances in the
         target plane.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            lon: Longitude of point on the target body.
-            lat: Latitude of point on the target body.
+            lon: Longitude of point(s) on the target body.
+            lat: Latitude of point(s) on the target body.
             alt: Altitude of point above the surface of the target body in km.
             not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
                 the point is not visible to the observer (e.g. it is on the far side of
@@ -1496,44 +1667,73 @@ class Body(BodyBase):
             `(km_x, km_y)` tuple containing distances in km in the target plane in the
             East-West and North-South directions respectively.
         """
+        return self._maybe_transform_as_arrays(
+            self._lonlat2km, lon, lat, alt=alt, not_visible_nan=not_visible_nan
+        )
+
+    def _lonlat2km(
+        self, lon: float, lat: float, *, alt: float, not_visible_nan: bool
+    ) -> tuple[float, float]:
         return self._obsvec2km(
             self._lonlat2obsvec(lon, lat, alt=alt, not_visible_nan=not_visible_nan)
         )
 
     def km2angular(
         self,
-        km_x: float,
-        km_y: float,
+        km_x: FloatOrArray,
+        km_y: FloatOrArray,
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
-    ) -> tuple[float, float]:
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert distance in target plane to relative angular coordinates.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            km_x: Distance in target plane in km in the East-West direction.
-            km_y: Distance in target plane in km in the North-South direction.
+            km_x: Distance(s) in target plane in km in the East-West direction.
+            km_y: Distance(s) in target plane in km in the North-South direction.
             **angular_kwargs: Additional arguments are used to customise the origin and
                 rotation of the relative angular coordinates. See
                 :func:`radec2angular` for details.
 
         Returns:
             `(angular_x, angular_y)` tuple containing the relative angular coordinates
-            of the point in arcseconds.
+            of the point(s) in arcseconds.
         """
+        return self._maybe_transform_as_arrays(
+            self._km2angular, km_x, km_y, **angular_kwargs
+        )
+
+    def _km2angular(
+        self,
+        km_x: float,
+        km_y: float,
+        **angular_kwargs: Unpack[AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
         return self._obsvec2angular(self._km2obsvec_norm(km_x, km_y), **angular_kwargs)
 
     def angular2km(
         self,
-        angular_x: float,
-        angular_y: float,
+        angular_x: FloatOrArray,
+        angular_y: FloatOrArray,
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
-    ) -> tuple[float, float]:
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert relative angular coordinates to distances in the target plane.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            angular_x: Angular coordinate in the x direction in arcseconds.
-            angular_y: Angular coordinate in the y direction in arcseconds.
+            angular_x: Angular coordinate(s) in the x direction in arcseconds.
+            angular_y: Angular coordinate(s) in the y direction in arcseconds.
             **angular_kwargs: Additional arguments are used to customise the origin and
                 rotation of the relative angular coordinates. See
                 :func:`radec2angular` for details.
@@ -1542,6 +1742,16 @@ class Body(BodyBase):
             `(km_x, km_y)` tuple containing distances in km in the target plane in the
             East-West and North-South directions respectively.
         """
+        return self._maybe_transform_as_arrays(
+            self._angular2km, angular_x, angular_y, **angular_kwargs
+        )
+
+    def _angular2km(
+        self,
+        angular_x: float,
+        angular_y: float,
+        **angular_kwargs: Unpack[AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
         return self._obsvec2km(
             self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs)
         )

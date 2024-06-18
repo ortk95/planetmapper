@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, Mock, patch
 import common_testing
 import numpy as np
 import spiceypy as spice
+from numpy import array, nan
 from spiceypy.utils.exceptions import (
     NotFoundError,
     SpiceNOLEAPSECONDS,
@@ -331,6 +332,46 @@ class TestSpiceBase(common_testing.BaseTestCase):
             with self.subTest(angles):
                 self.assertAlmostEqual(self.obj.angular_dist(*angles), dist)
         self.assertTrue(np.isnan(self.obj.angular_dist(1, 2, 3, np.nan)))
+
+    def test_maybe_transform_as_arrays(self):
+        def func(a, b, c=1, *, d=2, e=3):
+            return self.obj._maybe_transform_as_arrays(_func, a, b, c, d=d, e=e)
+
+        def _func(a, b, c, *, d, e):
+            return a * b, a * b * c + d * e
+
+        self.assertArraysClose(func(1, 2, 3, d=4, e=5), (2, 26))
+        self.assertArraysClose(func(10, 20), (200, 206))
+        self.assertArraysClose(func(a=10, b=20), (200, 206))
+        self.assertArraysClose(
+            func(array([1, 2, 3]), array([4, 5, 6])),
+            (array([4, 10, 18]), array([10, 16, 24])),
+        )
+        self.assertArraysClose(
+            func([1, 2, 3], [4, 5, 6]),
+            (array([4, 10, 18]), array([10, 16, 24])),
+        )
+        self.assertArraysClose(
+            # this would fail if output dtypes are integer
+            func(array([1, 2, 3]), array([4, 5, 6]), e=-4.321),
+            (array([4.0, 10.0, 18.0]), array([-4.642, 1.358, 9.358])),
+        )
+        self.assertArraysClose(
+            func(array([1, 2, 3]), array([[4, 5, 6], [-1, -2, -3]])),
+            (
+                array([[4.0, 10.0, 18.0], [-1.0, -4.0, -9.0]]),
+                array([[10.0, 16.0, 24.0], [5.0, 2.0, -3.0]]),
+            ),
+        )
+        self.assertArraysClose(
+            func(array([1, 2, 3]), 1), (array([1.0, 2.0, 3.0]), array([7.0, 8.0, 9.0]))
+        )
+        self.assertArraysClose(
+            func([1, 1, 1], [2, 2, 2], 3, d=4, e=5),
+            (array([2.0, 2.0, 2.0]), array([26.0, 26.0, 26.0])),
+        )
+        with self.assertRaises(ValueError):
+            func([1, 2, 3], [1, 2])
 
     def test_progress_hook(self):
         class CustomError(Exception):

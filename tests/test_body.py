@@ -663,6 +663,58 @@ class TestBody(common_testing.BaseTestCase):
                     expected,
                     equal_nan=True,
                 )
+        # Test array broadcasting implementation
+        self.assertArraysClose(
+            self.body.lonlat2radec(
+                np.array([0, 90, 123]),
+                np.array([1, 2, 3]),
+                alt=123.456,
+                not_visible_nan=True,
+            ),
+            (
+                array([nan, 196.36800057, 196.3698629]),
+                array([nan, -5.56373086, -5.56437196]),
+            ),
+            equal_nan=True,
+        )
+        self.assertArraysClose(
+            self.body.lonlat2radec(
+                [[0, 90, 123], [100, 200, 300.123]],
+                0,
+                alt=123.456,
+                not_visible_nan=True,
+            ),
+            (
+                array(
+                    [
+                        [nan, 196.36793564, 196.36976609],
+                        [196.36837244, 196.37540197, nan],
+                    ]
+                ),
+                array(
+                    [[nan, -5.56386914, -5.56457942], [-5.56402583, -5.56714199, nan]]
+                ),
+            ),
+            equal_nan=True,
+        )
+        self.assertArraysClose(
+            self.body.lonlat2radec(lon=123, lat=-12.34),
+            (196.3694301738864, -5.5654598621335625),
+            equal_nan=True,
+        )
+        self.assertArraysClose(
+            self.body.lonlat2radec([[[[123]]]], -12.34),
+            (array([[[[196.36943017]]]]), array([[[[-5.56545986]]]])),
+            equal_nan=True,
+        )
+        self.assertArraysClose(
+            self.body.lonlat2radec([np.nan, np.inf, 0, 1.234, 1234], 0),
+            (
+                array([nan, nan, 196.3698279, 196.36974134, 196.37215256]),
+                array([nan, nan, -5.56506094, -5.56501974, -5.56561021]),
+            ),
+            equal_nan=True,
+        )
 
     def test_radec2lonlat(self):
         self.assertTrue(
