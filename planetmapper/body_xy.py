@@ -25,7 +25,7 @@ from matplotlib.collections import QuadMesh
 from matplotlib.figure import Figure
 from spiceypy.utils.exceptions import NotFoundError
 
-from .base import _cache_clearable_result, _cache_stable_result
+from .base import FloatOrArray, _cache_clearable_result, _cache_stable_result
 from .body import (
     AngularCoordinateKwargs,
     Body,
@@ -368,49 +368,77 @@ class BodyXY(Body):
         return v[0], v[1]
 
     # Composite transformations
-    def xy2radec(self, x: float, y: float) -> tuple[float, float]:
+    def xy2radec(
+        self, x: FloatOrArray, y: FloatOrArray
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert image pixel coordinates to RA/Dec sky coordinates.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            x: Image pixel coordinate in the x direction.
-            y: Image pixel coordinate in the y direction.
+            x: Image pixel coordinate(s) in the x direction.
+            y: Image pixel coordinate(s) in the y direction.
 
         Returns:
-            `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
+            `(ra, dec)` tuple containing the RA/Dec coordinates of the point(s).
         """
+        return self._maybe_transform_as_arrays(self._xy2radec, x, y)
+
+    def _xy2radec(self, x: float, y: float) -> tuple[float, float]:
         return self._obsvec2radec(self._xy2obsvec_norm(x, y))
 
-    def radec2xy(self, ra: float, dec: float) -> tuple[float, float]:
+    def radec2xy(
+        self, ra: FloatOrArray, dec: FloatOrArray
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert RA/Dec sky coordinates to image pixel coordinates.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            ra: Right ascension of point in the sky of the observer
-            dec: Declination of point in the sky of the observer.
+            ra: Right ascension of point(s) in the sky of the observer
+            dec: Declination of point(s) in the sky of the observer.
 
         Returns:
-            `(x, y)` tuple containing the image pixel coordinates of the point.
+            `(x, y)` tuple containing the image pixel coordinates of the point(s).
         """
+        return self._maybe_transform_as_arrays(self._radec2xy, ra, dec)
+
+    def _radec2xy(self, ra: float, dec: float) -> tuple[float, float]:
         return self._obsvec2xy(self._radec2obsvec_norm(ra, dec))
 
     def xy2lonlat(
-        self, x: float, y: float, *, not_found_nan=True, alt: float = 0.0
-    ) -> tuple[float, float]:
+        self, x: FloatOrArray, y: FloatOrArray, *, not_found_nan=True, alt: float = 0.0
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert image pixel coordinates to longitude/latitude coordinates on the target
         body.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            x: Image pixel coordinate in the x direction.
-            y: Image pixel coordinate in the y direction.
+            x: Image pixel coordinate(s) in the x direction.
+            y: Image pixel coordinate(s) in the y direction.
             not_found_nan: Controls the behaviour when the input `x` and `y` coordinates
                 are missing the target body.
             alt: Altitude of returned `(lon, lat)` point above the surface of the target
                 body in km.
 
         Returns:
-            `(lon, lat)` tuple containing the longitude and latitude of the point. If
+            `(lon, lat)` tuple containing the longitude and latitude of the point(s). If
             the provided pixel coordinates are missing the target body, and
             `not_found_nan` is `True`, then the `lon` and `lat` values will both be NaN.
 
@@ -418,17 +446,35 @@ class BodyXY(Body):
             NotFoundError: if the input `x` and `y` coordinates are missing the target
                 body and `not_found_nan` is `False`.
         """
+        return self._maybe_transform_as_arrays(
+            self._xy2lonlat, x, y, not_found_nan=not_found_nan, alt=alt
+        )
+
+    def _xy2lonlat(
+        self, x: float, y: float, *, not_found_nan: bool, alt: float
+    ) -> tuple[float, float]:
         return self._obsvec_norm2lonlat(self._xy2obsvec_norm(x, y), not_found_nan, alt)
 
     def lonlat2xy(
-        self, lon: float, lat: float, *, alt: float = 0.0, not_visible_nan: bool = False
-    ) -> tuple[float, float]:
+        self,
+        lon: FloatOrArray,
+        lat: FloatOrArray,
+        *,
+        alt: float = 0.0,
+        not_visible_nan: bool = False,
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert longitude/latitude on the target body to image pixel coordinates.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            lon: Longitude of point on target body.
-            lat: Latitude of point on target body.
+            lon: Longitude of point(s) on target body.
+            lat: Latitude of point(s) on target body.
             alt: Altitude of point above the surface of the target body in km.
             not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
                 the point is not visible to the observer (e.g. it is on the far side of
@@ -436,77 +482,136 @@ class BodyXY(Body):
                 be returned, even if the point is not directly visible.
 
         Returns:
-            `(x, y)` tuple containing the image pixel coordinates of the point.
+            `(x, y)` tuple containing the image pixel coordinates of the point(s).
         """
+        return self._maybe_transform_as_arrays(
+            self._lonlat2xy, lon, lat, alt=alt, not_visible_nan=not_visible_nan
+        )
+
+    def _lonlat2xy(
+        self, lon: float, lat: float, *, alt: float, not_visible_nan: bool
+    ) -> tuple[float, float]:
         return self._obsvec2xy(
             self._lonlat2obsvec(lon, lat, alt=alt, not_visible_nan=not_visible_nan)
         )
 
-    def xy2km(self, x: float, y: float) -> tuple[float, float]:
+    def xy2km(
+        self, x: FloatOrArray, y: FloatOrArray
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert image pixel coordinates to distances in the target plane.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            x: Image pixel coordinate in the x direction.
-            y: Image pixel coordinate in the y direction.
+            x: Image pixel coordinate(s) in the x direction.
+            y: Image pixel coordinate(s) in the y direction.
 
         Returns:
             `(km_x, km_y)` tuple containing distances in km in the target plane in the
             East-West and North-South directions respectively.
         """
+        return self._maybe_transform_as_arrays(self._xy2km, x, y)
+
+    def _xy2km(self, x: float, y: float) -> tuple[float, float]:
         return self._obsvec2km(self._xy2obsvec_norm(x, y))
 
-    def km2xy(self, km_x: float, km_y: float) -> tuple[float, float]:
+    def km2xy(
+        self, km_x: FloatOrArray, km_y: FloatOrArray
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert distances in the target plane to image pixel coordinates.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            km_x: Distance in target plane in km in the East-West direction.
-            km_y: Distance in target plane in km in the North-South direction.
+            km_x: Distance(s) in target plane in km in the East-West direction.
+            km_y: Distance(s) in target plane in km in the North-South direction.
 
         Returns:
-            `(x, y)` tuple containing the image pixel coordinates of the point.
+            `(x, y)` tuple containing the image pixel coordinates of the point(s).
         """
+        return self._maybe_transform_as_arrays(self._km2xy, km_x, km_y)
+
+    def _km2xy(self, km_x: float, km_y: float) -> tuple[float, float]:
         return self._obsvec2xy(self._km2obsvec_norm(km_x, km_y))
 
     def xy2angular(
-        self, x: float, y: float, **angular_kwargs: Unpack[AngularCoordinateKwargs]
-    ) -> tuple[float, float]:
+        self,
+        x: FloatOrArray,
+        y: FloatOrArray,
+        **angular_kwargs: Unpack[AngularCoordinateKwargs],
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert image pixel coordinates to relative angular coordinates.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            x: Image pixel coordinate in the x direction.
-            y: Image pixel coordinate in the y direction.
+            x: Image pixel coordinate(s) in the x direction.
+            y: Image pixel coordinate(s) in the y direction.
             **angular_kwargs: Additional arguments are used to customise the origin and
                 rotation of the relative angular coordinates. See
                 :func:`Body.radec2angular` for details.
 
         Returns:
             `(angular_x, angular_y)` tuple containing the relative angular coordinates
-            of the point in arcseconds.
+            of the point(s) in arcseconds.
         """
+        return self._maybe_transform_as_arrays(self._xy2angular, x, y, **angular_kwargs)
+
+    def _xy2angular(
+        self, x: float, y: float, **angular_kwargs: Unpack[AngularCoordinateKwargs]
+    ) -> tuple[float, float]:
         return self._obsvec2angular(self._xy2obsvec_norm(x, y), **angular_kwargs)
 
     def angular2xy(
         self,
-        angular_x: float,
-        angular_y: float,
+        angular_x: FloatOrArray,
+        angular_y: FloatOrArray,
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
-    ) -> tuple[float, float]:
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert relative angular coordinates to image pixel coordinates.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            angular_x: Angular coordinate in the x direction in arcseconds.
-            angular_y: Angular coordinate in the y direction in arcseconds.
+            angular_x: Angular coordinate(s) in the x direction in arcseconds.
+            angular_y: Angular coordinate(s) in the y direction in arcseconds.
             **angular_kwargs: Additional arguments are used to customise the origin and
                 rotation of the relative angular coordinates. See
                 :func:`Body.radec2angular` for details.
 
         Returns:
-            `(x, y)` tuple containing the image pixel coordinates of the point.
+            `(x, y)` tuple containing the image pixel coordinates of the point(s).
         """
+        return self._maybe_transform_as_arrays(
+            self._angular2xy, angular_x, angular_y, **angular_kwargs
+        )
+
+    def _angular2xy(
+        self,
+        angular_x: float,
+        angular_y: float,
+        **angular_kwargs: Unpack[AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
         return self._obsvec2xy(
             self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs)
         )

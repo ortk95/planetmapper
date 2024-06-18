@@ -38,6 +38,7 @@ _KERNEL_DATA = {
 }
 
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
+FloatOrArray = TypeVar('FloatOrArray', float, np.ndarray)
 
 
 T = TypeVar('T')
@@ -682,6 +683,46 @@ class SpiceBase:
             )
         )
 
+    @staticmethod
+    def _maybe_transform_as_arrays(
+        func: Callable[Concatenate[float, float, P], tuple[float, float]],
+        arg1: FloatOrArray,
+        arg2: FloatOrArray,
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> tuple[FloatOrArray, FloatOrArray]:
+        """
+        Call a function with two arguments, which may be floats or arrays.
+
+        If both arguments are floats, then the function is called directly, returning
+        a tuple of two floats. If either argument is an array, then the function is
+        called with the arguments broadcast together, returning two arrays.
+
+        Additional *args and **kwargs are _not_ broadcast, and passed directly to func
+        unchanged (so normally should just be scalar values).
+        """
+        # There are a few type: ignores used here, as some of the code is a bit more
+        # robust than the type hints can handle. E.g. the np.nditer call can handle
+        # a combination of float and array inputs, but the type hints can't express this
+        # easily.
+
+        numeric_types = (float, numbers.Number)
+        # isinstance(..., float) is faster than isinstance(..., Number), so explicitly
+        # check if arg1 and arg2 are floats for speed, as this is the default case
+        # for probably the vast majority of calls. Also include the full check for
+        # Number though, to ensure we catch e.g. int and any other numeric types.
+        if isinstance(arg1, numeric_types) and isinstance(arg2, numeric_types):
+            return func(arg1, arg2, *args, **kwargs)  # type: ignore
+        else:
+            with np.nditer([arg1, arg2, None, None]) as it:  # type: ignore
+                for a, b, u, v in it:
+                    u[...], v[...] = func(a, b, *args, **kwargs)  #  type: ignore
+                return it.operands[2], it.operands[3]  #  type: ignore
+        # XXX test
+        # TODO improve performance by using alt context manager for arrays
+        # (e.g. add context manager in radec2lonlat)
+
+    # Progress
     def _set_progress_hook(self, progress_hook: progress.ProgressHook) -> None:
         self._progress_hook = progress_hook
         self._progress_call_stack = []
