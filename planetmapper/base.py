@@ -4,7 +4,7 @@ import glob
 import math
 import numbers
 import os
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from pathlib import Path
 from typing import (
     Any,
@@ -38,10 +38,11 @@ _KERNEL_DATA = {
 }
 
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
+FloatOrArray = TypeVar('FloatOrArray', float, np.ndarray)
 
 
 T = TypeVar('T')
-S = TypeVar('S')
+S = TypeVar('S', bound='SpiceBase')
 P = ParamSpec('P')
 
 _SPICE_ERROR_HELP_URL = (
@@ -69,15 +70,18 @@ def _cache_clearable_result(
     stable (i.e. backplane maps) then use `_cache_stable_result` instead.
 
     Note that any numpy arguments will be converted to (nested) tuples.
+
+    See also body._cache_clearable_alt_dependent_result for a version of this decorator
+    that includes the altitude adjustment in the cache key.
     """
     # pylint: disable=protected-access
 
     @functools.wraps(fn)
-    def decorated(self, *args_in: P.args, **kwargs_in: P.kwargs) -> T:
+    def decorated(self: S, *args_in: P.args, **kwargs_in: P.kwargs) -> T:
         args, kwargs = _replace_np_arrr_args_with_tuples(args_in, kwargs_in)
         k = (fn.__name__, args, frozenset(kwargs.items()))
         if k not in self._cache:
-            self._cache[k] = fn(self, *args, **kwargs)  # type: ignore
+            self._cache[k] = fn(self, *args, **kwargs)
         return self._cache[k]
 
     return decorated
@@ -97,11 +101,11 @@ def _cache_stable_result(
 
     # pylint: disable=protected-access
     @functools.wraps(fn)
-    def decorated(self, *args_in: P.args, **kwargs_in: P.kwargs) -> T:
+    def decorated(self: S, *args_in: P.args, **kwargs_in: P.kwargs) -> T:
         args, kwargs = _replace_np_arrr_args_with_tuples(args_in, kwargs_in)
         k = (fn.__name__, args, frozenset(kwargs.items()))
         if k not in self._stable_cache:
-            self._stable_cache[k] = fn(self, *args, **kwargs)  # type: ignore
+            self._stable_cache[k] = fn(self, *args, **kwargs)
         return self._stable_cache[k]
 
     return decorated
@@ -199,7 +203,11 @@ class SpiceBase:
         manual_kernels: None | list[str] = None,
     ) -> None:
         super().__init__()
+        self._show_progress = show_progress
         self._optimize_speed = optimize_speed
+        self._auto_load_kernels = auto_load_kernels
+        self._kernel_path = kernel_path
+        self._manual_kernels = manual_kernels
 
         self._cache = {}
         self._stable_cache = {}
@@ -216,7 +224,67 @@ class SpiceBase:
             )
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}()'
+        return self._generate_repr()
+
+    def _generate_repr(
+        self,
+        *arg_keys: str,
+        kwarg_keys: Sequence[str] = (),
+        skip_keys: Collection[str] = (),
+        formatters: dict[str, Callable[[Any], str]] | None = None,
+    ) -> str:
+        """
+        Automatically generate a repr for the object.
+
+        This uses argument information from _get_kwargs and _get_default_init_kwargs to
+        generate a repr string that only includes arguments that have been changed from
+        their default values. Arguments displayed first, without their keywords, can be
+        specified with arg_keys, and kwargs to always include can be specified with
+        kwarg_keys.
+
+        The ordering of the arguments is arg_keys, then kwarg_keys,  then any other
+        kwargs that aren't included in the defaults,then the order defined in
+        _get_default_init_kwargs. By default, values are formatted with repr, but this
+        can be overridden with the formatters dictionary.
+
+        Args:
+            arg_keys: Arguments to include in the repr without their keywords.
+            kwarg_keys: Keyword arguments to always include in the repr.
+            skip_keys: Arguments to always exclude from the repr.
+            formatters: Dictionary mapping argument names to functions that format the
+                argument value for the repr. By default, repr is used.
+
+        Returns:
+            Repr string for the object.
+        """
+        if formatters is None:
+            formatters = {}
+        kwargs = self._get_kwargs()
+        defaults = self._get_default_init_kwargs()
+
+        # skip maybe-default keys explicitly excluded or already included elsewhere
+        skip_keys = set(skip_keys) | set(kwarg_keys) | set(arg_keys)
+
+        kw_to_include = {k: kwargs[k] for k in kwarg_keys}  # explicitly included keys
+        kw_to_include.update(  # keys not included in the defaults
+            {
+                k: v
+                for k, v in kwargs.items()
+                if (k not in skip_keys and k not in defaults)
+            }
+        )
+        kw_to_include.update(  # other keys that don't have their default values
+            {
+                k: kwargs[k]
+                for k, d in defaults.items()
+                if (k not in skip_keys and not np.array_equal(kwargs[k], d))
+            }
+        )
+        arguments: list[str] = [formatters.get(k, repr)(kwargs[k]) for k in arg_keys]
+        arguments.extend(
+            f'{k}={formatters.get(k, repr)(v)}' for k, v in kw_to_include.items()
+        )
+        return f'{self.__class__.__name__}({", ".join(arguments)})'
 
     def __eq__(self, other) -> bool:
         return (
@@ -238,21 +306,48 @@ class SpiceBase:
 
         Used by __eq__ and __hash__.
         """
-        return (self._optimize_speed, repr(self))
+        return (self._optimize_speed,)
 
     def _get_kwargs(self) -> dict[str, Any]:
         """
         Get kwargs used to __init__ a new object of this class.
 
         This is used by `copy` to copy the options of this object to a new object in
-        conjunction with `_copy_options_to_other`.
+        conjunction with `_copy_options_to_other`. This is also used in `__repr__`.
 
         Subclasses should override this to include any additional information needed to
         build a new object e.g.
 
             return super()._get_kwargs() | dict(a=self.a, b=self.b)
         """
-        return dict(optimize_speed=self._optimize_speed)
+        return dict(
+            show_progress=self._show_progress,
+            optimize_speed=self._optimize_speed,
+            auto_load_kernels=self._auto_load_kernels,
+            kernel_path=self._kernel_path,
+            manual_kernels=self._manual_kernels,
+        )
+
+    @classmethod
+    def _get_default_init_kwargs(cls) -> dict[str, Any]:
+        """
+        Get default values for keyword arguments used to __init__ a new object of this
+        class.
+
+        The order of the keys in the returned dictionary determines the order in which
+        the arguments are displayed in the repr string.
+
+        Subclasses should override this to include any additional kwargs e.g.
+
+                return dict(a=0, b=1, **super()._get_default_init_kwargs())
+        """
+        return dict(
+            show_progress=False,
+            optimize_speed=True,
+            auto_load_kernels=True,
+            kernel_path=None,
+            manual_kernels=None,
+        )
 
     def _copy_options_to_other(self, other: Self) -> None:
         """
@@ -573,15 +668,63 @@ class SpiceBase:
         Returns:
             Angular distance in degrees between the two points.
         """
+        # Clip to prevent floating point errors causing arccos to return NaN
+        # e.g. https://github.com/ortk95/planetmapper/issues/357
         return np.rad2deg(
             np.arccos(
-                np.sin(np.deg2rad(dec1)) * np.sin(np.deg2rad(dec2))
-                + np.cos(np.deg2rad(dec1))
-                * np.cos(np.deg2rad(dec2))
-                * np.cos(np.deg2rad(ra1) - np.deg2rad(ra2))
+                np.clip(
+                    np.sin(np.deg2rad(dec1)) * np.sin(np.deg2rad(dec2))
+                    + np.cos(np.deg2rad(dec1))
+                    * np.cos(np.deg2rad(dec2))
+                    * np.cos(np.deg2rad(ra1) - np.deg2rad(ra2)),
+                    -1.0,
+                    1.0,
+                )
             )
         )
 
+    @staticmethod
+    def _maybe_transform_as_arrays(
+        func: Callable[Concatenate[float, float, P], tuple[float, float]],
+        arg1: FloatOrArray,
+        arg2: FloatOrArray,
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> tuple[FloatOrArray, FloatOrArray]:
+        """
+        Call a function with two arguments, which may be floats or arrays.
+
+        If both arguments are floats, then the function is called directly, returning
+        a tuple of two floats. If either argument is an array, then the function is
+        called with the arguments broadcast together, returning two arrays.
+
+        Additional *args and **kwargs are _not_ broadcast, and passed directly to func
+        unchanged (so normally should just be scalar values).
+        """
+        # There are a few type: ignores used here, as some of the code is a bit more
+        # robust than the type hints can handle. E.g. the np.nditer call can handle
+        # a combination of float and array inputs, but the type hints can't express this
+        # easily.
+
+        numeric_types = (float, numbers.Number)
+        # isinstance(..., float) is faster than isinstance(..., Number), so explicitly
+        # check if arg1 and arg2 are floats for speed, as this is the default case
+        # for probably the vast majority of calls. Also include the full check for
+        # Number though, to ensure we catch e.g. int and any other numeric types.
+        if isinstance(arg1, numeric_types) and isinstance(arg2, numeric_types):
+            return func(arg1, arg2, *args, **kwargs)  # type: ignore
+        else:
+            # the op_dtypes argument ensures that the output arrays are floats, as
+            # otherwise we could end up with e.g. int arrays which would then truncate
+            # values, potentially leading to errors
+            with np.nditer([arg1, arg2, None, None], op_dtypes=[None, None, float, float]) as it:  # type: ignore
+                for a, b, u, v in it:
+                    u[...], v[...] = func(a, b, *args, **kwargs)  #  type: ignore
+                return it.operands[2], it.operands[3]  #  type: ignore
+        # TODO improve performance by using alt context manager for arrays
+        # (e.g. add context manager in radec2lonlat)
+
+    # Progress
     def _set_progress_hook(self, progress_hook: progress.ProgressHook) -> None:
         self._progress_hook = progress_hook
         self._progress_call_stack = []
@@ -674,7 +817,7 @@ class BodyBase(SpiceBase):
         self.target_ra, self.target_dec = self._obsvec2radec(self._target_obsvec)
 
     def __repr__(self) -> str:
-        return f'BodyBase({self.target!r}, {self.utc!r})'
+        return self._generate_repr()
 
     def _get_equality_tuple(self) -> tuple:
         return (
@@ -693,6 +836,12 @@ class BodyBase(SpiceBase):
             observer=self.observer,
             aberration_correction=self.aberration_correction,
             observer_frame=self.observer_frame,
+        )
+
+    @classmethod
+    def _get_default_init_kwargs(cls) -> dict[str, Any]:
+        return dict(
+            **super()._get_default_init_kwargs(),
         )
 
     def _obsvec2radec_radians(self, obsvec: np.ndarray) -> tuple[float, float]:

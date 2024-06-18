@@ -22,6 +22,15 @@ class TestObservation(common_testing.BaseTestCase):
         self.path = os.path.join(common_testing.DATA_PATH, 'inputs', 'test.fits')
         self.observation = Observation(self.path)
 
+    def test_get_default_init_kwargs(self):
+        self._test_get_default_init_kwargs(
+            Observation,
+            path=self.path,
+            target='Jupiter',
+            observer='hst',
+            utc='2005-01-01T00:00:00',
+        )
+
     def test_init(self) -> None:
         with self.assertRaises(ValueError):
             Observation()
@@ -307,7 +316,23 @@ class TestObservation(common_testing.BaseTestCase):
         self.assertEqual(self.observation._ny, 10)
 
     def test_repr(self):
-        self.assertEqual(repr(self.observation), f'Observation({self.path!r})')
+        self.assertEqual(
+            repr(self.observation),
+            f"Observation({self.path!r}, target='JUPITER', utc='2005-01-01T00:00:00.000000', observer='HST')",
+        )
+        self.assertEqual(
+            str(
+                planetmapper.Observation(
+                    data=np.ones((300, 400, 500)),
+                    header=fits.Header({'target': 'Jupiter', 'abc': 123}),
+                    target='Jupiter',
+                    observer='HST',
+                    utc='2005-01-01T00:00:00',
+                    aberration_correction='NONE',
+                )
+            ),
+            "Observation(None, data=<300x400x500 array>, header=<2 card Header>, target='JUPITER', utc='2005-01-01T00:00:00.000000', observer='HST', aberration_correction='NONE')",
+        )
 
     def test_to_body_xy(self):
         observation = Observation(
@@ -738,33 +763,48 @@ class TestObservation(common_testing.BaseTestCase):
 
         path = os.path.join(common_testing.TEMP_PATH, 'test_nav.fits')
 
-        # test skip wireframe here
-        self.observation.save_observation(
-            path,
-            show_progress=True,
-            include_wireframe=False,
-        )
-        self.compare_fits_to_reference(path, skip_wireframe=True)
-
-        # test print info here
-        self.observation.save_observation(
-            path, print_info=True, wireframe_kwargs=dict(output_size=20, dpi=20)
-        )
-        self.compare_fits_to_reference(path)
-
         # test progress bar here too
-        self.observation.save_observation(
-            path, show_progress=True, wireframe_kwargs=dict(output_size=20, dpi=20)
-        )
-        self.compare_fits_to_reference(path)
+        with self.subTest('progress bar'):
+            self.observation.save_observation(
+                path, show_progress=True, wireframe_kwargs=dict(output_size=20, dpi=20)
+            )
+            self.compare_fits_to_reference(path)
+
+        # test skip wireframe here
+        with self.subTest('skip wireframe'):
+            self.observation.save_observation(
+                path,
+                show_progress=True,
+                include_wireframe=False,
+            )
+            self.compare_fits_to_reference(path, skip_wireframe=True)
 
         # test PathLike
-        self.observation.save_observation(
-            Path(path),
-            show_progress=True,
-            include_wireframe=False,
-        )
-        self.compare_fits_to_reference(path, skip_wireframe=True)
+        with self.subTest('PathLike'):
+            self.observation.save_observation(
+                Path(path),
+                show_progress=True,
+                include_wireframe=False,
+            )
+            self.compare_fits_to_reference(path, skip_wireframe=True)
+
+        # test print info here
+        # run this one last so that the file in temp has a wireframe and can be used as
+        # the expected output
+        with self.subTest('print info'):
+            self.observation.save_observation(
+                path, print_info=True, wireframe_kwargs=dict(output_size=20, dpi=20)
+            )
+            self.compare_fits_to_reference(path)
+
+        with self.subTest('alt'):
+            path = os.path.join(common_testing.TEMP_PATH, 'test_nav_alt.fits')
+            self.observation.save_observation(
+                path,
+                alt=34567.8912,
+                wireframe_kwargs=dict(output_size=19, dpi=20),
+            )
+            self.compare_fits_to_reference(path)
 
     def test_save_mapped_observation(self):
         self.observation.set_disc_params(2.5, 3.1, 3.9, 123.456)
@@ -773,6 +813,11 @@ class TestObservation(common_testing.BaseTestCase):
         map_kwargs = {
             'rectangular-nearest': dict(
                 degree_interval=30, interpolation='nearest', show_progress=True
+            ),
+            'rectangular-nearest-alt': dict(
+                degree_interval=30,
+                interpolation='nearest',
+                alt=34567.8912,
             ),
             'rectangular-linear': dict(
                 degree_interval=30, interpolation='linear', include_wireframe=False

@@ -25,8 +25,17 @@ from matplotlib.collections import QuadMesh
 from matplotlib.figure import Figure
 from spiceypy.utils.exceptions import NotFoundError
 
-from .base import _cache_clearable_result, _cache_stable_result
-from .body import AngularCoordinateKwargs, Body, WireframeComponent, WireframeKwargs
+from .base import FloatOrArray, _cache_clearable_result, _cache_stable_result
+from .body import (
+    AngularCoordinateKwargs,
+    Body,
+    LonLatGridKwargs,
+    WireframeComponent,
+    WireframeKwargs,
+    _adjust_surface_altitude_decorator,
+    _AdjustedSurfaceAltitude,
+    _cache_clearable_alt_dependent_result,
+)
 from .progress import progress_decorator
 
 
@@ -48,6 +57,7 @@ class MapKwargs(TypedDict, total=False):
     projection_y_coords: np.ndarray | None
     xlim: tuple[float, float] | None
     ylim: tuple[float, float] | None
+    alt: float
 
 
 _MapKwargs = MapKwargs  # keep for backward compatibility
@@ -164,6 +174,7 @@ class BodyXY(Body):
         self,
         target: str,
         utc: str | datetime.datetime | float | None = None,
+        observer: str | int = 'EARTH',
         nx: int = 0,
         ny: int = 0,
         *,
@@ -177,7 +188,7 @@ class BodyXY(Body):
             nx = sz
             ny = sz
 
-        super().__init__(target, utc, **kwargs)
+        super().__init__(target, utc, observer, **kwargs)
 
         # Document instance variables
         self.backplanes: dict[str, Backplane]
@@ -289,8 +300,9 @@ class BodyXY(Body):
         return new
 
     def __repr__(self) -> str:
-        return f'BodyXY({self.target!r}, {self.utc!r}, {self._nx!r}, {self._ny!r}, observer={self.observer!r})'
+        return self._generate_repr('target', 'utc', kwarg_keys=['observer', 'nx', 'ny'])
 
+    # BodyXY is mutable, so make it unhashable
     __hash__ = None  # type: ignore
 
     def _get_equality_tuple(self) -> tuple:
@@ -308,6 +320,14 @@ class BodyXY(Body):
         return super()._get_kwargs() | dict(
             nx=self._nx,
             ny=self._ny,
+        )
+
+    @classmethod
+    def _get_default_init_kwargs(cls) -> dict[str, Any]:
+        return dict(
+            nx=0,
+            ny=0,
+            **super()._get_default_init_kwargs(),
         )
 
     def _copy_options_to_other(self, other: Self) -> None:
@@ -348,45 +368,77 @@ class BodyXY(Body):
         return v[0], v[1]
 
     # Composite transformations
-    def xy2radec(self, x: float, y: float) -> tuple[float, float]:
+    def xy2radec(
+        self, x: FloatOrArray, y: FloatOrArray
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert image pixel coordinates to RA/Dec sky coordinates.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            x: Image pixel coordinate in the x direction.
-            y: Image pixel coordinate in the y direction.
+            x: Image pixel coordinate(s) in the x direction.
+            y: Image pixel coordinate(s) in the y direction.
 
         Returns:
-            `(ra, dec)` tuple containing the RA/Dec coordinates of the point.
+            `(ra, dec)` tuple containing the RA/Dec coordinates of the point(s).
         """
+        return self._maybe_transform_as_arrays(self._xy2radec, x, y)
+
+    def _xy2radec(self, x: float, y: float) -> tuple[float, float]:
         return self._obsvec2radec(self._xy2obsvec_norm(x, y))
 
-    def radec2xy(self, ra: float, dec: float) -> tuple[float, float]:
+    def radec2xy(
+        self, ra: FloatOrArray, dec: FloatOrArray
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert RA/Dec sky coordinates to image pixel coordinates.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            ra: Right ascension of point in the sky of the observer
-            dec: Declination of point in the sky of the observer.
+            ra: Right ascension of point(s) in the sky of the observer
+            dec: Declination of point(s) in the sky of the observer.
 
         Returns:
-            `(x, y)` tuple containing the image pixel coordinates of the point.
+            `(x, y)` tuple containing the image pixel coordinates of the point(s).
         """
+        return self._maybe_transform_as_arrays(self._radec2xy, ra, dec)
+
+    def _radec2xy(self, ra: float, dec: float) -> tuple[float, float]:
         return self._obsvec2xy(self._radec2obsvec_norm(ra, dec))
 
-    def xy2lonlat(self, x: float, y: float, not_found_nan=True) -> tuple[float, float]:
+    def xy2lonlat(
+        self, x: FloatOrArray, y: FloatOrArray, *, not_found_nan=True, alt: float = 0.0
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert image pixel coordinates to longitude/latitude coordinates on the target
         body.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            x: Image pixel coordinate in the x direction.
-            y: Image pixel coordinate in the y direction.
+            x: Image pixel coordinate(s) in the x direction.
+            y: Image pixel coordinate(s) in the y direction.
             not_found_nan: Controls the behaviour when the input `x` and `y` coordinates
                 are missing the target body.
+            alt: Altitude of returned `(lon, lat)` point above the surface of the target
+                body in km.
 
         Returns:
-            `(lon, lat)` tuple containing the longitude and latitude of the point. If
+            `(lon, lat)` tuple containing the longitude and latitude of the point(s). If
             the provided pixel coordinates are missing the target body, and
             `not_found_nan` is `True`, then the `lon` and `lat` values will both be NaN.
 
@@ -394,86 +446,172 @@ class BodyXY(Body):
             NotFoundError: if the input `x` and `y` coordinates are missing the target
                 body and `not_found_nan` is `False`.
         """
-        return self._obsvec_norm2lonlat(self._xy2obsvec_norm(x, y), not_found_nan)
+        return self._maybe_transform_as_arrays(
+            self._xy2lonlat, x, y, not_found_nan=not_found_nan, alt=alt
+        )
 
-    def lonlat2xy(self, lon: float, lat: float) -> tuple[float, float]:
+    def _xy2lonlat(
+        self, x: float, y: float, *, not_found_nan: bool, alt: float
+    ) -> tuple[float, float]:
+        return self._obsvec_norm2lonlat(self._xy2obsvec_norm(x, y), not_found_nan, alt)
+
+    def lonlat2xy(
+        self,
+        lon: FloatOrArray,
+        lat: FloatOrArray,
+        *,
+        alt: float = 0.0,
+        not_visible_nan: bool = False,
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert longitude/latitude on the target body to image pixel coordinates.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            lon: Longitude of point on target body.
-            lat: Latitude of point on target body.
+            lon: Longitude of point(s) on target body.
+            lat: Latitude of point(s) on target body.
+            alt: Altitude of point above the surface of the target body in km.
+            not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
+                the point is not visible to the observer (e.g. it is on the far side of
+                the target). If `False` (the default), then `(ra, dec)` coordinates will
+                be returned, even if the point is not directly visible.
 
         Returns:
-            `(x, y)` tuple containing the image pixel coordinates of the point.
+            `(x, y)` tuple containing the image pixel coordinates of the point(s).
         """
-        return self._obsvec2xy(self._lonlat2obsvec(lon, lat))
+        return self._maybe_transform_as_arrays(
+            self._lonlat2xy, lon, lat, alt=alt, not_visible_nan=not_visible_nan
+        )
 
-    def xy2km(self, x: float, y: float) -> tuple[float, float]:
+    def _lonlat2xy(
+        self, lon: float, lat: float, *, alt: float, not_visible_nan: bool
+    ) -> tuple[float, float]:
+        return self._obsvec2xy(
+            self._lonlat2obsvec(lon, lat, alt=alt, not_visible_nan=not_visible_nan)
+        )
+
+    def xy2km(
+        self, x: FloatOrArray, y: FloatOrArray
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert image pixel coordinates to distances in the target plane.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            x: Image pixel coordinate in the x direction.
-            y: Image pixel coordinate in the y direction.
+            x: Image pixel coordinate(s) in the x direction.
+            y: Image pixel coordinate(s) in the y direction.
 
         Returns:
             `(km_x, km_y)` tuple containing distances in km in the target plane in the
             East-West and North-South directions respectively.
         """
+        return self._maybe_transform_as_arrays(self._xy2km, x, y)
+
+    def _xy2km(self, x: float, y: float) -> tuple[float, float]:
         return self._obsvec2km(self._xy2obsvec_norm(x, y))
 
-    def km2xy(self, km_x: float, km_y: float) -> tuple[float, float]:
+    def km2xy(
+        self, km_x: FloatOrArray, km_y: FloatOrArray
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert distances in the target plane to image pixel coordinates.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            km_x: Distance in target plane in km in the East-West direction.
-            km_y: Distance in target plane in km in the North-South direction.
+            km_x: Distance(s) in target plane in km in the East-West direction.
+            km_y: Distance(s) in target plane in km in the North-South direction.
 
         Returns:
-            `(x, y)` tuple containing the image pixel coordinates of the point.
+            `(x, y)` tuple containing the image pixel coordinates of the point(s).
         """
+        return self._maybe_transform_as_arrays(self._km2xy, km_x, km_y)
+
+    def _km2xy(self, km_x: float, km_y: float) -> tuple[float, float]:
         return self._obsvec2xy(self._km2obsvec_norm(km_x, km_y))
 
     def xy2angular(
-        self, x: float, y: float, **angular_kwargs: Unpack[AngularCoordinateKwargs]
-    ) -> tuple[float, float]:
+        self,
+        x: FloatOrArray,
+        y: FloatOrArray,
+        **angular_kwargs: Unpack[AngularCoordinateKwargs],
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert image pixel coordinates to relative angular coordinates.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            x: Image pixel coordinate in the x direction.
-            y: Image pixel coordinate in the y direction.
+            x: Image pixel coordinate(s) in the x direction.
+            y: Image pixel coordinate(s) in the y direction.
             **angular_kwargs: Additional arguments are used to customise the origin and
                 rotation of the relative angular coordinates. See
                 :func:`Body.radec2angular` for details.
 
         Returns:
             `(angular_x, angular_y)` tuple containing the relative angular coordinates
-            of the point in arcseconds.
+            of the point(s) in arcseconds.
         """
+        return self._maybe_transform_as_arrays(self._xy2angular, x, y, **angular_kwargs)
+
+    def _xy2angular(
+        self, x: float, y: float, **angular_kwargs: Unpack[AngularCoordinateKwargs]
+    ) -> tuple[float, float]:
         return self._obsvec2angular(self._xy2obsvec_norm(x, y), **angular_kwargs)
 
     def angular2xy(
         self,
-        angular_x: float,
-        angular_y: float,
+        angular_x: FloatOrArray,
+        angular_y: FloatOrArray,
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
-    ) -> tuple[float, float]:
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert relative angular coordinates to image pixel coordinates.
 
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
+
         Args:
-            angular_x: Angular coordinate in the x direction in arcseconds.
-            angular_y: Angular coordinate in the y direction in arcseconds.
+            angular_x: Angular coordinate(s) in the x direction in arcseconds.
+            angular_y: Angular coordinate(s) in the y direction in arcseconds.
             **angular_kwargs: Additional arguments are used to customise the origin and
                 rotation of the relative angular coordinates. See
                 :func:`Body.radec2angular` for details.
 
         Returns:
-            `(x, y)` tuple containing the image pixel coordinates of the point.
+            `(x, y)` tuple containing the image pixel coordinates of the point(s).
         """
+        return self._maybe_transform_as_arrays(
+            self._angular2xy, angular_x, angular_y, **angular_kwargs
+        )
+
+    def _angular2xy(
+        self,
+        angular_x: float,
+        angular_y: float,
+        **angular_kwargs: Unpack[AngularCoordinateKwargs],
+    ) -> tuple[float, float]:
         return self._obsvec2xy(
             self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs)
         )
@@ -535,6 +673,8 @@ class BodyXY(Body):
 
         The default values of all the arguments are zero, so any unspecified values
         (e.g. `dx` and `dr` in the example above) are unchanged.
+
+        See also :func:`add_arcsec_offset`.
 
         Args:
             dx: Adjustment to `x0`.
@@ -680,7 +820,7 @@ class BodyXY(Body):
         Args:
             km_per_px: Kilometres per pixel plate scale at the target body.
         """
-        self.set_r0(self.r_eq / km_per_px)
+        self.set_plate_scale_arcsec(km_per_px / self.km_per_arcsec)
 
     def get_plate_scale_arcsec(self) -> float:
         """
@@ -694,7 +834,7 @@ class BodyXY(Body):
         Returns:
             Plate scale of the observation in km/pixel at the target body.
         """
-        return self.r_eq / self.get_r0()
+        return self.get_plate_scale_arcsec() * self.km_per_arcsec
 
     def set_img_size(self, nx: int | None = None, ny: int | None = None) -> None:
         """
@@ -757,6 +897,8 @@ class BodyXY(Body):
         Adjust the disc location `(x0, y0)` by applying offsets in arcseconds to the
         RA/Dec celestial coordinates.
 
+        See also :func:`adjust_disc_params`.
+
         Args:
             dra_arcsec: Offset in arcseconds in the positive right ascension direction.
             ddec_arcsec: Offset in arcseconds in the positive declination direction.
@@ -815,6 +957,18 @@ class BodyXY(Body):
         """
         return self._get_img_limits(self.xy2km)
 
+    def get_img_limits_angular(self) -> tuple[tuple[float, float], tuple[float, float]]:
+        """
+        Get the limits of the image coordinates in the relative angular coordinate
+        system. See :func:`get_img_limits_radec`
+
+        Returns:
+            `(angular_x_min, angular_x_max), (angular_y_min, angular_y_max)` tuple
+            containing the minimum and maximum relative angular coordinates of the
+            pixels in the image.
+        """
+        return self._get_img_limits(self.xy2angular)
+
     def get_img_limits_xy(self) -> tuple[tuple[float, float], tuple[float, float]]:
         """
         Get the limits of the image coordinates. See :func:`get_img_limits_radec` for
@@ -871,7 +1025,7 @@ class BodyXY(Body):
         return self._radec_arrs2xy_arrs(*self.terminator_radec(**kwargs))
 
     def visible_lonlat_grid_xy(
-        self, *args, **kwargs
+        self, *args, **kwargs: Unpack[LonLatGridKwargs]
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
         Pixel coordinate version of :func:`Body.visible_lonlat_grid_radec`.
@@ -1229,6 +1383,7 @@ class BodyXY(Body):
             plt.show()
         return ax
 
+    @_adjust_surface_altitude_decorator
     def plot_map_wireframe(
         self,
         ax: Axes | None = None,
@@ -1708,7 +1863,7 @@ class BodyXY(Body):
                 )
             ) from exc
 
-    def get_backplane_img(self, name: str) -> np.ndarray:
+    def get_backplane_img(self, name: str, *, alt: float = 0.0) -> np.ndarray:
         """
         Generate backplane image.
 
@@ -1719,7 +1874,7 @@ class BodyXY(Body):
         returned image can be safely modified without affecting the cached value (unlike
         the return values from functions such as :func:`get_lon_img`).
 
-        This method is equivalent to ::
+        When `alt=0`, this method is equivalent to ::
 
             body.get_backplane(name).get_img().copy()
 
@@ -1727,11 +1882,15 @@ class BodyXY(Body):
             name: Name of the desired backplane. This is standardised with
                 :func:`standardise_backplane_name` and used to choose a registered
                 backplane from :attr:`backplanes`.
+            alt: Altitude adjustment to the body's surface in km.
 
         Returns:
             Array containing the backplane's values for each pixel in the image.
         """
-        return self.backplanes[self.standardise_backplane_name(name)].get_img().copy()
+        with _AdjustedSurfaceAltitude(self, alt):
+            return (
+                self.backplanes[self.standardise_backplane_name(name)].get_img().copy()
+            )
 
     def get_backplane_map(
         self, name: str, **map_kwargs: Unpack[MapKwargs]
@@ -1745,7 +1904,7 @@ class BodyXY(Body):
 
         This method is equivalent to ::
 
-            body.get_backplane(name).get_map(degree_interval).copy()
+            body.get_backplane(name).get_map(**map_kwargs).copy()
 
         Args:
             name: Name of the desired backplane. This is standardised with
@@ -1766,7 +1925,13 @@ class BodyXY(Body):
         )
 
     def plot_backplane_img(
-        self, name: str, ax: Axes | None = None, show: bool = False, **kwargs
+        self,
+        name: str,
+        ax: Axes | None = None,
+        *,
+        alt: float = 0.0,
+        show: bool = False,
+        **kwargs,
     ) -> Axes:
         """
         Plot a backplane image with the wireframe outline of the target.
@@ -1779,6 +1944,7 @@ class BodyXY(Body):
         Args:
             name: Name of the desired backplane.
             ax: Passed to :func:`plot_wireframe_xy`.
+            alt: Altitude adjustment to the body's surface in km.
             show: Passed to :func:`plot_wireframe_xy`.
             **kwargs: Passed to Matplotlib's `imshow` when plotting the backplane image.
                 For example, can be used to set the colormap of the plot using
@@ -1787,13 +1953,14 @@ class BodyXY(Body):
         Returns:
             The axis containing the plotted data.
         """
-        backplane = self.get_backplane(name)
-        ax = self.plot_wireframe_xy(ax, show=False)
-        im = ax.imshow(backplane.get_img(), origin='lower', **kwargs)
-        plt.colorbar(im, label=backplane.description)
-        if show:
-            plt.show()
-        return ax
+        with _AdjustedSurfaceAltitude(self, alt):
+            backplane = self.get_backplane(name)
+            ax = self.plot_wireframe_xy(ax, show=False)
+            im = ax.imshow(backplane.get_img(), origin='lower', **kwargs)
+            plt.colorbar(im, label=backplane.description)
+            if show:
+                plt.show()
+            return ax
 
     def plot_backplane_map(
         self, name: str, ax: Axes | None = None, show: bool = False, **kwargs
@@ -1841,9 +2008,11 @@ class BodyXY(Body):
 
     # Mapping projection internals
     @_cache_stable_result
+    @_adjust_surface_altitude_decorator
     def generate_map_coordinates(
         self,
         projection: str = 'rectangular',
+        *,
         degree_interval: float = 1,
         lon: float = 0,
         lat: float = 0,
@@ -1854,6 +2023,7 @@ class BodyXY(Body):
         projection_y_coords: np.ndarray | tuple | None = None,
         xlim: tuple[float, float] | None = None,
         ylim: tuple[float, float] | None = None,
+        alt: float = 0.0,
     ) -> tuple[
         np.ndarray,
         np.ndarray,
@@ -1958,6 +2128,7 @@ class BodyXY(Body):
             ylim: Tuple of `(y_min, y_max)` limits in the projected y coordinates of
                 the map. If `None`, the default, then the no limits are applied. See
                 `xlim` for more details.
+            alt: Altitude adjustment to the body's surface in km.
 
         Returns:
             `(lons, lats, xx, yy, transformer, info)` tuple where `lons` and `lats` are
@@ -2072,6 +2243,9 @@ class BodyXY(Body):
         lons[~np.isfinite(lons)] = np.nan
         lats[~np.isfinite(lats)] = np.nan
 
+        if alt != 0.0:
+            info['alt'] = alt
+
         return lons, lats, xx, yy, transformer, info
 
     def create_proj_string(
@@ -2151,7 +2325,6 @@ class BodyXY(Body):
             raise ValueError('x and y coords must have the same shape')
 
         transformer = self._get_pyproj_transformer(projection)
-        # pylint: disable-next=unpacking-non-sequence
         lons, lats = transformer.transform(xx, yy, direction='INVERSE')
         return lons, lats, xx, yy, transformer
 
@@ -2217,7 +2390,7 @@ class BodyXY(Body):
         r = self.get_r0() * max(self.radii) / self.r_eq
         return r
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def _get_targvec_img(self) -> np.ndarray:
         out = self._make_empty_img(3)
@@ -2251,6 +2424,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def _get_targvec_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(3, **map_kwargs)
         lonlats = self._get_lonlat_map(**map_kwargs)
@@ -2295,13 +2469,14 @@ class BodyXY(Body):
         return out
 
     @_cache_stable_result
+    @_adjust_surface_altitude_decorator
     def _get_obsvec_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(3, **map_kwargs)
         for a, b, targvec in self._enumerate_targvec_map(**map_kwargs):
             out[a, b] = self._targvec2obsvec(targvec)
         return out
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def _get_lonlat_img(self) -> np.ndarray:
         out = self._make_empty_img(2)
@@ -2310,6 +2485,7 @@ class BodyXY(Body):
         return np.rad2deg(out)
 
     @_cache_stable_result
+    @_adjust_surface_altitude_decorator
     def _get_lonlat_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         lons, lats, xx, yy, transformer, info = self.generate_map_coordinates(
             **map_kwargs
@@ -2359,7 +2535,7 @@ class BodyXY(Body):
         """
         return self._get_lonlat_map(**map_kwargs)[:, :, 1]
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def _get_lonlat_centric_img(self) -> np.ndarray:
         out = self._make_empty_img(2)
@@ -2369,6 +2545,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def _get_lonlat_centric_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
         for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
@@ -2425,6 +2602,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def _get_radec_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
         visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
@@ -2475,8 +2653,9 @@ class BodyXY(Body):
         """
         return self._get_radec_map(**map_kwargs)[:, :, 1]
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def _get_xy_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
         radec_map = self._get_radec_map(**map_kwargs)
@@ -2545,6 +2724,7 @@ class BodyXY(Body):
         return out
 
     @_cache_stable_result
+    @_adjust_surface_altitude_decorator
     def _get_km_xy_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
         radec_map = self._get_radec_map(**map_kwargs)
@@ -2596,7 +2776,7 @@ class BodyXY(Body):
         """
         return self._get_km_xy_map(**map_kwargs)[:, :, 1]
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def _get_illumination_gie_img(self) -> np.ndarray:
         out = self._make_empty_img(3)
@@ -2606,6 +2786,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def _get_illumf_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(5, **map_kwargs)
         for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
@@ -2675,7 +2856,7 @@ class BodyXY(Body):
         """
         return self._get_illumf_map(**map_kwargs)[:, :, 2]
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     def get_azimuth_angle_img(self) -> np.ndarray:
         """
         See also :func:`get_backplane_img`.
@@ -2696,6 +2877,7 @@ class BodyXY(Body):
         return np.rad2deg(azimuth_radians)
 
     @_cache_stable_result
+    @_adjust_surface_altitude_decorator
     def get_azimuth_angle_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
@@ -2716,7 +2898,7 @@ class BodyXY(Body):
             )
         return np.rad2deg(azimuth_radians)
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def get_local_solar_time_img(self) -> np.ndarray:
         """
@@ -2737,6 +2919,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def get_local_solar_time_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
@@ -2754,7 +2937,7 @@ class BodyXY(Body):
                 out[a, b] = self.local_solar_time_from_lon(lon)
         return out
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def _get_state_imgs(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         position_img = self._make_empty_img(3)
@@ -2770,6 +2953,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def _get_state_maps(
         self, **map_kwargs: Unpack[MapKwargs]
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -2807,7 +2991,7 @@ class BodyXY(Body):
         position_map, velocity_map, lt_map = self._get_state_maps(**map_kwargs)
         return lt_map * self.speed_of_light()
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def get_radial_velocity_img(self) -> np.ndarray:
         """
@@ -2828,6 +3012,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def get_radial_velocity_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
@@ -2868,7 +3053,7 @@ class BodyXY(Body):
         """
         return self.calculate_doppler_factor(self.get_radial_velocity_map(**map_kwargs))
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def _get_limb_coordinate_imgs(self) -> np.ndarray:
         out = self._make_empty_img(3)
@@ -2880,6 +3065,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def _get_limb_coordinate_maps(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(3, **map_kwargs)
         visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
@@ -2957,7 +3143,7 @@ class BodyXY(Body):
         """
         return self._get_limb_coordinate_maps(**map_kwargs)[:, :, 2]
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def _get_ring_plane_coordinate_imgs(
         self,
@@ -2983,6 +3169,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def _get_ring_plane_coordinate_maps(
         self, **map_kwargs: Unpack[MapKwargs]
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:

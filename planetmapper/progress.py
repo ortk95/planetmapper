@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from .base import SpiceBase
 
 T = TypeVar('T')
-S = TypeVar('S')
+S = TypeVar('S', bound='SpiceBase')
 P = ParamSpec('P')
 
 
@@ -20,14 +20,14 @@ def progress_decorator(
 
     # pylint: disable=protected-access
     @wraps(fn)
-    def decorated(self: 'SpiceBase', *args: P.args, **kwargs: P.kwargs):
+    def decorated(self: S, *args: P.args, **kwargs: P.kwargs) -> T:
         if self._progress_hook is None:
-            return fn(self, *args, **kwargs)  # type: ignore
+            return fn(self, *args, **kwargs)
         else:
             self._progress_call_stack.append(fn.__qualname__)
             self._update_progress_hook(0)
             try:
-                out = fn(self, *args, **kwargs)  # type: ignore
+                out = fn(self, *args, **kwargs)
             except:
                 self._progress_call_stack.pop()
                 raise
@@ -38,7 +38,7 @@ def progress_decorator(
                 pass
             return out
 
-    return decorated  # type: ignore
+    return decorated
 
 
 class ProgressHook(ABC):

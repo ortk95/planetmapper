@@ -1,10 +1,13 @@
+import inspect
 import os
 import unittest
 import warnings
-from typing import Callable, Sequence
+from typing import Callable, Sequence, Type
 
 import matplotlib.pyplot as plt
 import numpy as np
+
+import planetmapper
 
 DATA_PATH = os.path.join(os.path.dirname(__file__), 'data')
 KERNEL_PATH = os.path.join(DATA_PATH, 'kernels')
@@ -36,8 +39,8 @@ class BaseTestCase(unittest.TestCase):
 
     def assertArraysClose(
         self,
-        a: Sequence | np.ndarray,
-        b: Sequence | np.ndarray,
+        a: Sequence | np.ndarray | float,
+        b: Sequence | np.ndarray | float,
         *,
         rtol: float = 1e-5,
         atol: float = 1e-8,
@@ -45,8 +48,14 @@ class BaseTestCase(unittest.TestCase):
     ) -> None:
         if not np.allclose(a, b, rtol=rtol, atol=atol, equal_nan=equal_nan):
             diff = np.abs(np.array(a) - np.array(b))
-            aerr = np.nanmax(diff)
-            max_b = np.nanmax(np.abs(b))
+            if np.all(np.isnan(diff)):
+                aerr = np.nan
+            else:
+                aerr = np.nanmax(diff)
+            if np.all(np.isnan(b)):
+                max_b = np.nan
+            else:
+                max_b = np.nanmax(np.abs(b))
             if max_b == 0:
                 relerr = np.inf
             else:
@@ -121,3 +130,28 @@ class BaseTestCase(unittest.TestCase):
                             self.assertEqual(ax.get_xlabel(), '')
                             self.assertEqual(ax.get_ylabel(), '')
                         plt.close(fig)
+
+    def _test_get_default_init_kwargs(
+        self, obj_class: Type[planetmapper.SpiceBase], **setup_kwargs
+    ) -> None:
+        # Test with instance
+        obj = obj_class(**setup_kwargs)
+        for k, default in obj._get_default_init_kwargs().items():
+            with self.subTest(k):
+                if k in setup_kwargs:
+                    continue
+                self.assertEqual(obj._get_kwargs()[k], default)
+
+        # Test with inspection
+        signature = inspect.signature(obj_class)
+        for k, default in obj_class._get_default_init_kwargs().items():
+            with self.subTest(k):
+                try:
+                    signature_default = signature.parameters[k].default
+                except KeyError:
+                    # Skip parameters only included in **kwargs part of signature
+                    # (these should implicitly be tested in the parent class)
+                    continue
+                if signature_default is inspect.Signature.empty:
+                    continue
+                self.assertEqual(signature_default, default)

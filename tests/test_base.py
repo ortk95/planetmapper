@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, Mock, patch
 import common_testing
 import numpy as np
 import spiceypy as spice
+from numpy import array, nan
 from spiceypy.utils.exceptions import (
     NotFoundError,
     SpiceNOLEAPSECONDS,
@@ -43,8 +44,74 @@ class TestSpiceBase(common_testing.BaseTestCase):
         obj = planetmapper.SpiceBase(show_progress=True)
         self.assertIsNotNone(obj._get_progress_hook())
 
+    def test_get_default_init_kwargs(self):
+        self._test_get_default_init_kwargs(planetmapper.SpiceBase)
+
     def test_repr(self):
         self.assertEqual(str(self.obj), 'SpiceBase()')
+        self.assertEqual(repr(self.obj), 'SpiceBase()')
+
+        self.assertEqual(
+            str(planetmapper.SpiceBase(show_progress=False)), 'SpiceBase()'
+        )
+        self.assertEqual(
+            str(planetmapper.SpiceBase(show_progress=True)),
+            'SpiceBase(show_progress=True)',
+        )
+        self.assertEqual(
+            str(
+                planetmapper.SpiceBase(
+                    True,
+                    auto_load_kernels=False,
+                    optimize_speed=False,
+                    manual_kernels=['a', 'b', 'c'],
+                )
+            ),
+            "SpiceBase(show_progress=True, optimize_speed=False, auto_load_kernels=False, manual_kernels=['a', 'b', 'c'])",
+        )
+
+    def test_generate_repr(self):
+        obj = planetmapper.SpiceBase(
+            True,
+            auto_load_kernels=False,
+            optimize_speed=False,
+            manual_kernels=['a', 'b', 'c'],
+        )
+        self.assertEqual(
+            obj._generate_repr(),
+            "SpiceBase(show_progress=True, optimize_speed=False, auto_load_kernels=False, manual_kernels=['a', 'b', 'c'])",
+        )
+        self.assertEqual(
+            obj._generate_repr('optimize_speed'),
+            "SpiceBase(False, show_progress=True, auto_load_kernels=False, manual_kernels=['a', 'b', 'c'])",
+        )
+        self.assertEqual(
+            obj._generate_repr('manual_kernels', 'optimize_speed'),
+            "SpiceBase(['a', 'b', 'c'], False, show_progress=True, auto_load_kernels=False)",
+        )
+        self.assertEqual(
+            obj._generate_repr('kernel_path'),
+            "SpiceBase(None, show_progress=True, optimize_speed=False, auto_load_kernels=False, manual_kernels=['a', 'b', 'c'])",
+        )
+        self.assertEqual(
+            obj._generate_repr(kwarg_keys=['kernel_path', 'auto_load_kernels']),
+            "SpiceBase(kernel_path=None, auto_load_kernels=False, show_progress=True, optimize_speed=False, manual_kernels=['a', 'b', 'c'])",
+        )
+        self.assertEqual(
+            obj._generate_repr(
+                skip_keys=['kernel_path', 'auto_load_kernels', 'manual_kernels']
+            ),
+            'SpiceBase(show_progress=True, optimize_speed=False)',
+        )
+        self.assertEqual(
+            obj._generate_repr(
+                formatters={
+                    'show_progress': lambda x: f'>>{x}<<',
+                    'manual_kernels': lambda x: '&'.join(x),
+                }
+            ),
+            'SpiceBase(show_progress=>>True<<, optimize_speed=False, auto_load_kernels=False, manual_kernels=a&b&c)',
+        )
 
     def test_eq(self):
         self.assertEqual(self.obj, planetmapper.SpiceBase())
@@ -55,7 +122,16 @@ class TestSpiceBase(common_testing.BaseTestCase):
         # Hashes for unequal object can be the same, so don't do assertNotEqual here
 
     def test_get_kwargs(self):
-        self.assertEqual(self.obj._get_kwargs(), {'optimize_speed': True})
+        self.assertEqual(
+            self.obj._get_kwargs(),
+            {
+                'optimize_speed': True,
+                'kernel_path': None,
+                'auto_load_kernels': True,
+                'manual_kernels': None,
+                'show_progress': False,
+            },
+        )
 
     def test_standardise_body_name(self):
         self.assertEqual(self.obj.standardise_body_name('JUPITER'), 'JUPITER')
@@ -242,11 +318,60 @@ class TestSpiceBase(common_testing.BaseTestCase):
             ((0, 0, 0, 0), 0),
             ((1, 2, 3, 4), 2.8264172166624126),
             ((-42, 0, 1234.5678, 99), 81.37656372202063),
+            (  # https://github.com/ortk95/planetmapper/issues/357
+                (
+                    33.32295445419726,
+                    12.216622516821692,
+                    33.32295445419726,
+                    12.216622516821692,
+                ),
+                0,
+            ),
         ]
         for angles, dist in pairs:
             with self.subTest(angles):
                 self.assertAlmostEqual(self.obj.angular_dist(*angles), dist)
         self.assertTrue(np.isnan(self.obj.angular_dist(1, 2, 3, np.nan)))
+
+    def test_maybe_transform_as_arrays(self):
+        def func(a, b, c=1, *, d=2, e=3):
+            return self.obj._maybe_transform_as_arrays(_func, a, b, c, d=d, e=e)
+
+        def _func(a, b, c, *, d, e):
+            return a * b, a * b * c + d * e
+
+        self.assertArraysClose(func(1, 2, 3, d=4, e=5), (2, 26))
+        self.assertArraysClose(func(10, 20), (200, 206))
+        self.assertArraysClose(func(a=10, b=20), (200, 206))
+        self.assertArraysClose(
+            func(array([1, 2, 3]), array([4, 5, 6])),
+            (array([4, 10, 18]), array([10, 16, 24])),
+        )
+        self.assertArraysClose(
+            func([1, 2, 3], [4, 5, 6]),
+            (array([4, 10, 18]), array([10, 16, 24])),
+        )
+        self.assertArraysClose(
+            # this would fail if output dtypes are integer
+            func(array([1, 2, 3]), array([4, 5, 6]), e=-4.321),
+            (array([4.0, 10.0, 18.0]), array([-4.642, 1.358, 9.358])),
+        )
+        self.assertArraysClose(
+            func(array([1, 2, 3]), array([[4, 5, 6], [-1, -2, -3]])),
+            (
+                array([[4.0, 10.0, 18.0], [-1.0, -4.0, -9.0]]),
+                array([[10.0, 16.0, 24.0], [5.0, 2.0, -3.0]]),
+            ),
+        )
+        self.assertArraysClose(
+            func(array([1, 2, 3]), 1), (array([1.0, 2.0, 3.0]), array([7.0, 8.0, 9.0]))
+        )
+        self.assertArraysClose(
+            func([1, 1, 1], [2, 2, 2], 3, d=4, e=5),
+            (array([2.0, 2.0, 2.0]), array([26.0, 26.0, 26.0])),
+        )
+        with self.assertRaises(ValueError):
+            func([1, 2, 3], [1, 2])
 
     def test_progress_hook(self):
         class CustomError(Exception):
@@ -569,6 +694,30 @@ class TestBodyBase(common_testing.BaseTestCase):
             )
             obj = BodyBase(utc=None, **kw)
             self.assertEqual(obj.utc, '2005-01-01T12:30:00.000000')
+
+    def test_get_default_init_kwargs(self):
+        self._test_get_default_init_kwargs(
+            BodyBase,
+            target='jupiter',
+            utc='2005-01-01',
+            observer='earth',
+            aberration_correction='CN+S',
+            observer_frame='J2000',
+        )
+
+    def test_repr(self):
+        self.assertEqual(
+            repr(
+                BodyBase(
+                    target='jupiter',
+                    utc='2005-01-01',
+                    observer='earth',
+                    aberration_correction='CN+S',
+                    observer_frame='J2000',
+                )
+            ),
+            "BodyBase(target='JUPITER', utc='2005-01-01T00:00:00.000000', observer='EARTH', aberration_correction='CN+S', observer_frame='J2000')",
+        )
 
     def test_eq(self):
         obj = BodyBase(

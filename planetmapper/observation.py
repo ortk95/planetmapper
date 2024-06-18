@@ -1,7 +1,7 @@
 import datetime
 import os
 import warnings
-from typing import Any, Callable, Literal, ParamSpec, TypeVar
+from typing import Any, Callable, Literal
 
 import astropy.wcs
 import numpy as np
@@ -12,13 +12,14 @@ from astropy.io import fits
 from astropy.utils.exceptions import AstropyWarning
 
 from . import common, utils
-from .base import _cache_clearable_result, _cache_stable_result
+from .base import _cache_stable_result
+from .body import (
+    _adjust_surface_altitude_decorator,
+    _AdjustedSurfaceAltitude,
+    _cache_clearable_alt_dependent_result,
+)
 from .body_xy import BodyXY, MapKwargs, Unpack
 from .progress import SaveMapProgressHookCLI, SaveNavProgressHookCLI, progress_decorator
-
-T = TypeVar('T')
-S = TypeVar('S')
-P = ParamSpec('P')
 
 
 class Observation(BodyXY):
@@ -157,8 +158,28 @@ class Observation(BodyXY):
             except ValueError:
                 self.centre_disc()
 
+        # Ensure values used for repr are standardised versions
+        if self._data_arg is not None:
+            self._data_arg = self.data
+        if self._header_arg is not None:
+            self._header_arg = self.header
+
     def __repr__(self) -> str:
-        return f'Observation({self.path!r})'
+        return self._generate_repr(
+            'path',
+            formatters={
+                'data': self._str_array_formatter,
+                'header': self._str_header_formatter,
+            },
+        )
+
+    @staticmethod
+    def _str_array_formatter(array: np.ndarray):
+        return f'<{"x".join(map(str, array.shape))} array>'
+
+    @staticmethod
+    def _str_header_formatter(header: np.ndarray):
+        return f'<{len(header)} card Header>'
 
     def to_body_xy(self) -> BodyXY:
         """
@@ -195,6 +216,19 @@ class Observation(BodyXY):
         kw.pop('nx')
         kw.pop('ny')
         return kw
+
+    @classmethod
+    def _get_default_init_kwargs(cls) -> dict[str, Any]:
+        super_defaults = super()._get_default_init_kwargs()
+        super_defaults.pop('nx')
+        super_defaults.pop('ny')
+        return dict(
+            path=None,
+            data=None,
+            header=None,
+            target=None,  # used to position target entry in repr
+            **super_defaults,
+        )
 
     def _load_data_from_path(self):
         assert self.path is not None
@@ -720,7 +754,7 @@ class Observation(BodyXY):
             interpolation=interpolation, spline_smoothing=spline_smoothing, **map_kwargs
         ).copy()
 
-    @_cache_clearable_result
+    @_cache_clearable_alt_dependent_result
     @progress_decorator
     def _get_mapped_data(
         self,
@@ -852,6 +886,12 @@ class Observation(BodyXY):
             'DISC METHOD',
             self.get_disc_method(),
             'Method used to find disc.',
+            header=header,
+        )
+        self.append_to_header(
+            'ALTITUDE-ADJUSTMENT',
+            self._alt_adjustment,
+            '[km] Adjustment to surface altitude.',
             header=header,
         )
         self.append_to_header(
@@ -1031,6 +1071,7 @@ class Observation(BodyXY):
         wireframe_kwargs: dict[str, Any] | None = None,
         show_progress: bool = False,
         print_info: bool = True,
+        alt: float = 0.0,
     ) -> None:
         """
         Save a FITS file containing the observed data and generated backplanes.
@@ -1056,7 +1097,9 @@ class Observation(BodyXY):
                 This does not have an effect if `show_progress=True` was set when
                 creating this `Observation`.
             print_info: Toggle printing of progress information (defaults to `True`).
+            alt: Altitude adjustment to the body's surface in km.
         """
+
         path = os.fspath(path)
         if show_progress and self._get_progress_hook() is None:
             print_info = False
@@ -1067,48 +1110,50 @@ class Observation(BodyXY):
         if print_info:
             print('Saving observation to', path)
 
-        progress_max = 10 + len(self.backplanes)
-        with utils.filter_fits_comment_warning():
-            data = self.data
-            header = self.header.copy()
+        with _AdjustedSurfaceAltitude(self, alt):
+            progress_max = 10 + len(self.backplanes)
+            with utils.filter_fits_comment_warning():
+                data = self.data
+                header = self.header.copy()
 
-            self._update_progress_hook(1 / progress_max)
+                self._update_progress_hook(1 / progress_max)
 
-            self.add_header_metadata(header)
-            hdul = fits.HDUList([fits.PrimaryHDU(data=data, header=header)])
-            for bp_idx, (name, backplane) in enumerate(self.backplanes.items()):
-                self._update_progress_hook((bp_idx + 1) / progress_max)
+                self.add_header_metadata(header)
+                hdul = fits.HDUList([fits.PrimaryHDU(data=data, header=header)])
+                for bp_idx, (name, backplane) in enumerate(self.backplanes.items()):
+                    self._update_progress_hook((bp_idx + 1) / progress_max)
+                    if print_info:
+                        print(' Creating backplane:', name)
+                    img = backplane.get_img()
+                    header = fits.Header([('ABOUT', backplane.description)])
+                    header.add_comment('Backplane generated by PlanetMapper software.')
+                    hdu = fits.ImageHDU(data=img, header=header, name=name)
+                    hdul.append(hdu)
+
+                if include_wireframe:
+                    if print_info:
+                        print(' Creating wireframe...')
+                    wireframe = self.get_wireframe_overlay_img(**wireframe_kwargs or {})
+                    header = fits.Header([('ABOUT', 'Wireframe image overlay')])
+                    header.add_comment(
+                        'Wireframe overlay generated by PlanetMapper software.'
+                    )
+                    hdu = fits.ImageHDU(data=wireframe, header=header, name='WIREFRAME')
+                    hdul.append(hdu)
+
                 if print_info:
-                    print(' Creating backplane:', name)
-                img = backplane.get_img()
-                header = fits.Header([('ABOUT', backplane.description)])
-                header.add_comment('Backplane generated by PlanetMapper software.')
-                hdu = fits.ImageHDU(data=img, header=header, name=name)
-                hdul.append(hdu)
-
-            if include_wireframe:
-                if print_info:
-                    print(' Creating wireframe...')
-                wireframe = self.get_wireframe_overlay_img(**wireframe_kwargs or {})
-                header = fits.Header([('ABOUT', 'Wireframe image overlay')])
-                header.add_comment(
-                    'Wireframe overlay generated by PlanetMapper software.'
-                )
-                hdu = fits.ImageHDU(data=wireframe, header=header, name='WIREFRAME')
-                hdul.append(hdu)
-
+                    print(' Saving file...')
+                utils.check_path(path)
+                hdul.writeto(path, overwrite=True, output_verify='warn')
             if print_info:
-                print(' Saving file...')
-            utils.check_path(path)
-            hdul.writeto(path, overwrite=True, output_verify='warn')
-        if print_info:
-            print('File saved')
+                print('File saved')
 
-        if show_progress:
-            self._update_progress_hook(1)
-            self._remove_progress_hook()
+            if show_progress:
+                self._update_progress_hook(1)
+                self._remove_progress_hook()
 
     @progress_decorator
+    @_adjust_surface_altitude_decorator
     def save_mapped_observation(
         self,
         path: str | os.PathLike,
