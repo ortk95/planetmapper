@@ -1544,7 +1544,7 @@ class BodyXY(Body):
         **kwargs,
     ) -> QuadMesh:
         """
-        Utility function to easily plot a mapped image using `plt.imshow` with
+        Utility function to easily plot a mapped image using `plt.pcolormesh` with
         appropriate extents, axis labels, gridlines etc.
 
         Args:
