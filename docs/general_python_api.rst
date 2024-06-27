@@ -374,6 +374,10 @@ Backplanes can also be generated for observations which do not exist using :clas
     :alt: Plot of Jupiter's rotation
 
 
+.. hint::
+    If you want to use calculated backplane arrays yourself, you can access them directly using :func:`planetmapper.BodyXY.get_backplane_img` and :func:`planetmapper.BodyXY.get_backplane_map`. These functions return the backplane data as a numpy array, which you can then use in your own code.
+
+
 Cache behaviour
 ===============
 The generation of backplanes and projected mapped data can be slow for larger datasets. Therefore, :class:`planetmapper.BodyXY` and :class:`planetmapper.Observation` objects automatically cache the results of various expensive function calls so that they do not have to be recalculated. This cache management happens automatically behind the scenes, so you should never have to worry about dealing with it directly. For example, when any disc parameters are changed, the cache is automatically cleared as the cached results will no longer be valid.

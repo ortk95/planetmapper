@@ -1878,6 +1878,8 @@ class BodyXY(Body):
 
             body.get_backplane(name).get_img().copy()
 
+        See also :func:`get_backplane_map` and :func:`plot_backplane_img`.
+
         Args:
             name: Name of the desired backplane. This is standardised with
                 :func:`standardise_backplane_name` and used to choose a registered
@@ -1905,6 +1907,8 @@ class BodyXY(Body):
         This method is equivalent to ::
 
             body.get_backplane(name).get_map(**map_kwargs).copy()
+
+        See also :func:`get_backplane_img` and :func:`plot_backplane_map`.
 
         Args:
             name: Name of the desired backplane. This is standardised with
@@ -1940,6 +1944,8 @@ class BodyXY(Body):
         `(x0, y0, r0, rotation)` at the time this function is called. Generating the
         same backplane when there are different disc parameter values will produce a
         different image.
+
+        See also :func:`plot_backplane_map` and :func:`get_backplane_img`.
 
         Args:
             name: Name of the desired backplane.
@@ -1977,6 +1983,8 @@ class BodyXY(Body):
                 cmap='Blues',
                 wireframe_kwargs=dict(color='r', alpha=0.5),
             )
+
+        See also :func:`plot_backplane_img` and :func:`get_backplane_img`.
 
         Args:
             name: Name of the desired backplane.
