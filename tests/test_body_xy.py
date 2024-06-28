@@ -866,42 +866,69 @@ class TestBodyXY(common_testing.BaseTestCase):
         expected_interpolations: dict[str | int | tuple[int, int], np.ndarray] = {
             'nearest': array(
                 [
-                    [nan, nan, 2.2, 2.2, 2.2, 3.3, nan, nan],
-                    [nan, nan, nan, nan, 1.0, 4.4, nan, nan],
-                    [nan, nan, 3.0, 3.0, 0.0, 123.456789, nan, nan],
-                    [nan, nan, 0.0, 0.0, 0.0, nan, nan, nan],
+                    [nan, nan, 2.2, 2.2, 2.2, 3.3, 3.3, nan],
+                    [nan, nan, nan, nan, 1.0, 4.4, 4.4, nan],
+                    [nan, nan, nan, 3.0, 0.0, 123.456789, 123.456789, nan],
+                    [nan, nan, nan, 0.0, 0.0, nan, nan, nan],
                 ]
             ),
             'linear': array(
                 [
-                    [nan, nan, nan, 2.31866371, 2.74706025, 3.19651445, nan, nan],
-                    [nan, nan, nan, nan, nan, 23.42819481, nan, nan],
+                    [nan, nan, nan, 2.3186637, 2.74706025, 3.19651445, 3.40373106, nan],
+                    [nan, nan, nan, nan, nan, 23.42819465, 7.04641644, nan],
+                    [nan, nan, nan, nan, nan, nan, 119.14877308, nan],
                     [nan, nan, nan, nan, nan, nan, nan, nan],
-                    [nan, nan, 0.3201943, nan, nan, nan, nan, nan],
                 ]
             ),
             'quadratic': array(
                 [
-                    [nan, nan, nan, 2.39879966, 2.87923688, 3.21452692, nan, nan],
-                    [nan, nan, nan, nan, nan, 43.60950368, nan, nan],
+                    [
+                        nan,
+                        nan,
+                        nan,
+                        2.39879965,
+                        2.87923688,
+                        3.21452692,
+                        3.38878461,
+                        nan,
+                    ],
+                    [nan, nan, nan, nan, nan, 43.60950343, 10.34465904, nan],
+                    [nan, nan, nan, nan, nan, nan, 124.44123914, nan],
                     [nan, nan, nan, nan, nan, nan, nan, nan],
-                    [nan, nan, 2.51093265, nan, nan, nan, nan, nan],
                 ]
             ),
             'cubic': array(
                 [
-                    [nan, nan, nan, 2.38239724, 2.87854034, 3.22915024, nan, nan],
-                    [nan, nan, nan, nan, nan, 75.57633703, nan, nan],
+                    [
+                        nan,
+                        nan,
+                        nan,
+                        2.38239724,
+                        2.87854034,
+                        3.22915024,
+                        3.37101923,
+                        nan,
+                    ],
+                    [nan, nan, nan, nan, nan, 75.5763365, 12.3037003, nan],
+                    [nan, nan, nan, nan, nan, nan, 125.58181975, nan],
                     [nan, nan, nan, nan, nan, nan, nan, nan],
-                    [nan, nan, 5.81872817, nan, nan, nan, nan, nan],
                 ]
             ),
             (1, 2): array(
                 [
-                    [nan, nan, nan, 2.39879966, 2.87923688, 3.21452692, nan, nan],
-                    [nan, nan, nan, nan, nan, 24.05570999, nan, nan],
+                    [
+                        nan,
+                        nan,
+                        nan,
+                        2.39879965,
+                        2.87923688,
+                        3.21452692,
+                        3.38878461,
+                        nan,
+                    ],
+                    [nan, nan, nan, nan, nan, 24.05570982, 7.04641644, nan],
+                    [nan, nan, nan, nan, nan, nan, 119.14877308, nan],
                     [nan, nan, nan, nan, nan, nan, nan, nan],
-                    [nan, nan, 0.27193437, nan, nan, nan, nan, nan],
                 ]
             ),
         }
@@ -928,34 +955,61 @@ class TestBodyXY(common_testing.BaseTestCase):
         expected_smoothings: dict[float, np.ndarray] = {
             0: array(
                 [
-                    [nan, nan, nan, 2.31866371, 2.74706025, 3.19651445, nan, nan],
-                    [nan, nan, nan, nan, nan, 23.42819481, nan, nan],
+                    [nan, nan, nan, 2.3186637, 2.74706025, 3.19651445, 3.40373106, nan],
+                    [nan, nan, nan, nan, nan, 23.42819465, 7.04641644, nan],
+                    [nan, nan, nan, nan, nan, nan, 119.14877308, nan],
                     [nan, nan, nan, nan, nan, nan, nan, nan],
-                    [nan, nan, 0.3201943, nan, nan, nan, nan, nan],
                 ]
             ),
             1: array(
                 [
-                    [nan, nan, nan, 2.31766083, 2.74652865, 3.19647729, nan, nan],
-                    [nan, nan, nan, nan, nan, 23.42144429, nan, nan],
+                    [
+                        nan,
+                        nan,
+                        nan,
+                        2.31766083,
+                        2.74652865,
+                        3.19647729,
+                        3.40670604,
+                        nan,
+                    ],
+                    [nan, nan, nan, nan, nan, 23.42144413, 7.07448004, nan],
+                    [nan, nan, nan, nan, nan, nan, 119.06044869, nan],
                     [nan, nan, nan, nan, nan, nan, nan, nan],
-                    [nan, nan, 0.32130192, nan, nan, nan, nan, nan],
                 ]
             ),
             2.345: array(
                 [
-                    [nan, nan, nan, 2.31716984, 2.74626094, 3.19644382, nan, nan],
-                    [nan, nan, nan, nan, nan, 23.41785299, nan, nan],
+                    [
+                        nan,
+                        nan,
+                        nan,
+                        2.31716984,
+                        2.74626094,
+                        3.19644382,
+                        3.40826879,
+                        nan,
+                    ],
+                    [nan, nan, nan, nan, nan, 23.41785284, 7.08939413, nan],
+                    [nan, nan, nan, nan, nan, nan, 119.01346029, nan],
                     [nan, nan, nan, nan, nan, nan, nan, nan],
-                    [nan, nan, 0.32187724, nan, nan, nan, nan, nan],
                 ]
             ),
             67.89: array(
                 [
-                    [nan, nan, nan, 2.31348483, 2.74377072, 3.19520713, nan, nan],
-                    [nan, nan, nan, nan, nan, 23.37223821, nan, nan],
+                    [
+                        nan,
+                        nan,
+                        nan,
+                        2.31348483,
+                        2.74377072,
+                        3.19520713,
+                        3.42693138,
+                        nan,
+                    ],
+                    [nan, nan, nan, nan, nan, 23.37223806, 7.2778667, nan],
+                    [nan, nan, nan, nan, nan, nan, 118.41667937, nan],
                     [nan, nan, nan, nan, nan, nan, nan, nan],
-                    [nan, nan, 0.3283601, nan, nan, nan, nan, nan],
                 ]
             ),
         }
@@ -1016,8 +1070,8 @@ class TestBodyXY(common_testing.BaseTestCase):
             ),
             array(
                 [
-                    [101.62835326, nan, nan],
-                    [nan, nan, 2.74012498],
+                    [101.62835318, nan, nan],
+                    [nan, nan, nan],
                     [nan, nan, nan],
                     [nan, nan, nan],
                 ]
