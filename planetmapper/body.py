@@ -2609,10 +2609,16 @@ class Body(BodyBase):
         return self._radian_pair2degrees(lon_centric, lat_centric)
 
     def graphic2centric_lonlat(
-        self, lon: float, lat: float, *, alt: float = 0.0
-    ) -> tuple[float, float]:
+        self, lon: FloatOrArray, lat: FloatOrArray, *, alt: float = 0.0
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert planetographic longitude/latitude to planetocentric.
+
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
 
         Args:
             lon: Planetographic longitude.
@@ -2622,13 +2628,26 @@ class Body(BodyBase):
         Returns:
             `(lon_centric, lat_centric)` tuple of planetocentric coordinates.
         """
+        return self._maybe_transform_as_arrays(
+            self._graphic2centric_lonlat, lon, lat, alt=alt
+        )
+
+    def _graphic2centric_lonlat(
+        self, lon: float, lat: float, *, alt: float
+    ) -> tuple[float, float]:
         return self._targvec2lonlat_centric(self.lonlat2targvec(lon, lat, alt=alt))
 
     def centric2graphic_lonlat(
-        self, lon_centric: float, lat_centric: float, *, alt: float = 0.0
-    ) -> tuple[float, float]:
+        self, lon_centric: FloatOrArray, lat_centric: FloatOrArray, *, alt: float = 0.0
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert planetocentric longitude/latitude to planetographic.
+
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
 
         Args:
             lon_centric: Planetocentric longitude.
@@ -2638,6 +2657,13 @@ class Body(BodyBase):
         Returns:
             `(lon, lat)` tuple of planetographic coordinates.
         """
+        return self._maybe_transform_as_arrays(
+            self._centric2graphic_lonlat, lon_centric, lat_centric, alt=alt
+        )
+
+    def _centric2graphic_lonlat(
+        self, lon_centric: float, lat_centric: float, *, alt: float
+    ) -> tuple[float, float]:
         if not (math.isfinite(lon_centric) and math.isfinite(lat_centric)):
             return np.nan, np.nan
         targvecs = spice.latsrf(
