@@ -1920,4 +1920,20 @@ class TestBodyXY(common_testing.BaseTestCase):
                             equal_nan=True,
                         )
 
+    def test_mapping_visible_areas(self):
+        body = planetmapper.BodyXY(
+            'Jupiter', observer='amalthea', utc='2005-01-01T03:00:00', sz=10
+        )
+        map_kwargs = planetmapper.MapKwargs(degree_interval=15)
+
+        # Check that visible parts of the map are calculated correctly
+        # - i.e. visible parts should have <= 90deg emission angles
+        emission_map = body.get_backplane_map('EMISSION', **map_kwargs)
+        ra_map = body.get_backplane_map('RA', **map_kwargs)
+        map_img = body.map_img(np.ones((10, 10)), **map_kwargs)
+        self.assertTrue(np.all(np.isfinite(ra_map[emission_map <= 90])))
+        self.assertTrue(np.all(~np.isfinite(ra_map[emission_map > 90])))
+        self.assertTrue(np.all(np.isfinite(map_img[emission_map <= 90])))
+        self.assertTrue(np.all(~np.isfinite(map_img[emission_map > 90])))
+
     # Backplane contents tested against FITS reference in test_observation

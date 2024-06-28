@@ -2613,7 +2613,8 @@ class BodyXY(Body):
     @_adjust_surface_altitude_decorator
     def _get_radec_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
-        visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
+        # (phase, incdnc, emissn, visibl, lit) in illumf map
+        visible = self._get_illumf_map(**map_kwargs)[:, :, 3]
         obsvec_map = self._get_obsvec_map(**map_kwargs)
         for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
             # use targvec iterator to ensure don't have NaNs
