@@ -1857,6 +1857,27 @@ class Body(BodyBase):
                     dec_day[idx] = np.nan
             return ra_day, dec_day, ra_night, dec_night
 
+    def limb_lonlat(self, alt: float = 0.0, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Calculate the Lon/Lat coordinates of the target body's limb.
+
+        Args:
+            npts: Number of points in the generated limb.
+            alt: Altitude of the limb above the surface of the target body, in km.
+
+        Returns:
+            `(lon, lat)` tuple of coordinate arrays.
+        """
+        # XXX test
+        with _AdjustedSurfaceAltitude(self, alt):
+            lons, lats = zip(
+                *(
+                    self.targvec2lonlat(targvec)
+                    for targvec in self._limb_targvec(**kwargs)
+                )
+            )
+            return np.array(lons), np.array(lats)
+
     def limb_coordinates_from_radec(
         self, ra: float, dec: float, *, alt: float = 0.0
     ) -> tuple[float, float, float]:
