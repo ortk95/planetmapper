@@ -1857,6 +1857,26 @@ class Body(BodyBase):
                     dec_day[idx] = np.nan
             return ra_day, dec_day, ra_night, dec_night
 
+    def limb_lonlat(self, alt: float = 0.0, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Calculate the Lon/Lat coordinates of the target body's limb.
+
+        Args:
+            npts: Number of points in the generated limb.
+            alt: Altitude of the limb above the surface of the target body, in km.
+
+        Returns:
+            `(lon, lat)` tuple of coordinate arrays.
+        """
+        with _AdjustedSurfaceAltitude(self, alt):
+            lons, lats = zip(
+                *(
+                    self.targvec2lonlat(targvec)
+                    for targvec in self._limb_targvec(**kwargs)
+                )
+            )
+            return np.array(lons), np.array(lats)
+
     def limb_coordinates_from_radec(
         self, ra: float, dec: float, *, alt: float = 0.0
     ) -> tuple[float, float, float]:
@@ -2228,6 +2248,63 @@ class Body(BodyBase):
         Returns:
             `(ra, dec)` tuple of RA/Dec coordinate arrays.
         """
+        return self._targvec_arr2radec_arrs(
+            self._terminator_targvec(
+                npts=npts,
+                only_visible=only_visible,
+                close_loop=close_loop,
+                alt=alt,
+                method=method,
+                corloc=corloc,
+            )
+        )
+
+    def terminator_lonlat(
+        self,
+        npts: int = 360,
+        *,
+        only_visible: bool = False,
+        close_loop: bool = True,
+        alt: float = 0.0,
+        method: str = 'UMBRAL/TANGENT/ELLIPSOID',
+        corloc: str = 'ELLIPSOID TERMINATOR',
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Calculate the Lon/Lat coordinates of the terminator (line between day and night)
+        on the target body.
+
+        Args:
+            npts: Number of points in generated terminator.
+            only_visible: Toggle only returning visible part of terminator.
+            alt: Altitude adjustment to the surface of the target body in km.
+            close_loop: If True, passes coordinate arrays through :func:`close_loop`
+                (e.g. to enable nicer plotting).
+            method, corloc: Passed to SPICE function.
+
+        Returns:
+            `(lon, lat)` tuple of Lon/Lat coordinate arrays.
+        """
+        targvecs = self._terminator_targvec(
+            npts=npts,
+            only_visible=only_visible,
+            close_loop=close_loop,
+            alt=alt,
+            method=method,
+            corloc=corloc,
+        )
+        lons, lats = zip(*(self.targvec2lonlat(targvec) for targvec in targvecs))
+        return np.array(lons), np.array(lats)
+
+    def _terminator_targvec(
+        self,
+        *,
+        npts: int,
+        only_visible: bool,
+        close_loop: bool,
+        alt: float,
+        method: str,
+        corloc: str,
+    ) -> np.ndarray:
         with _AdjustedSurfaceAltitude(self, alt):
             refvec = [0, 0, 1]
             rolstp = 2 * np.pi / npts
@@ -2249,15 +2326,20 @@ class Body(BodyBase):
             )
             if close_loop:
                 targvec_arr = self.close_loop(targvec_arr)
-            ra, dec = self._targvec_arr2radec_arrs(
-                targvec_arr,
-                condition_func=(
-                    (lambda t: self._test_if_targvec_visible(t, on_surface=True))
-                    if only_visible
-                    else None
-                ),
-            )
-            return ra, dec
+            if only_visible:
+                targvec_arr = np.array(
+                    [
+                        (
+                            targvec
+                            if self._test_if_targvec_visible(
+                                targvec, on_surface=alt == 0.0
+                            )
+                            else np.array([np.nan, np.nan, np.nan])
+                        )
+                        for targvec in targvec_arr
+                    ]
+                )
+            return targvec_arr
 
     def _test_if_targvec_illuminated(self, targvec: np.ndarray) -> bool:
         phase, incdnc, emissn, visibl, lit = self._illumf_from_targvec_radians(targvec)
@@ -2609,10 +2691,16 @@ class Body(BodyBase):
         return self._radian_pair2degrees(lon_centric, lat_centric)
 
     def graphic2centric_lonlat(
-        self, lon: float, lat: float, *, alt: float = 0.0
-    ) -> tuple[float, float]:
+        self, lon: FloatOrArray, lat: FloatOrArray, *, alt: float = 0.0
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert planetographic longitude/latitude to planetocentric.
+
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
 
         Args:
             lon: Planetographic longitude.
@@ -2622,13 +2710,26 @@ class Body(BodyBase):
         Returns:
             `(lon_centric, lat_centric)` tuple of planetocentric coordinates.
         """
+        return self._maybe_transform_as_arrays(
+            self._graphic2centric_lonlat, lon, lat, alt=alt
+        )
+
+    def _graphic2centric_lonlat(
+        self, lon: float, lat: float, *, alt: float
+    ) -> tuple[float, float]:
         return self._targvec2lonlat_centric(self.lonlat2targvec(lon, lat, alt=alt))
 
     def centric2graphic_lonlat(
-        self, lon_centric: float, lat_centric: float, *, alt: float = 0.0
-    ) -> tuple[float, float]:
+        self, lon_centric: FloatOrArray, lat_centric: FloatOrArray, *, alt: float = 0.0
+    ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert planetocentric longitude/latitude to planetographic.
+
+        The input coordinates can either be floats or NumPy arrays of values. If both
+        input coordinates are floats, the output will be a tuple of floats. If either of
+        the input coordinates are arrays, the inputs will be `broadcast together
+        <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of
+        NumPy arrays will be returned.
 
         Args:
             lon_centric: Planetocentric longitude.
@@ -2638,6 +2739,13 @@ class Body(BodyBase):
         Returns:
             `(lon, lat)` tuple of planetographic coordinates.
         """
+        return self._maybe_transform_as_arrays(
+            self._centric2graphic_lonlat, lon_centric, lat_centric, alt=alt
+        )
+
+    def _centric2graphic_lonlat(
+        self, lon_centric: float, lat_centric: float, *, alt: float
+    ) -> tuple[float, float]:
         if not (math.isfinite(lon_centric) and math.isfinite(lat_centric)):
             return np.nan, np.nan
         targvecs = spice.latsrf(

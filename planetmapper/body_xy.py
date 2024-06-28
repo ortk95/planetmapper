@@ -1544,7 +1544,7 @@ class BodyXY(Body):
         **kwargs,
     ) -> QuadMesh:
         """
-        Utility function to easily plot a mapped image using `plt.imshow` with
+        Utility function to easily plot a mapped image using `plt.pcolormesh` with
         appropriate extents, axis labels, gridlines etc.
 
         Args:
@@ -1878,6 +1878,8 @@ class BodyXY(Body):
 
             body.get_backplane(name).get_img().copy()
 
+        See also :func:`get_backplane_map` and :func:`plot_backplane_img`.
+
         Args:
             name: Name of the desired backplane. This is standardised with
                 :func:`standardise_backplane_name` and used to choose a registered
@@ -1905,6 +1907,8 @@ class BodyXY(Body):
         This method is equivalent to ::
 
             body.get_backplane(name).get_map(**map_kwargs).copy()
+
+        See also :func:`get_backplane_img` and :func:`plot_backplane_map`.
 
         Args:
             name: Name of the desired backplane. This is standardised with
@@ -1940,6 +1944,8 @@ class BodyXY(Body):
         `(x0, y0, r0, rotation)` at the time this function is called. Generating the
         same backplane when there are different disc parameter values will produce a
         different image.
+
+        See also :func:`plot_backplane_map` and :func:`get_backplane_img`.
 
         Args:
             name: Name of the desired backplane.
@@ -1977,6 +1983,8 @@ class BodyXY(Body):
                 cmap='Blues',
                 wireframe_kwargs=dict(color='r', alpha=0.5),
             )
+
+        See also :func:`plot_backplane_img` and :func:`get_backplane_img`.
 
         Args:
             name: Name of the desired backplane.
@@ -2605,7 +2613,8 @@ class BodyXY(Body):
     @_adjust_surface_altitude_decorator
     def _get_radec_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
-        visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
+        # (phase, incdnc, emissn, visibl, lit) in illumf map
+        visible = self._get_illumf_map(**map_kwargs)[:, :, 3]
         obsvec_map = self._get_obsvec_map(**map_kwargs)
         for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
             # use targvec iterator to ensure don't have NaNs
