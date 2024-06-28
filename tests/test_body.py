@@ -1221,6 +1221,33 @@ class TestBody(common_testing.BaseTestCase):
             )
         )
 
+    def test_limb_lonlat(self):
+        self.assertArraysClose(
+            self.body.limb_lonlat(npts=5),
+            (
+                array(
+                    [
+                        153.1234683,
+                        242.11517437,
+                        247.35606526,
+                        58.89081584,
+                        64.1317418,
+                        153.1234683,
+                    ]
+                ),
+                array(
+                    [
+                        87.29379713,
+                        20.35346551,
+                        -57.46299289,
+                        -57.46299289,
+                        20.35346551,
+                        87.29379713,
+                    ]
+                ),
+            ),
+        )
+
     def test_limb_radec_by_illumination(self):
         self.assertTrue(
             np.allclose(
@@ -1419,6 +1446,42 @@ class TestBody(common_testing.BaseTestCase):
                 (array([nan, nan, 196.36713568]), array([nan, nan, -5.56628042])),
                 equal_nan=True,
             )
+        )
+
+    def test_terminator_lonlat(self):
+        self.assertArraysClose(
+            self.body.terminator_lonlat(npts=5),
+            (
+                array(
+                    [
+                        163.44532164,
+                        252.60875833,
+                        257.26193719,
+                        69.62871003,
+                        74.2818866,
+                        163.44532164,
+                    ]
+                ),
+                array(
+                    [
+                        87.66650962,
+                        20.36259847,
+                        -57.48337047,
+                        -57.48337047,
+                        20.36259847,
+                        87.66650962,
+                    ]
+                ),
+            ),
+            equal_nan=True,
+        )
+        self.assertArraysClose(
+            self.body.terminator_lonlat(npts=5, only_visible=True),
+            (
+                array([nan, nan, nan, 69.62871003, 74.2818866, nan]),
+                array([nan, nan, nan, -57.48337047, 20.36259847, nan]),
+            ),
+            equal_nan=True,
         )
 
     def test_if_lonlat_illuminated(self):

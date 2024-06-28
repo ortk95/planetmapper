@@ -1868,7 +1868,6 @@ class Body(BodyBase):
         Returns:
             `(lon, lat)` tuple of coordinate arrays.
         """
-        # XXX test
         with _AdjustedSurfaceAltitude(self, alt):
             lons, lats = zip(
                 *(
@@ -2285,7 +2284,6 @@ class Body(BodyBase):
         Returns:
             `(lon, lat)` tuple of Lon/Lat coordinate arrays.
         """
-        # XXX test
         targvecs = self._terminator_targvec(
             npts=npts,
             only_visible=only_visible,
