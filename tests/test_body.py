@@ -1956,14 +1956,25 @@ class TestBody(common_testing.BaseTestCase):
             [(0, -90), (0, -90)],
             [(90, 0), (-90, 0)],
             [(123.4, 56.789), (-123.4, 53.17999536010973)],
+            [
+                (array([1.0, 2.0, 3.0, nan]), array([40.0, 50.0, 60.0, nan])),
+                (
+                    array([-1.0, -2.0, -3.0, nan]),
+                    array([36.26969371, 46.18216311, 56.56575448, nan]),
+                ),
+            ],
         ]
         for graphic, centric in pairs:
             with self.subTest(graphic):
-                self.assertTrue(
-                    np.allclose(self.body.graphic2centric_lonlat(*graphic), centric)
+                self.assertArraysClose(
+                    self.body.graphic2centric_lonlat(*graphic),
+                    centric,
+                    equal_nan=True,
                 )
-                self.assertTrue(
-                    np.allclose(self.body.centric2graphic_lonlat(*centric), graphic)
+                self.assertArraysClose(
+                    self.body.centric2graphic_lonlat(*centric),
+                    graphic,
+                    equal_nan=True,
                 )
 
         pairs = [
