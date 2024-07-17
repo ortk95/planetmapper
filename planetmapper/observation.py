@@ -718,10 +718,20 @@ class Observation(BodyXY):
     def get_mapped_data(
         self,
         interpolation: (
-            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
+            Literal[
+                'nearest',
+                'linear',
+                'cubic',
+                'linear_spline',
+                'quadratic_spline',
+                'cubic_spline',
+            ]
+            | int
+            | tuple[int, int]
         ) = 'linear',
         *,
         spline_smoothing: float = 0,
+        propagate_nan: bool = True,
         **map_kwargs: Unpack[MapKwargs],
     ) -> np.ndarray:
         """
@@ -737,10 +747,9 @@ class Observation(BodyXY):
         need to worry about the cache, it all happens 'magically' behind the scenes).
 
         Args:
-            interpolation: Interpolation used when mapping. This can either any of
-                `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. Passed to
-                :func:`BodyXY.map_img`.
+            interpolation: Passed to :func:`BodyXY.map_img`.
             spline_smoothing: Passed to :func:`BodyXY.map_img`.
+            propagate_nan: Passed to :func:`BodyXY.map_img`.
             **map_kwargs: Additional arguments are passed to
                 :func:`BodyXY.generate_map_coordinates` to specify and customise the map
                 projection.
@@ -751,7 +760,10 @@ class Observation(BodyXY):
         """
         # Return a copy so that the cached value isn't tainted by any modifications
         return self._get_mapped_data(
-            interpolation=interpolation, spline_smoothing=spline_smoothing, **map_kwargs
+            interpolation=interpolation,
+            spline_smoothing=spline_smoothing,
+            propagate_nan=propagate_nan,
+            **map_kwargs,
         ).copy()
 
     @_cache_clearable_alt_dependent_result
@@ -760,19 +772,23 @@ class Observation(BodyXY):
         self,
         *,
         interpolation: (
-            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
+            Literal[
+                'nearest',
+                'linear',
+                'cubic',
+                'linear_spline',
+                'quadratic_spline',
+                'cubic_spline',
+            ]
+            | int
+            | tuple[int, int]
         ),
         spline_smoothing: float,
+        propagate_nan: bool,
         **map_kwargs: Unpack[MapKwargs],
     ):
         projected = []
-        if interpolation == 'linear' and np.any(np.isnan(self.data)):
-            data = np.nan_to_num(self.data)
-            print(
-                'Warning, data contains NaN values which will be set to 0 before interpolating'
-            )
-        else:
-            data = self.data
+        data = self.data
         for idx, img in enumerate(data):
             self._update_progress_hook(idx / len(data))
             projected.append(
@@ -780,6 +796,7 @@ class Observation(BodyXY):
                     img,
                     spline_smoothing=spline_smoothing,
                     interpolation=interpolation,
+                    propagate_nan=propagate_nan,
                     **map_kwargs,
                 )
             )
@@ -1159,9 +1176,19 @@ class Observation(BodyXY):
         path: str | os.PathLike,
         *,
         interpolation: (
-            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
+            Literal[
+                'nearest',
+                'linear',
+                'cubic',
+                'linear_spline',
+                'quadratic_spline',
+                'cubic_spline',
+            ]
+            | int
+            | tuple[int, int]
         ) = 'linear',
         spline_smoothing: float = 0,
+        propagate_nan: bool = True,
         include_backplanes: bool = True,
         include_wireframe: bool = True,
         wireframe_kwargs: dict[str, Any] | None = None,
@@ -1180,10 +1207,9 @@ class Observation(BodyXY):
 
         Args:
             path: Filepath of output file.
-            interpolation: Interpolation used when mapping. This can either any of
-                `'nearest'`, `'linear'`, `'quadratic'` or `'cubic'`. Passed to
-                :func:`BodyXY.map_img`.
+            interpolation: Passed to :func:`BodyXY.map_img`.
             spline_smoothing: Passed to :func:`BodyXY.map_img`.
+            propagate_nan: Passed to :func:`BodyXY.map_img`.
             include_backplanes: Toggle generating and saving backplanes to output FITS
                 file.
             include_wireframe: Toggle generating and saving wireframe overlay map as an
@@ -1217,6 +1243,7 @@ class Observation(BodyXY):
             data = self.get_mapped_data(
                 interpolation=interpolation,
                 spline_smoothing=spline_smoothing,
+                propagate_nan=propagate_nan,
                 **map_kwargs,
             )
             header = self.header.copy()
@@ -1228,6 +1255,7 @@ class Observation(BodyXY):
                 header,
                 interpolation=interpolation,
                 spline_smoothing=spline_smoothing,
+                propagate_nan=propagate_nan,
                 **map_kwargs,
             )
             self._add_map_wcs_to_header(header, **map_kwargs)
@@ -1277,6 +1305,7 @@ class Observation(BodyXY):
         *,
         interpolation: str | int | tuple[int, int],
         spline_smoothing: float,
+        propagate_nan: bool,
         **map_kwargs: Unpack[MapKwargs],
     ):
         lons, lats, xx, yy, transformer, info = self.generate_map_coordinates(
@@ -1290,13 +1319,21 @@ class Observation(BodyXY):
             'Interpolation method used in mapping.',
             header=header,
         )
-        if interpolation != 'nearest':
+        if interpolation not in {'nearest', 'linear', 'cubic'}:
             self.append_to_header(
                 'MAP SPLINE-SMOOTHING',
                 spline_smoothing,
                 'Interpolation spline smoothing factor used in mapping.',
                 header=header,
             )
+        if interpolation not in {'nearest'}:
+            self.append_to_header(
+                'MAP PROPAGATE-NAN',
+                propagate_nan,
+                'Propagate NaN pixels to map when mapping.',
+                header=header,
+            )
+
         self.append_to_header(
             'MAP PROJECTION',
             info['projection'],

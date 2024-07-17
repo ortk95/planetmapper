@@ -824,7 +824,7 @@ class TestObservation(common_testing.BaseTestCase):
             ),
             'rectangular-quadratic': dict(
                 degree_interval=30,
-                interpolation='quadratic',
+                interpolation='quadratic_spline',
                 include_backplanes=False,
                 include_wireframe=False,
             ),
