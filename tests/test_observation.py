@@ -928,9 +928,7 @@ class TestObservation(common_testing.BaseTestCase):
                         atol = 1e-3
                     else:
                         atol = 1e-6
-                    self.assertArraysClose(
-                        data, data_ref, atol=atol, equal_nan=True
-                    )
+                    self.assertArraysClose(data, data_ref, atol=atol, equal_nan=True)
 
                 header = hdu.header
                 header_ref = hdu_ref.header
