@@ -703,11 +703,11 @@ class BodyXY(Body):
 
         This adjusts `x0` and `y0` so that they lie in the centre of the image, and `r0`
         is adjusted so that the disc fills 90% of the shortest side of the image. For
-        example, if `nx = 20` and `ny = 30`, then `x0` will be set to 10, `y0` will be
+        example, if `nx = 21` and `ny = 31`, then `x0` will be set to 10, `y0` will be
         set to 15 and `r0` will be set to 9. The rotation of the disc is unchanged.
         """
-        self.set_x0(self._nx / 2)
-        self.set_y0(self._ny / 2)
+        self.set_x0((self._nx - 1) / 2)
+        self.set_y0((self._ny - 1) / 2)
         self.set_r0(0.9 * (min(self.get_x0(), self.get_y0())))
         self.set_disc_method('centre_disc')
 
