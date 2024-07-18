@@ -852,93 +852,26 @@ class TestBodyXY(common_testing.BaseTestCase):
 
     @patch('builtins.print')
     def test_map_img(self, mock_print: MagicMock):
-        self.body.set_img_size(4, 3)
-        self.body.set_disc_params(2, 1, 1.5, 45.678)
-
+        self.body.set_img_size(6, 5)
+        self.body.set_disc_params(2.75, 1.3, 2.3, 45.678)
         image = np.array(
             [
-                [-1.0, 2.2, 3.3, 4.4],
-                [999.0, nan, 1.0, 123.456789],
-                [0.0, 3.0, 0.0, nan],
-                [0.0, 3.0, 0.1, nan],
+                [0.0, 100.0, -1.0, 2.2, 3.3, 4.4],
+                [0.0, 75.0, 999.0, 50.0, 1.0, 123.456789],
+                [0.0, 25.0, 0.0, 123.45, nan, 3],
+                [0.0, 0.123, 0.0, 3.0, 0.1, nan],
+                [100.0, -100.0, 100.0, -100.0, 100.0, nan],
             ]
         )
-        expected_interpolations: dict[str | int | tuple[int, int], np.ndarray] = {
-            'nearest': array(
-                [
-                    [nan, nan, 2.2, 2.2, 2.2, 3.3, 3.3, nan],
-                    [nan, nan, nan, nan, 1.0, 4.4, 4.4, nan],
-                    [nan, nan, nan, 3.0, 0.0, 123.456789, 123.456789, nan],
-                    [nan, nan, nan, 0.0, 0.0, nan, nan, nan],
-                ]
-            ),
-            'linear': array(
-                [
-                    [nan, nan, nan, 2.3186637, 2.74706025, 3.19651445, 3.40373106, nan],
-                    [nan, nan, nan, nan, nan, 23.42819465, 7.04641644, nan],
-                    [nan, nan, nan, nan, nan, nan, 119.14877308, nan],
-                    [nan, nan, nan, nan, nan, nan, nan, nan],
-                ]
-            ),
-            'quadratic': array(
-                [
-                    [
-                        nan,
-                        nan,
-                        nan,
-                        2.39879965,
-                        2.87923688,
-                        3.21452692,
-                        3.38878461,
-                        nan,
-                    ],
-                    [nan, nan, nan, nan, nan, 43.60950343, 10.34465904, nan],
-                    [nan, nan, nan, nan, nan, nan, 124.44123914, nan],
-                    [nan, nan, nan, nan, nan, nan, nan, nan],
-                ]
-            ),
-            'cubic': array(
-                [
-                    [
-                        nan,
-                        nan,
-                        nan,
-                        2.38239724,
-                        2.87854034,
-                        3.22915024,
-                        3.37101923,
-                        nan,
-                    ],
-                    [nan, nan, nan, nan, nan, 75.5763365, 12.3037003, nan],
-                    [nan, nan, nan, nan, nan, nan, 125.58181975, nan],
-                    [nan, nan, nan, nan, nan, nan, nan, nan],
-                ]
-            ),
-            (1, 2): array(
-                [
-                    [
-                        nan,
-                        nan,
-                        nan,
-                        2.39879965,
-                        2.87923688,
-                        3.21452692,
-                        3.38878461,
-                        nan,
-                    ],
-                    [nan, nan, nan, nan, nan, 24.05570982, 7.04641644, nan],
-                    [nan, nan, nan, nan, nan, nan, 119.14877308, nan],
-                    [nan, nan, nan, nan, nan, nan, nan, nan],
-                ]
-            ),
+        expected_interpolations: dict[str | int | tuple[int, int], list] = {
+            # fmt: off
+            'nearest': [[nan, nan, 100.0, 100.0, -1.0, nan, nan, nan], [nan, nan, nan, 75.0, 999.0, 3.3, 3.3, nan], [nan, nan, nan, 0.0, 123.45, nan, 123.456789, nan], [nan, nan, nan, 3.0, 3.0, 0.1, nan, nan]],
+            'linear': [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 61.591824124152424, 488.0893412811879, 4.181692402514696, nan, nan], [nan, nan, nan, 3.678385742930187, 94.03788871233297, nan, nan, nan], [nan, nan, nan, -25.28910210942658, -1.6502703714050462, nan, nan, nan]],
+            'quadratic': [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 47.43961193970507, 780.1933190874719, -11.958641161828965, nan, nan], [nan, nan, nan, -40.33639788223132, 106.33548747800452, nan, nan, nan], [nan, nan, nan, -35.84554405305129, -19.35757229218872, nan, nan, nan]],
+            'cubic': [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 38.17050096080083, 837.0682797065551, -40.810161294299334, nan, nan], [nan, nan, nan, -77.21287210436617, 103.88323214798433, nan, nan, nan], [nan, nan, nan, -29.994884067130222, -35.81550582449343, nan, nan, nan]],
+            (1, 2): [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 48.82728713390978, 584.7164003757379, -0.9895987798646678, nan, nan], [nan, nan, nan, -0.625402661173368, 99.24054961575526, nan, nan, nan], [nan, nan, nan, -33.19407454333914, -8.380623602166663, nan, nan, nan]],
+            # fmt: on
         }
-        # Check aliases
-        expected_interpolations[1] = expected_interpolations['linear']
-        expected_interpolations[2] = expected_interpolations['quadratic']
-        expected_interpolations[3] = expected_interpolations['cubic']
-        expected_interpolations[(1, 1)] = expected_interpolations['linear']
-        expected_interpolations[(2, 2)] = expected_interpolations['quadratic']
-        expected_interpolations[(3, 3)] = expected_interpolations['cubic']
         for interpolation, expected_img in expected_interpolations.items():
             with self.subTest(interpolation=interpolation):
                 self.assertArraysClose(
@@ -950,86 +883,121 @@ class TestBodyXY(common_testing.BaseTestCase):
                     expected_img,
                     equal_nan=True,
                 )
+        with self.subTest('default interpolation'):
+            self.assertArraysEqual(
+                self.body.map_img(
+                    image,
+                    degree_interval=45,
+                ),
+                self.body.map_img(
+                    image,
+                    degree_interval=45,
+                    interpolation='linear',
+                    spline_smoothing=0.0,
+                    propagate_nan=True,
+                ),
+                equal_nan=True,
+            )
+
+        # Check spline aliases
+        aliases: list[tuple[int | tuple[int, int], str]] = [
+            (1, 'linear'),
+            (2, 'quadratic'),
+            (3, 'cubic'),
+            ((1, 1), 'linear'),
+            ((2, 2), 'quadratic'),
+            ((3, 3), 'cubic'),
+        ]
+        for a, b in aliases:
+            with self.subTest('alias', a=a, b=b):
+                self.assertArraysEqual(
+                    self.body.map_img(
+                        image,
+                        degree_interval=45,
+                        interpolation=a,
+                    ),
+                    self.body.map_img(
+                        image,
+                        degree_interval=45,
+                        interpolation=b,
+                    ),
+                    equal_nan=True,
+                )
+
+        # All nan
+        nan_mapped = np.asarray(expected_interpolations['linear']) * np.nan
+        for interpolation in expected_interpolations.keys():
+            with self.subTest('all nan', interpolation=interpolation):
+                self.assertArraysClose(
+                    self.body.map_img(
+                        image * np.nan,
+                        degree_interval=45,
+                        interpolation=interpolation,  # type: ignore
+                    ),
+                    nan_mapped,
+                    equal_nan=True,
+                )
+
+        # NaN propagation
+        expected_propagations: dict[bool, list] = {
+            # fmt: off
+            True: [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 61.591824124152424, 488.0893412811879, 4.181692402514696, nan, nan], [nan, nan, nan, 3.678385742930187, 94.03788871233297, nan, nan, nan], [nan, nan, nan, -25.28910210942658, -1.6502703714050462, nan, nan, nan]],
+            False: [[nan, nan, 83.42502054006614, 61.410255547165704, 1.0972142916279704, nan, nan, nan], [nan, nan, nan, 61.591824124152424, 488.0893412811879, 4.181692402514696, 3.8032713799190443, nan], [nan, nan, nan, 3.678385742930187, 94.03788871233297, 35.721226497463014, 94.00305287602345, nan], [nan, nan, nan, -25.28910210942658, -1.6502703714050462, 4.265385156596395, nan, nan]],
+            # fmt: on
+        }
+        for propagate_nan, expected_img in expected_propagations.items():
+            with self.subTest(propagate_nan=propagate_nan):
+                self.assertArraysClose(
+                    self.body.map_img(
+                        image,
+                        degree_interval=45,
+                        propagate_nan=propagate_nan,
+                    ),
+                    expected_img,
+                    equal_nan=True,
+                )
 
         # Check smoothing
-        expected_smoothings: dict[float, np.ndarray] = {
-            0: array(
-                [
-                    [nan, nan, nan, 2.3186637, 2.74706025, 3.19651445, 3.40373106, nan],
-                    [nan, nan, nan, nan, nan, 23.42819465, 7.04641644, nan],
-                    [nan, nan, nan, nan, nan, nan, 119.14877308, nan],
-                    [nan, nan, nan, nan, nan, nan, nan, nan],
-                ]
-            ),
-            1: array(
-                [
-                    [
-                        nan,
-                        nan,
-                        nan,
-                        2.31766083,
-                        2.74652865,
-                        3.19647729,
-                        3.40670604,
-                        nan,
-                    ],
-                    [nan, nan, nan, nan, nan, 23.42144413, 7.07448004, nan],
-                    [nan, nan, nan, nan, nan, nan, 119.06044869, nan],
-                    [nan, nan, nan, nan, nan, nan, nan, nan],
-                ]
-            ),
-            2.345: array(
-                [
-                    [
-                        nan,
-                        nan,
-                        nan,
-                        2.31716984,
-                        2.74626094,
-                        3.19644382,
-                        3.40826879,
-                        nan,
-                    ],
-                    [nan, nan, nan, nan, nan, 23.41785284, 7.08939413, nan],
-                    [nan, nan, nan, nan, nan, nan, 119.01346029, nan],
-                    [nan, nan, nan, nan, nan, nan, nan, nan],
-                ]
-            ),
-            67.89: array(
-                [
-                    [
-                        nan,
-                        nan,
-                        nan,
-                        2.31348483,
-                        2.74377072,
-                        3.19520713,
-                        3.42693138,
-                        nan,
-                    ],
-                    [nan, nan, nan, nan, nan, 23.37223806, 7.2778667, nan],
-                    [nan, nan, nan, nan, nan, nan, 118.41667937, nan],
-                    [nan, nan, nan, nan, nan, nan, nan, nan],
-                ]
-            ),
+        expected_smoothings: dict[float, list] = {
+            # fmt: off
+            0: [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 61.591824124152424, 488.0893412811879, 4.181692402514696, nan, nan], [nan, nan, nan, 3.678385742930187, 94.03788871233297, nan, nan, nan], [nan, nan, nan, -25.28910210942658, -1.6502703714050462, nan, nan, nan]],
+            1: [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 61.78601266274162, 487.8146612006081, 4.182606695966389, nan, nan], [nan, nan, nan, 3.7096818751834397, 94.00272821072134, nan, nan, nan], [nan, nan, nan, -25.261262121302103, -1.6266437631103958, nan, nan, nan]],
+            2.345: [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 61.88924454749024, 487.6685543716773, 4.183100640730575, nan, nan], [nan, nan, nan, 3.726347429765339, 93.98407173080481, nan, nan, nan], [nan, nan, nan, -25.24645740659029, -1.614083382535183, nan, nan, nan]],
+            67.89: [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 63.190326809626086, 485.8219836178685, 4.1898033877049246, nan, nan], [nan, nan, nan, 3.9380925063904084, 93.75102909782771, nan, nan, nan], [nan, nan, nan, -25.05957376720378, -1.4557553087461503, nan, nan, nan]],
+            # fmt: on
         }
         for smoothing, expected_img in expected_smoothings.items():
             with self.subTest(smoothing=smoothing):
                 self.assertArraysClose(
                     self.body.map_img(
                         image,
+                        interpolation='linear',
                         degree_interval=45,
                         spline_smoothing=smoothing,
                     ),
                     expected_img,
                     equal_nan=True,
                 )
+        with self.subTest('cube'):
+            # want to ensure all parameters are passed properly
+            factors = [1, 2.345, -10, 3456.789, np.nan]
+            cube = [image * f for f in factors]
+            kwargs = dict(interpolation='cubic', degree_interval=45, spline_smoothing=1)
+            mapped_cube = self.body.map_img(cube, **kwargs)  # type: ignore
+            for idx, (f, mapped_img) in enumerate(zip(factors, mapped_cube)):
+                with self.subTest('cube', idx=idx, f=f):
+                    self.assertArraysEqual(
+                        mapped_img,
+                        self.body.map_img(image * f, **kwargs),  #  type: ignore
+                        equal_nan=True,
+                    )
 
-        self.body.map_img(
-            image, interpolation='linear', degree_interval=45, warn_nan=True
-        )
-        mock_print.assert_called_once()
-        mock_print.reset_mock()
+        with self.subTest('warn nan'):
+            self.body.map_img(
+                image, interpolation='linear', degree_interval=45, warn_nan=True
+            )
+            mock_print.assert_called_once()
+            mock_print.reset_mock()
 
         with self.assertRaises(ValueError):
             self.body.map_img(image, interpolation='<<<test>>>')  # type: ignore
@@ -1037,49 +1005,128 @@ class TestBodyXY(common_testing.BaseTestCase):
         with self.assertRaises(ValueError):
             self.body.map_img(image, projection='manual')
 
+        with self.subTest('shape validation'):
+            with self.assertRaises(ValueError):
+                self.body.map_img(np.ones((3, 4)))
+            with self.assertRaises(ValueError):
+                self.body.map_img(np.ones((10, 3, 4)))
+            with self.assertRaises(ValueError):
+                self.body.map_img(np.ones((2, 3, 4, 5)))
+
         lons = np.linspace(-180, 180, 5)
         lats = np.linspace(0, 90, 3)
-        image = np.array(
-            [
-                [-1.0, 2.2, 3.3, 4.4],
-                [999.0, nan, 1.0, 123.456789],
-                [0.0, 3.0, 0.0, nan],
-            ]
-        )
         for attempt in range(2):
             with self.subTest(attempt=attempt):
                 # Test twice to check cache behaviour
                 self.assertArraysClose(
                     self.body.map_img(
-                        image, projection='manual', lon_coords=lons, lat_coords=lats
+                        image,
+                        projection='manual',
+                        lon_coords=lons,
+                        lat_coords=lats,
+                        interpolation='nearest',
                     ),
-                    array(
-                        [
-                            [nan, nan, nan, 68.55480206, nan],
-                            [0.27833474, nan, nan, nan, 0.27833474],
-                            [nan, nan, nan, nan, nan],
-                        ]
-                    ),
+                    [
+                        [0.0, nan, nan, 123.456789, 0.0],
+                        [3.0, nan, nan, 3.0, 3.0],
+                        [nan, nan, nan, nan, nan],
+                    ],
                     equal_nan=True,
                 )
 
-        lons, lats = np.meshgrid(np.linspace(100, 250, 3), np.linspace(10, 80, 4))
-        self.assertArraysClose(
-            self.body.map_img(
-                image, projection='manual', lon_coords=lons, lat_coords=lats
-            ),
-            array(
+        with self.subTest('manual projection'):
+            lons, lats = np.meshgrid(np.linspace(100, 250, 3), np.linspace(10, 80, 4))
+            self.assertArraysClose(
+                self.body.map_img(
+                    image,
+                    projection='manual',
+                    interpolation='nearest',
+                    lon_coords=lons,
+                    lat_coords=lats,
+                ),
                 [
-                    [101.62835318, nan, nan],
-                    [nan, nan, nan],
-                    [nan, nan, nan],
-                    [nan, nan, nan],
-                ]
-            ),
-            equal_nan=True,
-        )
+                    [123.456789, 0.0, nan],
+                    [3.0, 3.0, nan],
+                    [0.1, 3.0, nan],
+                    [0.1, 3.0, nan],
+                ],
+                equal_nan=True,
+            )
 
         self.body.set_img_size(15, 10)
+
+    @patch('builtins.print')
+    def test_replace_nans_with_interpolated_values(self, mock_print: MagicMock):
+        images: list[tuple[list, list]] = [
+            (
+                [
+                    [nan, 2.0, 1.0, 1.0, 1.0],
+                    [1.0, 2.0, 1.0, 1.0, -9.0],
+                    [1.0, 1.0, nan, 1.0, nan],
+                    [1.0, 1.0, 1.0, 9.5, nan],
+                    [1.0, 1.0, 1.0, nan, nan],
+                ],
+                [
+                    [1.6666666666666667, 2.0, 1.0, 1.0, 1.0],
+                    [1.0, 2.0, 1.0, 1.0, -9.0],
+                    [1.0, 1.0, 2.1875, 1.0, 0.625],
+                    [1.0, 1.0, 1.0, 9.5, 5.25],
+                    [1.0, 1.0, 1.0, 3.8333333333333335, 9.5],
+                ],
+            ),
+            (
+                [[nan, nan, nan], [nan, nan, nan], [nan, nan, nan]],
+                [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+            ),
+            (
+                [[nan, 1.23, nan], [nan, nan, nan], [nan, nan, nan]],
+                [[1.23, 1.23, 1.23], [1.23, 1.23, 1.23], [1.23, 1.23, 1.23]],
+            ),
+            (
+                [[nan, 1.23, nan], [inf, inf, -inf], [nan, nan, nan]],
+                [[1.23, 1.23, 1.23], [1.23, 1.23, 1.23], [1.23, 1.23, 1.23]],
+            ),
+            (
+                [
+                    [nan, nan, nan],
+                    [nan, nan, nan],
+                    [nan, nan, nan],
+                    [nan, 99.0, nan],
+                    [nan, nan, nan],
+                    [1.0, 2.0, 3.0],
+                ],
+                [
+                    [2.5, 2.5, 2.5],
+                    [2.5, 2.5, 2.5],
+                    [99.0, 99.0, 99.0],
+                    [99.0, 99.0, 99.0],
+                    [34.0, 26.25, 34.666666666666664],
+                    [1.0, 2.0, 3.0],
+                ],
+            ),
+            ([[1, 2, 3], [4, 5, 6]], [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]),
+        ]
+        for a, b in images:
+            with self.subTest(a):
+                self.assertArraysClose(
+                    self.body._replace_nans_with_interpolated_values(
+                        np.asarray(a), False
+                    ),
+                    b,
+                )
+
+        with self.subTest('print nan warning'):
+            self.body._replace_nans_with_interpolated_values(np.asarray([[nan]]), True)
+            mock_print.assert_called_once()
+            mock_print.reset_mock()
+
+            self.body._replace_nans_with_interpolated_values(np.asarray([[1]]), True)
+            mock_print.assert_not_called()
+            mock_print.reset_mock()
+
+            self.body._replace_nans_with_interpolated_values(np.asarray([[nan]]), False)
+            mock_print.assert_not_called()
+            mock_print.reset_mock()
 
     def test_generate_map_coordinates(self):
         with self.assertRaises(ValueError):
@@ -1978,6 +2025,7 @@ class TestBodyXY(common_testing.BaseTestCase):
         body = planetmapper.BodyXY(
             'Jupiter', observer='amalthea', utc='2005-01-01T03:00:00', sz=10
         )
+        body.set_disc_params(5, 5, 3, 0)
         map_kwargs = planetmapper.MapKwargs(degree_interval=15)
 
         # Check that visible parts of the map are calculated correctly

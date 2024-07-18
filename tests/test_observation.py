@@ -922,7 +922,10 @@ class TestObservation(common_testing.BaseTestCase):
                     # (e.g. fonts available), and is only a cosmetic backplane anyway
                     # so the actual values don't matter anywhere near as much as the
                     # other backplanes.
-                    atol = 64 if extname == 'WIREFRAME' else 1e-6
+                    if extname == 'WIREFRAME':
+                        atol = 64
+                    else:
+                        atol = 1e-6
                     self.assertArraysClose(data, data_ref, atol=atol, equal_nan=True)
 
                 header = hdu.header

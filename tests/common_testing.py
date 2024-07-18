@@ -34,7 +34,7 @@ class BaseTestCase(unittest.TestCase):
     ) -> None:
         self.assertTrue(
             np.array_equal(a, b, equal_nan=equal_nan),
-            msg=f'Arrays not equal:\n{a!r}\n{b!r}',
+            msg=f'Arrays not equal:\n{np.asarray(a)!r}\n{np.asarray(b)!r}',
         )
 
     def assertArraysClose(
@@ -61,7 +61,7 @@ class BaseTestCase(unittest.TestCase):
             else:
                 relerr = aerr / np.nanmax(np.abs(b))
             self.fail(
-                f'Arrays not close (a={aerr:.2e}, r={relerr:.2e}):\n{a!r}\n{b!r}',
+                f'Arrays not close (a={aerr:.2e}, r={relerr:.2e}):\n{np.asarray(a)!r}\n{np.asarray(b)!r}',
             )
 
     def _test_wireframe_scaling(
