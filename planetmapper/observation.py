@@ -745,7 +745,7 @@ class Observation(BodyXY):
                 :func:`BodyXY.generate_map_coordinates` to specify and customise the map
                 projection.
         Returns:
-            Array containing cube of maped of the values in `img` at each location on
+            Array containing cube of mapped of the values in `img` at each location on
             the surface of the target body. Locations which are not visible or outside
             the projection domain have a value of NaN.
         """

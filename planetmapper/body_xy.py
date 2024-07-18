@@ -1240,7 +1240,7 @@ class BodyXY(Body):
                 is used. This can be useful to smooth over noisy data, though may hide
                 subtle structure if a large smoothing value is used. This parameter is
                 ignored if spline interpolation is not used.
-            propagate_nan: By default (`propagate_nan=True`) when perforing spline
+            propagate_nan: By default (`propagate_nan=True`) when performing spline
                 interpolation, areas of the map corresponding to NaN values in the image
                 are set to NaN, along with areas outside the convex hull of the image's
                 pixel centres. If `propagate_nan` is `False`, then areas corresponding
