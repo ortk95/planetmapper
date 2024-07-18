@@ -1262,7 +1262,7 @@ class BodyXY(Body):
             ValueError: if the input `img` shape is inconsistent with the body's image
                 size.
 
-        .. versionchanged:: ?
+        .. versionchanged:: 1.11.2
             Added more sophisticated replacement of NaN values in `img` before
             performing spline interpolation, preventing or significantly reducing any
             artefacts on the edge of NaN regions. NaN values are now replaced by the
