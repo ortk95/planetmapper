@@ -866,24 +866,12 @@ class TestBodyXY(common_testing.BaseTestCase):
         expected_interpolations: dict[str | int | tuple[int, int], list] = {
             # fmt: off
             'nearest': [[nan, nan, 100.0, 100.0, -1.0, nan, nan, nan], [nan, nan, nan, 75.0, 999.0, 3.3, 3.3, nan], [nan, nan, nan, 0.0, 123.45, nan, 123.456789, nan], [nan, nan, nan, 3.0, 3.0, 0.1, nan, nan]],
-            'linear': [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 61.29603002276653, 398.73476969286855, 9.626860283518733, nan, nan], [nan, nan, nan, 0.056038969669795366, 92.33197693680738, nan, nan, nan], [nan, nan, nan, -40.10713953735293, -18.224748199954135, nan, nan, nan]],
-            'cubic': [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 69.51249431325967, 638.1723798307371, -18.12433829777904, nan, nan], [nan, nan, nan, -63.050783874268454, 103.76695303861266, nan, nan, nan], [nan, nan, nan, -24.19662305379064, -4.645255757683826, nan, nan, nan]],
-            'linear_spline': [[nan, nan, 83.42502054006614, 61.410255547165704, 1.0972142916279704, nan, nan, nan], [nan, nan, nan, 61.591824124152424, 488.0893412811879, 4.181692402514696, 3.8032713799190443, nan], [nan, nan, nan, 3.678385742930187, 94.03788871233297, nan, 94.00305287602345, nan], [nan, nan, nan, -25.28910210942658, -1.6502703714050462, nan, nan, nan]],
-            'quadratic_spline': [[nan, nan, 91.90998942978494, 70.48419640972647, 0.34341861260311213, nan, nan, nan], [nan, nan, nan, 47.43961193970507, 780.1933190874719, -11.958641161828965, 3.184912002872358, nan], [nan, nan, nan, -40.33639788223132, 106.33548747800452, nan, 105.18997370517593, nan], [nan, nan, nan, -35.84554405305129, -19.35757229218872, nan, nan, nan]],
-            'cubic_spline': [[nan, nan, 85.9755959465797, 62.17923405553061, 0.3091144142737736, nan, nan, nan], [nan, nan, nan, 38.17050096080083, 837.0682797065551, -40.810161294299334, 0.27983006177932324, nan], [nan, nan, nan, -77.21287210436617, 103.88323214798433, nan, 95.77775352477312, nan], [nan, nan, nan, -29.994884067130222, -35.81550582449343, nan, nan, nan]],
-            (1, 2): [[nan, nan, 91.90998942978496, 70.48419640972647, 0.343418612603116, nan, nan, nan], [nan, nan, nan, 48.82728713390978, 584.7164003757379, -0.9895987798646678, 3.184912002872359, nan], [nan, nan, nan, -0.625402661173368, 99.24054961575526, nan, 94.00305287602345, nan], [nan, nan, nan, -33.19407454333914, -8.380623602166663, nan, nan, nan]],
+            'linear': [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 61.591824124152424, 488.0893412811879, 4.181692402514696, nan, nan], [nan, nan, nan, 3.678385742930187, 94.03788871233297, nan, nan, nan], [nan, nan, nan, -25.28910210942658, -1.6502703714050462, nan, nan, nan]],
+            'quadratic': [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 47.43961193970507, 780.1933190874719, -11.958641161828965, nan, nan], [nan, nan, nan, -40.33639788223132, 106.33548747800452, nan, nan, nan], [nan, nan, nan, -35.84554405305129, -19.35757229218872, nan, nan, nan]],
+            'cubic': [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 38.17050096080083, 837.0682797065551, -40.810161294299334, nan, nan], [nan, nan, nan, -77.21287210436617, 103.88323214798433, nan, nan, nan], [nan, nan, nan, -29.994884067130222, -35.81550582449343, nan, nan, nan]],
+            (1, 2): [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 48.82728713390978, 584.7164003757379, -0.9895987798646678, nan, nan], [nan, nan, nan, -0.625402661173368, 99.24054961575526, nan, nan, nan], [nan, nan, nan, -33.19407454333914, -8.380623602166663, nan, nan, nan]],
             # fmt: on
         }
-        # Check spline aliases
-        expected_interpolations[1] = expected_interpolations['linear_spline']
-        expected_interpolations[2] = expected_interpolations['quadratic_spline']
-        expected_interpolations[3] = expected_interpolations['cubic_spline']
-        expected_interpolations[(1, 1)] = expected_interpolations['linear_spline']
-        expected_interpolations[(2, 2)] = expected_interpolations['quadratic_spline']
-        expected_interpolations[(3, 3)] = expected_interpolations['cubic_spline']
-        expected_interpolations['quadratic'] = expected_interpolations[
-            'quadratic_spline'
-        ]
         for interpolation, expected_img in expected_interpolations.items():
             with self.subTest(interpolation=interpolation):
                 self.assertArraysClose(
@@ -896,14 +884,46 @@ class TestBodyXY(common_testing.BaseTestCase):
                     equal_nan=True,
                 )
         with self.subTest('default interpolation'):
-            self.assertArraysClose(
+            self.assertArraysEqual(
                 self.body.map_img(
                     image,
                     degree_interval=45,
                 ),
-                expected_interpolations['linear'],
+                self.body.map_img(
+                    image,
+                    degree_interval=45,
+                    interpolation='linear',
+                    spline_smoothing=0.0,
+                    propagate_nan=True,
+                ),
                 equal_nan=True,
             )
+
+        # Check spline aliases
+        aliases: list[tuple[int | tuple[int, int], str]] = [
+            (1, 'linear'),
+            (2, 'quadratic'),
+            (3, 'cubic'),
+            ((1, 1), 'linear'),
+            ((2, 2), 'quadratic'),
+            ((3, 3), 'cubic'),
+        ]
+        for a, b in aliases:
+            with self.subTest('alias', a=a, b=b):
+                self.assertArraysEqual(
+                    self.body.map_img(
+                        image,
+                        degree_interval=45,
+                        interpolation=a,
+                    ),
+                    self.body.map_img(
+                        image,
+                        degree_interval=45,
+                        interpolation=b,
+                    ),
+                    equal_nan=True,
+                )
+
         # All nan
         nan_mapped = np.asarray(expected_interpolations['linear']) * np.nan
         for interpolation in expected_interpolations.keys():
@@ -921,8 +941,8 @@ class TestBodyXY(common_testing.BaseTestCase):
         # NaN propagation
         expected_propagations: dict[bool, list] = {
             # fmt: off
-            True: [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 61.29603002276653, 398.73476969286855, 9.626860283518733, nan, nan], [nan, nan, nan, 0.056038969669795366, 92.33197693680738, nan, nan, nan], [nan, nan, nan, -40.10713953735293, -18.224748199954135, nan, nan, nan]],
-            False: [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 61.29603002276653, 398.73476969286855, 9.626860283518733, nan, nan], [nan, nan, nan, 0.056038969669795366, 92.33197693680738, 1.6253337256055547, nan, nan], [nan, nan, nan, -40.10713953735293, -18.224748199954135, 0.24419804029477357, nan, nan]],
+            True: [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 61.591824124152424, 488.0893412811879, 4.181692402514696, nan, nan], [nan, nan, nan, 3.678385742930187, 94.03788871233297, nan, nan, nan], [nan, nan, nan, -25.28910210942658, -1.6502703714050462, nan, nan, nan]],
+            False: [[nan, nan, 83.42502054006614, 61.410255547165704, 1.0972142916279704, nan, nan, nan], [nan, nan, nan, 61.591824124152424, 488.0893412811879, 4.181692402514696, 3.8032713799190443, nan], [nan, nan, nan, 3.678385742930187, 94.03788871233297, 35.721226497463014, 94.00305287602345, nan], [nan, nan, nan, -25.28910210942658, -1.6502703714050462, 4.265385156596395, nan, nan]],
             # fmt: on
         }
         for propagate_nan, expected_img in expected_propagations.items():
@@ -940,10 +960,10 @@ class TestBodyXY(common_testing.BaseTestCase):
         # Check smoothing
         expected_smoothings: dict[float, list] = {
             # fmt: off
-            0: [[nan, nan, 83.42502054006614, 61.410255547165704, 1.0972142916279704, nan, nan, nan], [nan, nan, nan, 61.591824124152424, 488.0893412811879, 4.181692402514696, 3.8032713799190443, nan], [nan, nan, nan, 3.678385742930187, 94.03788871233297, nan, 94.00305287602345, nan], [nan, nan, nan, -25.28910210942658, -1.6502703714050462, nan, nan, nan]],
-            1: [[nan, nan, 83.4245440816458, 61.45753817756672, 1.275340739591313, nan, nan, nan], [nan, nan, nan, 61.78601266274162, 487.8146612006081, 4.182606695966389, 3.809819559880251, nan], [nan, nan, nan, 3.7096818751834397, 94.00272821072134, nan, 93.9667035562447, nan], [nan, nan, nan, -25.261262121302103, -1.6266437631103958, nan, nan, nan]],
-            2.345: [[nan, nan, 83.42431292723967, 61.48269956134671, 1.3700691255036115, nan, nan, nan], [nan, nan, nan, 61.88924454749024, 487.6685543716773, 4.183100640730575, 3.813298804685942, nan], [nan, nan, nan, 3.726347429765339, 93.98407173080481, nan, 93.94734309100922, nan], [nan, nan, nan, -25.24645740659029, -1.614083382535183, nan, nan, nan]],
-            67.89: [[nan, nan, 83.42272764920607, 61.80136007133172, 2.5660952322100496, nan, nan, nan], [nan, nan, nan, 63.190326809626086, 485.8219836178685, 4.1898033877049246, 3.857043255129838, nan], [nan, nan, nan, 3.9380925063904084, 93.75102909782771, nan, 93.7011185896305, nan], [nan, nan, nan, -25.05957376720378, -1.4557553087461503, nan, nan, nan]],
+            0: [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 61.591824124152424, 488.0893412811879, 4.181692402514696, nan, nan], [nan, nan, nan, 3.678385742930187, 94.03788871233297, nan, nan, nan], [nan, nan, nan, -25.28910210942658, -1.6502703714050462, nan, nan, nan]],
+            1: [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 61.78601266274162, 487.8146612006081, 4.182606695966389, nan, nan], [nan, nan, nan, 3.7096818751834397, 94.00272821072134, nan, nan, nan], [nan, nan, nan, -25.261262121302103, -1.6266437631103958, nan, nan, nan]],
+            2.345: [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 61.88924454749024, 487.6685543716773, 4.183100640730575, nan, nan], [nan, nan, nan, 3.726347429765339, 93.98407173080481, nan, nan, nan], [nan, nan, nan, -25.24645740659029, -1.614083382535183, nan, nan, nan]],
+            67.89: [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 63.190326809626086, 485.8219836178685, 4.1898033877049246, nan, nan], [nan, nan, nan, 3.9380925063904084, 93.75102909782771, nan, nan, nan], [nan, nan, nan, -25.05957376720378, -1.4557553087461503, nan, nan, nan]],
             # fmt: on
         }
         for smoothing, expected_img in expected_smoothings.items():
@@ -951,7 +971,7 @@ class TestBodyXY(common_testing.BaseTestCase):
                 self.assertArraysClose(
                     self.body.map_img(
                         image,
-                        interpolation='linear_spline',
+                        interpolation='linear',
                         degree_interval=45,
                         spline_smoothing=smoothing,
                     ),
@@ -962,9 +982,7 @@ class TestBodyXY(common_testing.BaseTestCase):
             # want to ensure all parameters are passed properly
             factors = [1, 2.345, -10, 3456.789, np.nan]
             cube = [image * f for f in factors]
-            kwargs = dict(
-                interpolation='linear_spline', degree_interval=45, spline_smoothing=1
-            )
+            kwargs = dict(interpolation='cubic', degree_interval=45, spline_smoothing=1)
             mapped_cube = self.body.map_img(cube, **kwargs)  # type: ignore
             for idx, (f, mapped_img) in enumerate(zip(factors, mapped_cube)):
                 with self.subTest('cube', idx=idx, f=f):
@@ -976,7 +994,7 @@ class TestBodyXY(common_testing.BaseTestCase):
 
         with self.subTest('warn nan'):
             self.body.map_img(
-                image, interpolation='linear_spline', degree_interval=45, warn_nan=True
+                image, interpolation='linear', degree_interval=45, warn_nan=True
             )
             mock_print.assert_called_once()
             mock_print.reset_mock()

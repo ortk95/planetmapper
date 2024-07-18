@@ -1192,16 +1192,7 @@ class BodyXY(Body):
         img: np.ndarray,
         *,
         interpolation: (
-            Literal[
-                'nearest',
-                'linear',
-                'cubic',
-                'linear_spline',
-                'quadratic_spline',
-                'cubic_spline',
-            ]
-            | int
-            | tuple[int, int]
+            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
         ) = 'linear',
         spline_smoothing: float = 0,
         propagate_nan: bool = True,
@@ -1212,26 +1203,18 @@ class BodyXY(Body):
         Project an observed image to a map. See :func:`generate_map_coordinates` for
         details about customising the projection used.
 
-        If `interpolation` is `'linear'` (the default) or `'cubic'`, the map projection
-        is performed using `scipy.interpolate.griddata` using linear or cubic
-        interpolation respectively. Cubic interpolation will produce a "smoother" map
-        than the default linear interpolation.
+        If `interpolation` is `'linear'` (the default), `'quadratic'` or `'cubic'`, the
+        map projection is performed using `scipy.interpolate.RectBivariateSpline` using
+        the specified degree of spline interpolation. This spline interpolation does not
+        accept NaN values in the input data, so any NaN pixels are automatically
+        replaced by the average value of the surrounding pixels (3x3 footprint) before
+        spline interpolation is performed, preventing or significantly reducing the
+        magnitude of any artefacts on the edge of NaN regions.
 
         If `interpolation` is `'nearest'`, no interpolation is performed, and the mapped
         image takes the value of the nearest pixel in the image to that location. This
         can be useful to easily visualise the pixel scale for low spatial resolution
         observations.
-
-        If `interpolation` is `'linear_spline'`, `'quadratic_spline'` or
-        `'cubic_spline'`, the map projection is performed using
-        `scipy.interpolate.RectBivariateSpline` using the specified degree of spline
-        interpolation. Note that this may slightly smooth the data when interpolating,
-        which may be useful for noisy data, but can also hide subtle structure. The
-        degree of spline smoothing can be customised with the `spline_smoothing`
-        parameter. This spline interpolation does not accept NaN values in the input
-        data, so any NaN pixels are automatically replaced by the average value of the
-        surrounding pixels before spline interpolation is performed (potentially
-        introducing subtle artefacts on the edge of NaN regions).
 
         See also :func:`Observation.get_mapped_data`.
 
@@ -1242,15 +1225,11 @@ class BodyXY(Body):
                 and a mapped cube is returned, equivalent to
                 `np.array([body.map_img(img) for img in cube])`.
             interpolation: Interpolation method used when mapping. This can be any of
-                `'nearest'`, `'linear'`, `'cubic'`, `'linear_spline'`,
-                `'quadratic_spline'` or `'cubic_spline'`; the default is `'linear'`.
-                `'linear'` and `'cubic'` use `scipy.interpolate.griddata` to perform the
-                interpolation, and the spline interpolations use
-                `scipy.interpolate.RectBivariateSpline`. `'linear_spline'`,
-                `'quadratic_spline'` and `'cubic_spline'` are aliases for
-                spline interpolations of degree 1, 2 and 3 respectively. Alternatively,
-                the degree of spline interpolation can be specified manually by passing
-                an integer or tuple of integers. If an integer is passed, the same
+                `'nearest'`, `'linear'` (the default), `'quadratic'` or `'cubic'`.
+                `'linear'`, `'quadratic'` and `'cubic'` are aliases for spline
+                interpolations of degree 1, 2 and 3 respectively. Alternatively, the
+                degree of spline interpolation can be specified manually by passing an
+                integer or tuple of integers. If an integer is passed, the same
                 interpolation is used in both the x and y directions (i.e.
                 `RectBivariateSpline` with `kx = ky = interpolation`). If a tuple of
                 integers is passed, the first integer is used for the x direction and
@@ -1258,13 +1237,16 @@ class BodyXY(Body):
                 `RectBivariateSpline` with `kx, ky = interpolation`).
             spline_smoothing: Smoothing factor passed to
                 `RectBivariateSpline(..., s=spline_smoothing)` when spline interpolation
-                is used. This parameter is ignored if spline interpolation is not used.
-            propagate_nan: By default (`propagate_nan=True`), areas of the map
-                corresponding to NaN values in the image are set to NaN. If
-                `propagate_nan` is `False`, then areas corresponding to NaN pixels
-                will be filled with interpolated values where possible, which can be
-                useful to fill in small regions of missing data. This parameter has no
-                effect if `interpolation='nearest'`.
+                is used. This can be useful to smooth over noisy data, though may hide
+                subtle structure if a large smoothing value is used. This parameter is
+                ignored if spline interpolation is not used.
+            propagate_nan: By default (`propagate_nan=True`) when perforing spline
+                interpolation, areas of the map corresponding to NaN values in the image
+                are set to NaN, along with areas outside the convex hull of the image's
+                pixel centres. If `propagate_nan` is `False`, then areas corresponding
+                to NaN pixels will be filled with interpolated/extrapolated values where
+                possible, which can be useful to fill in regions of missing data.
+                This parameter has no effect if `interpolation='nearest'`.
             warn_nan: Print warning if any values in `img` are NaN when any of the
                 spline interpolations are used.
             **map_kwargs: Additional arguments are passed to
@@ -1281,9 +1263,11 @@ class BodyXY(Body):
                 size.
 
         .. versionchanged:: ?
-            Changed the `'linear'` (default) and `'cubic'` interpolations to use
-            `scipy.interpolate.griddata` rather than spline interpolation. Spline
-            interpolation can be used by passing e.g. `interpolation='linear_spline'`.
+            Added more sophisticated replacement of NaN values in `img` before
+            performing spline interpolation, preventing or significantly reducing any
+            artefacts on the edge of NaN regions. NaN values are now replaced by the
+            average value of the surrounding non-NaN pixels, whereas previously NaN
+            values were always replaced with 0.
         """
         img = np.asarray(img)
         if img.ndim == 3:
@@ -1308,13 +1292,9 @@ class BodyXY(Body):
 
         x_map = self.get_x_map(**map_kwargs)
         y_map = self.get_y_map(**map_kwargs)
+        projected = self._make_empty_map(**map_kwargs)
 
-        spline_k = {
-            'linear_spline': 1,
-            'quadratic_spline': 2,
-            'cubic_spline': 3,
-            'quadratic': 2,  # keep for backward compatibility
-        }
+        spline_k = {'linear': 1, 'quadratic': 2, 'cubic': 3}
         if interpolation in spline_k:  # pylint: disable=consider-using-get
             interpolation = spline_k[interpolation]
 
@@ -1326,41 +1306,17 @@ class BodyXY(Body):
             y_map = np.asarray(
                 np.nan_to_num(np.round(y_map), nan=nan_sentinel), dtype=int
             )
-            projected = self._make_empty_map(**map_kwargs)
             for a, b in self._iterate_image(projected.shape):
                 x = x_map[a, b]
                 if x == nan_sentinel:
                     continue
                 y = y_map[a, b]  # y should never be nan when x is not nan
                 projected[a, b] = img[y, x]
-        elif interpolation in {'linear', 'cubic'}:
-            xs, ys = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
-            zs = img.ravel()
-            mask = np.isfinite(zs)
-            if np.any(mask):
-                projected = scipy.interpolate.griddata(
-                    (xs.ravel()[mask], ys.ravel()[mask]),
-                    zs[mask],
-                    (x_map, y_map),
-                    method=interpolation,
-                )
-            else:
-                projected = self._make_empty_map(**map_kwargs)
-            nans = np.isnan(img)
-            if propagate_nan:
-                for a, b in self._iterate_image(projected.shape):
-                    x = x_map[a, b]
-                    if math.isnan(x):
-                        continue
-                    y = y_map[a, b]
-                    if self._should_propagate_nan_to_map(x, y, nans):
-                        projected[a, b] = np.nan
         elif isinstance(interpolation, int | tuple):
             if isinstance(interpolation, int):
                 kx = ky = interpolation
             else:
                 kx, ky = interpolation
-            projected = self._make_empty_map(**map_kwargs)
             nans = np.isnan(img)
             if not np.all(nans):
                 img = self._replace_nans_with_interpolated_values(img, warn_nan)
@@ -1401,7 +1357,10 @@ class BodyXY(Body):
     def _should_propagate_nan_to_map(
         self, x: float, y: float, nans: np.ndarray
     ) -> bool:
-        # Test if any of the four surrounding integer pixels in the image are NaN
+        # Test if any of the four surrounding integer pixels in the image are NaN or if
+        # outside the convex hull of pixel centres
+        if x < 0.0 or y < 0.0 or x > self._nx - 1 or y > self._ny - 1:
+            return True
         x0 = max(math.floor(x), 0)
         x1 = min(math.ceil(x), self._nx - 1)
         y0 = max(math.floor(y), 0)
@@ -1437,6 +1396,8 @@ class BodyXY(Body):
         else:
             median = np.nanmedian(img)
         cleaned[bad] = median
+        # Fix bad pixels that have neighbouring good pixels by replacing them with the
+        # mean of the surrounding 3x3 good pixels.
         # pylint: disable-next=invalid-unary-operand-type
         to_fix = bad & ~scipy.ndimage.uniform_filter(bad, size=3)  #  type: ignore
         for i, j in np.argwhere(to_fix):

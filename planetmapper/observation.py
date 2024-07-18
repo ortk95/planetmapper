@@ -718,16 +718,7 @@ class Observation(BodyXY):
     def get_mapped_data(
         self,
         interpolation: (
-            Literal[
-                'nearest',
-                'linear',
-                'cubic',
-                'linear_spline',
-                'quadratic_spline',
-                'cubic_spline',
-            ]
-            | int
-            | tuple[int, int]
+            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
         ) = 'linear',
         *,
         spline_smoothing: float = 0,
@@ -772,16 +763,7 @@ class Observation(BodyXY):
         self,
         *,
         interpolation: (
-            Literal[
-                'nearest',
-                'linear',
-                'cubic',
-                'linear_spline',
-                'quadratic_spline',
-                'cubic_spline',
-            ]
-            | int
-            | tuple[int, int]
+            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
         ),
         spline_smoothing: float,
         propagate_nan: bool,
@@ -1176,16 +1158,7 @@ class Observation(BodyXY):
         path: str | os.PathLike,
         *,
         interpolation: (
-            Literal[
-                'nearest',
-                'linear',
-                'cubic',
-                'linear_spline',
-                'quadratic_spline',
-                'cubic_spline',
-            ]
-            | int
-            | tuple[int, int]
+            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
         ) = 'linear',
         spline_smoothing: float = 0,
         propagate_nan: bool = True,
@@ -1319,14 +1292,13 @@ class Observation(BodyXY):
             'Interpolation method used in mapping.',
             header=header,
         )
-        if interpolation not in {'nearest', 'linear', 'cubic'}:
+        if interpolation != 'nearest':
             self.append_to_header(
                 'MAP SPLINE-SMOOTHING',
                 spline_smoothing,
                 'Interpolation spline smoothing factor used in mapping.',
                 header=header,
             )
-        if interpolation not in {'nearest'}:
             self.append_to_header(
                 'MAP PROPAGATE-NAN',
                 propagate_nan,

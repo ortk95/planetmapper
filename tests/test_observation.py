@@ -824,7 +824,7 @@ class TestObservation(common_testing.BaseTestCase):
             ),
             'rectangular-quadratic': dict(
                 degree_interval=30,
-                interpolation='quadratic_spline',
+                interpolation='quadratic',
                 include_backplanes=False,
                 include_wireframe=False,
             ),
@@ -924,8 +924,6 @@ class TestObservation(common_testing.BaseTestCase):
                     # other backplanes.
                     if extname == 'WIREFRAME':
                         atol = 64
-                    elif extname == 'PRIMARY':
-                        atol = 1e-3
                     else:
                         atol = 1e-6
                     self.assertArraysClose(data, data_ref, atol=atol, equal_nan=True)
