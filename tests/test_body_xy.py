@@ -475,7 +475,7 @@ class TestBodyXY(common_testing.BaseTestCase):
     def test_centre_disc(self):
         self.body.set_disc_params(0, 0, 1, 0)
         self.body.centre_disc()
-        self.assertEqual(self.body.get_disc_params(), (7.5, 5.0, 4.5, 0.0))
+        self.assertEqual(self.body.get_disc_params(), (7.0, 4.5, 4.05, 0.0))
         self.assertEqual(self.body.get_disc_method(), 'centre_disc')
 
     def test_img_size(self):
@@ -538,6 +538,7 @@ class TestBodyXY(common_testing.BaseTestCase):
         )
 
     def test_img_limits(self):
+        self.body.set_disc_params(7.5, 5.0, 4.5, 0.0)
         self.assertEqual(
             self.body.get_img_limits_xy(),
             (
@@ -674,6 +675,8 @@ class TestBodyXY(common_testing.BaseTestCase):
 
     @patch('matplotlib.pyplot.show')
     def test_plot_wireframe(self, mock_show: MagicMock):
+        self.body.set_disc_params(7.5, 5.0, 4.5, 0.0)
+
         fig, ax = plt.subplots()
         self.body.plot_wireframe_xy(ax=ax)
         self.assertEqual(len(ax.get_lines()), 21)
