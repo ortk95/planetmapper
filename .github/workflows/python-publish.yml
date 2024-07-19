@@ -18,7 +18,10 @@ permissions:
 jobs:
   checks:
     uses: ./.github/workflows/checks.yml
-
+  
+  check-docstring-versions:
+      uses: ./.github/workflows/check-docstring-versions.yml
+  
   check-version:
     runs-on: ubuntu-latest
     steps:
