@@ -2174,15 +2174,12 @@ class BodyXY(Body):
                 equal area'` projections.
             size: Pixel size (width and height) of generated `'orthographic'`,
                 `'azimuthal'` and `'azimuthal equal area'` projections.
-            lon_coords: Longitude coordinates to use for `'manual'` projection. This
-                must be a tuple (e.g. use `lon_coords=tuple(np.linspace(0, 360, 100))`)
-                - this allows mapping arguments and outputs to be cached).
-            lat_coords: Latitude coordinates to use for `'manual'` projection. This
-                must be a tuple.
-            projection_x_coords: Projected x coordinates to use with a pyproj projection
-                string. This must be a tuple.
-            projection_y_coords: Projected x coordinates to use with a pyproj projection
-                string. This must be a tuple.
+            lon_coords: Longitude coordinate array to use for `'manual'` projection.
+            lat_coords: Latitude coordinate array to use for `'manual'` projection.
+            projection_x_coords: Projected x coordinate array to use with a pyproj
+                projection string.
+            projection_y_coords: Projected x coordinate array to use with a pyproj
+                projection string.
             xlim: Tuple of `(x_min, x_max)` limits in the projected x coordinates of
                 the map. If `None`, the default, then the no limits are applied (i.e.
                 the entire globe will be mapped). If `xlim` is provided, it should be a
