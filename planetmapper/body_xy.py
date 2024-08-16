@@ -252,10 +252,6 @@ class BodyXY(Body):
         self.set_disc_method('default')
         self._default_disc_method = 'manual'
 
-        if self._nx > 0 and self._ny > 0:
-            # centre disc if dimensions provided
-            self.centre_disc()
-
         self._mpl_transform_xy2angular_fixed: matplotlib.transforms.Affine2D | None = (
             None
         )
@@ -264,6 +260,10 @@ class BodyXY(Body):
         )
         self.backplanes = {}
         self._register_default_backplanes()
+
+        if self._nx > 0 and self._ny > 0:
+            # centre disc if dimensions provided
+            self.centre_disc()
 
     @classmethod
     def from_body(
@@ -336,6 +336,10 @@ class BodyXY(Body):
         other.set_disc_params(*self.get_disc_params())
         other.set_disc_method(self.get_disc_method())
         # set_img_size is covered by nx, ny in _get_kwargs, so would be redundant here
+
+    def _clear_cache(self) -> None:
+        super()._clear_cache()
+        self.update_transform()
 
     # Coordinate transformations
     @_cache_clearable_result
@@ -1097,14 +1101,41 @@ class BodyXY(Body):
         coordinates. ::
 
             # Plot an observed image on an RA/Dec axis with a wireframe of the target
-            ax = obs.plot_wireframe_radec()
+            ax = body.plot_wireframe_radec()
             ax.autoscale_view()
             ax.autoscale(False) # Prevent imshow breaking autoscale
             ax.imshow(
                 img,
                 origin='lower',
-                transform=obs.matplotlib_xy2radec_transform(ax),
+                transform=body.matplotlib_xy2radec_transform(ax),
                 )
+
+        .. note::
+            Matplotlib transformations involving `xy` coordinates are mutable, and will
+            be automatically updated whenever the disc parameters are changed. For
+            example, in the following code, the plotted image will use the `x0 = 10`
+            value that is set after the transform is used: ::
+
+                # ...
+                ax.imshow(
+                    img,
+                    origin='lower',
+                    transform=body.matplotlib_xy2radec_transform(ax),
+                    )
+                body.set_x0(10)
+                plt.show()
+
+            If you want to 'fix' the transform to a specific set of disc parameters, you
+            can use the transform's `frozen()` method to create a new transform that
+            will not be updated when the disc parameters change: ::
+
+                # ...
+                ax.imshow(
+                    img,
+                    origin='lower',
+                    transform=body.matplotlib_xy2radec_transform(ax).frozen(),
+                    )
+                # ...
 
         See :func:`Body.matplotlib_radec2km_transform` for more details and notes on
         limitations of these linear transformations.
@@ -1178,6 +1209,11 @@ class BodyXY(Body):
         Update the matplotlib transformations involving `xy` coordinates (e.g.
         :func:`matplotlib_radec2xy_transform`) to use the latest disc parameter
         values `(x0, y0, r0, rotation)`.
+
+        .. versionchanged:: ?.?.?
+            The transformations are now updated automatically whenever the disc
+            parameters are changed, so is generally no longer needed to be called
+            manually.
         """
         self._get_matplotlib_xy2angular_fixed_transform().set_matrix(
             self._get_xy2angular_matrix()
