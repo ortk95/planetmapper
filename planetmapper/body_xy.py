@@ -337,10 +337,6 @@ class BodyXY(Body):
         other.set_disc_method(self.get_disc_method())
         # set_img_size is covered by nx, ny in _get_kwargs, so would be redundant here
 
-    def _clear_cache(self) -> None:
-        super()._clear_cache()
-        self.update_transform()
-
     # Coordinate transformations
     @_cache_clearable_result
     def _get_xy2angular_matrix(self) -> np.ndarray:
@@ -631,6 +627,10 @@ class BodyXY(Body):
         return self._obsvec_norm2targvec(self._xy2obsvec_norm(x, y))
 
     # Interface
+    def _invalidate_disc_parameters(self) -> None:
+        self._clear_cache()
+        self.update_transform()
+
     def set_disc_params(
         self,
         x0: float | None = None,
@@ -726,7 +726,7 @@ class BodyXY(Body):
         if not math.isfinite(x0):
             raise ValueError('x0 must be finite')
         self._x0 = float(x0)
-        self._clear_cache()
+        self._invalidate_disc_parameters()
 
     def get_x0(self) -> float:
         """
@@ -746,7 +746,7 @@ class BodyXY(Body):
         if not math.isfinite(y0):
             raise ValueError('y0 must be finite')
         self._y0 = float(y0)
-        self._clear_cache()
+        self._invalidate_disc_parameters()
 
     def get_y0(self) -> float:
         """
@@ -768,7 +768,7 @@ class BodyXY(Body):
         if not r0 > 0:
             raise ValueError('r0 must be greater than zero')
         self._r0 = float(r0)
-        self._clear_cache()
+        self._invalidate_disc_parameters()
 
     def get_r0(self) -> float:
         """
@@ -779,7 +779,7 @@ class BodyXY(Body):
 
     def _set_rotation_radians(self, rotation: float) -> None:
         self._rotation_radians = float(rotation % (2 * np.pi))
-        self._clear_cache()
+        self._invalidate_disc_parameters()
 
     def _get_rotation_radians(self) -> float:
         return self._rotation_radians
