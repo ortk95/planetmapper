@@ -1,6 +1,7 @@
 # pylint: disable=attribute-defined-outside-init,protected-access
 import math
 import os
+import platform
 import sys
 import tkinter as tk
 import tkinter.colorchooser
@@ -186,6 +187,7 @@ class GUI:
             self.save_button: ['<Control-s>'],
             self.load_observation: ['<Control-o>'],
             self.copy_machine_coord_values: ['<Control-c>'],
+            self.copy_formatted_coord_values: ['<Control-Shift-C>'],
             self.display_header: ['<Control-h>'],
         }
         self.shortcuts_to_keep_in_entry = ['<Control-s>', '<Control-o>']
@@ -823,34 +825,61 @@ class GUI:
         frame = ttk.Frame(top_level_frame)
         frame.pack(padx=5, fill='x')
         self.coords_tab_labels: dict[str, ttk.Label] = {}
-        self.coords_labels: dict[str, list[str | tuple[str, str]]] = {
-            'Pixel coordinates': ['x', 'y'],
-            'Celestial coordinates': [
-                ('ra', 'Right ascension'),
-                ('dec', 'Declination'),
+        # {group_name: [(key, label, tooltip)]}
+        self.coords_labels: dict[str, list[tuple[str, str, str | None]]] = {
+            'Pixel coordinates': [
+                ('x', 'X', None),
+                ('y', 'Y', None),
             ],
-            'Planetographic coordinates': [('lon', 'Longitude'), ('lat', 'Latitude')],
-            'Illumination angles': ['phase', 'incidence', 'emission', 'azimuth'],
+            'Celestial coordinates': [
+                ('ra', 'Right ascension', None),
+                ('dec', 'Declination', None),
+            ],
+            'Planetographic coordinates': [
+                ('lon', 'Longitude', None),
+                ('lat', 'Latitude', None),
+            ],
+            'Planetocentric coordinates': [
+                ('lon_centric', 'Longitude', None),
+                ('lat_centric', 'Latitude', None),
+            ],
+            'Illumination angles': [
+                ('phase', 'Phase', None),
+                ('incidence', 'Incidence', None),
+                ('emission', 'Emission', None),
+                ('azimuth', 'Azimuth', None),
+            ],
+            'Distances': [
+                (
+                    'limb_distance',
+                    'Height above limb',
+                    'Height above the target\'s limb, negative values are on the disc',
+                ),
+                (
+                    'ring_radius',
+                    'Ring plane radius',
+                    'Distance from the target\'s centre in the target\'s equatorial (i.e. ring) plane',
+                ),
+            ],
         }
         for name, part_labels in self.coords_labels.items():
             label_frame = ttk.LabelFrame(frame, text=name)
-            label_frame.pack(fill='x', pady=5)
+            label_frame.pack(fill='x', pady=4)
             for col in range(2):
                 label_frame.grid_columnconfigure(col, weight=1, uniform='a')
-            for row, kl in enumerate(part_labels):
-                if isinstance(kl, tuple):
-                    key, label = kl
-                else:
-                    key = kl
-                    label = kl.capitalize()
+            for row, (key, label, tooltip) in enumerate(part_labels):
                 label = label + ':'
                 l1 = ttk.Label(label_frame, text=label)
-                l1.grid(row=row, column=0, sticky='e', pady=2, padx=2)
+                l1.grid(row=row, column=0, sticky='e', pady=1, padx=2)
 
                 l2 = ttk.Label(label_frame, text='')
-                l2.grid(row=row, column=1, sticky='w', pady=2, padx=2)
+                l2.grid(row=row, column=1, sticky='w', pady=1, padx=2)
 
                 self.coords_tab_labels[key] = l2
+
+                if tooltip is not None:
+                    self.add_tooltip(l1, tooltip)
+                    self.add_tooltip(l2, tooltip)
 
         button_frame = ttk.Frame(frame)
         button_frame.pack(fill='x', pady=5)
@@ -862,7 +891,7 @@ class GUI:
                 command=self.copy_formatted_coord_values,
                 state='disable',
             ),
-            'Copy formatted coordinate values',
+            'Copy formatted (i.e. human readable) coordinate values',
             self.copy_formatted_coord_values,
         )
         self.coords_copy_formatted_button.pack(fill='x', pady=2, padx=2)
@@ -878,18 +907,18 @@ class GUI:
         )
         self.coords_copy_machine_button.pack(fill='x', pady=2, padx=2)
 
-        message = [
-            '',
-            'Click on the plot to get coordinates',
-            'Right click on the plot to clear',
-            '',
+        messages = [
+            'Click on the plot to get coordinates.',
+            'Right click on the plot to clear.',
             'Note that most of these values change',
-            'when you adjust the disc position',
-            '',
+            'when you adjust the disc position.',
         ]
-        ttk.Label(top_level_frame, text='\n'.join(message), justify='center').pack(
-            fill='x', padx=5
-        )
+        ttk.Label(
+            top_level_frame,
+            text='\n'.join(messages),
+            justify='center',
+            foreground='gray50',
+        ).pack(fill='x', padx=5, pady=2)
 
     def get_click_coords(self) -> dict[str, float]:
         if self.last_click_location is None:
@@ -897,12 +926,22 @@ class GUI:
         out: dict[str, float] = {}
         observation = self.get_observation()
         x, y = self.last_click_location
+        ra, dec = observation.xy2radec(x, y)
         out['x'] = x
         out['y'] = y
         out['ra'], out['dec'] = observation.xy2radec(x, y)
+
+        _, _, out['limb_distance'] = observation.limb_coordinates_from_radec(ra, dec)
+        ring_radius, _, _ = observation.ring_plane_coordinates(ra, dec)
+        if math.isfinite(ring_radius):
+            out['ring_radius'] = ring_radius
+
         try:
             targvec = observation._xy2targvec(x, y)
             out['lon'], out['lat'] = observation.targvec2lonlat(targvec)
+            out['lon_centric'], out['lat_centric'] = (
+                observation._targvec2lonlat_centric(targvec)
+            )
             (
                 phase,
                 incdnc,
@@ -953,6 +992,14 @@ class GUI:
         out['ra'] = utils.decimal_degrees_to_dms_str(ra, dms_fmt)
         out['dec'] = utils.decimal_degrees_to_dms_str(dec, dms_fmt)
 
+        # format distance with thin space for thousands separator
+        distance_formatter = lambda x: f'{x:_.0f} km'.replace('_', '\u2009')
+        out['limb_distance'] = distance_formatter(coords['limb_distance'])
+        try:
+            out['ring_radius'] = distance_formatter(coords['ring_radius'])
+        except KeyError:
+            pass
+
         try:
             # Use targvec for a bit more speed here
             lon, lat = coords['lon'], coords['lat']
@@ -960,6 +1007,12 @@ class GUI:
             ns = 'N' if lat >= 0 else 'S'
             out['lon'] = f'{lon:{fmt}}°{ew}'
             out['lat'] = f'{abs(lat):{fmt}}°{ns}'
+
+            lon_centric, lat_centric = coords['lon_centric'], coords['lat_centric']
+            ew = 'E'
+            ns = 'N' if lat >= 0 else 'S'
+            out['lon_centric'] = f'{lon_centric:{fmt}}°{ew}'
+            out['lat_centric'] = f'{abs(lat_centric):{fmt}}°{ns}'
 
             out['phase'] = f'{coords["phase"]:{fmt}}°'
             out['incidence'] = f'{coords["incidence"]:{fmt}}°'
@@ -973,12 +1026,7 @@ class GUI:
         msg = []
         for name, part_labels in self.coords_labels.items():
             msg.append(name)
-            for row, kl in enumerate(part_labels):
-                if isinstance(kl, tuple):
-                    key, label = kl
-                else:
-                    key = kl
-                    label = kl.capitalize()
+            for row, (key, label, tooltip) in enumerate(part_labels):
                 value = coords_strs.get(key, '')
                 msg.append(f'  - {label}: {value}')
         return '\n'.join(msg)
@@ -994,11 +1042,11 @@ class GUI:
         ]
 
         try:
-            # Use targvec for a bit more speed here
             lon, lat = coords['lon'], coords['lat']
             parts.extend(
                 [
                     f'"lonlat": [{lon:{fmt}}, {lat:{fmt}}]',
+                    f'"lonlat_centric": [{coords["lon_centric"]:{fmt}}, {coords["lat_centric"]:{fmt}}]',
                     f'"phase": {coords["phase"]:{fmt}}',
                     f'"incidence": {coords["incidence"]:{fmt}}',
                     f'"emission": {coords["emission"]:{fmt}}',
@@ -1007,6 +1055,11 @@ class GUI:
             )
         except KeyError:
             pass  # Not on disc
+        parts.append(f'"limb_distance": {coords["limb_distance"]:{fmt}}')
+        try:
+            parts.append(f'"ring_radius": {coords["ring_radius"]:{fmt}}')
+        except KeyError:
+            pass
         return '{' + ', '.join(parts) + '}'
 
     def figure_click_callback(self, event: MouseEvent) -> None:
@@ -1369,6 +1422,9 @@ class GUI:
             handler = lambda e, f=fn: self.process_keypress(e, f)
             for event in events:
                 self.root.bind(event, handler)
+                if platform.system() == 'Darwin' and 'Control' in event:
+                    # On MacOS, bind Command as well as Control
+                    self.root.bind(event.replace('Control', 'Command'), handler)
 
     def process_keypress(self, event, fn) -> None:
         if event.time != self.event_time_to_ignore:
