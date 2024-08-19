@@ -351,7 +351,7 @@ class Observation(BodyXY):
         This uses the NAXIS3, CRVAL3, CDELT3 (or CD3_3) and CRPIX3 keywords to generate
         the wavelengths. If `check_ctype` is `True`, then the CTYPE3 keyword is also
         checked to ensure it is `'WAVE'`. If the Header does not contain the necessary
-        information to construct a wavelength array, then a 
+        information to construct a wavelength array, then a
         :class:`planetmapper.utils.GetWavelengthsError` is raised.
 
         See :func:`planetmapper.utils.generate_wavelengths_from_header` for more
@@ -359,11 +359,11 @@ class Observation(BodyXY):
 
         Args:
             check_ctype: Check that the CTYPE3 keyword is `'WAVE'`.
-        
+
         Returns:
             Wavelength array for the spectral cube. This will have the same length as
             the third axis of the data cube.
-        
+
         Raises:
             GetWavelengthsError: if the Header does not contain the necessary
                 information to construct a wavelength array.

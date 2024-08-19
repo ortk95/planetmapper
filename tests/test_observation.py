@@ -414,7 +414,7 @@ class TestObservation(common_testing.BaseTestCase):
         )
         self.assertArraysClose(
             observation.get_wavelengths_from_header(),
-            [0.456, 0.579, 0.702, 0.825, 0.948]
+            [0.456, 0.579, 0.702, 0.825, 0.948],
         )
 
         observation = Observation(
@@ -434,10 +434,8 @@ class TestObservation(common_testing.BaseTestCase):
             observation.get_wavelengths_from_header()
         self.assertArraysClose(
             observation.get_wavelengths_from_header(check_ctype=False),
-            [0.456, 0.579, 0.702, 0.825, 0.948]
+            [0.456, 0.579, 0.702, 0.825, 0.948],
         )
-
-
 
     def test_disc_from_header(self):
         with self.assertRaises(ValueError):

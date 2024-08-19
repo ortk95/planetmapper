@@ -241,10 +241,9 @@ class TestUtils(common_testing.BaseTestCase):
             array([4.0, 5.0, 6.0, 7.0, 8.0]),
         )
         self.assertArraysClose(
-                        utils.generate_wavelengths_from_header(
-
-            {'CTYPE1': 'WAVE', 'NAXIS1': 5, 'CRPIX1': 3, 'CRVAL1': 2, 'CD1_1': 1},
-                        axis=1,
-                        ),
+            utils.generate_wavelengths_from_header(
+                {'CTYPE1': 'WAVE', 'NAXIS1': 5, 'CRPIX1': 3, 'CRVAL1': 2, 'CD1_1': 1},
+                axis=1,
+            ),
             array([4.0, 5.0, 6.0, 7.0, 8.0]),
         )
