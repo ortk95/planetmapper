@@ -397,6 +397,48 @@ class TestObservation(common_testing.BaseTestCase):
         with self.assertRaises(TypeError):
             self.observation.set_img_size(2, 3)
 
+    def test_get_wavelengths_from_header(self):
+        observation = Observation(
+            data=np.ones((7, 6, 5)),
+            header=fits.Header(
+                {
+                    'CTYPE3': 'WAVE',
+                    'NAXIS3': 5,
+                    'CD3_3': 0.123,
+                    'CRVAL3': 0.456,
+                }
+            ),
+            target='Jupiter',
+            observer='hst',
+            utc='2005-01-01T00:00:00',
+        )
+        self.assertArraysClose(
+            observation.get_wavelengths_from_header(),
+            [0.456, 0.579, 0.702, 0.825, 0.948]
+        )
+
+        observation = Observation(
+            data=np.ones((7, 6, 5)),
+            header=fits.Header(
+                {
+                    'NAXIS3': 5,
+                    'CD3_3': 0.123,
+                    'CRVAL3': 0.456,
+                }
+            ),
+            target='Jupiter',
+            observer='hst',
+            utc='2005-01-01T00:00:00',
+        )
+        with self.assertRaises(planetmapper.utils.GetWavelengthsError):
+            observation.get_wavelengths_from_header()
+        self.assertArraysClose(
+            observation.get_wavelengths_from_header(check_ctype=False),
+            [0.456, 0.579, 0.702, 0.825, 0.948]
+        )
+
+
+
     def test_disc_from_header(self):
         with self.assertRaises(ValueError):
             self.observation.disc_from_header()
