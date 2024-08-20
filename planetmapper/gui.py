@@ -1,6 +1,7 @@
 # pylint: disable=attribute-defined-outside-init,protected-access
 import math
 import os
+import platform
 import sys
 import tkinter as tk
 import tkinter.colorchooser
@@ -70,6 +71,7 @@ DEFAULT_PLOT_SETTINGS: dict[PlotKey, dict] = {
     'image': dict(zorder=0.9, cmap='inferno'),
     '_': dict(
         grid_interval=30,
+        grid_planetocentric=False,
         image_mode='single',
         image_idx_single=0,
         image_idx_r=0,
@@ -159,6 +161,10 @@ class GUI:
         self._popups: list[Popup] = []
 
         self._observation: Observation | None = None
+        self._observation_wavelengths: np.ndarray | None = None
+        self._observation_wavelengths_fmt = 'f'
+        self._observation_wavelengths_unit = ''
+
         self.step_size = 1
 
         self.click_locations: list[tuple[float, float]] = []
@@ -186,6 +192,7 @@ class GUI:
             self.save_button: ['<Control-s>'],
             self.load_observation: ['<Control-o>'],
             self.copy_machine_coord_values: ['<Control-c>'],
+            self.copy_formatted_coord_values: ['<Control-Shift-C>'],
             self.display_header: ['<Control-h>'],
         }
         self.shortcuts_to_keep_in_entry = ['<Control-s>', '<Control-o>']
@@ -374,6 +381,27 @@ class GUI:
 
         self.click_locations = []
         self.clear_click_location()
+
+        try:
+            self._observation_wavelengths = (
+                self.get_observation().get_wavelengths_from_header()
+            )
+            # Get an appropriate number of decimal places to represent wavelength steps
+            decimals = -np.log10(np.nanmean(np.diff(self._observation_wavelengths)))
+            if np.isfinite(decimals):
+                decimals = int(max(1, decimals + 0.5)) + 1
+                self._observation_wavelengths_fmt = f'.{decimals}f'
+            else:
+                self._observation_wavelengths_fmt = 'f'
+            self._observation_wavelengths_unit = str(
+                self.get_observation().header.get('CUNIT3', '')
+            ).strip()
+            if self._observation_wavelengths_unit:
+                self._observation_wavelengths_unit = (
+                    ' ' + self._observation_wavelengths_unit
+                )
+        except utils.GetWavelengthsError:
+            self._observation_wavelengths = None
 
     def get_observation(self) -> Observation:
         if self._observation is None:
@@ -823,34 +851,61 @@ class GUI:
         frame = ttk.Frame(top_level_frame)
         frame.pack(padx=5, fill='x')
         self.coords_tab_labels: dict[str, ttk.Label] = {}
-        self.coords_labels: dict[str, list[str | tuple[str, str]]] = {
-            'Pixel coordinates': ['x', 'y'],
-            'Celestial coordinates': [
-                ('ra', 'Right ascension'),
-                ('dec', 'Declination'),
+        # {group_name: [(key, label, tooltip)]}
+        self.coords_labels: dict[str, list[tuple[str, str, str | None]]] = {
+            'Pixel coordinates': [
+                ('x', 'X', None),
+                ('y', 'Y', None),
             ],
-            'Planetographic coordinates': [('lon', 'Longitude'), ('lat', 'Latitude')],
-            'Illumination angles': ['phase', 'incidence', 'emission', 'azimuth'],
+            'Celestial coordinates': [
+                ('ra', 'Right ascension', None),
+                ('dec', 'Declination', None),
+            ],
+            'Planetographic coordinates': [
+                ('lon', 'Longitude', None),
+                ('lat', 'Latitude', None),
+            ],
+            'Planetocentric coordinates': [
+                ('lon_centric', 'Longitude', None),
+                ('lat_centric', 'Latitude', None),
+            ],
+            'Illumination angles': [
+                ('phase', 'Phase', None),
+                ('incidence', 'Incidence', None),
+                ('emission', 'Emission', None),
+                ('azimuth', 'Azimuth', None),
+            ],
+            'Distances': [
+                (
+                    'limb_distance',
+                    'Height above limb',
+                    'Height above the target\'s limb, negative values are on the disc',
+                ),
+                (
+                    'ring_radius',
+                    'Ring plane radius',
+                    'Distance from the target\'s centre in the target\'s equatorial (i.e. ring) plane',
+                ),
+            ],
         }
         for name, part_labels in self.coords_labels.items():
             label_frame = ttk.LabelFrame(frame, text=name)
-            label_frame.pack(fill='x', pady=5)
+            label_frame.pack(fill='x', pady=4)
             for col in range(2):
                 label_frame.grid_columnconfigure(col, weight=1, uniform='a')
-            for row, kl in enumerate(part_labels):
-                if isinstance(kl, tuple):
-                    key, label = kl
-                else:
-                    key = kl
-                    label = kl.capitalize()
+            for row, (key, label, tooltip) in enumerate(part_labels):
                 label = label + ':'
                 l1 = ttk.Label(label_frame, text=label)
-                l1.grid(row=row, column=0, sticky='e', pady=2, padx=2)
+                l1.grid(row=row, column=0, sticky='e', pady=1, padx=2)
 
                 l2 = ttk.Label(label_frame, text='')
-                l2.grid(row=row, column=1, sticky='w', pady=2, padx=2)
+                l2.grid(row=row, column=1, sticky='w', pady=1, padx=2)
 
                 self.coords_tab_labels[key] = l2
+
+                if tooltip is not None:
+                    self.add_tooltip(l1, tooltip)
+                    self.add_tooltip(l2, tooltip)
 
         button_frame = ttk.Frame(frame)
         button_frame.pack(fill='x', pady=5)
@@ -862,7 +917,7 @@ class GUI:
                 command=self.copy_formatted_coord_values,
                 state='disable',
             ),
-            'Copy formatted coordinate values',
+            'Copy formatted (i.e. human readable) coordinate values',
             self.copy_formatted_coord_values,
         )
         self.coords_copy_formatted_button.pack(fill='x', pady=2, padx=2)
@@ -878,18 +933,18 @@ class GUI:
         )
         self.coords_copy_machine_button.pack(fill='x', pady=2, padx=2)
 
-        message = [
-            '',
-            'Click on the plot to get coordinates',
-            'Right click on the plot to clear',
-            '',
+        messages = [
+            'Click on the plot to get coordinates.',
+            'Right click on the plot to clear.',
             'Note that most of these values change',
-            'when you adjust the disc position',
-            '',
+            'when you adjust the disc position.',
         ]
-        ttk.Label(top_level_frame, text='\n'.join(message), justify='center').pack(
-            fill='x', padx=5
-        )
+        ttk.Label(
+            top_level_frame,
+            text='\n'.join(messages),
+            justify='center',
+            foreground='gray50',
+        ).pack(fill='x', padx=5, pady=2)
 
     def get_click_coords(self) -> dict[str, float]:
         if self.last_click_location is None:
@@ -897,12 +952,22 @@ class GUI:
         out: dict[str, float] = {}
         observation = self.get_observation()
         x, y = self.last_click_location
+        ra, dec = observation.xy2radec(x, y)
         out['x'] = x
         out['y'] = y
         out['ra'], out['dec'] = observation.xy2radec(x, y)
+
+        _, _, out['limb_distance'] = observation.limb_coordinates_from_radec(ra, dec)
+        ring_radius, _, _ = observation.ring_plane_coordinates(ra, dec)
+        if math.isfinite(ring_radius):
+            out['ring_radius'] = ring_radius
+
         try:
             targvec = observation._xy2targvec(x, y)
             out['lon'], out['lat'] = observation.targvec2lonlat(targvec)
+            out['lon_centric'], out['lat_centric'] = (
+                observation._targvec2lonlat_centric(targvec)
+            )
             (
                 phase,
                 incdnc,
@@ -953,6 +1018,14 @@ class GUI:
         out['ra'] = utils.decimal_degrees_to_dms_str(ra, dms_fmt)
         out['dec'] = utils.decimal_degrees_to_dms_str(dec, dms_fmt)
 
+        # format distance with thin space for thousands separator
+        distance_formatter = lambda x: f'{x:_.0f} km'.replace('_', '\u2009')
+        out['limb_distance'] = distance_formatter(coords['limb_distance'])
+        try:
+            out['ring_radius'] = distance_formatter(coords['ring_radius'])
+        except KeyError:
+            pass
+
         try:
             # Use targvec for a bit more speed here
             lon, lat = coords['lon'], coords['lat']
@@ -960,6 +1033,12 @@ class GUI:
             ns = 'N' if lat >= 0 else 'S'
             out['lon'] = f'{lon:{fmt}}°{ew}'
             out['lat'] = f'{abs(lat):{fmt}}°{ns}'
+
+            lon_centric, lat_centric = coords['lon_centric'], coords['lat_centric']
+            ew = 'E'
+            ns = 'N' if lat >= 0 else 'S'
+            out['lon_centric'] = f'{lon_centric:{fmt}}°{ew}'
+            out['lat_centric'] = f'{abs(lat_centric):{fmt}}°{ns}'
 
             out['phase'] = f'{coords["phase"]:{fmt}}°'
             out['incidence'] = f'{coords["incidence"]:{fmt}}°'
@@ -973,12 +1052,7 @@ class GUI:
         msg = []
         for name, part_labels in self.coords_labels.items():
             msg.append(name)
-            for row, kl in enumerate(part_labels):
-                if isinstance(kl, tuple):
-                    key, label = kl
-                else:
-                    key = kl
-                    label = kl.capitalize()
+            for row, (key, label, tooltip) in enumerate(part_labels):
                 value = coords_strs.get(key, '')
                 msg.append(f'  - {label}: {value}')
         return '\n'.join(msg)
@@ -994,11 +1068,11 @@ class GUI:
         ]
 
         try:
-            # Use targvec for a bit more speed here
             lon, lat = coords['lon'], coords['lat']
             parts.extend(
                 [
                     f'"lonlat": [{lon:{fmt}}, {lat:{fmt}}]',
+                    f'"lonlat_centric": [{coords["lon_centric"]:{fmt}}, {coords["lat_centric"]:{fmt}}]',
                     f'"phase": {coords["phase"]:{fmt}}',
                     f'"incidence": {coords["incidence"]:{fmt}}',
                     f'"emission": {coords["emission"]:{fmt}}',
@@ -1007,6 +1081,11 @@ class GUI:
             )
         except KeyError:
             pass  # Not on disc
+        parts.append(f'"limb_distance": {coords["limb_distance"]:{fmt}}')
+        try:
+            parts.append(f'"ring_radius": {coords["ring_radius"]:{fmt}}')
+        except KeyError:
+            pass
         return '{' + ', '.join(parts) + '}'
 
     def figure_click_callback(self, event: MouseEvent) -> None:
@@ -1222,7 +1301,12 @@ class GUI:
     def replot_grid(self) -> None:
         self.remove_artists('grid')
         interval = self.plot_settings['_'].setdefault('grid_interval', 30)
-        for ra, dec in self.get_observation().visible_lonlat_grid_radec(interval):
+        planetocentric = self.plot_settings['_'].setdefault(
+            'grid_planetocentric', False
+        )
+        for ra, dec in self.get_observation().visible_lonlat_grid_radec(
+            interval, planetocentric=planetocentric
+        ):
             self.plot_handles['grid'].extend(
                 self.ax.plot(
                     ra,
@@ -1369,6 +1453,9 @@ class GUI:
             handler = lambda e, f=fn: self.process_keypress(e, f)
             for event in events:
                 self.root.bind(event, handler)
+                if platform.system() == 'Darwin' and 'Control' in event:
+                    # On MacOS, bind Command as well as Control
+                    self.root.bind(event.replace('Control', 'Command'), handler)
 
     def process_keypress(self, event, fn) -> None:
         if event.time != self.event_time_to_ignore:
@@ -2692,6 +2779,7 @@ class ArtistSetting(Popup, ABC):
 
 class PlotImageSetting(ArtistSetting):
     REPLOT_DELAY_MS = 100
+    SLIDER_DELAY_MS = 10
 
     def __init__(
         self,
@@ -2735,6 +2823,12 @@ class PlotImageSetting(ArtistSetting):
         )
         self.wavelength_slider.pack(fill='x')
 
+        self.single_wavelength_label = ttk.Label(
+            self.tools_frame,
+            justify='center',
+        )
+        self.single_wavelength_label.pack()
+
         self.enabled.trace_add('write', self.update_tool_ui_state)
         self.single_wavelength_enabled.trace_add(
             'write', self.on_single_wavelength_checkbutton_change
@@ -2771,16 +2865,32 @@ class PlotImageSetting(ArtistSetting):
                 self.single_wavelength_enabled.set(1)
 
         self.gui.plot_settings['_']['image_idx_single'] = wavelength_idx
-        self.schedule_replot()
 
-    def schedule_replot(self, skip_full_delay: bool = False) -> None:
         self.gui.add_delayed_action(
-            'update_only_image',
+            'set_slider_label',
+            self.SLIDER_DELAY_MS,
+            self.set_slider_label,
+        )
+        self.schedule_replot(set_slider=False)
+
+    def schedule_replot(
+        self, skip_full_delay: bool = False, set_slider: bool = True
+    ) -> None:
+        self.gui.add_delayed_action(
+            'do_replot',
             1 if skip_full_delay else self.REPLOT_DELAY_MS,
-            self.gui.update_only_image,
+            self.do_replot if set_slider else self.do_replot_no_slider,
         )
 
-    def update_tool_ui_state(self, *_) -> None:
+    def do_replot_no_slider(self):
+        self.update_tool_ui_state(set_slider=False)
+        self.gui.update_only_image()
+
+    def do_replot(self):
+        self.update_tool_ui_state()
+        self.gui.update_only_image()
+
+    def update_tool_ui_state(self, *_, set_slider: bool = True) -> None:
         self.in_tool_updating_state = True
         try:
             general_settings = self.gui.plot_settings['_']
@@ -2793,17 +2903,43 @@ class PlotImageSetting(ArtistSetting):
             wavelength_idx = int(general_settings.setdefault('image_idx_single', 0))
 
             self.single_wavelength_enabled.set(int(is_single_wavelength))
-            self.wavelength_variable.set(wavelength_idx)
+            if set_slider:
+                self.wavelength_variable.set(wavelength_idx)
 
             self.single_wavelength_checkbutton.configure(
                 state='normal' if enable else 'disable',
             )
-            self.wavelength_slider.configure(
-                to=n_wavelengths - 1,
-                state='normal' if enable else 'disable',
-            )
+            if set_slider:
+                self.wavelength_slider.configure(
+                    to=n_wavelengths - 1,
+                    state='normal' if enable else 'disable',
+                )
+            self.set_slider_label()
         finally:
             self.in_tool_updating_state = False
+
+    def set_slider_label(self):
+        general_settings = self.gui.plot_settings['_']
+        image_mode = general_settings.setdefault('image_mode', 'single')
+        if image_mode == 'single':
+            wavelength_idx = int(general_settings.setdefault('image_idx_single', 0))
+            if self.gui._observation_wavelengths is not None:
+                value_s = f' ({self.gui._observation_wavelengths[wavelength_idx]:{self.gui._observation_wavelengths_fmt}}{self.gui._observation_wavelengths_unit})'
+            else:
+                value_s = ''
+            self.single_wavelength_label.configure(
+                text=f'{wavelength_idx}{value_s}',
+                foreground='black',
+            )
+        else:
+            self.single_wavelength_label.configure(
+                text=(
+                    'Showing sum of all wavelengths'
+                    if image_mode == 'sum'
+                    else 'Showing RGB composite'
+                ),
+                foreground='gray50',
+            )
 
     def make_menu(self) -> None:
         settings = self.gui.plot_settings[self.key]
@@ -3107,7 +3243,15 @@ class PlotGridSetting(PlotLineSetting):
         self.grid_interval = tk.StringVar(
             value=str(self.gui.plot_settings['_'].setdefault('grid_interval', 30))
         )
+        self.grid_type = tk.StringVar(
+            value=(
+                'planetocentric'
+                if self.gui.plot_settings['_'].setdefault('grid_planetocentric', False)
+                else 'planetographic'
+            )
+        )
 
+        self.radio_frame = ttk.Frame(self.grid_frame)
         self.add_to_menu_grid(
             [
                 (
@@ -3119,15 +3263,25 @@ class PlotGridSetting(PlotLineSetting):
                         width=10,
                     ),
                 ),
+                (ttk.Label(self.grid_frame, text='Grid type: '), self.radio_frame),
             ]
         )
+        for v in ('planetographic', 'planetocentric'):
+            ttk.Radiobutton(
+                self.radio_frame,
+                text=v.capitalize(),
+                value=v,
+                variable=self.grid_type,
+            ).pack(fill='x')
 
     def apply_settings(self) -> bool:
         try:
             grid_interval = self.get_float(self.grid_interval, 'grid interval')
+            grid_planetocentric = self.grid_type.get() == 'planetocentric'
         except ValueError:
             return False
         self.gui.plot_settings['_']['grid_interval'] = grid_interval
+        self.gui.plot_settings['_']['grid_planetocentric'] = grid_planetocentric
         return super().apply_settings()
 
 

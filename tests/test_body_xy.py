@@ -260,7 +260,7 @@ class TestBodyXY(common_testing.BaseTestCase):
             with self.subTest(fn.__name__):
                 self.body._cache[' test '] = None
                 fn(np.random.rand())
-                self.assertEqual(len(self.body._cache), 0)
+                self.assertNotIn(' test ', self.body._cache)
 
         self.body._stable_cache.clear()
         self.body.get_emission_angle_map(degree_interval=90)
@@ -1899,13 +1899,26 @@ class TestBodyXY(common_testing.BaseTestCase):
         ]:
             with self.subTest(transform_method=transform_method):
                 transform = transform_method()
-                self.body.set_disc_params(10, 9, 8, 7)
-                self.body.update_transform()
-                m1 = transform.get_matrix()
                 self.body.set_disc_params(1.2, 3.4, 5.6, 178.9)
-                self.assertTrue(np.array_equal(m1, transform.get_matrix()))
-                self.body.update_transform()
-                self.assertFalse(np.array_equal(m1, transform.get_matrix()))
+                m0 = transform.get_matrix()
+
+                self.body.set_disc_params(10, 9, 8, 7)
+                m1 = transform.get_matrix()
+                self.assertFalse(np.array_equal(m0, m1))
+
+                self.body.set_disc_params(1.2, 3.4, 5.6, 178.9)
+                self.assertArraysEqual(m0, transform.get_matrix())
+                self.body._invalidate_disc_parameters()
+                self.assertArraysEqual(m0, transform.get_matrix())
+
+                # avoid auto update with set methods
+                self.body._x0 = 10.0
+                self.body._y0 = 9.0
+                self.body._r0 = 8.0
+                self.body._rotation_radians = float(np.deg2rad(7.0) % (2 * np.pi))
+                self.assertArraysEqual(m0, transform.get_matrix())
+                self.body._invalidate_disc_parameters()
+                self.assertArraysEqual(m1, transform.get_matrix())
 
         # Test passive update when getting 'new' transform
         # https://github.com/ortk95/planetmapper/issues/310

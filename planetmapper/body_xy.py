@@ -252,10 +252,6 @@ class BodyXY(Body):
         self.set_disc_method('default')
         self._default_disc_method = 'manual'
 
-        if self._nx > 0 and self._ny > 0:
-            # centre disc if dimensions provided
-            self.centre_disc()
-
         self._mpl_transform_xy2angular_fixed: matplotlib.transforms.Affine2D | None = (
             None
         )
@@ -264,6 +260,10 @@ class BodyXY(Body):
         )
         self.backplanes = {}
         self._register_default_backplanes()
+
+        if self._nx > 0 and self._ny > 0:
+            # centre disc if dimensions provided
+            self.centre_disc()
 
     @classmethod
     def from_body(
@@ -627,6 +627,10 @@ class BodyXY(Body):
         return self._obsvec_norm2targvec(self._xy2obsvec_norm(x, y))
 
     # Interface
+    def _invalidate_disc_parameters(self) -> None:
+        self._clear_cache()
+        self.update_transform()
+
     def set_disc_params(
         self,
         x0: float | None = None,
@@ -722,7 +726,7 @@ class BodyXY(Body):
         if not math.isfinite(x0):
             raise ValueError('x0 must be finite')
         self._x0 = float(x0)
-        self._clear_cache()
+        self._invalidate_disc_parameters()
 
     def get_x0(self) -> float:
         """
@@ -742,7 +746,7 @@ class BodyXY(Body):
         if not math.isfinite(y0):
             raise ValueError('y0 must be finite')
         self._y0 = float(y0)
-        self._clear_cache()
+        self._invalidate_disc_parameters()
 
     def get_y0(self) -> float:
         """
@@ -764,7 +768,7 @@ class BodyXY(Body):
         if not r0 > 0:
             raise ValueError('r0 must be greater than zero')
         self._r0 = float(r0)
-        self._clear_cache()
+        self._invalidate_disc_parameters()
 
     def get_r0(self) -> float:
         """
@@ -775,7 +779,7 @@ class BodyXY(Body):
 
     def _set_rotation_radians(self, rotation: float) -> None:
         self._rotation_radians = float(rotation % (2 * np.pi))
-        self._clear_cache()
+        self._invalidate_disc_parameters()
 
     def _get_rotation_radians(self) -> float:
         return self._rotation_radians
@@ -1097,14 +1101,41 @@ class BodyXY(Body):
         coordinates. ::
 
             # Plot an observed image on an RA/Dec axis with a wireframe of the target
-            ax = obs.plot_wireframe_radec()
+            ax = body.plot_wireframe_radec()
             ax.autoscale_view()
             ax.autoscale(False) # Prevent imshow breaking autoscale
             ax.imshow(
                 img,
                 origin='lower',
-                transform=obs.matplotlib_xy2radec_transform(ax),
+                transform=body.matplotlib_xy2radec_transform(ax),
                 )
+
+        .. note::
+            Matplotlib transformations involving `xy` coordinates are mutable, and will
+            be automatically updated whenever the disc parameters are changed. For
+            example, in the following code, the plotted image will use the `x0 = 10`
+            value that is set after the transform is used: ::
+
+                # ...
+                ax.imshow(
+                    img,
+                    origin='lower',
+                    transform=body.matplotlib_xy2radec_transform(ax),
+                    )
+                body.set_x0(10)
+                plt.show()
+
+            If you want to 'fix' the transform to a specific set of disc parameters, you
+            can use the transform's `frozen()` method to create a new transform that
+            will not be updated when the disc parameters change: ::
+
+                # ...
+                ax.imshow(
+                    img,
+                    origin='lower',
+                    transform=body.matplotlib_xy2radec_transform(ax).frozen(),
+                    )
+                # ...
 
         See :func:`Body.matplotlib_radec2km_transform` for more details and notes on
         limitations of these linear transformations.
@@ -1178,6 +1209,11 @@ class BodyXY(Body):
         Update the matplotlib transformations involving `xy` coordinates (e.g.
         :func:`matplotlib_radec2xy_transform`) to use the latest disc parameter
         values `(x0, y0, r0, rotation)`.
+
+        .. versionchanged:: 1.12.0
+            The transformations are now updated automatically whenever the disc
+            parameters are changed, so is generally no longer needed to be called
+            manually.
         """
         self._get_matplotlib_xy2angular_fixed_transform().set_matrix(
             self._get_xy2angular_matrix()
@@ -1398,7 +1434,6 @@ class BodyXY(Body):
         cleaned[bad] = median
         # Fix bad pixels that have neighbouring good pixels by replacing them with the
         # mean of the surrounding 3x3 good pixels.
-        # pylint: disable-next=invalid-unary-operand-type
         to_fix = bad & ~scipy.ndimage.uniform_filter(bad, size=3)  #  type: ignore
         for i, j in np.argwhere(to_fix):
             cleaned[i, j] = np.nanmean(
@@ -2174,15 +2209,12 @@ class BodyXY(Body):
                 equal area'` projections.
             size: Pixel size (width and height) of generated `'orthographic'`,
                 `'azimuthal'` and `'azimuthal equal area'` projections.
-            lon_coords: Longitude coordinates to use for `'manual'` projection. This
-                must be a tuple (e.g. use `lon_coords=tuple(np.linspace(0, 360, 100))`)
-                - this allows mapping arguments and outputs to be cached).
-            lat_coords: Latitude coordinates to use for `'manual'` projection. This
-                must be a tuple.
-            projection_x_coords: Projected x coordinates to use with a pyproj projection
-                string. This must be a tuple.
-            projection_y_coords: Projected x coordinates to use with a pyproj projection
-                string. This must be a tuple.
+            lon_coords: Longitude coordinate array to use for `'manual'` projection.
+            lat_coords: Latitude coordinate array to use for `'manual'` projection.
+            projection_x_coords: Projected x coordinate array to use with a pyproj
+                projection string.
+            projection_y_coords: Projected x coordinate array to use with a pyproj
+                projection string.
             xlim: Tuple of `(x_min, x_max)` limits in the projected x coordinates of
                 the map. If `None`, the default, then the no limits are applied (i.e.
                 the entire globe will be mapped). If `xlim` is provided, it should be a
