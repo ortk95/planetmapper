@@ -1210,7 +1210,7 @@ class BodyXY(Body):
         :func:`matplotlib_radec2xy_transform`) to use the latest disc parameter
         values `(x0, y0, r0, rotation)`.
 
-        .. versionchanged:: ?.?.?
+        .. versionchanged:: 1.12.0
             The transformations are now updated automatically whenever the disc
             parameters are changed, so is generally no longer needed to be called
             manually.
