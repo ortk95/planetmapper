@@ -160,6 +160,10 @@ class GUI:
         self._popups: list[Popup] = []
 
         self._observation: Observation | None = None
+        self._observation_wavelengths: np.ndarray | None = None
+        self._observation_wavelengths_fmt = 'f'
+        self._observation_wavelengths_unit = ''
+
         self.step_size = 1
 
         self.click_locations: list[tuple[float, float]] = []
@@ -376,6 +380,27 @@ class GUI:
 
         self.click_locations = []
         self.clear_click_location()
+
+        try:
+            self._observation_wavelengths = (
+                self.get_observation().get_wavelengths_from_header()
+            )
+            # Get an appropriate number of decimal places to represent wavelength steps
+            decimals = -np.log10(np.nanmean(np.diff(self._observation_wavelengths)))
+            if np.isfinite(decimals):
+                decimals = int(max(1, decimals + 0.5)) + 1
+                self._observation_wavelengths_fmt = f'.{decimals}f'
+            else:
+                self._observation_wavelengths_fmt = 'f'
+            self._observation_wavelengths_unit = str(
+                self.get_observation().header.get('CUNIT3', '')
+            ).strip()
+            if self._observation_wavelengths_unit:
+                self._observation_wavelengths_unit = (
+                    ' ' + self._observation_wavelengths_unit
+                )
+        except utils.GetWavelengthsError:
+            self._observation_wavelengths = None
 
     def get_observation(self) -> Observation:
         if self._observation is None:
@@ -2748,6 +2773,7 @@ class ArtistSetting(Popup, ABC):
 
 class PlotImageSetting(ArtistSetting):
     REPLOT_DELAY_MS = 100
+    SLIDER_DELAY_MS = 10
 
     def __init__(
         self,
@@ -2791,6 +2817,12 @@ class PlotImageSetting(ArtistSetting):
         )
         self.wavelength_slider.pack(fill='x')
 
+        self.single_wavelength_label = ttk.Label(
+            self.tools_frame,
+            justify='center',
+        )
+        self.single_wavelength_label.pack()
+
         self.enabled.trace_add('write', self.update_tool_ui_state)
         self.single_wavelength_enabled.trace_add(
             'write', self.on_single_wavelength_checkbutton_change
@@ -2827,16 +2859,32 @@ class PlotImageSetting(ArtistSetting):
                 self.single_wavelength_enabled.set(1)
 
         self.gui.plot_settings['_']['image_idx_single'] = wavelength_idx
-        self.schedule_replot()
 
-    def schedule_replot(self, skip_full_delay: bool = False) -> None:
         self.gui.add_delayed_action(
-            'update_only_image',
+            'set_slider_label',
+            self.SLIDER_DELAY_MS,
+            self.set_slider_label,
+        )
+        self.schedule_replot(set_slider=False)
+
+    def schedule_replot(
+        self, skip_full_delay: bool = False, set_slider: bool = True
+    ) -> None:
+        self.gui.add_delayed_action(
+            'do_replot',
             1 if skip_full_delay else self.REPLOT_DELAY_MS,
-            self.gui.update_only_image,
+            self.do_replot if set_slider else self.do_replot_no_slider,
         )
 
-    def update_tool_ui_state(self, *_) -> None:
+    def do_replot_no_slider(self):
+        self.update_tool_ui_state(set_slider=False)
+        self.gui.update_only_image()
+
+    def do_replot(self):
+        self.update_tool_ui_state()
+        self.gui.update_only_image()
+
+    def update_tool_ui_state(self, *_, set_slider: bool = True) -> None:
         self.in_tool_updating_state = True
         try:
             general_settings = self.gui.plot_settings['_']
@@ -2849,17 +2897,43 @@ class PlotImageSetting(ArtistSetting):
             wavelength_idx = int(general_settings.setdefault('image_idx_single', 0))
 
             self.single_wavelength_enabled.set(int(is_single_wavelength))
-            self.wavelength_variable.set(wavelength_idx)
+            if set_slider:
+                self.wavelength_variable.set(wavelength_idx)
 
             self.single_wavelength_checkbutton.configure(
                 state='normal' if enable else 'disable',
             )
-            self.wavelength_slider.configure(
-                to=n_wavelengths - 1,
-                state='normal' if enable else 'disable',
-            )
+            if set_slider:
+                self.wavelength_slider.configure(
+                    to=n_wavelengths - 1,
+                    state='normal' if enable else 'disable',
+                )
+            self.set_slider_label()
         finally:
             self.in_tool_updating_state = False
+
+    def set_slider_label(self):
+        general_settings = self.gui.plot_settings['_']
+        image_mode = general_settings.setdefault('image_mode', 'single')
+        if image_mode == 'single':
+            wavelength_idx = int(general_settings.setdefault('image_idx_single', 0))
+            if self.gui._observation_wavelengths is not None:
+                value_s = f' ({self.gui._observation_wavelengths[wavelength_idx]:{self.gui._observation_wavelengths_fmt}}{self.gui._observation_wavelengths_unit})'
+            else:
+                value_s = ''
+            self.single_wavelength_label.configure(
+                text=f'{wavelength_idx}{value_s}',
+                foreground='black',
+            )
+        else:
+            self.single_wavelength_label.configure(
+                text=(
+                    'Showing sum of all wavelengths'
+                    if image_mode == 'sum'
+                    else 'Showing RGB composite'
+                ),
+                foreground='gray50',
+            )
 
     def make_menu(self) -> None:
         settings = self.gui.plot_settings[self.key]

@@ -177,3 +177,73 @@ class TestUtils(common_testing.BaseTestCase):
         os.rmdir(path)
 
         utils.check_path('')
+
+    def test_generate_wavelengths_from_header(self):
+        pairs: list[tuple[dict, np.ndarray]] = [
+            (
+                {'CTYPE3': 'WAVE', 'NAXIS3': 5, 'CRPIX3': 3, 'CRVAL3': 2, 'CDELT3': 1},
+                array([4.0, 5.0, 6.0, 7.0, 8.0]),
+            ),
+            (
+                {'CTYPE3': 'WAVE', 'NAXIS3': 5, 'CRPIX3': 3, 'CRVAL3': 2, 'CD3_3': 1},
+                array([4.0, 5.0, 6.0, 7.0, 8.0]),
+            ),
+            (
+                {'CTYPE3': 'WAVE', 'NAXIS3': 3, 'CRVAL3': 1.234, 'CDELT3': -0.42},
+                array([1.234, 0.814, 0.394]),
+            ),
+        ]
+        for a, b in pairs:
+            with self.subTest(a):
+                wavelengths = utils.generate_wavelengths_from_header(a)
+                self.assertArraysClose(wavelengths, b)
+                self.assertIsInstance(wavelengths[0], float)
+            with self.subTest(a, header=True):
+                wavelengths = utils.generate_wavelengths_from_header(fits.Header(a))
+                self.assertArraysClose(wavelengths, b)
+                self.assertIsInstance(wavelengths[0], float)
+
+        error_inputs: list[dict] = [
+            {'CTYPE3': '?', 'NAXIS3': 5, 'CRPIX3': 3, 'CRVAL3': 2, 'CDELT3': 1},
+            {'CTYPE3': 'WAVE', 'NAXIS3': None, 'CRPIX3': 3, 'CRVAL3': 2, 'CDELT3': 1},
+            {'CTYPE3': 'WAVE', 'NAXIS3': 5, 'CRPIX3': None, 'CRVAL3': 2, 'CDELT3': 1},
+            {'CTYPE3': 'WAVE', 'NAXIS3': 5, 'CRPIX3': 3, 'CRVAL3': None, 'CDELT3': 1},
+            {
+                'CTYPE3': 'WAVE',
+                'NAXIS3': 5,
+                'CRPIX3': 3.1,
+                'CRVAL3': None,
+                'CDELT3': None,
+            },
+            {
+                'CTYPE3': 'WAVE',
+                'NAXIS3': 5,
+                'CRPIX3': 3.1,
+            },
+            {},
+        ]
+        for a in error_inputs:
+            with self.subTest(a):
+                with self.assertRaises(utils.GetWavelengthsError):
+                    utils.generate_wavelengths_from_header(a)
+                with self.assertRaises(utils.GetWavelengthsError):
+                    utils.generate_wavelengths_from_header(fits.Header(a))
+
+        with self.assertRaises(utils.GetWavelengthsError):
+            utils.generate_wavelengths_from_header(
+                {'CTYPE3': '?', 'NAXIS3': 5, 'CRPIX3': 3, 'CRVAL3': 2, 'CDELT3': 1},
+            )
+        self.assertArraysClose(
+            utils.generate_wavelengths_from_header(
+                {'CTYPE3': '?', 'NAXIS3': 5, 'CRPIX3': 3, 'CRVAL3': 2, 'CDELT3': 1},
+                check_ctype=False,
+            ),
+            array([4.0, 5.0, 6.0, 7.0, 8.0]),
+        )
+        self.assertArraysClose(
+            utils.generate_wavelengths_from_header(
+                {'CTYPE1': 'WAVE', 'NAXIS1': 5, 'CRPIX1': 3, 'CRVAL1': 2, 'CD1_1': 1},
+                axis=1,
+            ),
+            array([4.0, 5.0, 6.0, 7.0, 8.0]),
+        )

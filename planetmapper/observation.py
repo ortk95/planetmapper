@@ -342,6 +342,36 @@ class Observation(BodyXY):
         """:meta private:"""
         raise TypeError('Cannot set image size for Observation objects')
 
+    # Utils
+    def get_wavelengths_from_header(self, *, check_ctype: bool = True) -> np.ndarray:
+        """
+        Generate a wavelength array for a spectral cube, using metadata in the
+        observation's FITS Header.
+
+        This uses the NAXIS3, CRVAL3, CDELT3 (or CD3_3) and CRPIX3 keywords to generate
+        the wavelengths. If `check_ctype` is `True`, then the CTYPE3 keyword is also
+        checked to ensure it is `'WAVE'`. If the Header does not contain the necessary
+        information to construct a wavelength array, then a
+        :class:`planetmapper.utils.GetWavelengthsError` is raised.
+
+        See :func:`planetmapper.utils.generate_wavelengths_from_header` for more
+        information.
+
+        Args:
+            check_ctype: Check that the CTYPE3 keyword is `'WAVE'`.
+
+        Returns:
+            Wavelength array for the spectral cube. This will have the same length as
+            the third axis of the data cube.
+
+        Raises:
+            GetWavelengthsError: if the Header does not contain the necessary
+                information to construct a wavelength array.
+        """
+        return utils.generate_wavelengths_from_header(
+            self.header, check_ctype=check_ctype
+        )
+
     # Auto disc id
     def disc_from_header(self) -> None:
         """

@@ -9,6 +9,7 @@ from typing import Literal
 
 import matplotlib.ticker
 import numpy as np
+from astropy.io import fits
 from matplotlib.axes import Axes
 
 
@@ -288,3 +289,68 @@ def check_path(path: str) -> None:
         return
     print('Creating directory path "{}"'.format(path))
     pathlib.Path(path).mkdir(parents=True, exist_ok=True)
+
+
+# Wavelengths
+
+
+class GetWavelengthsError(ValueError):
+    """
+    Error raised when wavelength information cannot be extracted from a FITS header.
+    """
+
+
+def generate_wavelengths_from_header(
+    header: fits.Header | dict,
+    *,
+    check_ctype: bool = True,
+    axis: int = 3,
+) -> np.ndarray:
+    """
+    Generate wavelength array from keyword values in a FITS Header.
+
+    This uses the NAXIS3, CRVAL3, CDELT3 (or CD3_3) and CRPIX3 keywords to generate the
+    wavelength array described by the Header. The axis to generate wavelengths for can
+    be customised using the `axis` parameter.
+
+    By default, this function will raise an exception if the CTYPE of the axis is not
+    'WAVE'. This can be disabled by setting `check_ctype` to False.
+
+    See the
+    `JWST documentation <https://jwst-docs.stsci.edu/jwst-calibration-status/miri-calibration-status/miri-mrs-calibration-status>`_
+    for an an example of how the wavelength array can be generated from the FITS Header.
+
+    Args:
+        header: FITS Header object (or dictionary).
+        check_ctype: Check that the CTYPE of the axis is 'WAVE'.
+        axis: Axis to generate wavelengths for, using FITS (1-based) counting. This
+            defaults to 3.
+
+    Returns:
+        Wavelength array.
+
+    Raises:
+        GetWavelengthsError: If the wavelength array cannot be generated from the
+            FITS Header.
+    """
+    try:
+        if check_ctype and header[f'CTYPE{axis}'] != 'WAVE':
+            raise GetWavelengthsError(
+                f'Header item CTYPE{axis} = {header[f"CTYPE{axis}"]!r} (not \'WAVE\')'
+            )
+
+        naxis3 = int(header[f'NAXIS{axis}'])  # type: ignore
+        crval3 = float(header[f'CRVAL{axis}'])  # type: ignore
+        try:
+            cdelt3 = float(header[f'CDELT{axis}'])  #  type: ignore
+        except KeyError:
+            cdelt3 = float(header[f'CD{axis}_{axis}'])  # type: ignore
+        crpix3 = float(header.get(f'CRPIX{axis}', 1))  #  type: ignore
+    except (KeyError, ValueError, TypeError) as e:
+        raise GetWavelengthsError(
+            'Could not generate wavelength array from FITS Header'
+        ) from e
+
+    # https://jwst-docs.stsci.edu/jwst-calibration-status/miri-calibration-status/miri-mrs-calibration-status
+    wavl = (np.arange(naxis3) + crpix3 - 1) * cdelt3 + crval3
+    return wavl
