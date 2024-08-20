@@ -2919,6 +2919,8 @@ class PlotImageSetting(ArtistSetting):
             wavelength_idx = int(general_settings.setdefault('image_idx_single', 0))
             if self.gui._observation_wavelengths is not None:
                 value_s = f' ({self.gui._observation_wavelengths[wavelength_idx]:{self.gui._observation_wavelengths_fmt}}{self.gui._observation_wavelengths_unit})'
+            else:
+                value_s = ''
             self.single_wavelength_label.configure(
                 text=f'{wavelength_idx}{value_s}',
                 foreground='black',

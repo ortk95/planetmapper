@@ -368,7 +368,6 @@ class Observation(BodyXY):
             GetWavelengthsError: if the Header does not contain the necessary
                 information to construct a wavelength array.
         """
-        # XXX test
         return utils.generate_wavelengths_from_header(
             self.header, check_ctype=check_ctype
         )

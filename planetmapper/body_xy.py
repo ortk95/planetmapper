@@ -1434,7 +1434,6 @@ class BodyXY(Body):
         cleaned[bad] = median
         # Fix bad pixels that have neighbouring good pixels by replacing them with the
         # mean of the surrounding 3x3 good pixels.
-        # pylint: disable-next=invalid-unary-operand-type
         to_fix = bad & ~scipy.ndimage.uniform_filter(bad, size=3)  #  type: ignore
         for i, j in np.argwhere(to_fix):
             cleaned[i, j] = np.nanmean(
