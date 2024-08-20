@@ -71,6 +71,7 @@ DEFAULT_PLOT_SETTINGS: dict[PlotKey, dict] = {
     'image': dict(zorder=0.9, cmap='inferno'),
     '_': dict(
         grid_interval=30,
+        grid_planetocentric=False,
         image_mode='single',
         image_idx_single=0,
         image_idx_r=0,
@@ -1300,7 +1301,12 @@ class GUI:
     def replot_grid(self) -> None:
         self.remove_artists('grid')
         interval = self.plot_settings['_'].setdefault('grid_interval', 30)
-        for ra, dec in self.get_observation().visible_lonlat_grid_radec(interval):
+        planetocentric = self.plot_settings['_'].setdefault(
+            'grid_planetocentric', False
+        )
+        for ra, dec in self.get_observation().visible_lonlat_grid_radec(
+            interval, planetocentric=planetocentric
+        ):
             self.plot_handles['grid'].extend(
                 self.ax.plot(
                     ra,
@@ -3237,7 +3243,15 @@ class PlotGridSetting(PlotLineSetting):
         self.grid_interval = tk.StringVar(
             value=str(self.gui.plot_settings['_'].setdefault('grid_interval', 30))
         )
+        self.grid_type = tk.StringVar(
+            value=(
+                'planetocentric'
+                if self.gui.plot_settings['_'].setdefault('grid_planetocentric', False)
+                else 'planetographic'
+            )
+        )
 
+        self.radio_frame = ttk.Frame(self.grid_frame)
         self.add_to_menu_grid(
             [
                 (
@@ -3249,15 +3263,25 @@ class PlotGridSetting(PlotLineSetting):
                         width=10,
                     ),
                 ),
+                (ttk.Label(self.grid_frame, text='Grid type: '), self.radio_frame),
             ]
         )
+        for v in ('planetographic', 'planetocentric'):
+            ttk.Radiobutton(
+                self.radio_frame,
+                text=v.capitalize(),
+                value=v,
+                variable=self.grid_type,
+            ).pack(fill='x')
 
     def apply_settings(self) -> bool:
         try:
             grid_interval = self.get_float(self.grid_interval, 'grid interval')
+            grid_planetocentric = self.grid_type.get() == 'planetocentric'
         except ValueError:
             return False
         self.gui.plot_settings['_']['grid_interval'] = grid_interval
+        self.gui.plot_settings['_']['grid_planetocentric'] = grid_planetocentric
         return super().apply_settings()
 
 
