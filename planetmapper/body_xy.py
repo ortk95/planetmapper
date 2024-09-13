@@ -99,6 +99,10 @@ class Backplane(NamedTuple):
     get_map: _BackplaneMapGetter
 
 
+class ProjStringError(ValueError):
+    """Exception raised for bad or inconsistent proj projection strings."""
+
+
 class BodyXY(Body):
     """
     Class representing an astronomical body imaged at a specific time.
@@ -2250,6 +2254,10 @@ class BodyXY(Body):
             `info` is a dictionary containing the arguments used to build the map (e.g.
             for the default case this would be `{'projection': 'rectangular',
             'degree_interval': 1, 'xlim': None, 'ylim': None}`).
+
+        Raises:
+            ProjStringError: If a custom proj projection string is used that has an
+                inconsistent axis parameter.
         """
         info: dict[str, Any]  # Explicitly declare type of info to make pyright happy
         if projection == 'rectangular':
@@ -2417,6 +2425,15 @@ class BodyXY(Body):
         space = ' ' if parameters_string else ''  # avoid double space if params empty
         return f'+proj={proj} {parameters_string}{space}+type=crs'
 
+    def _check_proj_string_for_axis(self, projection: str) -> None:
+        expected_axis = f'+axis={self.positive_longitude_direction.lower()}nu'
+        if expected_axis not in projection:
+            raise ProjStringError(
+                f'Projection string {projection!r} does not have the expected axis '
+                f'orientation {expected_axis!r} '
+                f'for positive {self.positive_longitude_direction} coordinates.'
+            )
+
     def _get_pyproj_map_coords(
         self,
         projection: str,
@@ -2436,6 +2453,7 @@ class BodyXY(Body):
         if xx.shape != yy.shape:
             raise ValueError('x and y coords must have the same shape')
 
+        self._check_proj_string_for_axis(projection)
         transformer = self._get_pyproj_transformer(projection)
         lons, lats = transformer.transform(xx, yy, direction='INVERSE')
         return lons, lats, xx, yy, transformer
