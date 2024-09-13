@@ -2166,11 +2166,16 @@ class BodyXY(Body):
 
         Projections can also be specified by passing a proj projection string to the
         `projection` argument. If you are manually specifying a projection, you must
-        also specify `projection_x_coords` and `projection_y_coords` to provide the x
-        and y coordinates to project the data to. See
+        also at least `projection_x_coords` to provide the coordinates to project the
+        data to. Care should be taken to ensure that an appropriate `axis` parameter is
+        used - this should generally be `+axis=wnu` for bodies with positive west
+        coordinates, and `+axis=enu` for bodies with positive east coordinates (see
+        :attr:`Body.positive_longitude_direction`). See
         https://proj.org/operations/projections for a list of projections that can be
-        used. The provided projection string will be passed to `pyproj.CRS`.
-        :func:`create_proj_string` can be used to help build a projection string.
+        used, and more details on their parameters. The provided projection string will
+        be passed to `pyproj.CRS`. :func:`create_proj_string` can be used to help build
+        a projection string, and will automatically ensure that the correct axis
+        parameters are set.
 
         .. hint ::
 
