@@ -138,6 +138,25 @@ def _run_gui_from_cli(*args: str | None) -> None:
     gui.run()
 
 
+def run_gui(path: str | os.PathLike | None = None) -> None:
+    """
+    Launch the PlanetMapper Graphical User Interface (GUI) to fit observations.
+
+    This is the Python equivalent of running `planetmapper` from the command line.
+
+    Args:
+        path: Optionally specify a FITS file to open in the GUI. If this is provided,
+            the GUI will open with the observation from the FITS file loaded and ready
+            to fit. If not provided, you can select a file to open from the GUI.
+            Passed to the `path` argument of :class:`planetmapper.Observation`.
+    """
+    # XXX document
+    gui = GUI()
+    if path is not None:
+        gui.set_observation(Observation(path))
+    gui.run()
+
+
 class Quit(Exception):
     pass
 
