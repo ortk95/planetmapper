@@ -137,9 +137,11 @@ from .body import (
 )
 from .body_xy import Backplane, BodyXY, MapKwargs
 from .common import __author__, __description__, __license__, __url__, __version__
+from .gui import run_gui
 from .observation import Observation
 
 __all__ = [
+    'run_gui',
     'set_kernel_path',
     'get_kernel_path',
     'SpiceBase',

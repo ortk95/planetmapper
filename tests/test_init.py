@@ -34,8 +34,16 @@ class TestInit(common_testing.BaseTestCase):
         )
 
     def test_all(self):
-        self.assertEqual(len(planetmapper.__all__), 18)  # ensure tests are up to date
+        """
+        Test that all submodules, classes and functions are imported correctly.
 
+        E.g. this tests that planetmapper.run_gui and planetmapper.gui.run_gui are the
+        same thing, then the actual functionality of the run_gui function is tested in
+        test_gui.py.
+        """
+        self.assertEqual(len(planetmapper.__all__), 19)  # ensure tests are up to date
+
+        self.assertIs(planetmapper.run_gui, planetmapper.gui.run_gui)
         self.assertIs(planetmapper.set_kernel_path, planetmapper.base.set_kernel_path)
         self.assertIs(planetmapper.get_kernel_path, planetmapper.base.get_kernel_path)
         self.assertIs(planetmapper.SpiceBase, planetmapper.base.SpiceBase)
