@@ -146,6 +146,8 @@ def run_gui(path: str | os.PathLike | None = None) -> None:
     :ref:`the user interface documentation <gui examples>` for more details about how to
     use the GUI.
 
+    See also :func:`Observation.run_gui`.
+
     Args:
         path: Optionally specify a FITS file to open in the GUI. If this is provided,
             the GUI will open with the observation from the FITS file loaded and ready

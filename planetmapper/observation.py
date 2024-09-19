@@ -1469,9 +1469,8 @@ class Observation(BodyXY):
             this method to ensure that only one :class:`Observation` object is modified
             by the user interface.
 
-            If you want the full user interface functionality instead, then call
-            `planetmapper` from the command line or create and run a user interface
-            manually using :func:`planetmapper.gui.GUI.run`.
+            If you want the full user interface functionality instead, then run
+            `planetmapper` from the command line or use :func:`planetmapper.run_gui`.
 
         Returns:
             List of `(x, y)` pixel coordinate tuples corresponding to where the user
