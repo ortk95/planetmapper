@@ -2260,7 +2260,7 @@ class BodyXY(Body):
             ProjStringError: If a custom proj projection string is used that has an
                 inconsistent axis parameter.
 
-        .. versionchanged:: ?.?.?
+        .. versionchanged:: 1.12.1
             The axis parameter in custom proj projection strings is now checked for
             consistency with the body's positive longitude direction, and a
             :class:`ProjStringError` is raised if it is inconsistent.
