@@ -2169,17 +2169,18 @@ class BodyXY(Body):
           for each point on the map with the `lon_coords` and `lat_coords` arguments.
 
         Projections can also be specified by passing a proj projection string to the
-        `projection` argument. If you are manually specifying a projection, you must
-        also at least `projection_x_coords` to provide the coordinates to project the
-        data to. Care should be taken to ensure that an appropriate `axis` parameter is
-        used - this should generally be `+axis=wnu` for bodies with positive west
-        coordinates, and `+axis=enu` for bodies with positive east coordinates (see
-        :attr:`Body.positive_longitude_direction`). See
-        https://proj.org/operations/projections for a list of projections that can be
-        used, and more details on their parameters. The provided projection string will
-        be passed to `pyproj.CRS`. :func:`create_proj_string` can be used to help build
-        a projection string, and will automatically ensure that the correct axis
-        parameters are set.
+        `projection` argument. See https://proj.org/operations/projections for a list of
+        projections that can be used, and more details on their parameters. The provided
+        projection string will be passed to `pyproj.CRS`. If you are manually specifying
+        a projection, you must also at least provide `projection_x_coords` to provide
+        the coordinates to project the data to. A :class:`ProjStringError` will be
+        raised if an incorrect `axis` parameter is used - this parameter should be
+        `+axis=wnu` for bodies with positive west coordinates, and `+axis=enu` for
+        bodies with positive east coordinates (see
+        :attr:`Body.positive_longitude_direction`). If the wrong `axis` parameter is
+        used, then the output map will usually be incorrect (e.g. flipped horizontally).
+        :func:`create_proj_string` can be used to help build a projection string, and
+        will automatically ensure that the correct axis parameters are set.
 
         .. hint ::
 
@@ -2258,6 +2259,11 @@ class BodyXY(Body):
         Raises:
             ProjStringError: If a custom proj projection string is used that has an
                 inconsistent axis parameter.
+
+        .. versionchanged:: ?.?.?
+            The axis parameter in custom proj projection strings is now checked for
+            consistency with the body's positive longitude direction, and a
+            :class:`ProjStringError` is raised if it is inconsistent.
         """
         info: dict[str, Any]  # Explicitly declare type of info to make pyright happy
         if projection == 'rectangular':
