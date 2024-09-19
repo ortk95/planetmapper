@@ -1153,29 +1153,30 @@ class TestBodyXY(common_testing.BaseTestCase):
                 lat_coords=np.array([[1, 2, 3], [4, 5, 6]]),
             )
         with self.assertRaises(ValueError):
-            self.body.generate_map_coordinates('proj=ortho +R=1 +type=crs')
+            self.body.generate_map_coordinates('proj=ortho +R=1 +axis=wnu +type=crs')
         with self.assertRaises(ValueError):
             self.body.generate_map_coordinates(
-                'proj=ortho +R=1 +type=crs',
+                'proj=ortho +R=1 +axis=wnu +type=crs',
                 projection_x_coords=np.array([1, 2, 3]),
                 projection_y_coords=np.array([[1, 2, 3], [4, 5, 6]]),
             )
         with self.assertRaises(ValueError):
             self.body.generate_map_coordinates(
-                'proj=ortho +R=1 +type=crs',
+                'proj=ortho +R=1 +axis=wnu +type=crs',
                 projection_x_coords=np.array([[[1, 2, 3]]]),
             )
         with self.assertRaises(ValueError):
             self.body.generate_map_coordinates(
-                'proj=ortho +R=1 +type=crs',
+                'proj=ortho +R=1 +axis=wnu +type=crs',
                 projection_x_coords=np.array([[1, 2, 3]]),
                 projection_y_coords=np.array([[1, 2, 3], [4, 5, 6]]),
             )
         output_a = self.body.generate_map_coordinates(
-            '+proj=ortho +R=1 +type=crs', projection_x_coords=np.array([0, 0.25, 0.5])
+            '+proj=ortho +R=1 +axis=wnu +type=crs',
+            projection_x_coords=np.array([0, 0.25, 0.5]),
         )
         output_b = self.body.generate_map_coordinates(
-            '+proj=ortho +R=1 +type=crs',
+            '+proj=ortho +R=1 +axis=wnu +type=crs',
             projection_x_coords=np.array([0, 0.25, 0.5]),
             projection_y_coords=np.array([0, 0.25, 0.5]),
         )
@@ -1519,6 +1520,50 @@ class TestBodyXY(common_testing.BaseTestCase):
                 )
                 self.assertTrue(np.allclose(xx, xx_expected), msg=repr(xx))
                 self.assertTrue(np.allclose(yy, yy_expected), msg=repr(yy))
+
+        # Test proj strings
+        jupiter = BodyXY(
+            'Jupiter', observer='HST', utc='2005-01-01T00:00:00', nx=15, ny=10
+        )
+        earth = BodyXY('Earth', observer='Jupiter', utc='2005-01-01T00:00:00', sz=10)
+
+        with self.assertRaises(planetmapper.body_xy.ProjStringError):
+            jupiter.generate_map_coordinates(
+                '+proj=ortho +R=1 +type=crs',
+                projection_x_coords=np.array([0, 0.25, 0.5]),
+            )
+            earth.generate_map_coordinates(
+                '+proj=ortho +R=1 +type=crs',
+                projection_x_coords=np.array([0, 0.25, 0.5]),
+            )
+        jupiter.generate_map_coordinates(
+            '+proj=ortho +R=1 +axis=wnu +type=crs',
+            projection_x_coords=np.array([0, 0.25, 0.5]),
+        )
+        earth.generate_map_coordinates(
+            '+proj=ortho +R=1 +axis=enu +type=crs',
+            projection_x_coords=np.array([0, 0.25, 0.5]),
+        )
+        with self.assertRaises(planetmapper.body_xy.ProjStringError):
+            jupiter.generate_map_coordinates(
+                '+proj=ortho +R=1 +axis=enu +type=crs',
+                projection_x_coords=np.array([0, 0.25, 0.5]),
+            )
+        with self.assertRaises(planetmapper.body_xy.ProjStringError):
+            earth.generate_map_coordinates(
+                '+proj=ortho +R=1 +axis=wnu +type=crs',
+                projection_x_coords=np.array([0, 0.25, 0.5]),
+            )
+        with self.assertRaises(planetmapper.body_xy.ProjStringError):
+            jupiter.generate_map_coordinates(
+                '+proj=ortho +R=1 +axis=neu +type=crs',
+                projection_x_coords=np.array([0, 0.25, 0.5]),
+            )
+        with self.assertRaises(planetmapper.body_xy.ProjStringError):
+            earth.generate_map_coordinates(
+                '+proj=ortho +R=1 +axis=neu +type=crs',
+                projection_x_coords=np.array([0, 0.25, 0.5]),
+            )
 
     def test_create_proj_string(self):
         jupiter = BodyXY(

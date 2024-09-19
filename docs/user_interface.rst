@@ -3,23 +3,26 @@
 Graphical user interface
 ************************
 
-The user interface is a convenient and easy way to fit an observation, generate backplanes and map the observed data.
+The Graphical User Interface (GUI) is a convenient and easy way to fit an observation, generate backplanes and map the observed data.
 
 Starting the user interface
 ===========================
-The easiest way to run the PlanetMapper user interface is to simply type `planetmapper` in the command line. This will launch a new interactive window where you can choose observation files to open and fit. 
+The easiest way to run the PlanetMapper user interface is to simply type `planetmapper` in the command line (or alternatively, call the :func:`planetmapper.run_gui` Python function). This will launch a new interactive window where you can choose observation files to open and fit.
 
-You can create a user interface from a :class:`planetmapper.Observation` object using the  :func:`planetmapper.Observation.run_gui` function. This is mainly useful if you want to combine using a user interface to fit the observation with some Python code to e.g. run some additional analysis. This also gives you access to the full customisation offered by :class:`planetmapper.Observation`, allowing you to specify parameters such as `illumination_source` and `aberration_correction` which cannot be customised using the GUI alone.
-
-It is also possible to start a user interface directly using :func:`planetmapper.gui.GUI.run`, although the other two methods are generally more useful.
+You can also create a user interface from a :class:`planetmapper.Observation` object using the  :func:`planetmapper.Observation.run_gui` function. This is mainly useful if you want to combine using a user interface to fit the observation with some Python code to e.g. run some additional analysis. This also gives you access to the full customisation offered by :class:`planetmapper.Observation`, allowing you to specify parameters such as `illumination_source` and `aberration_correction` which cannot be customised using the GUI alone.
 
 
 Fitting an observation
 ======================
 .. note::
-    You can download the Europa data file used in these examples from the `PlanetMapper GitHub repository <https://github.com/ortk95/planetmapper/tree/main/examples/gui_data>`_.
+    You can download the Europa data file [#king2022]_ used in these examples from the `PlanetMapper GitHub repository <https://github.com/ortk95/planetmapper/tree/main/examples/gui_data>`_.
 
-To start, type `planetmapper` into a command line and press :kbd:`Enter`. This will open a window where you can choose a file to open:[#king2022]_
+To start, launch the PlanetMapper user interface from either the command line, or from within Python:
+
+- From an operating system command line: type `planetmapper` and press :kbd:`Enter`.
+- From a Python terminal (or within a Python script): import `planetmapper`, then run :func:`planetmapper.run_gui`.
+
+These will both open a window where you can then choose a file to open:
  
 .. image:: images/gui_open.png
     :width: 600
@@ -63,7 +66,7 @@ You can also use the :guilabel:`Settings` tab to mark points of interest to help
 Once you are happy with the fitting result, click :guilabel:`Save` at the top of the :guilabel:`Controls` tab. This will open a window where you can choose which files to output. You can customise which files to output (with the :guilabel:`Save navigated observation` and :guilabel:`Save mapped observation` checkboxes) and choose the filepath where these files will be saved.
 
 - The navigated observation is similar to the input file, with additional 'FITS backplanes' containing useful information such as the longitude/latitude coordinates for each pixel in the image. This file is generated using the function :func:`planetmapper.Observation.save_observation`.
-- The mapped observation produces a FITS file which contains (as the name suggests...) a mapped version of the observation. This map file will also contain the various useful backplanes. The degree interval option allows you to customise the size of the output map (e.g. degree interval=1 produces a map which is 180x360, degree interval=10 produces a map which is 18x36). This file is generated using the function :func:`planetmapper.Observation.save_mapped_observation`.
+- The mapped observation produces a FITS file which contains (as the name suggests...) a mapped version of the observation. This map file will also contain the various useful backplanes. The map projection and resolution of the output data can be fully customised. This file is generated using the function :func:`planetmapper.Observation.save_mapped_observation`.
 
 Once you click :guilabel:`Save`, your requested files will be generated and saved. Note that for larger files, this can take around a minute to complete as some of the coordinate conversion calculations are relatively complex.
 
