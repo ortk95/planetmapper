@@ -6,4 +6,5 @@ pylint
 coverage
 sphinx
 sphinx_rtd_theme
+setuptools
 -r docs/requirements.txt
