@@ -34,6 +34,7 @@ disable = [
     "use-dict-literal",
     "duplicate-code",
     "too-many-arguments",
+    "too-many-positional-arguments",
     "too-many-instance-attributes",
     "too-many-locals",
     "too-many-statements",

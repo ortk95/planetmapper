@@ -1532,6 +1532,7 @@ class TestBodyXY(common_testing.BaseTestCase):
                 '+proj=ortho +R=1 +type=crs',
                 projection_x_coords=np.array([0, 0.25, 0.5]),
             )
+        with self.assertRaises(planetmapper.body_xy.ProjStringError):
             earth.generate_map_coordinates(
                 '+proj=ortho +R=1 +type=crs',
                 projection_x_coords=np.array([0, 0.25, 0.5]),
@@ -1571,30 +1572,38 @@ class TestBodyXY(common_testing.BaseTestCase):
         )
         earth = BodyXY('Earth', observer='HST', utc='2005-01-01T00:00:00', nx=15, ny=10)
         self.assertEqual(
-            jupiter.create_proj_string('ortho'), '+proj=ortho +axis=wnu +type=crs'
+            jupiter.create_proj_string('ortho'),
+            '+proj=ortho +a=71492.0 +b=66854.0 +axis=wnu +type=crs',
         )
         self.assertEqual(
-            earth.create_proj_string('ortho'), '+proj=ortho +axis=enu +type=crs'
+            earth.create_proj_string('ortho'),
+            '+proj=ortho +a=6378.1366 +b=6356.7519 +axis=enu +type=crs',
         )
         self.assertEqual(
-            jupiter.create_proj_string('ortho', axis=None), '+proj=ortho +type=crs'
+            jupiter.create_proj_string('ortho', axis=None),
+            '+proj=ortho +a=71492.0 +b=66854.0 +type=crs',
         )
         self.assertEqual(
-            earth.create_proj_string('ortho', axis=None), '+proj=ortho +type=crs'
+            jupiter.create_proj_string('ortho', a=None, axis=None),
+            '+proj=ortho +b=66854.0 +type=crs',
+        )
+        self.assertEqual(
+            earth.create_proj_string('ortho', axis=None),
+            '+proj=ortho +a=6378.1366 +b=6356.7519 +type=crs',
         )
         self.assertEqual(
             jupiter.create_proj_string('ortho', axis='123'),
-            '+proj=ortho +axis=123 +type=crs',
+            '+proj=ortho +axis=123 +a=71492.0 +b=66854.0 +type=crs',
         )
         self.assertEqual(
             earth.create_proj_string('ortho', axis='123'),
-            '+proj=ortho +axis=123 +type=crs',
+            '+proj=ortho +axis=123 +a=6378.1366 +b=6356.7519 +type=crs',
         )
         self.assertEqual(
             jupiter.create_proj_string(
                 'eqc', string='a_string', number=123, lat_0=-1.234
             ),
-            '+proj=eqc +string=a_string +number=123 +lat_0=-1.234 +axis=wnu +type=crs',
+            '+proj=eqc +string=a_string +number=123 +lat_0=-1.234 +a=71492.0 +b=66854.0 +axis=wnu +type=crs',
         )
 
     def test_standardise_backplane_name(self):
