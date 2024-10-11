@@ -2438,7 +2438,7 @@ class BodyXY(Body):
             Proj string describing the projection. This can be passed to the
             `projection` argument of :func:`generate_map_coordinates`.
 
-        .. versionchanged:: ?.?.?
+        .. versionchanged:: 1.12.2
             Added `+a` and `+b` parameters to default projection string.
         """
         # https://proj.org/en/stable/usage/ellipsoids.html#ellipsoid-size-parameters
