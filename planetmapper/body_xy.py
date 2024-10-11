@@ -2301,11 +2301,10 @@ class BodyXY(Body):
             b = self.r_polar / self.r_eq
             proj = self.create_proj_string(
                 'ortho',
-                a=1,
-                b=b,
+                to_meter=self.r_eq,
                 lon_0=lon,
                 lat_0=lat,
-                y_0=(b - 1) * np.sin(np.radians(lat * 2)),
+                y_0=self.r_eq * (b - 1) * np.sin(np.radians(lat * 2)),
             )
             lim = max(1, b) * 1.01
             lons, lats, xx, yy, transformer = self._get_pyproj_map_coords(
@@ -2315,7 +2314,8 @@ class BodyXY(Body):
         elif projection == 'azimuthal':
             proj = self.create_proj_string(
                 'aeqd',
-                R=1 / np.pi,
+                to_meter=self.r_eq * np.pi,
+                b=None,
                 lon_0=lon,
                 lat_0=lat,
             )
@@ -2327,7 +2327,8 @@ class BodyXY(Body):
         elif projection == 'azimuthal equal area':
             proj = self.create_proj_string(
                 'laea',
-                R=1 / 2,
+                to_meter=self.r_eq * 2,
+                b=None,
                 lon_0=lon,
                 lat_0=lat,
             )
@@ -2385,25 +2386,43 @@ class BodyXY(Body):
         This function will automatically build a projection string that can be used as
         the `projection` argument of :func:`generate_map_coordinates`.
 
-        By default, this function automatically sets the `+axis` parameter of the
-        projection to match the :attr:`Body.positive_longitude_direction` of the target
-        body - if the target body has a positive longitude direction of E, then the
-        projection will have `+axis=enu`, if the target body has a positive longitude
-        direction of W, then the projection will have `+axis=wnu`. This behaviour can be
-        disabled by passing `axis=None` to this function. See
+
+        By default, this function will set the `+a`, `+b` and `+axis` parameters of the
+        projection:
+
+        - `+a` is set to the equatorial radius of the target body (i.e. the value of
+          :attr:`Body.r_eq`).
+        - `+b` is set to the polar radius of the target body (i.e. the value of
+          :attr:`Body.r_polar`).
+        - `+axis` is set to match the :attr:`Body.positive_longitude_direction` of the
+          target body. If the target body has a positive longitude direction of E, then
+          the projection will have `+axis=enu`, if the target body has a positive
+          longitude direction of W, then the projection will have `+axis=wnu`
+
+        See https://proj.org/en/stable/usage/ellipsoids.html for more details on the
+        `+a` and `+b` parameters, and see
         https://proj.org/usage/projections.html#axis-orientation for more details about
         the `+axis` projection parameter.
 
+        To prevent any of these parameters from being set, pass `None` as the value for
+        that parameter. You can also override the default by passing a different value
+        for `a`, `b` or `axis`.
+
         Examples: ::
 
+            body = planetmapper.BodyXY('Jupiter')
+
             body.create_proj_string('ortho')
-            # '+proj=ortho +axis=wnu +type=crs'
+            # '+proj=ortho +a=71492.0 +b=66854.0 +axis=wnu +type=crs'
 
             body.create_proj_string('ortho', lon_0=180, lat_0=45)
-            # '+proj=ortho +lon_0=180 +lat_0=45 +axis=wnu +type=crs'
+            # '+proj=ortho +lon_0=180 +lat_0=45 +a=71492.0 +b=66854.0 +axis=wnu +type=crs'
 
-            body.create_proj_string('ortho', lon_0=180, lat_0=45, axis=None)
+            body.create_proj_string('ortho', lon_0=180, lat_0=45, axis=None, a=None, b=None)
             # '+proj=ortho +lon_0=180 +lat_0=45 +type=crs'
+
+            body.create_proj_string('ortho', a=1, b=None, axis='enu')
+            # '+proj=ortho +a=1 +axis=enu +type=crs'
 
         Args:
             proj: Projection name. See https://proj.org/operations/projections
@@ -2411,21 +2430,28 @@ class BodyXY(Body):
             **parameters: Additional parameters to pass to the projection. These are
                 passed to pyproj as `+{key}={value}`. For example, to create a
                 projection with a central longitude of 45 degrees, you can use
-                `lon_0=45`. By default, the axis direction is set to match the
-                :attr:`Body.positive_longitude_direction` of the target body (see
-                above), pass `axis=None` to disable this behaviour.
+                `lon_0=45`. If unspecified, the `a`, `b` and `axis` parameters will
+                automatically be set to appropriate values - this can be disabled by
+                passing `None` as the value for any of these parameters.
 
         Returns:
             Proj string describing the projection. This can be passed to the
             `projection` argument of :func:`generate_map_coordinates`.
+
+        .. versionchanged:: ?.?.?
+            Added `+a` and `+b` parameters to default projection string.
         """
-        # By default, use the same positive longitude direction for projection as coords
-        # i.e. +ve E gives +axis=enu, +ve W gives +axis=wnu. Pass axis=None to skip
-        # this and leave axis undefined in the proj string.
+        # https://proj.org/en/stable/usage/ellipsoids.html#ellipsoid-size-parameters
+        if 'a' not in parameters:
+            parameters['a'] = self.r_eq
+        if 'b' not in parameters:
+            parameters['b'] = self.r_polar
         if 'axis' not in parameters:
             parameters['axis'] = f'{self.positive_longitude_direction.lower()}nu'
-        elif parameters['axis'] is None:
-            parameters.pop('axis')
+
+        for k in [k for k, v in parameters.items() if v is None]:
+            # Use list comprehension to avoid modifying dict during iteration
+            parameters.pop(k)
 
         parameters_string = ' '.join(f'+{k}={v}' for k, v in parameters.items())
         space = ' ' if parameters_string else ''  # avoid double space if params empty
@@ -2464,23 +2490,27 @@ class BodyXY(Body):
         lons, lats = transformer.transform(xx, yy, direction='INVERSE')
         return lons, lats, xx, yy, transformer
 
-    def _get_default_pyproj_projection(self, **parameters) -> str:
-        return self.create_proj_string(
-            'eqc',
-            a=self.r_eq,
-            b=self.r_polar,
-            lon_0=0,
-            to_meter=np.radians(1) * self.r_eq,
-            **parameters,
-        )
+    def _get_default_pyproj_projection(
+        self, ellipsoid: Any | None = None, **parameters
+    ) -> str:
+        if ellipsoid is None:
+            a = None
+            b = None
+        else:
+            a = ellipsoid.semi_major_metre
+            b = ellipsoid.semi_minor_metre
+        return self.create_proj_string('lonlat', a=a, b=b, **parameters)
 
     def _get_pyproj_transformer(
         self, projection: str | None = None
     ) -> pyproj.Transformer:
-        proj_in = self._get_default_pyproj_projection(axis=None)
         if projection is None:
-            projection = proj_in  # return identity transform
-        return pyproj.Transformer.from_crs(pyproj.CRS(proj_in), pyproj.CRS(projection))
+            projection = self._get_default_pyproj_projection(axis=None)
+        crs_out = pyproj.CRS(projection)
+        proj_in = self._get_default_pyproj_projection(
+            axis=None, ellipsoid=crs_out.ellipsoid
+        )
+        return pyproj.Transformer.from_crs(pyproj.CRS(proj_in), crs_out)
 
     # Backplane generatotrs
     def _test_if_img_size_valid(self) -> bool:
