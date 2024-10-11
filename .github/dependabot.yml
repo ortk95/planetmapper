@@ -10,7 +10,6 @@ updates:
     schedule:
       interval: "weekly"
     target-branch: "dev"
-    versioning-strategy: "widen"
     groups:
       minor-and-patch:
         applies-to: version-updates
