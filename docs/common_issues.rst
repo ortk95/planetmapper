@@ -87,6 +87,25 @@ As a temporary workaround, you can set the `PLANETMAPPER_USE_X11_FONT_BUGFIX` en
 This tells the PlanetMapper user interface to replace certain characters with ASCII equivalents (e.g. `↑` is replaced with `^`) which seems to prevent the use of the fonts which cause XQuartz to crash. Note that this will make the user interface slightly more ugly, but should not affect functionality. If you are still having issues after trying this workaround, you can `add a comment to the GitHub issue <https://github.com/ortk95/planetmapper/issues/145>`_.
 
 
+.. _readonly arrays:
+
+Read-only NumPy arrays
+======================
+Many PlanetMapper functions return read-only NumPy arrays (e.g. backplane methods like :func:`planetmapper.BodyXY.get_lon_img`). This prevents bugs caused by accidentally modifying cached data, but will cause an exception if you try to directly modify the array:
+
+::
+
+    ValueError: assignment destination is read-only
+
+To convert a read-only NumPy array to a writeable array, you can use the `copy` method:
+
+::
+
+    lon_img = body.get_lon_img().copy()
+
+This will create a copy of the array that you can safely modify, without affecting the original cached array.
+
+
 Wireframe plots appear warped or distorted
 ==========================================
 This is most likely to occur when using :func:`planetmapper.Body.plot_wireframe_radec` for a target located near the celestial pole (i.e. the target's declination is near 90° or -90°). The `plot can be distorted <https://github.com/ortk95/planetmapper/issues/323>`_ because spherical coordinates (like RA/Dec) are fundamentally impossible to represent perfectly in a 2D cartesian plot, with the distortion increasing at high declinations near the coordinate singularity at the celestial poles.

@@ -129,7 +129,6 @@ def _return_readonly_array(
     This is designed for use with caching decorators, as the cached array should not be
     mutable.
     """
-    # XXX document
 
     @functools.wraps(fn)
     def decorated(self: S, *args_in: P.args, **kwargs_in: P.kwargs) -> np.ndarray:
