@@ -949,3 +949,25 @@ class TestFunctions(common_testing.BaseTestCase):
             'zzz.txt',
         ]
         self.assertEqual(planetmapper.base.sort_kernel_paths(input), expected)
+
+    def test_as_readonly_view(self):
+        a = np.array([1, 2, 3])
+        a[0] = 0
+        a_ret = planetmapper.base._as_readonly_view(a)
+        self.assertIsNot(a_ret, a)
+        self.assertEqual(a.flags.writeable, True)
+        self.assertEqual(a_ret.flags.writeable, False)
+        with self.assertRaises(ValueError):
+            a_ret[0] = 10
+        a[0] = 9
+        self.assertEqual(a[0], a_ret[0])
+
+    @planetmapper.base._return_readonly_array
+    def f_readonly(self, a: np.ndarray, b: float) -> np.ndarray:
+        return a + b
+
+    def test_return_readonly_array(self):
+        out = self.f_readonly(np.array([1, 2, 3]), 1)
+        self.assertEqual(out.flags.writeable, False)
+        with self.assertRaises(ValueError):
+            out[0] = 0

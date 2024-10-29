@@ -1520,6 +1520,10 @@ class TestBodyXY(common_testing.BaseTestCase):
                 )
                 self.assertTrue(np.allclose(xx, xx_expected), msg=repr(xx))
                 self.assertTrue(np.allclose(yy, yy_expected), msg=repr(yy))
+                self.assertFalse(lons.flags.writeable)
+                self.assertFalse(lats.flags.writeable)
+                self.assertFalse(xx.flags.writeable)
+                self.assertFalse(yy.flags.writeable)
 
         # Test proj strings
         jupiter = BodyXY(
@@ -1729,6 +1733,22 @@ class TestBodyXY(common_testing.BaseTestCase):
             )
         )
         self.body.set_img_size(15, 10)
+
+    def test_backplane_readonly(self):
+        self.body.set_img_size(4, 3)
+        self.body.set_disc_params(2, 1, 1.5, 45.678)
+        for key, backplane in self.body.backplanes.items():
+            with self.subTest(key, func='img'):
+                out = backplane.get_img()
+                self.assertEqual(out.flags.writeable, False)
+                with self.assertRaises(ValueError):
+                    out[0, 0] = 0
+
+            with self.subTest(key, func='map'):
+                out = backplane.get_map(degree_interval=45)
+                self.assertEqual(out.flags.writeable, False)
+                with self.assertRaises(ValueError):
+                    out[0, 0] = 0
 
     @patch('matplotlib.pyplot.show')
     def test_plot_backplane(self, mock_show: MagicMock):
