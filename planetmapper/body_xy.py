@@ -26,7 +26,13 @@ from matplotlib.collections import QuadMesh
 from matplotlib.figure import Figure
 from spiceypy.utils.exceptions import NotFoundError
 
-from .base import FloatOrArray, _cache_clearable_result, _cache_stable_result
+from .base import (
+    FloatOrArray,
+    _as_readonly_view,
+    _cache_clearable_result,
+    _cache_stable_result,
+    _return_readonly_array,
+)
 from .body import (
     AngularCoordinateKwargs,
     Body,
@@ -2372,8 +2378,15 @@ class BodyXY(Body):
 
         if alt != 0.0:
             info['alt'] = alt
-
-        return lons, lats, xx, yy, transformer, info
+        # XXX test
+        return (
+            _as_readonly_view(lons),
+            _as_readonly_view(lats),
+            _as_readonly_view(xx),
+            _as_readonly_view(yy),
+            transformer,
+            info,
+        )
 
     def create_proj_string(
         self,
@@ -2644,6 +2657,7 @@ class BodyXY(Body):
 
     @_cache_clearable_alt_dependent_result
     @progress_decorator
+    @_return_readonly_array
     def _get_lonlat_img(self) -> np.ndarray:
         out = self._make_empty_img(2)
         for y, x, targvec in self._enumerate_targvec_img(progress=True):
@@ -2652,6 +2666,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @_adjust_surface_altitude_decorator
+    @_return_readonly_array
     def _get_lonlat_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         lons, lats, xx, yy, transformer, info = self.generate_map_coordinates(
             **map_kwargs
@@ -2703,6 +2718,7 @@ class BodyXY(Body):
 
     @_cache_clearable_alt_dependent_result
     @progress_decorator
+    @_return_readonly_array
     def _get_lonlat_centric_img(self) -> np.ndarray:
         out = self._make_empty_img(2)
         for y, x, targvec in self._enumerate_targvec_img(progress=True):
@@ -2712,6 +2728,7 @@ class BodyXY(Body):
     @_cache_stable_result
     @progress_decorator
     @_adjust_surface_altitude_decorator
+    @_return_readonly_array
     def _get_lonlat_centric_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
         for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
@@ -2759,7 +2776,9 @@ class BodyXY(Body):
         return self._get_lonlat_centric_map(**map_kwargs)[:, :, 1]
 
     @_cache_clearable_result
+    @_return_readonly_array
     @progress_decorator
+    @_return_readonly_array
     def _get_radec_img(self) -> np.ndarray:
         out = self._make_empty_img(2)
         for y, x in self._iterate_image(out.shape, progress=True):
@@ -2769,6 +2788,7 @@ class BodyXY(Body):
     @_cache_stable_result
     @progress_decorator
     @_adjust_surface_altitude_decorator
+    @_return_readonly_array
     def _get_radec_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
         # (phase, incdnc, emissn, visibl, lit) in illumf map
@@ -2823,6 +2843,7 @@ class BodyXY(Body):
     @_cache_clearable_alt_dependent_result
     @progress_decorator
     @_adjust_surface_altitude_decorator
+    @_return_readonly_array
     def _get_xy_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
         radec_map = self._get_radec_map(**map_kwargs)
@@ -2834,6 +2855,7 @@ class BodyXY(Body):
                     out[a, b] = x, y
         return out
 
+    @_return_readonly_array
     def get_x_img(self) -> np.ndarray:
         """
         See also :func:`get_backplane_img`.
@@ -2858,6 +2880,7 @@ class BodyXY(Body):
         """
         return self._get_xy_map(**map_kwargs)[:, :, 0]
 
+    @_return_readonly_array
     def get_y_img(self) -> np.ndarray:
         """
         See also :func:`get_backplane_img`.
@@ -2883,6 +2906,7 @@ class BodyXY(Body):
         return self._get_xy_map(**map_kwargs)[:, :, 1]
 
     @_cache_clearable_result
+    @_return_readonly_array
     def _get_km_xy_img(self) -> np.ndarray:
         out = self._make_empty_img(2)
         radec_img = self._get_radec_img()
@@ -2892,6 +2916,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @_adjust_surface_altitude_decorator
+    @_return_readonly_array
     def _get_km_xy_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(2, **map_kwargs)
         radec_map = self._get_radec_map(**map_kwargs)
@@ -2945,6 +2970,7 @@ class BodyXY(Body):
 
     @_cache_clearable_alt_dependent_result
     @progress_decorator
+    @_return_readonly_array
     def _get_illumination_gie_img(self) -> np.ndarray:
         out = self._make_empty_img(3)
         for y, x, targvec in self._enumerate_targvec_img(progress=True):
@@ -2954,6 +2980,7 @@ class BodyXY(Body):
     @_cache_stable_result
     @progress_decorator
     @_adjust_surface_altitude_decorator
+    @_return_readonly_array
     def _get_illumf_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(5, **map_kwargs)
         for a, b, targvec in self._enumerate_targvec_map(progress=True, **map_kwargs):
@@ -3024,6 +3051,7 @@ class BodyXY(Body):
         return self._get_illumf_map(**map_kwargs)[:, :, 2]
 
     @_cache_clearable_alt_dependent_result
+    @_return_readonly_array
     def get_azimuth_angle_img(self) -> np.ndarray:
         """
         See also :func:`get_backplane_img`.
@@ -3045,6 +3073,7 @@ class BodyXY(Body):
 
     @_cache_stable_result
     @_adjust_surface_altitude_decorator
+    @_return_readonly_array
     def get_azimuth_angle_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
@@ -3067,6 +3096,7 @@ class BodyXY(Body):
 
     @_cache_clearable_alt_dependent_result
     @progress_decorator
+    @_return_readonly_array
     def get_local_solar_time_img(self) -> np.ndarray:
         """
         See also :func:`get_backplane_img`.
@@ -3087,6 +3117,7 @@ class BodyXY(Body):
     @_cache_stable_result
     @progress_decorator
     @_adjust_surface_altitude_decorator
+    @_return_readonly_array
     def get_local_solar_time_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
@@ -3116,7 +3147,11 @@ class BodyXY(Body):
                 velocity_img[y, x],
                 lt_img[y, x],
             ) = self._state_from_targvec(targvec)
-        return position_img, velocity_img, lt_img
+        return (
+            _as_readonly_view(position_img),
+            _as_readonly_view(velocity_img),
+            _as_readonly_view(lt_img),
+        )
 
     @_cache_stable_result
     @progress_decorator
@@ -3133,8 +3168,13 @@ class BodyXY(Body):
                 velocity_map[a, b],
                 lt_map[a, b],
             ) = self._state_from_targvec(targvec)
-        return position_map, velocity_map, lt_map
+        return (
+            _as_readonly_view(position_map),
+            _as_readonly_view(velocity_map),
+            _as_readonly_view(lt_map),
+        )
 
+    @_return_readonly_array
     def get_distance_img(self) -> np.ndarray:
         """
         See also :func:`get_backplane_img`.
@@ -3146,6 +3186,7 @@ class BodyXY(Body):
         position_img, velocity_img, lt_img = self._get_state_imgs()
         return lt_img * self.speed_of_light()
 
+    @_return_readonly_array
     def get_distance_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
@@ -3160,6 +3201,7 @@ class BodyXY(Body):
 
     @_cache_clearable_alt_dependent_result
     @progress_decorator
+    @_return_readonly_array
     def get_radial_velocity_img(self) -> np.ndarray:
         """
         See also :func:`get_backplane_img`.
@@ -3180,6 +3222,7 @@ class BodyXY(Body):
     @_cache_stable_result
     @progress_decorator
     @_adjust_surface_altitude_decorator
+    @_return_readonly_array
     def get_radial_velocity_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
@@ -3197,6 +3240,7 @@ class BodyXY(Body):
             )
         return out
 
+    @_return_readonly_array
     def get_doppler_img(self) -> np.ndarray:
         """
         See also :func:`get_backplane_img`.
@@ -3208,6 +3252,7 @@ class BodyXY(Body):
         """
         return self.calculate_doppler_factor(self.get_radial_velocity_img())
 
+    @_return_readonly_array
     def get_doppler_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         """
         See :func:`generate_map_coordinates` for accepted arguments. See also
@@ -3222,6 +3267,7 @@ class BodyXY(Body):
 
     @_cache_clearable_alt_dependent_result
     @progress_decorator
+    @_return_readonly_array
     def _get_limb_coordinate_imgs(self) -> np.ndarray:
         out = self._make_empty_img(3)
         obsvec_img = self._get_obsvec_norm_img()
@@ -3233,6 +3279,7 @@ class BodyXY(Body):
     @_cache_stable_result
     @progress_decorator
     @_adjust_surface_altitude_decorator
+    @_return_readonly_array
     def _get_limb_coordinate_maps(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
         out = self._make_empty_map(3, **map_kwargs)
         visible = self._get_illumf_map(**map_kwargs)[:, :, 4]
@@ -3332,7 +3379,11 @@ class BodyXY(Body):
         radius_img[hidden_img] = np.nan
         long_img[hidden_img] = np.nan
         dist_img[hidden_img] = np.nan
-        return radius_img, long_img, dist_img
+        return (
+            _as_readonly_view(radius_img),
+            _as_readonly_view(long_img),
+            _as_readonly_view(dist_img),
+        )
 
     @_cache_stable_result
     @progress_decorator
@@ -3359,7 +3410,11 @@ class BodyXY(Body):
         radius_map[hidden_map] = np.nan
         long_map[hidden_map] = np.nan
         dist_map[hidden_map] = np.nan
-        return radius_map, long_map, dist_map
+        return (
+            _as_readonly_view(radius_map),
+            _as_readonly_view(long_map),
+            _as_readonly_view(dist_map),
+        )
 
     def get_ring_plane_radius_img(self) -> np.ndarray:
         """
