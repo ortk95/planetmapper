@@ -5,7 +5,7 @@ Pillow<=11.0.0
 spiceypy<=6.0.0
 scipy<=1.14.1
 photutils<=2.0.2
-tqdm<=4.67.0
+tqdm<=4.67.1
 pyproj<=3.7.0
 typing-extensions<=4.12.2
 
