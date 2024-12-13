@@ -5,7 +5,7 @@ Various general helpful utilities.
 import os
 import pathlib
 import warnings
-from typing import Literal
+from typing import Literal, Sequence
 
 import matplotlib.ticker
 import numpy as np
@@ -239,7 +239,7 @@ class filter_fits_comment_warning(warnings.catch_warnings):
 
 
 def normalise(
-    values: np.ndarray | list[float],
+    values: np.ndarray | Sequence[float],
     top: float = 1.0,
     bottom: float = 0.0,
     single_value: float | None = None,
