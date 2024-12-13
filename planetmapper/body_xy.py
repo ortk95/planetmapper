@@ -1580,7 +1580,7 @@ class BodyXY(Body):
                 )
         npts = 720
         for lat in lat_ticks:
-            if lat in {-90, 90}:
+            if float(lat) in {-90.0, 90.0}:
                 continue
             if abs(lat) > grid_lat_limit:
                 continue
