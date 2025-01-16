@@ -22,6 +22,8 @@ To aid in downloading appropriate SPICE kernels, PlanetMapper contains a series 
 .. note::
     By default, PlanetMapper will downloaded and search for kernels in a directory named `spice_kernels` within your user directory. If you would like to customise this location (e.g. if you already have kernels saved elsewhere), follow the instructions in the :ref:`section on customising the kernel directory<kernel directory>` below before downloading any kernels.
 
+.. _required kernels:
+
 Required kernels
 ----------------
 To download kernels which are required for virtually every SPICE calculation, run the following commands in Python: ::
@@ -46,6 +48,7 @@ The positions of solar system bodies (e.g. planets and moons) are contained in e
 
 If you have enough disk space, you can easily download all the planet and moon kernels using: ::
 
+    # Note, you will also need to download the lsk and pck kernels as described above
     from planetmapper.kernel_downloader import download_urls
     download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/')
     download_urls('https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/')
@@ -54,6 +57,7 @@ These `spk` kernels add up to ~30GB, so if you have limited disk space, you may 
 
 For example, if you are only interested in Jupiter and its moons, you could use: ::
 
+    # Note, you will also need to download the lsk and pck kernels as described above
     # Note, the exact URLs in this example may not work if new kernel versions are published
     from planetmapper.kernel_downloader import download_urls
 
@@ -68,6 +72,7 @@ For example, if you are only interested in Jupiter and its moons, you could use:
 
 Similarly, if you are interested in Uranus, you could use: ::
 
+    # Note, you will also need to download the lsk and pck kernels as described above
     # Note, the exact URLs in this example may not work if new kernel versions are published
     from planetmapper.kernel_downloader import download_urls
 
@@ -89,6 +94,7 @@ Spacecraft kernels
 ------------------
 If you are using observations from a spacecraft, you will also need to download the ephemeris kernels describing the spacecraft's position over time. For example, if you are using observations from the Hubble Space Telescope, you should run: ::
 
+    # Note, you will also need to download lsk, pck and spk kernels as described above
     from planetmapper.kernel_downloader import download_urls
     download_urls('https://naif.jpl.nasa.gov/pub/naif/HST/kernels/spk/')
 

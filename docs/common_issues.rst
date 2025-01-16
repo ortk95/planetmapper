@@ -28,7 +28,7 @@ If you have any errors caused reported by the SPICE system, it is likely that it
 
 `SpiceNOLEAPSECONDS` Error
 --------------------------
-This error usually occurs when SPICE has not loaded *any* of your desired kernels. This may be because PlanetMapper is not looking in the correct directory for your kernels, so make sure you have set :ref:`the kernel directory<kernel directory>` correctly.
+This error usually occurs when SPICE has not loaded *any* of your desired kernels. This may be because PlanetMapper is not looking in the correct directory for your kernels, so make sure you have set :ref:`the kernel directory<kernel directory>` correctly. You should also ensure you have :ref:`the required lsk and pck kernels downloaded correctly<required kernels>`.
 
 
 `SpiceSPKINSUFFDATA` Error
