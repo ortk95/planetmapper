@@ -239,7 +239,7 @@ class Observation(BodyXY):
 
     def _load_fits_data(self):
         assert self.path is not None
-        with fits.open(self.path, memmap=False) as hdul:
+        with fits.open(self.path, memmap=False) as hdul:  # type: ignore
             for idx, hdu in enumerate(hdul):
                 if hdu.data is not None:
                     data = hdu.data

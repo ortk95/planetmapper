@@ -1890,7 +1890,7 @@ class OpenObservation(Popup):
         kwargs = {}
         if any(path.endswith(ext) for ext in Observation.FITS_FILE_EXTENSIONS):
             try:
-                with fits.open(path) as hdul:
+                with fits.open(path) as hdul:  # type: ignore
                     # pylint: disable-next=no-member
                     header = hdul[0].header  # type: ignore
                 Observation._add_kw_from_header(kwargs, header)
