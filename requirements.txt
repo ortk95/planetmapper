@@ -1,11 +1,11 @@
-astropy<=6.1.4
-matplotlib<=3.9.2
-numpy<=2.1.2
-Pillow<=10.4.0
+astropy<=7.0.0
+matplotlib<=3.10.0
+numpy<=2.2.2
+Pillow<=11.1.0
 spiceypy<=6.0.0
-scipy<=1.14.1
-photutils<=1.13.0
-tqdm<=4.66.5
+scipy<=1.15.1
+photutils<=2.1.0
+tqdm<=4.67.1
 pyproj<=3.7.0
 typing-extensions<=4.12.2
 

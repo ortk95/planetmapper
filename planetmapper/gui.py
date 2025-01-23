@@ -1890,7 +1890,7 @@ class OpenObservation(Popup):
         kwargs = {}
         if any(path.endswith(ext) for ext in Observation.FITS_FILE_EXTENSIONS):
             try:
-                with fits.open(path) as hdul:
+                with fits.open(path) as hdul:  # type: ignore
                     # pylint: disable-next=no-member
                     header = hdul[0].header  # type: ignore
                 Observation._add_kw_from_header(kwargs, header)
@@ -1937,37 +1937,33 @@ class OpenObservation(Popup):
         kernels = [k.strip() for k in string.splitlines()]
         base.load_kernels(*kernels, clear_before=True)
 
-        kernel_help = '\n' + base._SPICE_ERROR_HELP_TEXT
-
         sb = base.SpiceBase(auto_load_kernels=False)
         try:
             target = sb.standardise_body_name(observation_kwargs['target'])
-        # pylint: disable-next=bare-except
-        except:
-            tkinter.messagebox.showwarning(
-                title='Error parsing target',
-                message='Target name {!r} not recognised\n{}'.format(
-                    observation_kwargs['target'], kernel_help
-                ),
-            )
+            spice.bods2c(target)
+        # pylint: disable-next=broad-except
+        except Exception as e:
+            self.show_spice_warning(title='Error parsing target', exception=e)
             return False
 
         try:
             observer = sb.standardise_body_name(observation_kwargs['observer'])
-        # pylint: disable-next=bare-except
-        except:
-            tkinter.messagebox.showwarning(
-                title='Error parsing observer',
-                message='Observer name {!r} not recognised\n{}'.format(
-                    observation_kwargs['observer'], kernel_help
-                ),
-            )
+            spice.bods2c(observer)
+            # pylint: disable-next=broad-except
+        except Exception as e:
+            self.show_spice_warning(title='Error parsing observer', exception=e)
             return False
 
         if target == observer:
             tkinter.messagebox.showwarning(
                 title='Target and observer identical',
-                message='Target and observer must correspond to different bodies',
+                message='\n'.join(
+                    [
+                        'Target and observer must correspond to different bodies',
+                        f'Target: {target!r}',
+                        f'Observer: {observer!r}',
+                    ]
+                ),
             )
             return False
 
@@ -1978,14 +1974,9 @@ class OpenObservation(Popup):
         except ValueError:
             try:
                 spice.utc2et(observation_kwargs['utc'])  #  type: ignore
-            # pylint: disable-next=bare-except
-            except:
-                tkinter.messagebox.showwarning(
-                    title='Error parsing utc',
-                    message='Could not parse {!r}\n{}'.format(
-                        observation_kwargs['utc'], kernel_help
-                    ),
-                )
+            # pylint: disable-next=broad-except
+            except Exception as e:
+                self.show_spice_warning(title='Error parsing date', exception=e)
                 return False
         try:
             observation = Observation(**observation_kwargs, auto_load_kernels=False)
@@ -2001,6 +1992,20 @@ class OpenObservation(Popup):
         self.gui.kernels = kernels
         self.gui.close_all_popups(keep_open=[self])
         return True
+
+    def show_spice_warning(self, *, title: str, exception: Exception) -> None:
+        message = base._SPICE_ERROR_HELP_TEXT
+        # MacOS doesn't show the title, so add it to the start of the message instead
+        if platform.system() == 'Darwin' and title != '':
+            message = f'{title}\n\n{message}'
+            title = ''
+        tkinter.messagebox.showwarning(
+            master=self.window,
+            parent=self.window,
+            title=title,
+            message=message,
+            detail=f'{type(exception).__name__}\n{exception}',
+        )
 
     def click_cancel(self) -> None:
         self.close_window()

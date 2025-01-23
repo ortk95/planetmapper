@@ -9,6 +9,7 @@ from typing import (
     Iterable,
     Literal,
     ParamSpec,
+    Sequence,
     TypedDict,
     TypeVar,
     cast,
@@ -2514,7 +2515,7 @@ class Body(BodyBase):
 
     def visible_lon_grid_radec(
         self,
-        lons: list[float] | np.ndarray,
+        lons: Sequence[float] | np.ndarray,
         npts: int = 60,
         *,
         lat_limit: float = 90.0,
@@ -2565,7 +2566,7 @@ class Body(BodyBase):
 
     def visible_lat_grid_radec(
         self,
-        lats: list[float] | np.ndarray,
+        lats: Sequence[float] | np.ndarray,
         npts: int = 120,
         *,
         lat_limit: float = 90.0,
@@ -3070,7 +3071,9 @@ class Body(BodyBase):
                     ),
                 )
             lats = [
-                l for l in np.arange(-90, 90, grid_interval) if abs(l) <= grid_lat_limit
+                float(l)
+                for l in np.arange(-90, 90, grid_interval)
+                if abs(l) <= grid_lat_limit
             ]
             for lat, (ra, dec) in zip(
                 lats,

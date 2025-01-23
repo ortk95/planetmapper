@@ -13,6 +13,9 @@ if [ ! -d "python-type-stubs" ]; then
     git clone https://github.com/microsoft/python-type-stubs python-type-stubs
 fi
 
+echo -e "\nUpdating python-type-stubs (for use with pyright)..."
+cd python-type-stubs && git pull && cd ..
+
 # Allow the docstring check to fail (end line with ";"), all others should cause
 # the script to stop (end lines with "&&"), as the docstring check only really
 # matters when we are releasing a new version, so it's normal for it to fail when

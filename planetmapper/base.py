@@ -111,6 +111,32 @@ def _cache_stable_result(
     return decorated
 
 
+def _as_readonly_view(arr: np.ndarray) -> np.ndarray:
+    """
+    Return a read-only view of a numpy array.
+    """
+    out = arr.view()
+    out.setflags(write=False)
+    return out
+
+
+def _return_readonly_array(
+    fn: Callable[Concatenate[S, P], np.ndarray]
+) -> Callable[Concatenate[S, P], np.ndarray]:
+    """
+    Decorator to return a read-only numpy array by setting its writeable flag to False.
+
+    This is designed for use with caching decorators, as the cached array should not be
+    mutable.
+    """
+
+    @functools.wraps(fn)
+    def decorated(self: S, *args_in: P.args, **kwargs_in: P.kwargs) -> np.ndarray:
+        return _as_readonly_view(fn(self, *args_in, **kwargs_in))
+
+    return decorated
+
+
 def _add_help_note_to_spice_errors(fn: Callable[P, T]) -> Callable[P, T]:
     """
     Decorator to add help text to spice errors

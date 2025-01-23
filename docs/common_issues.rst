@@ -28,7 +28,7 @@ If you have any errors caused reported by the SPICE system, it is likely that it
 
 `SpiceNOLEAPSECONDS` Error
 --------------------------
-This error usually occurs when SPICE has not loaded *any* of your desired kernels. This may be because PlanetMapper is not looking in the correct directory for your kernels, so make sure you have set :ref:`the kernel directory<kernel directory>` correctly.
+This error usually occurs when SPICE has not loaded *any* of your desired kernels. This may be because PlanetMapper is not looking in the correct directory for your kernels, so make sure you have set :ref:`the kernel directory<kernel directory>` correctly. You should also ensure you have :ref:`the required lsk and pck kernels downloaded correctly<required kernels>`.
 
 
 `SpiceSPKINSUFFDATA` Error
@@ -85,6 +85,25 @@ As a temporary workaround, you can set the `PLANETMAPPER_USE_X11_FONT_BUGFIX` en
     export PLANETMAPPER_USE_X11_FONT_BUGFIX=true
 
 This tells the PlanetMapper user interface to replace certain characters with ASCII equivalents (e.g. `↑` is replaced with `^`) which seems to prevent the use of the fonts which cause XQuartz to crash. Note that this will make the user interface slightly more ugly, but should not affect functionality. If you are still having issues after trying this workaround, you can `add a comment to the GitHub issue <https://github.com/ortk95/planetmapper/issues/145>`_.
+
+
+.. _readonly arrays:
+
+Read-only NumPy arrays
+======================
+Many PlanetMapper functions return read-only NumPy arrays (e.g. backplane methods like :func:`planetmapper.BodyXY.get_lon_img`). This prevents bugs caused by accidentally modifying cached data, but will cause an exception if you try to directly modify the array:
+
+::
+
+    ValueError: assignment destination is read-only
+
+To convert a read-only NumPy array to a writeable array, you can use the `copy` method:
+
+::
+
+    lon_img = body.get_lon_img().copy()
+
+This will create a copy of the array that you can safely modify, without affecting the original cached array.
 
 
 Wireframe plots appear warped or distorted
