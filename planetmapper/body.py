@@ -235,7 +235,7 @@ P = ParamSpec('P')
 
 
 def _adjust_surface_altitude_decorator(
-    fn: Callable[Concatenate[S, P], T]
+    fn: Callable[Concatenate[S, P], T],
 ) -> Callable[Concatenate[S, P], T]:
     """
     Decorator to apply _AdjustedSurfaceAltitude to a function.
@@ -253,7 +253,7 @@ def _adjust_surface_altitude_decorator(
 
 
 def _cache_clearable_alt_dependent_result(
-    fn: Callable[Concatenate[S, P], T]
+    fn: Callable[Concatenate[S, P], T],
 ) -> Callable[Concatenate[S, P], T]:
     """
     Version of _cache_clearable_result that also includes the current altitude

@@ -3,7 +3,7 @@
 """
 Utility to help downloading spice kernels.
 
-Will download local copy of kernels with same directory structure as on 
+Will download local copy of kernels with same directory structure as on
 https://naif.jpl.nasa.gov/. Use :func:`planetmapper.set_kernel_path` to choose the
 location that the kernels are downloaded to.
 

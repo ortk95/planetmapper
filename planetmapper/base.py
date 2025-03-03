@@ -55,7 +55,7 @@ _SPICE_ERROR_HELP_TEXT = (
 
 
 def _cache_clearable_result(
-    fn: Callable[Concatenate[S, P], T]
+    fn: Callable[Concatenate[S, P], T],
 ) -> Callable[Concatenate[S, P], T]:
     """
     Decorator to cache the output of a method call with variable arguments.
@@ -88,7 +88,7 @@ def _cache_clearable_result(
 
 
 def _cache_stable_result(
-    fn: Callable[Concatenate[S, P], T]
+    fn: Callable[Concatenate[S, P], T],
 ) -> Callable[Concatenate[S, P], T]:
     """
     Decorator to cache stable result
@@ -121,7 +121,7 @@ def _as_readonly_view(arr: np.ndarray) -> np.ndarray:
 
 
 def _return_readonly_array(
-    fn: Callable[Concatenate[S, P], np.ndarray]
+    fn: Callable[Concatenate[S, P], np.ndarray],
 ) -> Callable[Concatenate[S, P], np.ndarray]:
     """
     Decorator to return a read-only numpy array by setting its writeable flag to False.
