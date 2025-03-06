@@ -318,7 +318,7 @@ class GUI:
 
         self.kernels: list[str] = [
             os.path.join(base.get_kernel_path(), pattern)
-            for pattern in base._KERNEL_DATA['kernel_patterns']
+            for pattern in base.KERNEL_PATTERNS
         ]
 
         self.delayed_actions: dict[str, tuple[Callable[[], Any], str]] = {}

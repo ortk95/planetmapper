@@ -240,7 +240,7 @@ class TestSpiceBase(common_testing.BaseTestCase):
                 self.assertAlmostEqual(self.obj.calculate_doppler_factor(rv), df)
 
     def test_load_spice_kernels(self):
-        self.assertTrue(planetmapper.base._KERNEL_DATA['kernels_loaded'])
+        self.assertTrue(planetmapper.base._PLANETMAPPER_STATE['kernels_loaded'])
 
     def test_close_loop(self):
         self.assertTrue(
@@ -526,32 +526,34 @@ class TestKernelPath(common_testing.BaseTestCase):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
         planetmapper.base.clear_kernels()
 
-        self.assertFalse(planetmapper.base._KERNEL_DATA['kernels_loaded'])
+        self.assertFalse(planetmapper.base._PLANETMAPPER_STATE['kernels_loaded'])
         planetmapper.SpiceBase(auto_load_kernels=False)
-        self.assertFalse(planetmapper.base._KERNEL_DATA['kernels_loaded'])
+        self.assertFalse(planetmapper.base._PLANETMAPPER_STATE['kernels_loaded'])
         planetmapper.SpiceBase(auto_load_kernels=True)
-        self.assertTrue(planetmapper.base._KERNEL_DATA['kernels_loaded'])
+        self.assertTrue(planetmapper.base._PLANETMAPPER_STATE['kernels_loaded'])
 
     def test_clear_kernels(self):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
         for attempt in [1, 2]:
             with self.subTest(attempt=attempt):
                 planetmapper.base.clear_kernels()
-                self.assertFalse(planetmapper.base._KERNEL_DATA['kernels_loaded'])
+                self.assertFalse(
+                    planetmapper.base._PLANETMAPPER_STATE['kernels_loaded']
+                )
                 with self.assertRaises(SpiceyPyError):
                     planetmapper.Body('Jupiter', '2000-01-01', auto_load_kernels=False)
                 planetmapper.Body('Jupiter', '2000-01-01')
-                self.assertTrue(planetmapper.base._KERNEL_DATA['kernels_loaded'])
+                self.assertTrue(planetmapper.base._PLANETMAPPER_STATE['kernels_loaded'])
 
     def test_prevent_kernel_loading(self):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
         planetmapper.base.clear_kernels()
         planetmapper.base.prevent_kernel_loading()
-        self.assertTrue(planetmapper.base._KERNEL_DATA['kernels_loaded'])
+        self.assertTrue(planetmapper.base._PLANETMAPPER_STATE['kernels_loaded'])
         with self.assertRaises(SpiceyPyError):
             planetmapper.Body('Jupiter', '2000-01-01')
         planetmapper.base.clear_kernels()
-        self.assertFalse(planetmapper.base._KERNEL_DATA['kernels_loaded'])
+        self.assertFalse(planetmapper.base._PLANETMAPPER_STATE['kernels_loaded'])
         planetmapper.Body('Jupiter', '2000-01-01')
 
     def test_kernel_path(self):
@@ -818,7 +820,7 @@ class TestBodyBase(common_testing.BaseTestCase):
         planetmapper.base.clear_kernels()
 
         manual_kernels = []
-        for pattern in planetmapper.base._KERNEL_DATA['kernel_patterns']:
+        for pattern in planetmapper.base.KERNEL_PATTERNS:
             manual_kernels.extend(
                 glob.glob(
                     os.path.join(common_testing.KERNEL_PATH, pattern), recursive=True

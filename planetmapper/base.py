@@ -12,6 +12,7 @@ from typing import (
     Concatenate,
     Literal,
     ParamSpec,
+    TypedDict,
     TypeVar,
     cast,
     overload,
@@ -30,16 +31,21 @@ from spiceypy.utils.exceptions import NotFoundError, SpiceyPyError
 from . import progress
 
 DEFAULT_KERNEL_PATH = '~/spice_kernels/'
+KERNEL_PATTERNS: tuple[str, ...] = ('**/*.bsp', '**/*.tpc', '**/*.tls')
 
-_KERNEL_DATA = {
+
+class _PlanetmapperStateType(TypedDict):
+    kernel_path: str | None
+    kernels_loaded: bool
+
+
+_PLANETMAPPER_STATE: _PlanetmapperStateType = {
     'kernel_path': None,
-    'kernel_patterns': ('**/*.bsp', '**/*.tpc', '**/*.tls'),
     'kernels_loaded': False,
 }
 
 Numeric = TypeVar('Numeric', bound=float | np.ndarray)
 FloatOrArray = TypeVar('FloatOrArray', float, np.ndarray)
-
 
 T = TypeVar('T')
 S = TypeVar('S', bound='SpiceBase')
@@ -580,7 +586,7 @@ class SpiceBase:
             only_if_needed: If this is `True`, kernels will only be loaded once per
                 session.
         """
-        if only_if_needed and _KERNEL_DATA['kernels_loaded']:
+        if only_if_needed and _PLANETMAPPER_STATE['kernels_loaded']:
             return
         if manual_kernels:
             kernels = manual_kernels
@@ -589,8 +595,7 @@ class SpiceBase:
                 kernel_path = get_kernel_path()
             kernel_path = os.path.expanduser(kernel_path)
             kernels = [
-                os.path.join(kernel_path, pattern)
-                for pattern in _KERNEL_DATA['kernel_patterns']
+                os.path.join(kernel_path, pattern) for pattern in KERNEL_PATTERNS
             ]
 
         kernel_paths = load_kernels(*kernels)
@@ -602,7 +607,7 @@ class SpiceBase:
             )
             print()
         else:
-            _KERNEL_DATA['kernels_loaded'] = True
+            _PLANETMAPPER_STATE['kernels_loaded'] = True
 
     @staticmethod
     def close_loop(arr: np.ndarray) -> np.ndarray:
@@ -983,7 +988,7 @@ def prevent_kernel_loading() -> None:
 
     Calling :func:`clear_kernels` will re-enable automatic kernel loading.
     """
-    _KERNEL_DATA['kernels_loaded'] = True
+    _PLANETMAPPER_STATE['kernels_loaded'] = True
 
 
 def clear_kernels() -> None:
@@ -994,7 +999,7 @@ def clear_kernels() -> None:
     kernels will need to be reloaded when a new object is created.
     """
     spice.kclear()
-    _KERNEL_DATA['kernels_loaded'] = False
+    _PLANETMAPPER_STATE['kernels_loaded'] = False
 
 
 def set_kernel_path(path: str | os.PathLike | None) -> None:
@@ -1008,7 +1013,7 @@ def set_kernel_path(path: str | os.PathLike | None) -> None:
     """
     if path is not None:
         path = os.fspath(path)
-    _KERNEL_DATA['kernel_path'] = path
+    _PLANETMAPPER_STATE['kernel_path'] = path
 
 
 @overload
@@ -1043,7 +1048,7 @@ def get_kernel_path(return_source: bool = False) -> str | tuple[str, str]:
         `return_source` is `True`, then a tuple of the kernel path and a string
         indicating the source of the kernel path is returned.
     """
-    if (path := _KERNEL_DATA['kernel_path']) is not None:
+    if (path := _PLANETMAPPER_STATE['kernel_path']) is not None:
         if return_source:
             return path, 'set_kernel_path()'
         return path
