@@ -1177,14 +1177,22 @@ class GUI:
         self.replot_image()
         self.canvas.draw()
 
+    def update_plot_transforms(self) -> None:
+        # Use func to convert radec -> angular, then matplotlib transform to do
+        # angular -> xy. This two step approach should help reduce distortion at high
+        # declinations or for large diameter targets.
+        # https://github.com/ortk95/planetmapper/issues/456
+        self.plot_coordinate_func = self.get_observation().radec2angular
+        self.transform = (
+            self.get_observation().matplotlib_angular2xy_transform() + self.ax.transData
+        )
+
     def build_plot(self) -> None:
         # Use Figure rather than plt.figure to avoid segmentation fault when running
         # from tkinter GUI (issue #258)
         self.fig = Figure()
         self.ax = self.fig.add_axes([0.06, 0.03, 0.93, 0.96])
-        self.transform = (
-            self.get_observation().matplotlib_radec2xy_transform() + self.ax.transData
-        )
+        self.update_plot_transforms()
 
         self.replot_all()
         self.format_plot()
@@ -1213,9 +1221,7 @@ class GUI:
         )
 
     def rebuild_plot(self) -> None:
-        self.transform = (
-            self.get_observation().matplotlib_radec2xy_transform() + self.ax.transData
-        )
+        self.update_plot_transforms()
         self.replot_all()
         self.format_plot()
         self.update_plot()
@@ -1269,7 +1275,7 @@ class GUI:
         self.remove_artists('limb_illuminated')
         self.plot_handles['limb'].extend(
             self.ax.plot(
-                *self.get_observation().limb_radec(),
+                *self.plot_coordinate_func(*self.get_observation().limb_radec()),
                 transform=self.transform,
                 **self.plot_settings['limb'],
             )
@@ -1282,8 +1288,7 @@ class GUI:
         ) = self.get_observation().limb_radec_by_illumination()
         self.plot_handles['limb_illuminated'].extend(
             self.ax.plot(
-                ra_day,
-                dec_day,
+                *self.plot_coordinate_func(ra_day, dec_day),
                 transform=self.transform,
                 **self.plot_settings['limb_illuminated'],
             )
@@ -1293,7 +1298,7 @@ class GUI:
         self.remove_artists('terminator')
         self.plot_handles['terminator'].extend(
             self.ax.plot(
-                *self.get_observation().terminator_radec(),
+                *self.plot_coordinate_func(*self.get_observation().terminator_radec()),
                 transform=self.transform,
                 **self.plot_settings['terminator'],
             )
@@ -1306,14 +1311,13 @@ class GUI:
             self.plot_handles['pole'].append(
                 self.ax.add_artist(
                     OutlinedText(
-                        ra,
-                        dec,
+                        *self.plot_coordinate_func(ra, dec),
                         s,
+                        transform=self.transform,
                         ha='center',
                         va='center',
                         weight='bold',
                         size='small',
-                        transform=self.transform,
                         clip_on=True,
                         **self.plot_settings['pole'],
                     )
@@ -1331,8 +1335,7 @@ class GUI:
         ):
             self.plot_handles['grid'].extend(
                 self.ax.plot(
-                    ra,
-                    dec,
+                    *self.plot_coordinate_func(ra, dec),
                     transform=self.transform,
                     **self.plot_settings['grid'],
                 )
@@ -1345,8 +1348,7 @@ class GUI:
                 ra, dec = self.get_observation().lonlat2radec(lon, lat)
                 self.plot_handles['coordinate_of_interest_lonlat'].append(
                     self.ax.scatter(
-                        ra,
-                        dec,
+                        *self.plot_coordinate_func(ra, dec),
                         transform=self.transform,
                         **self.plot_settings['coordinate_of_interest_lonlat'],
                     )
@@ -1357,8 +1359,7 @@ class GUI:
         for ra, dec in self.get_observation().coordinates_of_interest_radec:
             self.plot_handles['coordinate_of_interest_radec'].append(
                 self.ax.scatter(
-                    ra,
-                    dec,
+                    *self.plot_coordinate_func(ra, dec),
                     transform=self.transform,
                     **self.plot_settings['coordinate_of_interest_radec'],
                 )
@@ -1370,8 +1371,7 @@ class GUI:
             ra, dec = self.get_observation().ring_radec(radius)
             self.plot_handles['ring'].extend(
                 self.ax.plot(
-                    ra,
-                    dec,
+                    *self.plot_coordinate_func(ra, dec),
                     transform=self.transform,
                     **self.plot_settings['ring'],
                 )
@@ -1389,8 +1389,7 @@ class GUI:
                 label = f'({label})'
             self.plot_handles['other_body_of_interest_label'].append(
                 self.ax.text(
-                    ra,
-                    dec,
+                    *self.plot_coordinate_func(ra, dec),
                     label + '\n',
                     size='small',
                     ha='center',
@@ -1402,8 +1401,7 @@ class GUI:
             )
             self.plot_handles['other_body_of_interest_marker'].append(
                 self.ax.scatter(
-                    ra,
-                    dec,
+                    *self.plot_coordinate_func(ra, dec),
                     transform=self.transform,
                     alpha=0.5 if hidden else 1,
                     **self.plot_settings['other_body_of_interest_marker'],
