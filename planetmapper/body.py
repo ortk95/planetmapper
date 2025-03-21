@@ -3254,9 +3254,9 @@ class Body(BodyBase):
 
             Even though the numerical values will be correct, the plot may appear warped
             or distorted if the target is near the celestial pole (i.e. the target's
-            declination is near 90° or -90°). This is due to the spherical nature of the
-            RA/Dec coordinate system, which is impossible to represent perfectly on a 2D
-            cartesian plot.
+            declination is near 90° or -90°) or has a very large angular diameter (e.g.
+            >30°). This is due to the spherical nature of the RA/Dec coordinate system,
+            which is impossible to represent perfectly on a 2D cartesian plot.
 
             :func:`plot_wireframe_angular` can be used as an alternative to
             :func:`plot_wireframe_radec` to plot the wireframe without distortion from
