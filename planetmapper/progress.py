@@ -14,7 +14,7 @@ P = ParamSpec('P')
 
 
 def progress_decorator(
-    fn: Callable[Concatenate[S, P], T]
+    fn: Callable[Concatenate[S, P], T],
 ) -> Callable[Concatenate[S, P], T]:
     """Decorator for functions which track progress using progress hooks."""
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Script used to generate example plots on 
+Script used to generate example plots on
 https://planetmapper.readthedocs.io/en/latest/general_python_api.html
 
 Run download_spice_kernels() to download the kernels required for these examples.
