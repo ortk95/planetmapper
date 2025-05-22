@@ -646,7 +646,9 @@ class Body(BodyBase):
             **super()._get_default_init_kwargs(),
         )
 
-    def _copy_options_to_other(self, other: Self) -> None:
+    def _copy_options_to_other(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self, other: Self
+    ) -> None:
         super()._copy_options_to_other(other)
         other.other_bodies_of_interest = self.other_bodies_of_interest.copy()
         other.coordinates_of_interest_lonlat = (
