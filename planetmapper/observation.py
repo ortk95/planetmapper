@@ -856,7 +856,7 @@ class Observation(BodyXY):
                 value = value[:n] + '...'
         if remove_existing:
             header.remove(keyword, ignore_missing=True, remove_all=True)
-        with utils.filter_fits_comment_warning():
+        with utils.filter_fits_comment_warning():  # pyright: ignore[reportCallIssue]
             header.append(fits.Card(keyword=keyword, value=value, comment=comment))
 
     @classmethod
@@ -1141,7 +1141,7 @@ class Observation(BodyXY):
 
         with _AdjustedSurfaceAltitude(self, alt):
             progress_max = 10 + len(self.backplanes)
-            with utils.filter_fits_comment_warning():
+            with utils.filter_fits_comment_warning():  # pyright: ignore[reportCallIssue]
                 data = self.data
                 header = self.header.copy()
 
@@ -1240,7 +1240,7 @@ class Observation(BodyXY):
             print('Saving map to', path)
 
         progress_max = 15 + (len(self.backplanes) if include_backplanes else 0)
-        with utils.filter_fits_comment_warning():
+        with utils.filter_fits_comment_warning():  # pyright: ignore[reportCallIssue]
             if print_info:
                 print(' Projecting mapped data...')
             data = self.get_mapped_data(
