@@ -16,6 +16,10 @@ fi
 echo -e "\nUpdating python-type-stubs (for use with pyright)..."
 cd python-type-stubs && git pull && cd ..
 
+# Check current environment is consistent with the requirements
+echo -e "\nChecking environment is consistent with requirements..."
+pip install -r requirements.txt -r dev_requirements.txt --dry-run | grep "Would install" || echo "All requirements are satisfied."
+
 # Allow the docstring check to fail (end line with ";"), all others should cause
 # the script to stop (end lines with "&&"), as the docstring check only really
 # matters when we are releasing a new version, so it's normal for it to fail when
