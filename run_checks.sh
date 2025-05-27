@@ -25,8 +25,8 @@ pip install -r requirements.txt -r dev_requirements.txt --dry-run | grep "Would 
 # matters when we are releasing a new version, so it's normal for it to fail when
 # the next version number is currently unknown.
 echo -e "\nChecking documentation version directives..." && python check_docstring_version_directives.py; \
-echo -e "\nRunning black..." && black . --check && \
-echo -e "\nRunning isort..." && isort . --check && \
+echo -e "\nRunning black..." && black . --check --diff && \
+echo -e "\nRunning isort..." && isort . --check --diff && \
 echo -e "\nRunning pyright..." && pyright && \
 echo -e "\nRunning pylint..." && pylint $(git ls-files 'planetmapper/*.py') setup.py check_release_version.py && \
 echo -e "\nRunning tests..." && python -m coverage run -m unittest discover -s tests && python -m coverage report && python -m coverage html && \
