@@ -43,6 +43,8 @@ intersphinx_mapping = {
     'matplotlib': ('https://matplotlib.org/stable', None),
     'numpy': ('https://numpy.org/doc/stable', None),
     'spiceypy': ('https://spiceypy.readthedocs.io/en/latest', None),
+    'astropy': ('https://docs.astropy.org/en/stable', None),
+    'pyproj': ('https://pyproj4.github.io/pyproj/stable', None),
 }
 
 # Autodoc
