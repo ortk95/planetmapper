@@ -1573,7 +1573,7 @@ class Body(BodyBase):
         Convert RA/Dec sky coordinates for the observer to distances in the target
         plane.
 
-                The input coordinates can either be floats or NumPy arrays of values. If both
+        The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
         the input coordinates are arrays, the inputs will be `broadcast together
         <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of

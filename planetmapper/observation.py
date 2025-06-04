@@ -500,7 +500,8 @@ class Observation(BodyXY):
         See also :func:`disc_from_wcs`.
 
         Args:
-            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
+            *args: See :func:`disc_from_wcs` for additional arguments.
+            **kwargs: See :func:`disc_from_wcs` for additional arguments.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
@@ -517,7 +518,8 @@ class Observation(BodyXY):
         See also :func:`disc_from_wcs`.
 
         Args:
-            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
+            *args: See :func:`disc_from_wcs` for additional arguments.
+            **kwargs: See :func:`disc_from_wcs` for additional arguments.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
@@ -534,7 +536,8 @@ class Observation(BodyXY):
         See also :func:`disc_from_wcs`.
 
         Args:
-            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
+            *args: See :func:`disc_from_wcs` for additional arguments.
+            **kwargs: See :func:`disc_from_wcs` for additional arguments.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
@@ -574,7 +577,8 @@ class Observation(BodyXY):
         See also :func:`get_wcs_arcsec_offset`.
 
         Args:
-            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
+            *args: See :func:`disc_from_wcs` for additional arguments.
+            **kwargs: See :func:`disc_from_wcs` for additional arguments.
 
         Returns:
             `(dx, dy, dr, drotation)` tuple containing the differences in disc
@@ -640,7 +644,8 @@ class Observation(BodyXY):
         See also :func:`get_wcs_offset`.
 
         Args:
-            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
+            *args: See :func:`disc_from_wcs` for additional arguments.
+            **kwargs: See :func:`disc_from_wcs` for additional arguments.
             check_is_position_offset_only: If `True` (the default), check that the
                 `dr` and `drotation` values returned by :func:`get_wcs_offset` are
                 sufficiently small to be considered a position offset only. If this is
