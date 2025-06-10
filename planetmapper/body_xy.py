@@ -819,7 +819,7 @@ class BodyXY(Body):
         Returns:
             Rotation of the target body.
         """
-        return np.rad2deg(self._get_rotation_radians())
+        return float(np.rad2deg(self._get_rotation_radians()))
 
     def set_plate_scale_arcsec(self, arcsec_per_px: float) -> None:
         """
