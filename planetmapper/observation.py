@@ -500,7 +500,8 @@ class Observation(BodyXY):
         See also :func:`disc_from_wcs`.
 
         Args:
-            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
+            *args: See :func:`disc_from_wcs` for additional arguments.
+            **kwargs: See :func:`disc_from_wcs` for additional arguments.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
@@ -517,7 +518,8 @@ class Observation(BodyXY):
         See also :func:`disc_from_wcs`.
 
         Args:
-            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
+            *args: See :func:`disc_from_wcs` for additional arguments.
+            **kwargs: See :func:`disc_from_wcs` for additional arguments.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
@@ -534,7 +536,8 @@ class Observation(BodyXY):
         See also :func:`disc_from_wcs`.
 
         Args:
-            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
+            *args: See :func:`disc_from_wcs` for additional arguments.
+            **kwargs: See :func:`disc_from_wcs` for additional arguments.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
@@ -574,7 +577,8 @@ class Observation(BodyXY):
         See also :func:`get_wcs_arcsec_offset`.
 
         Args:
-            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
+            *args: See :func:`disc_from_wcs` for additional arguments.
+            **kwargs: See :func:`disc_from_wcs` for additional arguments.
 
         Returns:
             `(dx, dy, dr, drotation)` tuple containing the differences in disc
@@ -640,7 +644,8 @@ class Observation(BodyXY):
         See also :func:`get_wcs_offset`.
 
         Args:
-            *args, **kwargs: See :func:`disc_from_wcs` for additional arguments.
+            *args: See :func:`disc_from_wcs` for additional arguments.
+            **kwargs: See :func:`disc_from_wcs` for additional arguments.
             check_is_position_offset_only: If `True` (the default), check that the
                 `dr` and `drotation` values returned by :func:`get_wcs_offset` are
                 sufficiently small to be considered a position offset only. If this is
@@ -856,7 +861,7 @@ class Observation(BodyXY):
                 value = value[:n] + '...'
         if remove_existing:
             header.remove(keyword, ignore_missing=True, remove_all=True)
-        with utils.filter_fits_comment_warning():
+        with utils.filter_fits_comment_warning():  # pyright: ignore[reportCallIssue]
             header.append(fits.Card(keyword=keyword, value=value, comment=comment))
 
     @classmethod
@@ -1141,7 +1146,7 @@ class Observation(BodyXY):
 
         with _AdjustedSurfaceAltitude(self, alt):
             progress_max = 10 + len(self.backplanes)
-            with utils.filter_fits_comment_warning():
+            with utils.filter_fits_comment_warning():  # pyright: ignore[reportCallIssue]
                 data = self.data
                 header = self.header.copy()
 
@@ -1240,7 +1245,7 @@ class Observation(BodyXY):
             print('Saving map to', path)
 
         progress_max = 15 + (len(self.backplanes) if include_backplanes else 0)
-        with utils.filter_fits_comment_warning():
+        with utils.filter_fits_comment_warning():  # pyright: ignore[reportCallIssue]
             if print_info:
                 print(' Projecting mapped data...')
             data = self.get_mapped_data(

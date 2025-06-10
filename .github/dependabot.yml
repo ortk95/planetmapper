@@ -11,7 +11,16 @@ updates:
       interval: "monthly"
     target-branch: "dev"
     groups:
-      pip-requirements:
+      package-requirements:
         applies-to: version-updates
         patterns:
           - "*"
+        exclude-patterns:
+          - "black"
+          - "isort"
+          - "pyright"
+          - "pylint"
+          - "coverage"
+          - "sphinx"
+          - "sphinx_rtd_theme"
+          - "setuptools"

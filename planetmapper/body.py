@@ -573,7 +573,7 @@ class Body(BodyBase):
         # Do this after finding the subpoint so that a SpiceBODIESNOTDISTINCT error
         # will have already been raised if the target == the observer (which would mean
         # target_distance=0, causing a numpy warning).
-        self.target_diameter_arcsec = (
+        self.target_diameter_arcsec = float(
             2.0 * 60.0 * 60.0 * np.rad2deg(np.arcsin(self.r_eq / self.target_distance))
         )
         self.km_per_arcsec = (2.0 * self.r_eq) / self.target_diameter_arcsec
@@ -608,8 +608,8 @@ class Body(BodyBase):
         # This is split out into a separate method so that it can be called from
         # __init__ and from _AdjustedSurfaceAltitude
         self.radii = radii
-        self.r_eq = self.radii[0]
-        self.r_polar = self.radii[2]
+        self.r_eq = float(self.radii[0])
+        self.r_polar = float(self.radii[2])
         self.flattening = (self.r_eq - self.r_polar) / self.r_eq
 
     def __repr__(self) -> str:
@@ -646,7 +646,9 @@ class Body(BodyBase):
             **super()._get_default_init_kwargs(),
         )
 
-    def _copy_options_to_other(self, other: Self) -> None:
+    def _copy_options_to_other(  # pyright: ignore[reportIncompatibleMethodOverride]
+        self, other: Self
+    ) -> None:
         super()._copy_options_to_other(other)
         other.other_bodies_of_interest = self.other_bodies_of_interest.copy()
         other.coordinates_of_interest_lonlat = (
@@ -1571,7 +1573,7 @@ class Body(BodyBase):
         Convert RA/Dec sky coordinates for the observer to distances in the target
         plane.
 
-                The input coordinates can either be floats or NumPy arrays of values. If both
+        The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
         the input coordinates are arrays, the inputs will be `broadcast together
         <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_ and a tuple of

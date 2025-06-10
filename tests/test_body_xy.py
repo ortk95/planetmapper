@@ -448,6 +448,10 @@ class TestBodyXY(common_testing.BaseTestCase):
                 with self.subTest(setter=setter, v=v):
                     setter(v)
                     self.assertAlmostEqual(getter(), v)
+                    # Explicitly check for is float here as we want to ensure
+                    # subclasses (like np.float64) are not used. See #467.
+                    self.assertIs(type(getter()), float)
+
         for setter, getter in functions:
             with self.subTest(setter=setter):
                 with self.assertRaises(ValueError):

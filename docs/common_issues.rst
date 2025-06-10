@@ -37,6 +37,9 @@ This error usually occurs when SPICE has successfully loaded some kernels, but i
 
 The error message should tell you which body is missing, and you can then identify the correct kernel to download by searching the `NAIF database <https://naif.jpl.nasa.gov/pub/naif/>`_. For example, if you are missing data for a planetary body, you can search the `generic_kernels/spk/satellites/aa_summaries.txt <https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/aa_summaries.txt>`_ file to identify which kernel need downloading.
 
+.. hint::
+    The kernels for the locations of planets are actually located in the `generic_kernels/spk/satellites <https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/>`_ directory, so even if you are only interested in the central planet, you will still need to download at least one kernel from the satellites directory. Search the `aa_summaries.txt <https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/satellites/aa_summaries.txt>`_ file for the planet(s) you are interested in to find the required kernel(s).
+
 
 `NotFoundError` Error
 ---------------------
