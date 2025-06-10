@@ -155,6 +155,12 @@ class TestBody(common_testing.BaseTestCase):
         self.assertTrue(np.isnan(sun.subsol_lon))
         self.assertTrue(np.isnan(sun.subsol_lat))
 
+        # Check types are actually floats and not e.g. np.float64
+        self.assertIs(type(self.body.flattening), float)
+        self.assertIs(type(self.body.km_per_arcsec), float)
+        self.assertIs(type(self.body.r_eq), float)
+        self.assertIs(type(self.body.r_polar), float)
+
     def test_repr(self):
         self.assertEqual(
             repr(self.body),
