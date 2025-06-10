@@ -22,6 +22,9 @@ def main(args: list[str] | None = None) -> None:
     """
     Entry point for CLI.
 
+    If args is None, then parse_args() uses sys.argv[1:] to get the command line
+    arguments.
+
     :meta private:
     """
     parsed_args = _get_parser().parse_args(args)
