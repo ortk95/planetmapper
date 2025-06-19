@@ -114,9 +114,9 @@ class BodyXY(Body):
     Class representing an astronomical body imaged at a specific time.
 
     This is a subclass of :class:`Body` with additional methods to interact with the
-    image pixel coordinate frame `xy`. This class assumes the tangent plane
-    approximation is valid for the conversion between pixel coordinates `xy` and RA/Dec
-    sky coordinates `radec`.
+    `image pixel coordinates`_ frame `xy`. This class assumes the tangent plane
+    approximation is valid for the conversion between pixel coordinates `xy` and `RA/Dec
+    celestial coordinates`_ `radec`.
 
     The `xy` ↔ `radec` conversion is performed by setting the pixel coordinates of the
     centre of the planet's disc `(x0, y0)`, the (equatorial) pixel radius of the disc
@@ -385,7 +385,7 @@ class BodyXY(Body):
         self, x: FloatOrArray, y: FloatOrArray
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert image pixel coordinates to RA/Dec sky coordinates.
+        Convert `image pixel coordinates`_ to `RA/Dec celestial coordinates`_.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -409,7 +409,7 @@ class BodyXY(Body):
         self, ra: FloatOrArray, dec: FloatOrArray
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert RA/Dec sky coordinates to image pixel coordinates.
+        Convert `RA/Dec celestial coordinates`_ to `image pixel coordinates`_.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -433,8 +433,8 @@ class BodyXY(Body):
         self, x: FloatOrArray, y: FloatOrArray, *, not_found_nan=True, alt: float = 0.0
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert image pixel coordinates to longitude/latitude coordinates on the target
-        body.
+        Convert `image pixel coordinates`_ to `longitude/latitude coordinates`_ on the
+        target body.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -451,9 +451,10 @@ class BodyXY(Body):
                 body in km.
 
         Returns:
-            `(lon, lat)` tuple containing the longitude and latitude of the point(s). If
-            the provided pixel coordinates are missing the target body, and
-            `not_found_nan` is `True`, then the `lon` and `lat` values will both be NaN.
+            `(lon, lat)` tuple containing the planetographic longitude/latitude of
+            the point(s). If the provided pixel coordinates are missing the target body,
+            and `not_found_nan` is `True`, then the `lon` and `lat` values will both be
+            NaN.
 
         Raises:
             NotFoundError: if the input `x` and `y` coordinates are missing the target
@@ -477,7 +478,8 @@ class BodyXY(Body):
         not_visible_nan: bool = False,
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert longitude/latitude on the target body to image pixel coordinates.
+        Convert `longitude/latitude coordinates`_ on the target body to `image pixel
+        coordinates`_.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -486,8 +488,8 @@ class BodyXY(Body):
         NumPy arrays will be returned.
 
         Args:
-            lon: Longitude of point(s) on target body.
-            lat: Latitude of point(s) on target body.
+            lon: Planetographic longitude of point(s) on target body.
+            lat: Planetographic latitude of point(s) on target body.
             alt: Altitude of point above the surface of the target body in km.
             not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
                 the point is not visible to the observer (e.g. it is on the far side of
@@ -512,7 +514,8 @@ class BodyXY(Body):
         self, x: FloatOrArray, y: FloatOrArray
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert image pixel coordinates to distances in the target plane.
+        Convert `image pixel coordinates`_ to `distance coordinates`_ in the target
+        plane.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -537,7 +540,8 @@ class BodyXY(Body):
         self, km_x: FloatOrArray, km_y: FloatOrArray
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert distances in the target plane to image pixel coordinates.
+        Convert `distance coordinates`_ in the target plane to `image pixel
+        coordinates`_.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -564,7 +568,7 @@ class BodyXY(Body):
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert image pixel coordinates to relative angular coordinates.
+        Convert `image pixel coordinates`_ to `relative angular coordinates`_.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -597,7 +601,7 @@ class BodyXY(Body):
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert relative angular coordinates to image pixel coordinates.
+        Convert `relative angular coordinates`_ to `image pixel coordinates`_.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -730,7 +734,7 @@ class BodyXY(Body):
     def set_x0(self, x0: float) -> None:
         """
         Args:
-            x0: New x pixel coordinate of the centre of the target body.
+            x0: New x `pixel coordinate`_ of the centre of the target body.
 
         Raises:
             ValueError: if `x0` is not finite.
@@ -743,14 +747,14 @@ class BodyXY(Body):
     def get_x0(self) -> float:
         """
         Returns:
-            x pixel coordinate of the centre of the target body.
+            x `pixel coordinate`_ of the centre of the target body.
         """
         return self._x0
 
     def set_y0(self, y0: float) -> None:
         """
         Args:
-            y0: New y pixel coordinate of the centre of the target body.
+            y0: New y `pixel coordinate`_ of the centre of the target body.
 
         Raises:
             ValueError: if `y0` is not finite.
@@ -763,7 +767,7 @@ class BodyXY(Body):
     def get_y0(self) -> float:
         """
         Returns:
-            y pixel coordinate of the centre of the target body.
+            y `pixel coordinate`_ of the centre of the target body.
         """
         return self._y0
 
@@ -802,7 +806,7 @@ class BodyXY(Body):
 
         This rotation defines the angle between the upwards (positive `dec`) direction
         in the RA/Dec sky coordinates and the upwards (positive `y`) direction in the
-        image pixel coordinates.
+        `image pixel coordinates`_.
 
         Args:
             rotation: New rotation of the target body.
@@ -993,14 +997,14 @@ class BodyXY(Body):
 
         Returns:
             `(x_min, x_max), (y_min, y_max)` tuple containing the minimum and maximum
-            pixel coordinates of the pixels in the image.
+            `image pixel coordinates`_ of the pixels in the image.
         """
         return self._get_img_limits(lambda x, y: (x, y))
 
     # Illumination functions etc.
     def limb_xy(self, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         """
-        Pixel coordinate version of :func:`Body.limb_radec`.
+        `Image pixel coordinates`_ version of :func:`Body.limb_radec`.
 
         Args:
             **kwargs: Passed to :func:`Body.limb_radec`.
@@ -1014,7 +1018,7 @@ class BodyXY(Body):
         self, **kwargs
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
-        Pixel coordinate version of :func:`Body.limb_radec_by_illumination`.
+        `Image pixel coordinates`_ version of :func:`Body.limb_radec_by_illumination`.
 
         Args:
             **kwargs: Passed to :func:`Body.limb_radec_by_illumination`.
@@ -1031,7 +1035,7 @@ class BodyXY(Body):
 
     def terminator_xy(self, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         """
-        Pixel coordinate version of :func:`Body.terminator_radec`.
+        `Image pixel coordinates`_ version of :func:`Body.terminator_radec`.
 
         Args:
             **kwargs: Passed to :func:`Body.terminator_radec`.
@@ -1045,7 +1049,7 @@ class BodyXY(Body):
         self, *args, **kwargs: Unpack[LonLatGridKwargs]
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
-        Pixel coordinate version of :func:`Body.visible_lonlat_grid_radec`.
+        `Image pixel coordinates`_ version of :func:`Body.visible_lonlat_grid_radec`.
 
         Args:
             *args: Passed to :func:`Body.visible_lonlat_grid_radec`.
@@ -1061,7 +1065,7 @@ class BodyXY(Body):
 
     def ring_xy(self, radius: float, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         """
-        Pixel coordinate version of :func:`Body.ring_radec`.
+        `Image pixel coordinates`_ version of :func:`Body.ring_radec`.
 
         Args:
             radius: Radius in km of the ring from the centre of the target body.

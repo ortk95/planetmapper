@@ -3,12 +3,18 @@ PlanetMapper: A Python package for visualising, navigating and mapping Solar Sys
 observations.
 
 ..
-    See https://planetmapper.readthedocs.io for full documentation.
+    See https://planetmapper.readthedocs.io for full documentation & installation
+    instructions.
 
 The core logic of this code is based on conversion between different coordinate systems
 of interest. The `xy` and `radec` coordinate systems define positions from the point of
 view of the observer while the `lonlat` coordinate system defines locations on the
 surface of the target body:
+
+----
+
+.. _pixel coordinate:
+.. _image pixel coordinates:
 
 `xy`: image pixel coordinates. These coordinates count the number of pixels in an
 observed image with the bottom left pixel defined as `(0, 0)`, and the `x` and `y`
@@ -16,29 +22,52 @@ coordinates defined as normal. Integer coordinates represent the middle of the
 corresponding pixel, so `(0, 3)` covers `x` values from -0.5 to 0.5 and `y` values from
 2.5 to 3.5.
 
-`radec`: observer frame RA/Dec sky coordinates. These are the right ascension and
+----
+
+.. _RA/Dec celestial coordinates:
+
+`radec`: observer frame RA/Dec celestial coordinates. These are the right ascension and
 declination which define the position in the sky of a point from the point of view of
 the observer. These coordinates are expressed in degrees. See
 `Wikipedia <https://en.wikipedia.org/wiki/Equatorial_coordinate_system>`__ for more
 details.
 
+----
+
+.. _longitude/latitude coordinates:
+
 `lonlat`: planetographic coordinates on target body. These are the planetographic
-longitude and latitude coordinates of a point on the surface of the target body. These
-coordinates are expressed in degrees. See
+longitude and latitude coordinates of a point on the surface of the target body,
+expressed in degrees. See
 `Wikipedia <https://en.wikipedia.org/wiki/Planetary_coordinate_system>`__ and
 `the SPICE documentation <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/recpgr_c.html#Particulars>`__
 for more details. The surface altitude can also be customised with the `alt` parameter,
 for example, `body.lonlat2radec(12, 34, alt=1000)` will calculate the RA/Dec coordinates
-of the point at planetographic coordinates (12, 34) and with an altitude of 1000 km. If
-planetocentric coordinates are desired, then functions
+of the point at planetographic coordinates (12, 34) and with an altitude of 1000 km.
+
+If planetocentric longitude/latitude coordinates are desired, then functions
 :func:`Body.graphic2centric_lonlat` and :func:`Body.centric2graphic_lonlat` can be used
-to convert between planetographic and planetocentric coordinates.
+to convert between planetographic and planetocentric coordinates: ::
+
+    # Use planetocentric coordinates as inputs to PlanetMapper methods
+    radec = body.lonlat2radec(*body.centric2graphic_lonlat(12, 34), alt=1000)
+
+    # Convert PlanetMapper lonlat outputs to planetocentric coordinates
+    lonlat_centric = body.graphic2centric_lonlat(*body.radec2lonlat(12, 34))
+
+----
+
+.. _distance coordinates:
 
 `km`: defines the distance in the image plane from the centre of the target body in km
 with the target's north pole pointing up. This coordinate system is similar to the
 `radec` and `xy` coordinate systems, but has the image zoomed so that the planet's
 radius is fixed and rotated so that the north pole points up. It can therefore be useful
 for comparing observations of the same target taken at different times.
+
+----
+
+.. _relative angular coordinates:
 
 `angular`: relative angular coordinates in arcseconds. By default, the angular
 coordinates are centred on the target body, with the same rotation as the `radec`
@@ -50,6 +79,8 @@ customising the `angular` coordinates. Similarly to the `km` coordinate system, 
 can be useful for comparing observations of the same target taken at different times. It
 also can be used to minimise the distortion present when plotting `radec` coordinates
 for targets located near the celestial pole.
+
+----
 
 =====================================================   =====
 Dimension                                               Unit
