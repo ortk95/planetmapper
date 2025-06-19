@@ -2,7 +2,7 @@
 
 changelog:
   categories:
-    - title: Features
+    - title: Features & Bug Fixes
       labels:
         - '*'
       exclude:
@@ -10,6 +10,10 @@ changelog:
           - dependencies
           - logistics
           - tests
+          - documentation
+    - title: Documentation
+      labels:
+        - documentation
     - title: Development
       labels:
         - logistics
