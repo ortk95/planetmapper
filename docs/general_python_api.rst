@@ -117,7 +117,7 @@ A number of different wireframe plotting options are available:
     import matplotlib.pyplot as plt
     import numpy as np
 
-    fig, [ax_radec, ax_km] = plt.subplots(nrows=2, figsize=(6, 8), dpi=200)
+    fig, (ax_radec, ax_km) = plt.subplots(nrows=2, figsize=(6, 8), dpi=200)
 
     dates = ['2020-01-01 00:00', '2020-01-01 01:00', '2020-01-01 02:00']
     colors = ['r', 'g', 'b']
@@ -199,6 +199,7 @@ The appearance and units of wireframe plots can be fully customised to suit your
     import planetmapper
     import matplotlib.pyplot as plt
 
+    fig, ax = plt.subplots(figsize=(6, 4), dpi=200)
     body = planetmapper.Body('saturn', '2020-02-08', observer='iapetus')
     body.add_other_bodies_of_interest('dione', 'methone')
     body.plot_wireframe_km(
