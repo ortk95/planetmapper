@@ -20,6 +20,16 @@ class BaseTestCase(unittest.TestCase):
         super().setUpClass()
         warnings.filterwarnings('error')
 
+        # Ignore warning from Pillow triggered by some Matplotlib calls on Windows
+        # https://github.com/ortk95/planetmapper/issues/480
+        # TODO remove this filter when matplotlib is updated to fix this
+        warnings.filterwarnings(
+            'ignore',
+            category=DeprecationWarning,
+            module='PIL',
+            message="'mode' parameter is deprecated and will be removed in Pillow 13",
+        )
+
     @classmethod
     def tearDownClass(cls) -> None:
         super().tearDownClass()
