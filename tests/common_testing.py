@@ -26,7 +26,6 @@ class BaseTestCase(unittest.TestCase):
         warnings.filterwarnings(
             'ignore',
             category=DeprecationWarning,
-            module='PIL',
             message="'mode' parameter is deprecated and will be removed in Pillow 13",
         )
 
