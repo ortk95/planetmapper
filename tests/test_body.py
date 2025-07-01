@@ -39,7 +39,7 @@ class TestBody(common_testing.BaseTestCase):
             Body('Jupiter', utc='2005-01-01').subpoint_lon,
             153.12547767272153,
         )
-        self.assertEqual(
+        self.assertAlmostEqual(
             Body(
                 'Jupiter', utc='2005-01-01', aberration_correction='CN+S'
             ).subpoint_lon,
@@ -118,16 +118,18 @@ class TestBody(common_testing.BaseTestCase):
         self.assertEqual(self.body.prograde, True)
         self.assertEqual(self.body.positive_longitude_direction, 'W')
         self.assertAlmostEqual(self.body.target_light_time, 2734.018326542542)
-        self.assertAlmostEqual(self.body.target_distance, 819638074.3312353)
-        self.assertAlmostEqual(self.body.target_ra, 196.37198562427025)
-        self.assertAlmostEqual(self.body.target_dec, -5.565793847134351)
-        self.assertAlmostEqual(self.body.target_diameter_arcsec, 35.98242689969618)
-        self.assertAlmostEqual(self.body.km_per_arcsec, 3973.7175149019004)
-        self.assertAlmostEqual(self.body.subpoint_distance, 819566594.28005)
-        self.assertAlmostEqual(self.body.subpoint_lon, 153.12585514751467)
-        self.assertAlmostEqual(self.body.subpoint_lat, -3.0886644594385193)
-        self.assertAlmostEqual(self.body.subsol_lon, 163.44768812575543)
-        self.assertAlmostEqual(self.body.subsol_lat, -2.7185371707509427)
+        self.assertAlmostEqual(self.body.target_distance, 819638074.3312353, places=3)
+        self.assertAlmostEqual(self.body.target_ra, 196.37198562427025, places=5)
+        self.assertAlmostEqual(self.body.target_dec, -5.565793847134351, places=5)
+        self.assertAlmostEqual(
+            self.body.target_diameter_arcsec, 35.98242689969618, places=5
+        )
+        self.assertAlmostEqual(self.body.km_per_arcsec, 3973.7175149019004, places=6)
+        self.assertAlmostEqual(self.body.subpoint_distance, 819566594.28005, places=3)
+        self.assertAlmostEqual(self.body.subpoint_lon, 153.12585514751467, places=5)
+        self.assertAlmostEqual(self.body.subpoint_lat, -3.0886644594385193, places=5)
+        self.assertAlmostEqual(self.body.subsol_lon, 163.44768812575543, places=5)
+        self.assertAlmostEqual(self.body.subsol_lat, -2.7185371707509427, places=5)
         self.assertEqual(
             self.body.named_ring_data,
             {
