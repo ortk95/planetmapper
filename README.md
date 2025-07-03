@@ -26,7 +26,7 @@ conda install -c conda-forge planetmapper
 _Requires Python 3.10+_
 
 
-## Citing PlanetMapper
+## [Citing PlanetMapper](https://planetmapper.readthedocs.io/en/latest/citation.html)
 If you use PlanetMapper in your research, please cite the following paper:
 
 > King et al., (2023). PlanetMapper: A Python package for visualising, navigating and mapping Solar System observations. Journal of Open Source Software, 8(90), 5728, https://doi.org/10.21105/joss.05728
@@ -50,8 +50,6 @@ If you use PlanetMapper in your research, please cite the following paper:
 ```
 
 </details>
-
-Each PlanetMapper version is also archived on Zenodo at [doi.org/10.5281/zenodo.7963121](https://doi.org/10.5281/zenodo.7963121).
 
 
 ## Key features
