@@ -11,7 +11,7 @@
 PlanetMapper is an open source Python package for visualising, navigating and mapping Solar System observations.
 
 ## [Documentation](https://planetmapper.readthedocs.io)
-For full documentation and [API reference](https://planetmapper.readthedocs.io/en/latest/documentation.html), visit [planetmapper.readthedocs.io](https://planetmapper.readthedocs.io/en/latest/index.html).
+For full documentation, [API reference](https://planetmapper.readthedocs.io/en/latest/documentation.html), and [installation instructions](https://planetmapper.readthedocs.io/en/latest/installation.html), visit [planetmapper.readthedocs.io](https://planetmapper.readthedocs.io/en/latest/index.html).
 
 
 ## [Installation](https://planetmapper.readthedocs.io/en/latest/installation.html)
@@ -61,6 +61,9 @@ Each PlanetMapper version is also archived on Zenodo at [doi.org/10.5281/zenodo.
 ### [Easily visualise solar system observations with just a few lines of code](https://planetmapper.readthedocs.io/en/latest/general_python_api.html#wireframe-plots)
 
 ```python
+import planetmapper
+import matplotlib.pyplot as plt
+
 body = planetmapper.Body('saturn', '2020-01-01')
 body.plot_wireframe_radec()
 plt.show()
@@ -74,7 +77,7 @@ plt.show()
 
 ## Contributing
 
-If you spot a bug, or want contribute code to PlanetMapper, check out the [contributing guidelines](https://github.com/ortk95/planetmapper/blob/main/CONTRIBUTING.md).
+If you spot a bug, or want to contribute code to PlanetMapper, check out the [contributing guidelines](https://github.com/ortk95/planetmapper/blob/main/CONTRIBUTING.md).
 
 ## Help and support
 
