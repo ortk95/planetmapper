@@ -505,6 +505,10 @@ class GUI:
             )
 
         self.style.map('TScale', troughcolor=[('disabled', '#d9d9d9')])
+        self.style.configure(
+            'Small.TCheckbutton',
+            font='TkDefaultFont 11',
+        )
 
     def build_controls(self) -> None:
         self.notebook = ttk.Notebook(self.controls_frame)
@@ -2082,7 +2086,7 @@ class SaveObservation(Popup):
         x, y = (int(s) for s in self.gui.root.geometry().split('+')[1:])
         self.window.geometry(
             '{sz}+{x:.0f}+{y:.0f}'.format(
-                sz='600x400',
+                sz='600x575',
                 x=x + 50,
                 y=y + 50,
             )
@@ -2107,7 +2111,7 @@ class SaveObservation(Popup):
         window_frame.pack(expand=True, fill='both')
 
         self.menu_frame = ttk.Frame(window_frame)
-        self.menu_frame.pack(side='top', padx=10, pady=10, fill='x')
+        self.menu_frame.pack(side='top', padx=10, pady=10, fill='both', expand=True)
 
         self.heading_frame = ttk.Frame(self.menu_frame)
         self.heading_frame.pack(fill='x')
@@ -2276,18 +2280,67 @@ class SaveObservation(Popup):
         w.grid(row=3, column=5, sticky='w')
         self.map_ortho_widgets.append(w)
 
+        # Backplanes to include
+        ttk.Label(self.menu_frame, text='\n').pack(fill='x')  # Spacer
+        self.backplanes_to_save_dict: dict[str, tk.IntVar] = {}
+        self.backplanes_label_frame = ttk.Frame(self.menu_frame)
+        self.backplanes_label_frame.pack(fill='x', pady=2)
+        ttk.Label(
+            self.backplanes_label_frame,
+            text='Backplanes to include: ',
+            justify='left',
+        ).pack(side='left', fill='y')
+
+        self.backplanes_all_button = ttk.Button(
+            self.backplanes_label_frame,
+            text='Select all',
+            command=lambda: [
+                var.set(1) for var in self.backplanes_to_save_dict.values()
+            ],
+            padding=0,
+        )
+        self.backplanes_none_button = ttk.Button(
+            self.backplanes_label_frame,
+            text='Select none',
+            command=lambda: [
+                var.set(0) for var in self.backplanes_to_save_dict.values()
+            ],
+            padding=0,
+        )
+        self.backplanes_all_button.pack(side='left', fill='y')
+        self.backplanes_none_button.pack(side='left', fill='y')
+
+        self.backplane_grid = ttk.Frame(self.menu_frame)
+        self.backplane_grid.pack(fill='x')
+        ncols = 4
+        for col in range(ncols):
+            self.backplane_grid.grid_columnconfigure(col, weight=1)
+        for i, backplane in enumerate(self.gui.get_observation().backplanes.keys()):
+            row, col = divmod(i, ncols)
+            var = tk.IntVar(value=1)
+            self.backplanes_to_save_dict[backplane] = var
+            cb = ttk.Checkbutton(
+                self.backplane_grid,
+                text=backplane,
+                style='Small.TCheckbutton',
+                variable=var,
+            )
+            cb.grid(row=row, column=col, sticky='ew', padx=5, pady=0)
+
+        # Footer
+        menu_footer_frame = ttk.Frame(self.menu_frame)
+        menu_footer_frame.pack(side='bottom', fill='x')
+
         message = '\n'.join(
             [
-                '',
                 'Click SAVE below to save the requested files',
                 'For larger files, backplane generation, mapping, and saving can take ~1 minute',
                 '',
             ]
         )
-        ttk.Label(self.menu_frame, text='\n' + message, justify='center').pack()
-
+        ttk.Label(menu_footer_frame, text=message, justify='center').pack()
         ttk.Checkbutton(
-            self.menu_frame,
+            menu_footer_frame,
             text='Keep this popup open after saving files',
             variable=self.keep_open,
         ).pack()
@@ -2395,6 +2448,10 @@ class SaveObservation(Popup):
         except ValueError:
             return
 
+        backplanes_to_save = {
+            k for k, v in self.backplanes_to_save_dict.items() if v.get()
+        }
+
         # If we get to this point, everything should (hopefully) be working
 
         saving_process = SavingProgress(
@@ -2406,6 +2463,7 @@ class SaveObservation(Popup):
             interpolation=interpolation,
             map_kw=map_kw,
             keep_open=keep_open,
+            backplanes_to_save=backplanes_to_save,
         )
         try:
             saving_process.run_save()
@@ -2440,6 +2498,7 @@ class SavingProgress(Popup):
         interpolation: str,
         map_kw: MapKwargs,
         keep_open: bool,
+        backplanes_to_save: set[str],
     ):
         self.parent = parent
         self.parent.saving_progress_window = self
@@ -2450,6 +2509,7 @@ class SavingProgress(Popup):
         self.path_map = path_map
         self.interpolation = interpolation
         self.map_kw = map_kw
+        self.backplanes_to_save = backplanes_to_save
 
         self.keep_open = keep_open
 
@@ -2522,9 +2582,14 @@ class SavingProgress(Popup):
 
     def run_save(self) -> None:
         SaveKwargs = TypedDict(
-            'SaveKwargs', {'show_progress': bool, 'print_info': bool}
+            'SaveKwargs',
+            {'show_progress': bool, 'print_info': bool, 'backplanes_to_save': set[str]},
         )
-        save_kwargs = SaveKwargs(show_progress=False, print_info=True)
+        save_kwargs = SaveKwargs(
+            show_progress=False,
+            print_info=True,
+            backplanes_to_save=self.backplanes_to_save,
+        )
         observation = self.parent.gui.get_observation()
         self.is_running_save = True
         save_nav_done = False
