@@ -73,23 +73,6 @@ This is likely to be due to an issue with your SPICE kernels or settings, possib
 - If you are using WCS information saved in the FITS header to automatically set the disc position, note that telescope pointing information (i.e. the WCS information) is never perfect. For example, due to the errors in guide star tracking, JWST pointing is only accurate to ~0.5".
 
 
-PlanetMapper crashes when running graphical user interface over SSH
-====================================================================
-Recent versions of XQuartz `appear to have a font handling bug <https://github.com/XQuartz/XQuartz/issues/216>`_ which can cause PlanetMapper to crash when running the user interface over an SSH connection using X11 forwarding: ::
-
-    X Error of failed request:  BadValue (integer parameter out of range for operation)
-      Major opcode of failed request:  45 (X_OpenFont)
-      Value in failed request:  0x60027c
-      Serial number of failed request:  3572
-      Current serial number in output stream:  3573
-
-As a temporary workaround, you can set the `PLANETMAPPER_USE_X11_FONT_BUGFIX` environment variable to `true` on your remote machine before running PlanetMapper if you experience this issue. You can add the following line to to your `.bash_profile` file to automatically set this environment variable: ::
-
-    export PLANETMAPPER_USE_X11_FONT_BUGFIX=true
-
-This tells the PlanetMapper user interface to replace certain characters with ASCII equivalents (e.g. `↑` is replaced with `^`) which seems to prevent the use of the fonts which cause XQuartz to crash. Note that this will make the user interface slightly more ugly, but should not affect functionality. If you are still having issues after trying this workaround, you can `add a comment to the GitHub issue <https://github.com/ortk95/planetmapper/issues/145>`_.
-
-
 .. _readonly arrays:
 
 Read-only NumPy arrays
@@ -121,3 +104,30 @@ Plots may also appear distorted if using :func:`planetmapper.Body.plot_wireframe
 RA/Dec wireframe plots appear split into two halves
 ===================================================
 If the target body is near RA=0°, the `wireframe plot may appear to be split into two halves <https://github.com/ortk95/planetmapper/issues/326#issuecomment-1934275816>`_, due to part of the body having RA values near 0° and part having RA values near 360°. This can be fixed by using `body.plot_wireframe_radec(use_shifted_meridian=True)`, which will plot the wireframe with RA coordinates between -180° and 180°, rather than the default of 0° to 360°.
+
+
+SSH Errors
+==========
+
+`tkinter.TclError` when running graphical user interface over SSH
+------------------------------------------------------------------
+If you get an error like `_tkinter.TclError: no display name and no $DISPLAY environment variable` when trying to run the PlanetMapper graphical user interface over an SSH connection, it is likely that you have not enabled X11 forwarding in your SSH client, so you are unable to run graphical applications over the SSH connection.
+
+To fix this, you can enable X11 forwarding by adding the `-X` option to your SSH command (e.g. `ssh -X user@example.com`), or add `ForwardX11 yes` to your SSH configuration file (usually located at `~/.ssh/config`).
+
+
+`X Error` crash when running graphical user interface over SSH on macOS
+-----------------------------------------------------------------------
+Recent versions of XQuartz `appear to have a font handling bug <https://github.com/XQuartz/XQuartz/issues/216>`_ which can cause PlanetMapper to crash when running the user interface over an SSH connection using X11 forwarding: ::
+
+    X Error of failed request:  BadValue (integer parameter out of range for operation)
+      Major opcode of failed request:  45 (X_OpenFont)
+      Value in failed request:  0x60027c
+      Serial number of failed request:  3572
+      Current serial number in output stream:  3573
+
+As a temporary workaround, you can set the `PLANETMAPPER_USE_X11_FONT_BUGFIX` environment variable to `true` on your remote machine before running PlanetMapper if you experience this issue. You can add the following line to to your `.bash_profile` file to automatically set this environment variable: ::
+
+    export PLANETMAPPER_USE_X11_FONT_BUGFIX=true
+
+This tells the PlanetMapper user interface to replace certain characters with ASCII equivalents (e.g. `↑` is replaced with `^`) which seems to prevent the use of the fonts which cause XQuartz to crash. Note that this will make the user interface slightly more ugly, but should not affect functionality. If you are still having issues after trying this workaround, you can `add a comment to the GitHub issue <https://github.com/ortk95/planetmapper/issues/145>`_.
