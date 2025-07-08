@@ -797,6 +797,64 @@ class TestObservation(common_testing.BaseTestCase):
             'pre_JUPITER_2005-01-01T000000_post.fits',
         )
 
+    def test_get_backplane_names_to_save(self):
+        obs = planetmapper.Observation(
+            data=np.ones((5, 10, 8)),
+            target='Jupiter',
+            observer='hst',
+            utc='2005-01-01T00:00:00',
+        )
+        self.assertEqual(
+            obs._get_backplane_names_to_save(None, frozenset()),
+            {
+                'LON-GRAPHIC',
+                'LAT-GRAPHIC',
+                'LON-CENTRIC',
+                'LAT-CENTRIC',
+                'RA',
+                'DEC',
+                'PIXEL-X',
+                'PIXEL-Y',
+                'KM-X',
+                'KM-Y',
+                'ANGULAR-X',
+                'ANGULAR-Y',
+                'PHASE',
+                'INCIDENCE',
+                'EMISSION',
+                'AZIMUTH',
+                'LOCAL-SOLAR-TIME',
+                'DISTANCE',
+                'RADIAL-VELOCITY',
+                'DOPPLER',
+                'LIMB-DISTANCE',
+                'LIMB-LON-GRAPHIC',
+                'LIMB-LAT-GRAPHIC',
+                'RING-RADIUS',
+                'RING-LON-GRAPHIC',
+                'RING-DISTANCE',
+            },
+        )
+        self.assertEqual(
+            obs._get_backplane_names_to_save(['RA', 'DEC'], frozenset()), {'RA', 'DEC'}
+        )
+        self.assertEqual(
+            obs._get_backplane_names_to_save(['RA', 'DEC'], ['RA']), {'DEC'}
+        )
+        self.assertEqual(
+            obs._get_backplane_names_to_save(
+                backplanes_to_save=[
+                    'RA',
+                    '   dec   ',
+                    'DISTANCE',
+                    'radial-VELOCITY',
+                    '<some other backplane>',
+                ],
+                backplanes_to_skip=['DEC', 'dISTANCE   ', 'LIMB-DISTANCE'],
+            ),
+            {'RA', 'RADIAL-VELOCITY', '<SOME OTHER BACKPLANE>'},
+        )
+
     def test_save_observation(self):
         self.observation.set_disc_params(2.5, 3.1, 3.9, 123.456)
         self.observation.set_disc_method('<<<test>>>')
@@ -843,6 +901,23 @@ class TestObservation(common_testing.BaseTestCase):
                 path,
                 alt=34567.8912,
                 wireframe_kwargs=dict(output_size=19, dpi=20),
+            )
+            self.compare_fits_to_reference(path)
+
+        with self.subTest('custom backplanes'):
+            path = os.path.join(
+                common_testing.TEMP_PATH, 'test_nav_custom_backplanes.fits'
+            )
+            self.observation.save_observation(
+                path,
+                backplanes_to_save=[
+                    'RA',
+                    '   dec   ',
+                    'DISTANCE',
+                    'radial-VELOCITY',
+                    '<some other backplane>',
+                ],
+                backplanes_to_skip=['DEC', 'dISTANCE   ', 'LIMB-DISTANCE'],
             )
             self.compare_fits_to_reference(path)
 
@@ -929,6 +1004,24 @@ class TestObservation(common_testing.BaseTestCase):
             path = os.path.join(common_testing.TEMP_PATH, f'map_{map_type}.fits')
             self.observation.save_mapped_observation(
                 Path(path), **map_kw, wireframe_kwargs=dict(output_size=20, dpi=20)
+            )
+            self.compare_fits_to_reference(path)
+
+        with self.subTest('custom backplanes'):
+            path = os.path.join(common_testing.TEMP_PATH, 'map_custom_backplanes.fits')
+            self.observation.save_mapped_observation(
+                path,
+                backplanes_to_save=[
+                    'RA',
+                    '   dec   ',
+                    'DISTANCE',
+                    'radial-VELOCITY',
+                    '<some other backplane>',
+                ],
+                backplanes_to_skip=['DEC', 'dISTANCE   ', 'LIMB-DISTANCE'],
+                degree_interval=30,
+                interpolation='nearest',
+                wireframe_kwargs=dict(output_size=20, dpi=20),
             )
             self.compare_fits_to_reference(path)
 
