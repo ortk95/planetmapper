@@ -2990,6 +2990,54 @@ class BodyXY(Body):
         """
         return self._get_km_xy_map(**map_kwargs)[:, :, 1]
 
+    @_return_readonly_array
+    def get_angular_x_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            :ref:`Read-only array<readonly arrays>` containing the angular distance in
+            target plane in arcseconds in the East-West direction.
+        """
+        return self.get_km_x_img() / self.km_per_arcsec
+
+    @_return_readonly_array
+    def get_angular_x_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
+        """
+        See :func:`generate_map_coordinates` for accepted arguments. See also
+        :func:`get_backplane_map`.
+
+        Returns:
+            :ref:`Read-only array<readonly arrays>` containing map of the angular
+            distance in target plane in arcseconds in the East-West direction.
+            Locations which are not visible have a value of NaN.
+        """
+        return self.get_km_x_map(**map_kwargs) / self.km_per_arcsec
+
+    @_return_readonly_array
+    def get_angular_y_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            :ref:`Read-only array<readonly arrays>` containing the angular distance in
+            target plane in arcseconds in the North-South direction.
+        """
+        return self.get_km_y_img() / self.km_per_arcsec
+
+    @_return_readonly_array
+    def get_angular_y_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
+        """
+        See :func:`generate_map_coordinates` for accepted arguments. See also
+        :func:`get_backplane_map`.
+
+        Returns:
+            :ref:`Read-only array<readonly arrays>` containing map of the angular
+            distance in target plane in arcseconds in the North-South direction.
+            Locations which are not visible have a value of NaN.
+        """
+        return self.get_km_y_map(**map_kwargs) / self.km_per_arcsec
+
     @_cache_clearable_alt_dependent_result
     @progress_decorator
     @_return_readonly_array
@@ -3589,6 +3637,18 @@ class BodyXY(Body):
             'North-South distance in target plane [km]',
             self.get_km_y_img,
             self.get_km_y_map,
+        )
+        self.register_backplane(
+            'ANGULAR-X',
+            'East-West distance in target plane [arcsec]',
+            self.get_angular_x_img,
+            self.get_angular_x_map,
+        )
+        self.register_backplane(
+            'ANGULAR-Y',
+            'North-South distance in target plane [arcsec]',
+            self.get_angular_y_img,
+            self.get_angular_y_map,
         )
         self.register_backplane(
             'PHASE',
