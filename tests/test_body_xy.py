@@ -1664,6 +1664,8 @@ class TestBodyXY(common_testing.BaseTestCase):
             'PIXEL-Y: Observation y pixel coordinate [pixels]',
             'KM-X: East-West distance in target plane [km]',
             'KM-Y: North-South distance in target plane [km]',
+            'ANGULAR-X: East-West distance in target plane [arcsec]',
+            'ANGULAR-Y: North-South distance in target plane [arcsec]',
             'PHASE: Phase angle [deg]',
             'INCIDENCE: Incidence angle [deg]',
             'EMISSION: Emission angle [deg]',
