@@ -1,4 +1,5 @@
 # pylint: disable=attribute-defined-outside-init,protected-access
+import functools
 import math
 import os
 import platform
@@ -12,7 +13,7 @@ import traceback
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from tkinter import ttk
-from typing import Any, Callable, Literal, TypedDict, TypeVar
+from typing import Any, Callable, Literal, ParamSpec, TypedDict, TypeVar
 
 import matplotlib as mpl
 import matplotlib.cm
@@ -121,6 +122,33 @@ X11_FONT_BUGRIX_TRANSLATIONS = str.maketrans(
         '↻': '>',
     }
 )
+
+
+_X11_ERROR_HELP_URL = (
+    'https://planetmapper.readthedocs.io/en/latest/common_issues.html#ssh-errors'
+)
+_X11_ERROR_HELP_TEXT = (
+    'Check you have X11 forwarding set up correctly - see the help page for more info:\n'
+    + _X11_ERROR_HELP_URL
+)
+
+T = TypeVar('T')
+P = ParamSpec('P')
+
+
+def _add_help_note_to_x11_errors(fn: Callable[P, T]) -> Callable[P, T]:
+    @functools.wraps(fn)
+    def decorated(*args: P.args, **kwargs: P.kwargs) -> T:
+        try:
+            return fn(*args, **kwargs)
+        except tkinter.TclError as e:
+            if 'no $DISPLAY' in str(e):
+                note = _X11_ERROR_HELP_TEXT
+                if note not in e.args[0]:
+                    e.args = (e.args[0] + '\n\n' + note,)
+            raise e
+
+    return decorated
 
 
 def _run_gui_from_cli(*args: str | None) -> None:
@@ -329,6 +357,7 @@ class GUI:
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
 
+    @_add_help_note_to_x11_errors
     def run(self) -> None:
         """
         Run the GUI.
