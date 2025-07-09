@@ -818,6 +818,18 @@ class BodyXY(Body):
             raise ValueError('rotation must be finite')
         self._set_rotation_radians(np.deg2rad(rotation))
 
+    def rotate_north_to_top(self) -> None:
+        """
+        Set the disc rotation so that the north pole of the target body is at the top of
+        the image.
+
+        This is a convenience method, equivalent to calling: ::
+
+            body.set_rotation(-body.north_pole_angle())
+        """
+        self.set_rotation(-self.north_pole_angle())
+        self.set_disc_method('rotate_north_to_top')
+
     def get_rotation(self) -> float:
         """
         Returns:
@@ -892,8 +904,8 @@ class BodyXY(Body):
         :func:`Observation.save`.
 
         `set_disc_method` is called automatically by functions which find the disc, such
-        as :func:`set_x0` and :func:`Observation.centre_disc`, so does not normally need
-        to be manually called by the user.
+        as :func:`rotate_north_to_top` and :func:`Observation.centre_disc`, so does not
+        normally need to be manually called by the user.
 
         Args:
             method: Short string describing the method used to find the disc.

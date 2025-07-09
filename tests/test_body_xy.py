@@ -482,6 +482,15 @@ class TestBodyXY(common_testing.BaseTestCase):
         self.assertEqual(self.body.get_disc_params(), (7.0, 4.5, 4.05, 0.0))
         self.assertEqual(self.body.get_disc_method(), 'centre_disc')
 
+    def test_rotate_north_to_top(self):
+        self.body.set_disc_params(0, 0, 1, 0)
+        self.body.rotate_north_to_top()
+        self.assertAlmostEqual(self.body.get_rotation(), 24.15516987997688)
+        self.assertAlmostEqual(
+            self.body.get_rotation(), -self.body.north_pole_angle(), places=3
+        )
+        self.assertEqual(self.body.get_disc_method(), 'rotate_north_to_top')
+
     def test_img_size(self):
         for body in (self.body, self.body_zero_size):
             body.set_disc_params(0, 0, 1, 0)
