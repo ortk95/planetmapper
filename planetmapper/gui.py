@@ -292,6 +292,11 @@ class GUI:
                     'Centre disc in image',
                     'Centre the target\'s planetary disc and make it fill ~90% of the observation',
                 ),
+                (
+                    lambda: self.get_observation().rotate_north_to_top(),
+                    'Rotate north to top',
+                    'Rotate the disc so that the north pole of the target is at the top of the image',
+                ),
             ],
             'Use WCS data from FITS header': [
                 (
