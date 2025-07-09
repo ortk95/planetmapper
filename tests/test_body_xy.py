@@ -5,6 +5,7 @@ import common_testing
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.collections import QuadMesh
+from matplotlib.image import AxesImage
 from numpy import array, inf, nan
 
 import planetmapper
@@ -1899,6 +1900,65 @@ class TestBodyXY(common_testing.BaseTestCase):
         self.assertEqual(len(ax.get_children()), 27)
         plt.close(fig)
 
+        plt.close('all')
+
+    def test_plot_img(self):
+        coordinates = ('xy', 'radec', 'km', 'angular')
+        body = self.body.copy()
+        body.set_img_size(4, 3)
+
+        img = body.get_backplane_img('RA')
+        img /= np.nanmax(img)
+        img_rgb = np.dstack((img, img, img))
+        img_rgba = np.dstack((img, img, img, np.ones_like(img)))
+
+        for coord in coordinates:
+            with self.subTest('image', coord=coord):
+                fig, ax = plt.subplots()
+                h = body.plot_img(img, ax=ax, coordinates=coord)
+                self.assertIsInstance(h, QuadMesh)
+                self.assertIn(h, ax.get_children())
+                self.assertEqual(len(ax.get_lines()), 21)
+                self.assertEqual(len(ax.get_images()), 0)
+                self.assertEqual(len(ax.get_children()), 33)
+                plt.close(fig)
+
+            with self.subTest('rgb', coord=coord):
+                fig, ax = plt.subplots()
+                h = body.plot_img(img_rgb, ax=ax, coordinates=coord)
+                self.assertIsInstance(h, AxesImage)
+                self.assertIn(h, ax.get_children())
+                self.assertEqual(len(ax.get_lines()), 21)
+                self.assertEqual(len(ax.get_images()), 1)
+                self.assertEqual(len(ax.get_children()), 33)
+                plt.close(fig)
+
+            with self.subTest('rgba', coord=coord):
+                fig, ax = plt.subplots()
+                h = body.plot_img(img_rgba, ax=ax, coordinates=coord)
+                self.assertIsInstance(h, AxesImage)
+                self.assertIn(h, ax.get_children())
+                self.assertEqual(len(ax.get_lines()), 21)
+                self.assertEqual(len(ax.get_images()), 1)
+                self.assertEqual(len(ax.get_children()), 33)
+                plt.close(fig)
+
+        with self.subTest('no wireframe'):
+            fig, ax = plt.subplots()
+            h = body.plot_img(img, ax=ax, add_wireframe=False)
+            self.assertIsInstance(h, QuadMesh)
+            self.assertIn(h, ax.get_children())
+            self.assertEqual(len(ax.get_lines()), 0)
+            self.assertEqual(len(ax.get_images()), 0)
+            self.assertEqual(len(ax.get_children()), 11)
+            plt.close(fig)
+
+        # Extra tests to make sure we don't crash
+        body.plot_img(img)
+        body.plot_img(img, coordinates='angular', wireframe_kwargs={'color': 'r'})
+        body.plot_img(
+            img, coordinates='angular', angular_kwargs={'coordinate_rotation': 45}
+        )
         plt.close('all')
 
     def test_plot_map(self):

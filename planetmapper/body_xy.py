@@ -1,4 +1,5 @@
 import datetime
+import functools
 import io
 import math
 import warnings
@@ -24,6 +25,7 @@ import scipy.ndimage
 from matplotlib.axes import Axes
 from matplotlib.collections import QuadMesh
 from matplotlib.figure import Figure
+from matplotlib.image import AxesImage
 from spiceypy.utils.exceptions import NotFoundError
 
 from .base import (
@@ -1753,6 +1755,140 @@ class BodyXY(Body):
             ax.set_title(self.get_description(multiline=True))
         return ax
 
+    def plot_img(
+        self,
+        img: np.ndarray,
+        ax: Axes | None = None,
+        *,
+        coordinates: Literal['xy', 'radec', 'km', 'angular'] = 'xy',
+        wireframe_kwargs: dict[str, Any] | None = None,
+        add_wireframe: bool = True,
+        angular_kwargs: AngularCoordinateKwargs | None = None,
+        **kwargs,
+    ) -> QuadMesh | AxesImage:
+        """
+        Utility function to easily plot an image with customisable coordinate system,
+        wireframe etc.
+
+        If the input image is a 2D array, it is plotted using `plt.pcolormesh`, and if
+        it is a 3D array (i.e. an RGB or RGBA image), it is plotted using
+        `plt.imshow`.
+
+        A wireframe for the target body is added by default, and the coordinate system
+        (e.g. `xy`, `radec`, `km`, `angular`) can be specified using the `coordinates`
+        argument. ::
+
+            # Plot image in xy coordinates (default)
+            body.plot_img(img)
+
+            # Plot image in RA/Dec coordinates with custom colormap
+            body.plot_img(
+                img,
+                coordinates='radec',
+                cmap='Greys',
+            )
+
+            # Plot image in km coordinates with customised wireframe
+            body.plot_img(
+                img,
+                coordinates='km',
+                wireframe_kwargs={'color': 'red'},
+            )
+
+
+        Args:
+            img: Image to plot. If `img` is a 2D array, it is plotted using
+                `plt.pcolormesh`, and if it is a 3D array (i.e. an RGB or RGBA image),
+                it is plotted using `plt.imshow`. The first two dimensions of the image
+                should have the same shape as the body's image size (as returned by
+                :func:`get_img_size`).
+            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
+                a new figure and axis is created.
+            coordinates: Coordinate system to use for plotting the image. Can be one of
+                `'xy'`, `'radec'`, `'km'` or `'angular'`. The default is `'xy'`.
+            wireframe_kwargs: Dictionary of arguments passed to the relevant wireframe
+                plotting function (e.g. :func:`plot_wireframe_radec`).
+            add_wireframe: Enable/disable plotting of wireframe.
+            angular_kwargs: Additional arguments passed used to customise the
+                transformation to/from angular coordinates when `coordinates='angular'`.
+                This is ignored for any other coordinate system.
+            **kwargs: Additional arguments are passed to `plt.pcolormesh` or
+                `plt.imshow` to customise the plot. For example, can be used to set the
+                colormap of the plot using e.g. `body.plot_img(..., cmap='Greys')`.
+
+        Returns:
+            Handle returned by Matplotlib's `pcolormesh` or `imshow`, depending on the
+            input image shape.
+        """
+
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        if coordinates == 'xy':
+            wireframe_func = self.plot_wireframe_xy
+            limits_func = self.get_img_limits_xy
+            transform = ax.transData
+        elif coordinates == 'radec':
+            wireframe_func = self.plot_wireframe_radec
+            limits_func = self.get_img_limits_radec
+            transform = self.matplotlib_xy2radec_transform(ax)
+        elif coordinates == 'km':
+            wireframe_func = self.plot_wireframe_km
+            limits_func = self.get_img_limits_km
+            transform = self.matplotlib_xy2km_transform(ax)
+        elif coordinates == 'angular':
+            if angular_kwargs is None:
+                angular_kwargs = {}
+            wireframe_func = functools.partial(
+                self.plot_wireframe_angular, **angular_kwargs
+            )
+            limits_func = functools.partial(
+                self.get_img_limits_angular, **angular_kwargs
+            )
+            transform = self.matplotlib_xy2angular_transform(ax, **angular_kwargs)
+        else:
+            raise ValueError(f'Unknown coordinates {coordinates!r}')  # pragma: no cover
+
+        if add_wireframe:
+            if wireframe_kwargs is None:
+                wireframe_kwargs = {}
+            wireframe_func(ax=ax, **wireframe_kwargs)
+
+        img = np.asarray(img)
+        if img.ndim == 3:
+            if img.shape[2] == 3:
+                # Convert RGB to RGBA image correct for imshow sometimes filling the
+                # background of rotated images with black pixels similarly to
+                # https://github.com/matplotlib/matplotlib/issues/29300
+                img = np.append(img, np.ones_like(img[:, :, 0])[:, :, None], axis=2)
+            ax.relim()
+            xlim_before = ax.get_xlim()
+            ylim_before = ax.get_ylim()
+            h = ax.imshow(
+                img,
+                origin='lower',
+                transform=transform,
+                **kwargs,
+            )
+            # imshow fixes the limits, and doesn't play nicely with manually specifying
+            # a transform, so manually set the limits here
+            img_xlim, img_ylim = limits_func()
+            ax.set_xlim(
+                min(xlim_before[0], img_xlim[0]), max(xlim_before[1], img_xlim[1])
+            )
+            ax.set_ylim(
+                min(ylim_before[0], img_ylim[0]), max(ylim_before[1], img_ylim[1])
+            )
+        else:
+            h = ax.pcolormesh(
+                self.get_x_img(),
+                self.get_y_img(),
+                img,
+                transform=transform,
+                **kwargs,
+            )
+        return h
+
     def plot_map(
         self,
         map_img: np.ndarray,
@@ -1789,6 +1925,7 @@ class BodyXY(Body):
 
         _, _, xx, yy, _, _ = self.generate_map_coordinates(**map_kwargs)
         h = ax.pcolormesh(xx, yy, map_img, **kwargs)
+        # TODO add option to use imshow for RGB images like in plot_img
         if add_wireframe:
             self.plot_map_wireframe(ax=ax, **(wireframe_kwargs or {}), **map_kwargs)
         return h
