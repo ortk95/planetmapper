@@ -869,10 +869,12 @@ class BodyXY(Body):
         Raises:
             TypeError: if `set_img_size` is called on an :class:`Observation` instance.
         """
-        if nx is not None:
-            self._nx = nx
-        if ny is not None:
-            self._ny = ny
+        nx = self._nx if nx is None else int(nx)
+        ny = self._ny if ny is None else int(ny)
+        if nx < 0 or ny < 0:
+            raise ValueError('nx and ny must be non-negative')
+        self._nx = nx
+        self._ny = ny
         self._clear_cache()
 
     def get_img_size(self) -> tuple[int, int]:
@@ -884,6 +886,92 @@ class BodyXY(Body):
             the image respectively
         """
         return (self._nx, self._ny)
+
+    def scale_img_size(self, factor: float, *, allow_rounding: bool = False) -> None:
+        """
+        Scale the image size to increase/decrease the pixel resolution of the image.
+
+        The image size is scaled by multiplying the current `nx` and `ny` values by
+        `factor`. The disc parameters `(x0, y0, r0)` are then adjusted to maintain the
+        disc's position and size in the image.
+
+        By default, this method will raise an error if the scaled image size does not
+        have exactly integer pixel dimensions. This can be changed by setting
+        `allow_rounding=True`, which will round the scaled image size up to the nearest
+        integer number of pixels. Rounding will mean that the top and right edges of
+        the scaled image may not be exactly equivalent to the top and right edges of the
+        original image.
+
+        See also :func:`add_img_border`.
+
+        Args:
+            factor: Factor by which to scale the image size. For example, a factor of
+                2 will double the image size, while a factor of 0.5 will halve the image
+                size.
+            allow_rounding: If `True`, then the scaled image size will be rounded up to
+                the nearest integer number of pixels. If `False` (the default), then
+                an error will be raised if the image size cannot be exactly scaled by
+                `factor` to an integer number of pixels.
+
+        Raises:
+            ValueError: if the image size cannot be exactly scaled by `factor` to an
+                integer number of pixels and `allow_rounding` is `False`.
+        """
+        if factor <= 0:
+            raise ValueError('Scaling factor must be greater than zero')
+
+        nx, ny = self.get_img_size()
+        new_nx = nx * factor
+        new_ny = ny * factor
+        if not allow_rounding and (not new_nx.is_integer() or not new_ny.is_integer()):
+            raise ValueError(
+                f'Image size ({nx}, {ny}) cannot be exactly scaled by {factor} to an '
+                f'integer number of pixels: new size would be ({new_nx}, {new_ny}). '
+                'Use `allow_rounding=True` to allow rounding of the image size.'
+            )
+
+        self.set_img_size(math.ceil(new_nx), math.ceil(new_ny))
+        self.set_r0(self.get_r0() * factor)
+        # Offset accounts for how the disc position varies slightly with the scaling
+        # due to the pixel grid extending from 0.5 to nx-0.5 and ny-0.5.
+        offset = (factor - 1) / 2
+        self.set_x0(self.get_x0() * factor + offset)
+        self.set_y0(self.get_y0() * factor + offset)
+
+    def add_img_border(self, border: int) -> None:
+        """
+        Add a border of pixels around the image.
+
+        This will increase the size of the image by `2 * border` pixels in both the x
+        and y dimensions, and will adjust the disc position `(x0, y0)` appropriately.
+        If needed, more complex border adjustments can be achieved by using
+        :func:`set_img_size` and :func:`set_x0` and :func:`set_y0` directly: ::
+
+            left = 1
+            right = 2
+            top = 3
+            bottom = 4
+
+            nx, ny = body.get_img_size()
+            body.set_img_size(
+                nx + left + right,
+                ny + top + bottom,
+            )
+            body.set_x0(body.get_x0() + left)
+            body.set_y0(body.get_y0() + bottom)
+
+        See also :func:`scale_img_size`.
+
+        Args:
+            border: The number of pixels to add (or remove) as a border around the
+                image. Negative values will crop the image by that many pixels instead
+                of adding a border.
+        """
+        border = int(border)
+        nx, ny = self.get_img_size()
+        self.set_img_size(nx + 2 * border, ny + 2 * border)
+        self.set_x0(self.get_x0() + border)
+        self.set_y0(self.get_y0() + border)
 
     def set_disc_method(self, method: str) -> None:
         """
@@ -1995,6 +2083,21 @@ class BodyXY(Body):
         When `alt=0`, this method is equivalent to ::
 
             body.get_backplane(name).get_img().copy()
+
+        To create an oversampled backplane image, you can use the method
+        :func:`scale_img_size`. For example, ::
+
+            body = planetmapper.BodyXY('jupiter', sz=10)
+
+            ax = body.plot_backplane_img('EMISSION')
+            ax.set_title('Original unscaled backplane')
+            plt.show()
+
+            body_scaled = body.copy()
+            body_scaled.scale_img_size(10)
+            ax = body_scaled.plot_backplane_img('EMISSION')
+            ax.set_title('Scaled higher resolution backplane')
+            plt.show()
 
         See also :func:`get_backplane_map` and :func:`plot_backplane_img`.
 

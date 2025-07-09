@@ -509,11 +509,89 @@ class TestBodyXY(common_testing.BaseTestCase):
         self.assertNotEqual(self.body, self.body_zero_size)
         self.assertFalse(self.body_zero_size._test_if_img_size_valid())
 
+        with self.assertRaises(ValueError):
+            self.body_zero_size.set_img_size(-1, 0)
+        with self.assertRaises(ValueError):
+            self.body_zero_size.set_img_size(0, -1)
+
+        self.body_zero_size.set_img_size(0, 0)
+
     def test_test_if_img_size_valid(self):
         self.assertTrue(self.body._test_if_img_size_valid())
         self.assertFalse(self.body_zero_size._test_if_img_size_valid())
         with self.assertRaises(ValueError):
             self.body_zero_size.get_lon_img()
+
+    def test_scale_img_size(self):
+        def get_body():
+            body = self.body.copy()
+            body.set_img_size(16, 10)
+            body.set_disc_params(3, 4, 5, 6)
+            return body
+
+        body = get_body()
+        body.scale_img_size(1)
+        self.assertEqual(body.get_img_size(), (16, 10))
+        self.assertArraysClose(body.get_disc_params(), (3.0, 4.0, 5.0, 6.0))
+
+        body = get_body()
+        body.scale_img_size(2)
+        self.assertEqual(body.get_img_size(), (32, 20))
+        self.assertArraysClose(body.get_disc_params(), (6.5, 8.5, 10.0, 6.0))
+
+        body = get_body()
+        body.scale_img_size(1.5)
+        self.assertEqual(body.get_img_size(), (24, 15))
+        self.assertArraysClose(body.get_disc_params(), (4.75, 6.25, 7.5, 6.0))
+
+        body = get_body()
+        body.scale_img_size(0.5)
+        self.assertEqual(body.get_img_size(), (8, 5))
+        self.assertArraysClose(body.get_disc_params(), (1.25, 1.75, 2.5, 6.0))
+
+        body = get_body()
+        with self.assertRaises(ValueError):
+            body.scale_img_size(0.25)
+
+        body = get_body()
+        body.scale_img_size(0.25, allow_rounding=True)
+        self.assertEqual(body.get_img_size(), (4, 3))
+        self.assertArraysClose(body.get_disc_params(), (0.375, 0.625, 1.25, 6.0))
+
+        body = get_body()
+        with self.assertRaises(ValueError):
+            body.scale_img_size(-1)
+
+    def test_add_img_border(self):
+        def get_body():
+            body = self.body.copy()
+            body.set_img_size(16, 10)
+            body.set_disc_params(3, 4, 5, 6)
+            return body
+
+        body = get_body()
+        body.add_img_border(0)
+        self.assertEqual(body.get_img_size(), (16, 10))
+        self.assertArraysClose(body.get_disc_params(), (3.0, 4.0, 5.0, 6.0))
+
+        body = get_body()
+        body.add_img_border(1)
+        self.assertEqual(body.get_img_size(), (18, 12))
+        self.assertArraysClose(body.get_disc_params(), (4.0, 5.0, 5.0, 6.0))
+
+        body = get_body()
+        body.add_img_border(42)
+        self.assertEqual(body.get_img_size(), (100, 94))
+        self.assertArraysClose(body.get_disc_params(), (45.0, 46.0, 5.0, 6.0))
+
+        body = get_body()
+        body.add_img_border(-2)
+        self.assertEqual(body.get_img_size(), (12, 6))
+        self.assertArraysClose(body.get_disc_params(), (1.0, 2.0, 5.0, 6.0))
+
+        with self.assertRaises(ValueError):
+            body = get_body()
+            body.add_img_border(-10)
 
     def test_disc_method(self):
         method = ' test method '
