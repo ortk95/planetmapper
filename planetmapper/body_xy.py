@@ -921,16 +921,17 @@ class BodyXY(Body):
             raise ValueError('Scaling factor must be greater than zero')
 
         nx, ny = self.get_img_size()
-        new_nx = nx * factor
-        new_ny = ny * factor
-        if not allow_rounding and (not new_nx.is_integer() or not new_ny.is_integer()):
+        nx_f = nx * factor
+        ny_f = ny * factor
+        nx_ceil = math.ceil(nx_f)
+        ny_ceil = math.ceil(ny_f)
+        if not allow_rounding and (nx_ceil != nx_f or ny_ceil != ny_f):
             raise ValueError(
                 f'Image size ({nx}, {ny}) cannot be exactly scaled by {factor} to an '
-                f'integer number of pixels: new size would be ({new_nx}, {new_ny}). '
+                f'integer number of pixels: new size would be ({nx_f}, {ny_f}). '
                 'Use `allow_rounding=True` to allow rounding of the image size.'
             )
-
-        self.set_img_size(math.ceil(new_nx), math.ceil(new_ny))
+        self.set_img_size(nx_ceil, ny_ceil)
         self.set_r0(self.get_r0() * factor)
         # Offset accounts for how the disc position varies slightly with the scaling
         # due to the pixel grid extending from 0.5 to nx-0.5 and ny-0.5.
