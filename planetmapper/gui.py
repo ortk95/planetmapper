@@ -214,6 +214,8 @@ class GUI:
         self._observation_wavelengths: np.ndarray | None = None
         self._observation_wavelengths_fmt = 'f'
         self._observation_wavelengths_unit = ''
+        self._observation_full_path: str = ''
+        self._observation_filename: str = ''
 
         self.step_size = 1
 
@@ -461,6 +463,17 @@ class GUI:
                 )
         except utils.GetWavelengthsError:
             self._observation_wavelengths = None
+
+        path = observation.path
+        if path is None:
+            self._observation_full_path = ''
+            self._observation_filename = ''
+        else:
+            basename = os.path.basename(path)
+            self._observation_filename = basename
+            if basename == path:
+                path = os.path.abspath(path)
+            self._observation_full_path = path
 
         self.update_observation_available_disc_finding_routines()
 
@@ -923,11 +936,7 @@ class GUI:
         self.help_hint.configure(text=msg, foreground=color)
 
     def reset_help_hint(self, *, hover: bool = False):
-        path = self.get_observation().path
-        if path is None:
-            msg = ''
-        else:
-            msg = path if hover else os.path.basename(path)
+        msg = self._observation_full_path if hover else self._observation_filename
         self.set_help_hint(msg, color='gray50')
 
     def add_tooltip(
@@ -1987,9 +1996,24 @@ class OpenObservation(Popup):
         path = tkinter.filedialog.askopenfilename(
             title='Choose observation',
             parent=self.window,
+            initialdir=self.get_open_initialdir(),
         )
         if path:
             self.stringvars['path'].set(str(path))
+
+    def get_open_initialdir(self) -> str:
+        path = self.stringvars['path'].get()
+        path = os.path.expandvars(os.path.expanduser(path))
+        if len(path.strip()) == 0:
+            return os.getcwd()
+        for _ in range(32):  # Limit to 32 iterations to avoid infinite loop
+            if os.path.isdir(path):
+                return path
+            dirname = os.path.dirname(path)
+            if dirname == path:
+                break
+            path = dirname
+        return os.getcwd()
 
     def click_ok(self) -> None:
         if self.apply_changes():
