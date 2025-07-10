@@ -404,7 +404,7 @@ class Observation(BodyXY):
         with warnings.catch_warnings():
             if suppress_warnings:
                 warnings.simplefilter('ignore', category=AstropyWarning)
-            return astropy.wcs.WCS(self.header).celestial
+            return astropy.wcs.WCS(self.header, naxis=[1, 2]).celestial
 
     @_cache_stable_result
     def _get_disc_params_from_wcs(

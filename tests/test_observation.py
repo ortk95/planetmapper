@@ -600,13 +600,54 @@ class TestObservation(common_testing.BaseTestCase):
         obs.disc_from_wcs(validate=False, suppress_warnings=True)
 
         with warnings.catch_warnings():
-            warnings.simplefilter('always')
-            with self.assertWarns(AstropyWarning):
-                obs.disc_from_wcs(validate=False, suppress_warnings=False)
-
-        with warnings.catch_warnings():
             warnings.simplefilter('error')
             obs.position_from_wcs(validate=False, suppress_warnings=True)
+
+        # Test invalid CUNIT3 is ignored properly
+        # Header baased off real MUSE data file
+        header = fits.Header(
+            {
+                'SIMPLE': True,
+                'OBJECT': 'jupiter',
+                'DATE-OBS': '2005-01-01',
+                'BITPIX': -32,
+                'NAXIS': 3,
+                'NAXIS1': 91,
+                'NAXIS2': 91,
+                'NAXIS3': 3681,
+                'WCSAXES': 3,
+                'CRPIX1': 64.135608107686,
+                'CRPIX2': 27.282318423363,
+                'CUNIT1': 'deg',
+                'CUNIT2': 'deg',
+                'CTYPE1': 'RA---TAN',
+                'CTYPE2': 'DEC--TAN',
+                'CRVAL1': 255.071254,
+                'CRVAL2': -22.20829,
+                'CD1_1': -7.0388888888889e-06,
+                'CD1_2': 0.0,
+                'CD2_1': 0.0,
+                'CD2_2': 7.0388888888889e-06,
+                'CRVAL3': 0.474978369140625,
+                'CRPIX3': 1.0,
+                'CUNIT3': 'Microns',
+                'CTYPE3': 'WAVE',
+                'CD3_3': 0.000124999999999986,
+                'CD1_3': 0.0,
+                'CD2_3': 0.0,
+                'CD3_1': 0.0,
+                'CD3_2': 0.0,
+                'BUNIT': '10**-20 Angstrom-1 cm-2 erg s-1',
+                'RADECSYS': 'FK5',
+            }
+        )
+        obs = Observation(data=data, header=header)
+        obs._get_disc_params_from_wcs(suppress_warnings=True)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('always')
+            with self.assertWarns(AstropyWarning):
+                obs._get_disc_params_from_wcs(validate=False, suppress_warnings=False)
 
     def test_wcs_offset(self):
         with self.assertRaises(ValueError):
