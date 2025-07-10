@@ -437,6 +437,29 @@ class TestObservation(common_testing.BaseTestCase):
             [0.456, 0.579, 0.702, 0.825, 0.948],
         )
 
+    def test_reset_disc_params(self):
+        observations = [
+            Observation(
+                os.path.join(common_testing.DATA_PATH, 'inputs', 'planmap.fits')
+            ),
+            Observation(
+                data=np.ones((5, 6, 7)),
+                target='Jupiter',
+                observer='hst',
+                utc='2005-01-01T00:00:00',
+            ),
+        ]
+        for obs in observations:
+            initial_params = obs.get_disc_params()
+            initial_method = obs.get_disc_method()
+            with self.subTest(
+                initial_method=initial_method, initial_params=initial_params, obs=obs
+            ):
+                obs.set_disc_params(-1, -2, 3, 4)
+                obs.reset_disc_params()
+                self.assertArraysClose(obs.get_disc_params(), initial_params)
+                self.assertEqual(obs.get_disc_method(), initial_method)
+
     def test_disc_from_header(self):
         with self.assertRaises(ValueError):
             self.observation.disc_from_header()
@@ -456,6 +479,8 @@ class TestObservation(common_testing.BaseTestCase):
         self.assertAlmostEqual(obs.get_y0(), 2.2)
         self.assertAlmostEqual(obs.get_r0(), 3.3)
         self.assertAlmostEqual(obs.get_rotation(), 4.4)
+
+        self.assertEqual(obs.get_disc_method(), 'header')
 
         data = np.ones((5, 6, 7))
         header = fits.Header(

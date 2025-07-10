@@ -477,6 +477,22 @@ class TestBodyXY(common_testing.BaseTestCase):
         self.body.set_disc_params(*params)
         self.assertTrue(np.allclose(self.body.get_disc_params(), params))
 
+    def test_reset_disc_params(self):
+        bodies = [
+            BodyXY('Jupiter', observer='HST', utc='2005-01-01T00:00:00', nx=15, ny=10),
+            BodyXY('Jupiter', observer='HST', utc='2005-01-01T00:00:00'),
+        ]
+        for body in bodies:
+            initial_params = body.get_disc_params()
+            initial_method = body.get_disc_method()
+            with self.subTest(
+                initial_method=initial_method, initial_params=initial_params, body=body
+            ):
+                body.set_disc_params(-1, -2, 3, 4)
+                body.reset_disc_params()
+                self.assertArraysClose(body.get_disc_params(), initial_params)
+                self.assertEqual(body.get_disc_method(), initial_method)
+
     def test_centre_disc(self):
         self.body.set_disc_params(0, 0, 1, 0)
         self.body.centre_disc()
