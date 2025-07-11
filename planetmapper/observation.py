@@ -685,7 +685,9 @@ class Observation(BodyXY):
                 is `True` and the `dr` or `drotation` values returned by
                 :func:`get_wcs_offset` are not sufficiently small.
         """
-        dx, dy, dr, drotation = self.get_wcs_offset(*args, **kwargs)
+        dra_arcsec, ddec_arcsec, dr, drotation = self._get_wcs_offsets_for_arcsec(
+            *args, **kwargs
+        )
         if check_is_position_offset_only:
             if abs(dr) > 1e-3:
                 raise ValueError(
@@ -696,11 +698,17 @@ class Observation(BodyXY):
                 raise ValueError(
                     f'rotation is different between WCS and observation (drotation={drotation})'
                 )
+        return dra_arcsec, ddec_arcsec
+
+    def _get_wcs_offsets_for_arcsec(
+        self, *args, **kwargs
+    ) -> tuple[float, float, float, float]:
+        dx, dy, dr, drotation = self.get_wcs_offset(*args, **kwargs)
         ra0, dec0 = self.xy2radec(0, 0)
         ra1, dec1 = self.xy2radec(dx, dy)
         dra_arcsec = (ra1 - ra0) * 3600
         ddec_arcsec = (dec1 - dec0) * 3600
-        return dra_arcsec, ddec_arcsec
+        return dra_arcsec, ddec_arcsec, dr, drotation
 
     def _get_img_for_fitting(self) -> np.ndarray:
         img = np.nansum(self.data, axis=0)
