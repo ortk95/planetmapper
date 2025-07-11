@@ -342,7 +342,7 @@ class GUI:
             'Use WCS data from FITS header': [
                 (
                     lambda: self.get_observation().disc_from_wcs(
-                        suppress_warnings=True, validate=False
+                        suppress_warnings=True, validate=False, use_header_offsets=False
                     ),
                     'Use WCS position, rotation & scale',
                     'Set all disc parameters using approximate WCS information in the observation\'s FITS header',
@@ -350,7 +350,7 @@ class GUI:
                 ),
                 (
                     lambda: self.get_observation().position_from_wcs(
-                        suppress_warnings=True, validate=False
+                        suppress_warnings=True, validate=False, use_header_offsets=False
                     ),
                     'Use WCS position',
                     'Set disc position using approximate WCS information in the observation\'s FITS header',
@@ -358,7 +358,7 @@ class GUI:
                 ),
                 (
                     lambda: self.get_observation().rotation_from_wcs(
-                        suppress_warnings=True, validate=False
+                        suppress_warnings=True, validate=False, use_header_offsets=False
                     ),
                     'Use WCS rotation',
                     'Set disc rotation using approximate WCS information in the observation\'s FITS header',
@@ -366,7 +366,7 @@ class GUI:
                 ),
                 (
                     lambda: self.get_observation().plate_scale_from_wcs(
-                        suppress_warnings=True, validate=False
+                        suppress_warnings=True, validate=False, use_header_offsets=False
                     ),
                     'Use WCS plate scale',
                     'Set plate scale using approximate WCS information in the observation\'s FITS header',
@@ -949,8 +949,13 @@ class GUI:
             and self._cached_wcs_offset_info[0] == disc_params
         ):
             return self._cached_wcs_offset_info[1]
-        dra_arcsec, ddec_arcsec, dr, drotation = (
-            self.get_observation()._get_wcs_offsets_for_arcsec(suppress_warnings=True)
+        (
+            dra_arcsec,
+            ddec_arcsec,
+            dr,
+            drotation,
+        ) = self.get_observation()._get_wcs_offsets_for_arcsec(
+            suppress_warnings=True, use_header_offsets=False
         )
 
         r0_wcs = self.get_observation().get_r0() - dr
@@ -976,7 +981,7 @@ class GUI:
             return
         observation = self.get_observation()
         x0_wcs, y0_wcs, r0_wcs, rotation_wcs = observation._get_disc_params_from_wcs(
-            suppress_warnings=True
+            suppress_warnings=True, use_header_offsets=False
         )
         if dra_arcsec is not None or ddec_arcsec is not None:
             dra_arcsec = (
