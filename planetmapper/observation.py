@@ -452,16 +452,7 @@ class Observation(BodyXY):
             if wcs.has_distortion:
                 raise ValueError('WCS conversion contains distortion terms')
 
-        if use_header_offsets:
-            dra_arcsec = float(self.header.get('HIERARCH NAV RA_OFFSET', 0.0))  # type: ignore
-            ddec_arcsec = float(self.header.get('HIERARCH NAV DEC_OFFSET', 0.0))  # type: ignore
-            dra = dra_arcsec / 3600
-            ddec = ddec_arcsec / 3600
-        else:
-            dra = 0.0
-            ddec = 0.0
-
-        x0, y0 = wcs.world_to_pixel_values(self.target_ra + dra, self.target_dec + ddec)
+        x0, y0 = wcs.world_to_pixel_values(self.target_ra, self.target_dec)
 
         b1, b2 = wcs.pixel_to_world_values(x0, y0 + 1)
         c1, c2 = wcs.pixel_to_world_values(x0, y0)
@@ -472,6 +463,18 @@ class Observation(BodyXY):
         arcsec_per_px = s * 60 * 60  # s = degrees/px
         r0 = self.target_diameter_arcsec / (2 * arcsec_per_px)
 
+        if use_header_offsets:
+            dra_arcsec = float(self.header.get('HIERARCH NAV RA_OFFSET', 0.0))  # type: ignore
+            ddec_arcsec = float(self.header.get('HIERARCH NAV DEC_OFFSET', 0.0))  # type: ignore
+            if dra_arcsec != 0 or ddec_arcsec != 0:
+                # Use a throwaway BodyXY object to apply the offsets, so that the
+                # offsets are applied in an identical way to add_arcsec_offset. The
+                # throwaway object is used to avoid modifying the state of the current
+                # Observation object.
+                body = self.to_body_xy()
+                body.set_disc_params(x0, y0, r0, rotation)
+                body.add_arcsec_offset(dra_arcsec=dra_arcsec, ddec_arcsec=ddec_arcsec)
+                x0, y0, r0, rotation = body.get_disc_params()
         return x0, y0, r0, rotation
 
     def disc_from_wcs(
