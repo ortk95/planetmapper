@@ -273,9 +273,7 @@ class BodyXY(Body):
         self.backplanes = {}
         self._register_default_backplanes()
 
-        if self._nx > 0 and self._ny > 0:
-            # centre disc if dimensions provided
-            self.centre_disc()
+        self.reset_disc_params()
 
     @classmethod
     def from_body(
@@ -718,6 +716,27 @@ class BodyXY(Body):
             `(x0, y0, r0, rotation)` tuple.
         """
         return self.get_x0(), self.get_y0(), self.get_r0(), self.get_rotation()
+
+    def reset_disc_params(self) -> str:
+        """
+        Reset the disc parameters to their initial values.
+
+        If the image size is non-zero (i.e. `nx` and `ny` are both positive), this sets
+        the rotation to zero and centres the disc in the image by calling
+        :func:`centre_disc`. Otherwise, if the image size is zero, x0 and y0 are set to
+        zero and r0 is set to 10.
+
+        Returns:
+            String returned by :func:`get_disc_method`, indicating the method used to
+            set the disc parameters.
+        """
+        self.set_rotation(0.0)
+        if self._test_if_img_size_valid():
+            self.centre_disc()
+        else:
+            self.set_disc_params(x0=0, y0=0, r0=10)
+            self.set_disc_method('zero')
+        return self.get_disc_method()
 
     def centre_disc(self) -> None:
         """

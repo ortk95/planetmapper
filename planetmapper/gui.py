@@ -38,7 +38,17 @@ from .observation import Observation
 
 Widget = TypeVar('Widget', bound=tk.Widget)
 SetterKey = Literal[
-    'x0', 'y0', 'r0', 'rotation', 'step', 'plate_scale_arcsec', 'plate_scale_km'
+    'x0',
+    'y0',
+    'r0',
+    'rotation',
+    'step',
+    'plate_scale_arcsec',
+    'plate_scale_km',
+    'wcs_offset_ra',
+    'wcs_offset_dec',
+    'wcs_offset_rotation',
+    'wcs_offset_scale',
 ]
 PlotKey = Literal[
     'image',
@@ -214,6 +224,8 @@ class GUI:
         self._observation_wavelengths: np.ndarray | None = None
         self._observation_wavelengths_fmt = 'f'
         self._observation_wavelengths_unit = ''
+        self._observation_full_path: str = ''
+        self._observation_filename: str = ''
 
         self.step_size = 1
 
@@ -262,6 +274,14 @@ class GUI:
                     'plate_scale_km': [
                         lambda f: self.get_observation().set_plate_scale_km(f)
                     ],
+                    'wcs_offset_ra': [lambda f: self._set_wcs_offsets(dra_arcsec=f)],
+                    'wcs_offset_dec': [lambda f: self._set_wcs_offsets(ddec_arcsec=f)],
+                    'wcs_offset_rotation': [
+                        lambda f: self._set_wcs_offsets(drotation=f)
+                    ],
+                    'wcs_offset_scale': [
+                        lambda f: self._set_wcs_offsets(d_scale_arcsec=f)
+                    ],
                 },
             )
         )
@@ -277,67 +297,38 @@ class GUI:
             'step': lambda: self.step_size,
             'plate_scale_arcsec': lambda: self.get_observation().get_plate_scale_arcsec(),
             'plate_scale_km': lambda: self.get_observation().get_plate_scale_km(),
+            'wcs_offset_ra': lambda: self._get_wcs_offsets()[0],
+            'wcs_offset_dec': lambda: self._get_wcs_offsets()[1],
+            'wcs_offset_rotation': lambda: self._get_wcs_offsets()[3],
+            'wcs_offset_scale': lambda: self._get_wcs_offsets()[2],
         }
         self.plot_handles: defaultdict[PlotKey, list[Artist]] = defaultdict(list)
         self.plot_settings: defaultdict[PlotKey, dict] = defaultdict(dict)
         for k, v in DEFAULT_PLOT_SETTINGS.items():
             self.plot_settings[k] = v.copy()
 
+        # {section_title: [(callback, text, hint, required_key), ...]}
         self.disc_finding_routines: dict[
-            str, list[tuple[Callable[[], None], str, str]]
+            str, list[tuple[Callable[[], Any], str, str, str | None]]
         ] = {
-            'Reset position': [
+            'Reset disc': [
+                (
+                    lambda: self.get_observation().reset_disc_params(),
+                    'Reset all disc parameters',
+                    'Reset the disc parameters to their initial values',
+                    None,
+                ),
                 (
                     lambda: self.get_observation().centre_disc(),
                     'Centre disc in image',
                     'Centre the target\'s planetary disc and make it fill ~90% of the observation',
+                    None,
                 ),
                 (
                     lambda: self.get_observation().rotate_north_to_top(),
                     'Rotate north to top',
                     'Rotate the disc so that the north pole of the target is at the top of the image',
-                ),
-            ],
-            'Use WCS data from FITS header': [
-                (
-                    lambda: self.get_observation().disc_from_wcs(
-                        suppress_warnings=True, validate=False
-                    ),
-                    'Use WCS position, rotation & scale',
-                    'Set all disc parameters using approximate WCS information in the observation\'s FITS header',
-                ),
-                (
-                    lambda: self.get_observation().position_from_wcs(
-                        suppress_warnings=True, validate=False
-                    ),
-                    'Use WCS position',
-                    'Set disc position using approximate WCS information in the observation\'s FITS header',
-                ),
-                (
-                    lambda: self.get_observation().rotation_from_wcs(
-                        suppress_warnings=True, validate=False
-                    ),
-                    'Use WCS rotation',
-                    'Set disc rotation using approximate WCS information in the observation\'s FITS header',
-                ),
-                (
-                    lambda: self.get_observation().plate_scale_from_wcs(
-                        suppress_warnings=True, validate=False
-                    ),
-                    'Use WCS plate scale',
-                    'Set plate scale using approximate WCS information in the observation\'s FITS header',
-                ),
-            ],
-            'Fit observation': [
-                (
-                    lambda: self.get_observation().fit_disc_position(),
-                    'Fit disc position',
-                    'Set x0 and y0 so that the planet\'s disc is fit to the brightest part of the data (this may take a few seconds)',
-                ),
-                (
-                    lambda: self.get_observation().fit_disc_radius(),
-                    'Fit disc radius',
-                    'Set r0 by calculating the radius around (x0, y0) where the brightness decrease is the fastest (this may take a few seconds)',
+                    None,
                 ),
             ],
             'Use FITS header metadata': [
@@ -345,9 +336,60 @@ class GUI:
                     lambda: self.get_observation().disc_from_header(),
                     'Use PlanetMapper metadata',
                     'Set disc parameters using information in the observation\'s FITS header generated by any previous runs of PlanetMapper',
+                    'header',
+                ),
+            ],
+            'Use WCS data from FITS header': [
+                (
+                    lambda: self.get_observation().disc_from_wcs(
+                        suppress_warnings=True, validate=False, use_header_offsets=False
+                    ),
+                    'Use WCS position, rotation & scale',
+                    'Set all disc parameters using approximate WCS information in the observation\'s FITS header',
+                    'wcs',
+                ),
+                (
+                    lambda: self.get_observation().position_from_wcs(
+                        suppress_warnings=True, validate=False, use_header_offsets=False
+                    ),
+                    'Use WCS position',
+                    'Set disc position using approximate WCS information in the observation\'s FITS header',
+                    'wcs',
+                ),
+                (
+                    lambda: self.get_observation().rotation_from_wcs(
+                        suppress_warnings=True, validate=False, use_header_offsets=False
+                    ),
+                    'Use WCS rotation',
+                    'Set disc rotation using approximate WCS information in the observation\'s FITS header',
+                    'wcs',
+                ),
+                (
+                    lambda: self.get_observation().plate_scale_from_wcs(
+                        suppress_warnings=True, validate=False, use_header_offsets=False
+                    ),
+                    'Use WCS plate scale',
+                    'Set plate scale using approximate WCS information in the observation\'s FITS header',
+                    'wcs',
+                ),
+            ],
+            'Fit observation': [
+                (
+                    lambda: self.get_observation().fit_disc_position(),
+                    'Fit disc position',
+                    'Set x0 and y0 so that the planet\'s disc is fit to the brightest part of the data (this may take a few seconds)',
+                    None,
+                ),
+                (
+                    lambda: self.get_observation().fit_disc_radius(),
+                    'Fit disc radius',
+                    'Set r0 by calculating the radius around (x0, y0) where the brightness decrease is the fastest (this may take a few seconds)',
+                    None,
                 ),
             ],
         }
+        self._observation_available_disc_finding_routines: set[str] = set()
+        self._disc_finding_enableable_buttons: dict[str, list[ttk.Button]] = {}
 
         self.kernels: list[str] = [
             os.path.join(base.get_kernel_path(), pattern)
@@ -358,6 +400,12 @@ class GUI:
 
         self.event_time_to_ignore = None
         self.gui_built = False
+
+        self._cached_wcs_offset_info: (
+            tuple[tuple[float, float, float, float], tuple[float, float, float, float]]
+            | None
+        ) = None
+        self._wcs_entries_to_enable: list[NumericEntry | EnableableLabel] = []
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
@@ -429,15 +477,6 @@ class GUI:
             image_idx_b=2,
         )
 
-        if self.gui_built:
-            self.run_all_ui_callbacks()
-            self.rebuild_plot()
-            self.root.title(self.get_observation().get_description(multiline=False))
-            self.reset_help_hint()
-
-        self.click_locations = []
-        self.clear_click_location()
-
         try:
             self._observation_wavelengths = (
                 self.get_observation().get_wavelengths_from_header()
@@ -458,6 +497,47 @@ class GUI:
                 )
         except utils.GetWavelengthsError:
             self._observation_wavelengths = None
+
+        path = observation.path
+        if path is None:
+            self._observation_full_path = ''
+            self._observation_filename = ''
+        else:
+            basename = os.path.basename(path)
+            self._observation_filename = basename
+            if basename == path:
+                path = os.path.abspath(path)
+            self._observation_full_path = path
+
+        self.update_observation_available_disc_finding_routines()
+
+        self.click_locations = []
+        self.clear_click_location()
+
+        self._cached_wcs_offset_info = None
+
+        if self.gui_built:
+            self.run_all_ui_callbacks()
+            self.rebuild_plot()
+            self.root.title(self.get_observation().get_description(multiline=False))
+            self.reset_help_hint()
+            self.enable_disc_finding_buttons()
+
+    def update_observation_available_disc_finding_routines(self):
+        routines = self._observation_available_disc_finding_routines
+        observation = self.get_observation()
+        routines.clear()
+        try:
+            observation.disc_from_wcs(suppress_warnings=True)
+            routines.add('wcs')
+        except ValueError:
+            pass
+        try:
+            observation.disc_from_header()
+            routines.add('header')
+        except ValueError:
+            pass
+        observation.reset_disc_params()
 
     def get_observation(self) -> Observation:
         if self._observation is None:
@@ -843,15 +923,162 @@ class GUI:
         for label, routines in self.disc_finding_routines.items():
             label_frame = ttk.LabelFrame(frame, text=label)
             label_frame.pack(fill='x', pady=10)
-            for fn, name, description in routines:
-                self.add_tooltip(
-                    ttk.Button(
-                        label_frame,
-                        text=name,
-                        command=self.make_disc_finding_fn(fn),
-                    ),
-                    description,
-                ).pack(fill='x', pady=2, padx=5)
+            for fn, name, description, required_key in routines:
+                button = ttk.Button(
+                    label_frame,
+                    text=name,
+                    command=self.make_disc_finding_fn(fn),
+                )
+                self.add_tooltip(button, description).pack(fill='x', pady=2, padx=5)
+                if required_key is not None:
+                    self._disc_finding_enableable_buttons.setdefault(
+                        required_key, []
+                    ).append(button)
+
+            if label == 'Use WCS data from FITS header':
+                self.build_wcs_offset_section(label_frame)
+
+        self.enable_disc_finding_buttons()
+
+    def _get_wcs_offsets(self) -> tuple[float, float, float, float]:
+        if 'wcs' not in self._observation_available_disc_finding_routines:
+            return (np.nan, np.nan, np.nan, np.nan)
+        disc_params = self.get_observation().get_disc_params()
+        if (
+            self._cached_wcs_offset_info is not None
+            and self._cached_wcs_offset_info[0] == disc_params
+        ):
+            return self._cached_wcs_offset_info[1]
+        (
+            dra_arcsec,
+            ddec_arcsec,
+            dr,
+            drotation,
+        ) = self.get_observation()._get_wcs_offsets_for_arcsec(
+            suppress_warnings=True, use_header_offsets=False
+        )
+
+        r0_wcs = self.get_observation().get_r0() - dr
+        plate_scale_wcs = self.get_observation().target_diameter_arcsec / (2 * r0_wcs)
+        plate_scale_disc = self.get_observation().get_plate_scale_arcsec()
+        d_scale_arcsec = plate_scale_disc - plate_scale_wcs
+
+        self._cached_wcs_offset_info = (
+            disc_params,
+            (dra_arcsec, ddec_arcsec, d_scale_arcsec, drotation),
+        )
+        return self._cached_wcs_offset_info[1]
+
+    def _set_wcs_offsets(
+        self,
+        *,
+        dra_arcsec: float | None = None,
+        ddec_arcsec: float | None = None,
+        d_scale_arcsec: float | None = None,
+        drotation: float | None = None,
+    ) -> None:
+        if 'wcs' not in self._observation_available_disc_finding_routines:
+            return
+        observation = self.get_observation()
+        x0_wcs, y0_wcs, r0_wcs, rotation_wcs = observation._get_disc_params_from_wcs(
+            suppress_warnings=True, use_header_offsets=False
+        )
+        if dra_arcsec is not None or ddec_arcsec is not None:
+            dra_arcsec = (
+                self._get_wcs_offsets()[0] if dra_arcsec is None else dra_arcsec
+            )
+            ddec_arcsec = (
+                self._get_wcs_offsets()[1] if ddec_arcsec is None else ddec_arcsec
+            )
+            ra0, dec0 = observation.xy2radec(x0_wcs, y0_wcs)
+            x0, y0 = observation.radec2xy(
+                ra0 + dra_arcsec / 3600, dec0 + ddec_arcsec / 3600
+            )
+            observation.set_disc_params(x0=x0, y0=y0)
+        if d_scale_arcsec is not None:
+            plate_scale_wcs = observation.target_diameter_arcsec / (2 * r0_wcs)
+            observation.set_plate_scale_arcsec(plate_scale_wcs + d_scale_arcsec)
+        if drotation is not None:
+            observation.set_disc_params(rotation=rotation_wcs + drotation)
+
+    def build_wcs_offset_section(self, label_frame: ttk.LabelFrame) -> None:
+        container_frame = ttk.Frame(label_frame)
+        container_frame.pack(fill='x')
+        self.add_tooltip(
+            container_frame,
+            'Differences between disc parameters and WCS data '
+            '(useful for navigating multiple observations with systematic pointing errors)',
+        )
+
+        label = EnableableLabel(
+            container_frame, text='Offsets between disc and WCS data:'
+        )
+        label.pack(pady=(5, 0))
+        self._wcs_entries_to_enable.append(label)
+
+        frame = ttk.Frame(container_frame)
+        frame.pack(pady=2)
+
+        entries: list[tuple[SetterKey, str, float | None, tuple[SetterKey, ...]]] = [
+            (
+                'wcs_offset_ra',
+                'RA (arcsec)',
+                1e-5,
+                (
+                    'wcs_offset_rotation',
+                    'wcs_offset_scale',
+                ),
+            ),
+            (
+                'wcs_offset_dec',
+                'Dec (arcsec)',
+                1e-5,
+                (
+                    'wcs_offset_rotation',
+                    'wcs_offset_scale',
+                ),
+            ),
+            (
+                'wcs_offset_rotation',
+                'Rotation (°)',
+                1e-5,
+                (
+                    'wcs_offset_ra',
+                    'wcs_offset_dec',
+                    'wcs_offset_scale',
+                ),
+            ),
+            (
+                'wcs_offset_scale',
+                'Scale (arcsec/pixel)',
+                1e-9,
+                (
+                    'wcs_offset_ra',
+                    'wcs_offset_dec',
+                    'wcs_offset_rotation',
+                ),
+            ),
+        ]
+
+        for key, label, zero_threshold, default_callbacks in entries:
+            ne = NumericEntry(
+                self,
+                frame,
+                key,
+                label=label,
+                value_fmt='+.6g',
+                add_callbacks=[
+                    'x0',
+                    'y0',
+                    'r0',
+                    'rotation',
+                    'plate_scale_arcsec',
+                    'plate_scale_km',
+                ],
+                default_callbacks_to_add=default_callbacks,
+                zero_threshold=zero_threshold,
+            )
+            self._wcs_entries_to_enable.append(ne)
 
     def make_disc_finding_fn(self, fn: Callable[[], None]) -> Callable[[], None]:
         def button_command():
@@ -866,6 +1093,20 @@ class GUI:
 
         return button_command
 
+    def enable_disc_finding_buttons(self) -> None:
+        for key, buttons in self._disc_finding_enableable_buttons.items():
+            state = (
+                'normal'
+                if key in self._observation_available_disc_finding_routines
+                else 'disable'
+            )
+            for button in buttons:
+                button.configure(state=state)
+
+        enable_wcs_entries = 'wcs' in self._observation_available_disc_finding_routines
+        for entry in self._wcs_entries_to_enable:
+            entry.set_enabled(enable_wcs_entries)
+
     def build_help_hint(self) -> None:
         frame = ttk.Frame(self.hint_frame)
         frame.pack(fill='x', padx=5, pady=1)
@@ -879,11 +1120,7 @@ class GUI:
         self.help_hint.configure(text=msg, foreground=color)
 
     def reset_help_hint(self, *, hover: bool = False):
-        path = self.get_observation().path
-        if path is None:
-            msg = ''
-        else:
-            msg = path if hover else os.path.basename(path)
+        msg = self._observation_full_path if hover else self._observation_filename
         self.set_help_hint(msg, color='gray50')
 
     def add_tooltip(
@@ -1943,9 +2180,24 @@ class OpenObservation(Popup):
         path = tkinter.filedialog.askopenfilename(
             title='Choose observation',
             parent=self.window,
+            initialdir=self.get_open_initialdir(),
         )
         if path:
             self.stringvars['path'].set(str(path))
+
+    def get_open_initialdir(self) -> str:
+        path = self.stringvars['path'].get()
+        path = os.path.expandvars(os.path.expanduser(path))
+        if len(path.strip()) == 0:
+            return os.getcwd()
+        for _ in range(32):  # Limit to 32 iterations to avoid infinite loop
+            if os.path.isdir(path):
+                return path
+            dirname = os.path.dirname(path)
+            if dirname == path:
+                break
+            path = dirname
+        return os.getcwd()
 
     def click_ok(self) -> None:
         if self.apply_changes():
@@ -3770,11 +4022,24 @@ class NumericEntry:
         label: str | None = None,
         row: int | None = None,
         add_callbacks: list[SetterKey] | None = None,
+        entry_width: int = 10,
+        value_fmt: str = '.8g',
+        default_callbacks_to_add: tuple[SetterKey, ...] = (
+            'wcs_offset_ra',
+            'wcs_offset_dec',
+            'wcs_offset_rotation',
+            'wcs_offset_scale',
+        ),
+        zero_threshold: float | None = None,
         **kw,
     ):
         self.parent = parent
         self.key: SetterKey = key
         self.gui = gui
+        self.entry_width = entry_width
+        self.value_fmt = value_fmt
+        self.zero_threshold = zero_threshold
+
         self._enable_callback = True
 
         if label is None:
@@ -3783,12 +4048,14 @@ class NumericEntry:
 
         self.sv = tk.StringVar()
         self.sv.trace_add('write', self.text_input)
-        self.entry = ttk.Entry(parent, width=10, textvariable=self.sv)
+        self.entry = ttk.Entry(parent, width=self.entry_width, textvariable=self.sv)
 
         self.gui.ui_callbacks[self.key].add(self.update_text)
         if add_callbacks:
             for k in add_callbacks:
                 self.gui.ui_callbacks[k].add(self.update_text)
+        for k in default_callbacks_to_add:
+            self.gui.ui_callbacks[k].add(self.update_text)
 
         self.update_text()
 
@@ -3815,7 +4082,9 @@ class NumericEntry:
         self._enable_callback = True
 
     def format_value(self, value: float) -> str:
-        return format(value, '.8g')
+        if self.zero_threshold is not None and abs(value) < self.zero_threshold:
+            return '0'
+        return format(value, self.value_fmt)
 
     def text_input(self, *_) -> None:
         if not self._enable_callback:
@@ -3828,6 +4097,23 @@ class NumericEntry:
         except (ValueError, ZeroDivisionError):
             self.entry.configure(foreground='red')
         self._enable_callback = True
+
+    def set_enabled(self, enabled: bool) -> None:
+        """Enable or disable the entry."""
+        state = 'normal' if enabled else 'disabled'
+        self._enable_callback = enabled
+        self.label.configure(state=state)
+        self.entry.configure(state=state)
+        if enabled:
+            self.update_text()
+        else:
+            self.sv.set('')
+
+
+class EnableableLabel(ttk.Label):
+    def set_enabled(self, enabled: bool) -> None:
+        state = 'normal' if enabled else 'disabled'
+        self.configure(state=state)
 
 
 # Plotting stuff
