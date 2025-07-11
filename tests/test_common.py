@@ -15,4 +15,9 @@ class TestCommon(common_testing.BaseTestCase):
         self.assertEqual(planetmapper.common.__license__, 'MIT')
         self.assertIsInstance(planetmapper.common.__version__, str)
         self.assertIsInstance(planetmapper.common.__description__, str)
+
+        self.assertIsInstance(planetmapper.common.CITATION_STRING, str)
+        self.assertIsInstance(planetmapper.common.CITATION_DOI, str)
+        self.assertIsInstance(planetmapper.common.CITATION_BIBTEX, str)
+
         # See also test_init
