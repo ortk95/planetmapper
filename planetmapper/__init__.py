@@ -167,7 +167,16 @@ from .body import (
     WireframeKwargs,
 )
 from .body_xy import Backplane, BodyXY, MapKwargs
-from .common import __author__, __description__, __license__, __url__, __version__
+from .common import (
+    CITATION_BIBTEX,
+    CITATION_DOI,
+    CITATION_STRING,
+    __author__,
+    __description__,
+    __license__,
+    __url__,
+    __version__,
+)
 from .gui import run_gui
 from .observation import Observation
 
@@ -191,4 +200,7 @@ __all__ = [
     'utils',
     'kernel_downloader',
     'data_loader',
+    'CITATION_STRING',
+    'CITATION_DOI',
+    'CITATION_BIBTEX',
 ]

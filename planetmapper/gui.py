@@ -10,6 +10,7 @@ import tkinter.filedialog
 import tkinter.messagebox
 import tkinter.scrolledtext
 import traceback
+import webbrowser
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from tkinter import ttk
@@ -31,7 +32,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from matplotlib.text import Text
 
-from . import base, data_loader, progress, utils
+from . import base, common, data_loader, progress, utils
 from .body import BasicBody, Body, NotFoundError
 from .body_xy import MapKwargs
 from .observation import Observation
@@ -602,6 +603,7 @@ class GUI:
         self.build_disc_finding_controls_tab()
         self.build_plot_settings_controls_tab()
         self.build_coords_tab()
+        self.build_help_tab()
 
     def build_main_controls_tab(self) -> None:
         frame = ttk.Frame(self.notebook)
@@ -919,7 +921,7 @@ class GUI:
     def build_disc_finding_controls_tab(self) -> None:
         frame = ttk.Frame(self.notebook)
         frame.pack()
-        self.notebook.add(frame, text='Find disc')
+        self.notebook.add(frame, text='Disc')
         for label, routines in self.disc_finding_routines.items():
             label_frame = ttk.LabelFrame(frame, text=label)
             label_frame.pack(fill='x', pady=10)
@@ -939,6 +941,118 @@ class GUI:
                 self.build_wcs_offset_section(label_frame)
 
         self.enable_disc_finding_buttons()
+
+    def build_help_tab(self) -> None:
+        frame = ttk.Frame(self.notebook)
+        frame.pack()
+        self.notebook.add(frame, text='Help')
+
+        label_frame = ttk.LabelFrame(frame, text='About')
+        label_frame.pack(fill='x', pady=10)
+        label = ttk.Label(
+            label_frame,
+            text='\n'.join(
+                [
+                    f'PlanetMapper {common.__version__}',
+                ]
+            ),
+            justify='center',
+            font=('TkDefaultFont', 20),
+        )
+        label.pack(pady=5)
+
+        label_frame = ttk.LabelFrame(frame, text='Documentation')
+        label_frame.pack(fill='x', pady=10)
+        label = ttk.Label(
+            label_frame,
+            text='\n'.join(
+                [
+                    'For documentation, tutorials & support',
+                    'visit planetmapper.readthedocs.io',
+                ]
+            ),
+            justify='center',
+        )
+        label.pack(pady=2)
+        self.add_tooltip(
+            ttk.Button(
+                label_frame,
+                text='Open documentation',
+                command=lambda: webbrowser.open('https://planetmapper.readthedocs.io'),
+            ),
+            'Open PlanetMapper documentation in your web browser (https://planetmapper.readthedocs.io)',
+        ).pack(padx=5, pady=(2, 5), fill='x')
+
+        label_frame = ttk.LabelFrame(frame, text='Paper')
+        label_frame.pack(fill='x', pady=10)
+        label = ttk.Label(
+            label_frame,
+            text='\n'.join(
+                [
+                    'King et al., (2023). JOSS, 8(90), 5728,',
+                    'https://doi.org/10.21105/joss.05728',
+                ]
+            ),
+            justify='center',
+        )
+        label.pack(pady=2)
+
+        self.add_tooltip(
+            ttk.Button(
+                label_frame,
+                text='Open paper',
+                command=lambda: webbrowser.open(common.CITATION_DOI),
+            ),
+            f'Open the PlanetMapper paper in your web browser ({common.CITATION_DOI})',
+        ).pack(padx=5, pady=2, fill='x')
+        self.add_tooltip(
+            ttk.Button(
+                label_frame,
+                text='Copy citation string',
+                command=lambda: self.copy_to_clipboard(common.CITATION_STRING),
+            ),
+            'Copy full citation string to clipboard',
+        ).pack(padx=5, pady=2, fill='x')
+        self.add_tooltip(
+            ttk.Button(
+                label_frame,
+                text='Copy citation BibTeX',
+                command=lambda: self.copy_to_clipboard(common.CITATION_BIBTEX),
+            ),
+            'Copy citation BibTeX entry to clipboard',
+        ).pack(padx=5, pady=(2, 5), fill='x')
+
+        label_frame = ttk.LabelFrame(frame, text='Credits')
+        label_frame.pack(fill='x', pady=10)
+        label = ttk.Label(
+            label_frame,
+            text='\n'.join(
+                [
+                    'PlanetMapper was developed and is',
+                    'maintained by Oliver King at the',
+                    'University of Leicester, UK.',
+                ]
+            ),
+            justify='center',
+        )
+        label.pack(pady=5)
+        label = ttk.Label(
+            label_frame,
+            text='\n'.join(
+                [
+                    'PlanetMapper was developed with support from a',
+                    'European Research Council Consolidator Grant',
+                    '(under the European Union\'s Horizon 2020',
+                    'research and innovation programme, grant',
+                    'agreement No 723890).',
+                    '',
+                    'PlanetMapper is licensed under the MIT License.',
+                ]
+            ),
+            justify='center',
+            font=('TkDefaultFont', 10),
+        )
+        label.pack(pady=5)
 
     def _get_wcs_offsets(self) -> tuple[float, float, float, float]:
         if 'wcs' not in self._observation_available_disc_finding_routines:
