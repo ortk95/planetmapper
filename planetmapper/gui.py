@@ -1591,7 +1591,7 @@ class GUI:
 
         self.add_tooltip(
             self.canvas.get_tk_widget(),
-            'Customise the displayed data, colour scales and plotted features in the "Settings" tab',
+            'Customise plot in the "Settings" tab and click on the plot to get values in the "Coords" tab',
         )
 
     def rebuild_plot(self) -> None:
