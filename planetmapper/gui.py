@@ -215,6 +215,7 @@ class GUI:
 
     MINIMUM_SIZE = (600, 600)
     DEFAULT_GEOMETRY = '800x650+15+15'
+    CONTROLS_WIDTH = 260
 
     def __init__(self, allow_open: bool = True) -> None:
         self.allow_open = allow_open
@@ -862,13 +863,11 @@ class GUI:
             hint='points of interest on the surface of the target (click Edit to define POI)',
             callbacks=[self.replot_coordinates_lonlat],
             coordinate_list=self.get_observation().coordinates_of_interest_lonlat,
-            menu_label='\n'.join(
-                [
-                    'List of Lon/Lat points of interest.',
-                    'Coordinates should be written as comma',
-                    'separated "lon, lat" values, with each',
-                    'coordinate pair on a new line:',
-                ]
+            menu_label=(
+                'List of Lon/Lat points of interest. '
+                'Coordinates should be written as comma '
+                'separated "lon, lat" values, with each '
+                'coordinate pair on a new line:'
             ),
         )
         PlotCoordinatesSetting(
@@ -879,13 +878,11 @@ class GUI:
             hint='points of interest in the sky (click Edit to define POI)',
             callbacks=[self.replot_coordinates_radec],
             coordinate_list=self.get_observation().coordinates_of_interest_radec,
-            menu_label='\n'.join(
-                [
-                    'List of RA/Dec points of interest.',
-                    'Coordinates should be written as comma',
-                    'separated "ra, dec" values, with each',
-                    'coordinate pair on a new line:',
-                ]
+            menu_label=(
+                'List of RA/Dec points of interest. '
+                'Coordinates should be written as comma '
+                'separated "ra, dec" values, with each '
+                'coordinate pair on a new line:'
             ),
         )
         PlotOtherBodyScatterSetting(
@@ -947,17 +944,16 @@ class GUI:
         frame.pack()
         self.notebook.add(frame, text='Help')
 
+        wraplength = self.CONTROLS_WIDTH - 10
+
         label_frame = ttk.LabelFrame(frame, text='About')
         label_frame.pack(fill='x', pady=10)
         label = ttk.Label(
             label_frame,
-            text='\n'.join(
-                [
-                    f'PlanetMapper {common.__version__}',
-                ]
-            ),
+            text=f'PlanetMapper {common.__version__}',
             justify='center',
             font=('TkDefaultFont', 20),
+            wraplength=wraplength,
         )
         label.pack(pady=5)
 
@@ -965,13 +961,9 @@ class GUI:
         label_frame.pack(fill='x', pady=10)
         label = ttk.Label(
             label_frame,
-            text='\n'.join(
-                [
-                    'For documentation, tutorials & support',
-                    'visit planetmapper.readthedocs.io',
-                ]
-            ),
+            text='For documentation, tutorials & support visit planetmapper.readthedocs.io',
             justify='center',
+            wraplength=wraplength,
         )
         label.pack(pady=2)
         self.add_tooltip(
@@ -987,13 +979,9 @@ class GUI:
         label_frame.pack(fill='x', pady=10)
         label = ttk.Label(
             label_frame,
-            text='\n'.join(
-                [
-                    'King et al., (2023). JOSS, 8(90), 5728,',
-                    'https://doi.org/10.21105/joss.05728',
-                ]
-            ),
+            text='King et al., (2023). JOSS, 8(90), 5728, https://doi.org/10.21105/joss.05728',
             justify='center',
+            wraplength=wraplength,
         )
         label.pack(pady=2)
 
@@ -1026,31 +1014,28 @@ class GUI:
         label_frame.pack(fill='x', pady=10)
         label = ttk.Label(
             label_frame,
-            text='\n'.join(
-                [
-                    'PlanetMapper was developed and is',
-                    'maintained by Oliver King at the',
-                    'University of Leicester, UK.',
-                ]
+            text=(
+                'PlanetMapper was developed and is maintained by Oliver King '
+                'at the University of Leicester, UK.'
             ),
             justify='center',
+            wraplength=wraplength,
         )
         label.pack(pady=5)
+        messages = [
+            (
+                'PlanetMapper was developed with support from a European Research '
+                'Council Consolidator Grant (under the European Union\'s Horizon 2020 '
+                'research and innovation programme, grant agreement No 723890).'
+            ),
+            'PlanetMapper is licensed under the MIT License.',
+        ]
         label = ttk.Label(
             label_frame,
-            text='\n'.join(
-                [
-                    'PlanetMapper was developed with support from a',
-                    'European Research Council Consolidator Grant',
-                    '(under the European Union\'s Horizon 2020',
-                    'research and innovation programme, grant',
-                    'agreement No 723890).',
-                    '',
-                    'PlanetMapper is licensed under the MIT License.',
-                ]
-            ),
+            text='\n\n'.join(messages),
             justify='center',
             font=('TkDefaultFont', 10),
+            wraplength=wraplength,
         )
         label.pack(pady=5)
 
@@ -1347,15 +1332,15 @@ class GUI:
         messages = [
             'Click on the plot to get coordinates.',
             'Right click on the plot to clear.',
-            'Note that most of these values change',
-            'when you adjust the disc position.',
+            'Note that most of these values change when you adjust the disc position.',
         ]
         ttk.Label(
             top_level_frame,
             text='\n'.join(messages),
             justify='center',
             foreground='gray50',
-        ).pack(fill='x', padx=5, pady=2)
+            wraplength=self.CONTROLS_WIDTH - 10,
+        ).pack(padx=5, pady=2)
 
     def get_click_coords(self) -> dict[str, float]:
         if self.last_click_location is None:
@@ -3266,6 +3251,10 @@ class ArtistSetting(Popup, ABC):
     def get_window_size(self) -> str:
         return '350x350'
 
+    @property
+    def label_wraplength(self) -> int:
+        return 330
+
 
 class PlotImageSetting(ArtistSetting):
     REPLOT_DELAY_MS = 100
@@ -3578,21 +3567,24 @@ class PlotImageSetting(ArtistSetting):
         ]
         self.add_to_menu_grid([(a, b) for a, b, c in self.grid], frame=frame)
 
-        msg = '\n'.join(
-            [
-                '',
-                'Images are scaled to vary from 0 to 100,',
-                'so set vmin=0 and vmax=100 to show the',
-                'entire dynamic range.',
-                '',
-                'Set vmin/vmax type to "percentile" to',
-                'calculate the limits as percentiles of the',
-                'data in the image. This can be useful if',
-                'your data has extreme outliers (e.g. try',
-                'vmin=1, vmax=99 & type=percentile).',
-            ]
-        )
-        ttk.Label(self.grid_frame, text=msg).pack()
+        messages = [
+            (
+                '\nImages are scaled to vary from 0 to 100, so set vmin=0 and vmax=100 '
+                'to show the entire dynamic range.'
+            ),
+            (
+                'Set vmin/vmax type to "percentile" to calculate the limits as '
+                'percentiles of the data in the image. This can be useful if your data '
+                'has extreme outliers (e.g. try vmin=1, vmax=99 & type=percentile).'
+            ),
+        ]
+        ttk.Label(
+            self.grid_frame,
+            text='\n\n'.join(messages),
+            wraplength=self.label_wraplength,
+            foreground='gray40',
+            justify='center',
+        ).pack()
 
         self.image_mode.trace_add('write', self.change_image_mode_radio)
         self.change_image_mode_radio()  # run initial setup
@@ -3807,16 +3799,13 @@ class PlotRingsSetting(PlotLineSetting):
                 radii_selected -= set(radii)
 
         value = '\n'.join(str(r) for r in sorted(radii_selected))
-        label = '\n'.join(
-            [
-                'Manually list{s} ring radii in km from the'.format(
-                    s=' more' if self.checkbox_dict else ''
-                ),
-                'target\'s centre below. Each radius should',
-                'be listed on a new line:',
-            ]
-        )
-        ttk.Label(self.menu_frame, text='\n' + label).pack(fill='x')
+        label = (
+            'Manually list{s} ring radii in km from the target\'s centre below. '
+            'Each radius should be listed on a new line:'
+        ).format(s=' more' if self.checkbox_dict else '')
+        ttk.Label(
+            self.menu_frame, text='\n' + label, wraplength=self.label_wraplength
+        ).pack(fill='x')
         self.txt = tkinter.scrolledtext.ScrolledText(self.menu_frame)
         self.txt.pack(fill='both')
         self.txt.insert('1.0', value)
@@ -3925,7 +3914,11 @@ class PlotCoordinatesSetting(PlotScatterSetting):
     def make_menu(self) -> None:
         super().make_menu()
         value = '\n'.join(f'{a}, {b}' for a, b in self.coordinate_list)
-        ttk.Label(self.menu_frame, text='\n' + self.menu_label).pack(fill='x')
+        ttk.Label(
+            self.menu_frame,
+            text='\n' + self.menu_label,
+            wraplength=self.label_wraplength,
+        ).pack(fill='x')
         self.txt = tkinter.scrolledtext.ScrolledText(self.menu_frame)
         self.txt.pack(fill='both')
         self.txt.insert('1.0', value)
@@ -4011,16 +4004,16 @@ class PlotOutlinedTextSetting(ArtistSetting):
 
 class GenericOtherBodySetting(ArtistSetting):
     def add_other_body_menu_setting(self):
-        label = '\n'.join(
-            [
-                'List other bodies of interest to',
-                'mark (e.g. moons). Body names should',
-                'be recognisable by SPICE (e.g "Europa"',
-                'or "502") with each body listed on a',
-                'new line:',
-            ]
+        label = (
+            'List other bodies of interest to '
+            'mark (e.g. moons). Body names should '
+            'be recognisable by SPICE (e.g "Europa" '
+            'or "502") with each body listed on a '
+            'new line:'
         )
-        ttk.Label(self.menu_frame, text='\n' + label).pack(fill='x')
+        ttk.Label(
+            self.menu_frame, text='\n' + label, wraplength=self.label_wraplength
+        ).pack(fill='x')
         self.txt = tkinter.scrolledtext.ScrolledText(self.menu_frame)
         self.txt.pack(fill='both')
 
