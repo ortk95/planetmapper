@@ -16,6 +16,28 @@ class TestInit(common_testing.BaseTestCase):
             planetmapper.__description__,
             'PlanetMapper: A Python package for visualising, navigating and mapping Solar System observations',
         )
+        self.assertEqual(
+            planetmapper.CITATION_STRING,
+            'King et al., (2023). PlanetMapper: A Python package for visualising, navigating and mapping Solar System observations. Journal of Open Source Software, 8(90), 5728, https://doi.org/10.21105/joss.05728',
+        )
+        self.assertEqual(
+            planetmapper.CITATION_DOI, 'https://doi.org/10.21105/joss.05728'
+        )
+        self.assertEqual(
+            planetmapper.CITATION_BIBTEX,
+            """@article{king_2023_planetmapper,
+  author  = {King, Oliver R. T. and Fletcher, Leigh N.},
+  doi     = {10.21105/joss.05728},
+  journal = {Journal of Open Source Software},
+  month   = oct,
+  number  = {90},
+  pages   = {5728},
+  title   = {{PlanetMapper: A Python package for visualising, navigating and mapping Solar System observations}},
+  url     = {https://joss.theoj.org/papers/10.21105/joss.05728},
+  volume  = {8},
+  year    = {2023}
+}""",
+        )
 
     def test_version(self):
         self.assertEqual(planetmapper.__version__.strip(), planetmapper.__version__)
@@ -41,7 +63,7 @@ class TestInit(common_testing.BaseTestCase):
         same thing, then the actual functionality of the run_gui function is tested in
         test_gui.py.
         """
-        self.assertEqual(len(planetmapper.__all__), 19)  # ensure tests are up to date
+        self.assertEqual(len(planetmapper.__all__), 22)  # ensure tests are up to date
 
         self.assertIs(planetmapper.run_gui, planetmapper.gui.run_gui)
         self.assertIs(planetmapper.set_kernel_path, planetmapper.base.set_kernel_path)
@@ -65,6 +87,10 @@ class TestInit(common_testing.BaseTestCase):
             planetmapper.body.DEFAULT_WIREFRAME_FORMATTING,
         )
         self.assertIs(planetmapper.MapKwargs, planetmapper.body_xy.MapKwargs)
+
+        self.assertIs(planetmapper.CITATION_STRING, planetmapper.common.CITATION_STRING)
+        self.assertIs(planetmapper.CITATION_DOI, planetmapper.common.CITATION_DOI)
+        self.assertIs(planetmapper.CITATION_BIBTEX, planetmapper.common.CITATION_BIBTEX)
 
         # test backward compatible aliases
         self.assertIs(

@@ -5,6 +5,7 @@ import common_testing
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.collections import QuadMesh
+from matplotlib.image import AxesImage
 from numpy import array, inf, nan
 
 import planetmapper
@@ -476,11 +477,36 @@ class TestBodyXY(common_testing.BaseTestCase):
         self.body.set_disc_params(*params)
         self.assertTrue(np.allclose(self.body.get_disc_params(), params))
 
+    def test_reset_disc_params(self):
+        bodies = [
+            BodyXY('Jupiter', observer='HST', utc='2005-01-01T00:00:00', nx=15, ny=10),
+            BodyXY('Jupiter', observer='HST', utc='2005-01-01T00:00:00'),
+        ]
+        for body in bodies:
+            initial_params = body.get_disc_params()
+            initial_method = body.get_disc_method()
+            with self.subTest(
+                initial_method=initial_method, initial_params=initial_params, body=body
+            ):
+                body.set_disc_params(-1, -2, 3, 4)
+                body.reset_disc_params()
+                self.assertArraysClose(body.get_disc_params(), initial_params)
+                self.assertEqual(body.get_disc_method(), initial_method)
+
     def test_centre_disc(self):
         self.body.set_disc_params(0, 0, 1, 0)
         self.body.centre_disc()
         self.assertEqual(self.body.get_disc_params(), (7.0, 4.5, 4.05, 0.0))
         self.assertEqual(self.body.get_disc_method(), 'centre_disc')
+
+    def test_rotate_north_to_top(self):
+        self.body.set_disc_params(0, 0, 1, 0)
+        self.body.rotate_north_to_top()
+        self.assertAlmostEqual(self.body.get_rotation(), 24.15516987997688)
+        self.assertAlmostEqual(
+            self.body.get_rotation(), -self.body.north_pole_angle(), places=3
+        )
+        self.assertEqual(self.body.get_disc_method(), 'rotate_north_to_top')
 
     def test_img_size(self):
         for body in (self.body, self.body_zero_size):
@@ -509,11 +535,89 @@ class TestBodyXY(common_testing.BaseTestCase):
         self.assertNotEqual(self.body, self.body_zero_size)
         self.assertFalse(self.body_zero_size._test_if_img_size_valid())
 
+        with self.assertRaises(ValueError):
+            self.body_zero_size.set_img_size(-1, 0)
+        with self.assertRaises(ValueError):
+            self.body_zero_size.set_img_size(0, -1)
+
+        self.body_zero_size.set_img_size(0, 0)
+
     def test_test_if_img_size_valid(self):
         self.assertTrue(self.body._test_if_img_size_valid())
         self.assertFalse(self.body_zero_size._test_if_img_size_valid())
         with self.assertRaises(ValueError):
             self.body_zero_size.get_lon_img()
+
+    def test_scale_img_size(self):
+        def get_body():
+            body = self.body.copy()
+            body.set_img_size(16, 10)
+            body.set_disc_params(3, 4, 5, 6)
+            return body
+
+        body = get_body()
+        body.scale_img_size(1)
+        self.assertEqual(body.get_img_size(), (16, 10))
+        self.assertArraysClose(body.get_disc_params(), (3.0, 4.0, 5.0, 6.0))
+
+        body = get_body()
+        body.scale_img_size(2)
+        self.assertEqual(body.get_img_size(), (32, 20))
+        self.assertArraysClose(body.get_disc_params(), (6.5, 8.5, 10.0, 6.0))
+
+        body = get_body()
+        body.scale_img_size(1.5)
+        self.assertEqual(body.get_img_size(), (24, 15))
+        self.assertArraysClose(body.get_disc_params(), (4.75, 6.25, 7.5, 6.0))
+
+        body = get_body()
+        body.scale_img_size(0.5)
+        self.assertEqual(body.get_img_size(), (8, 5))
+        self.assertArraysClose(body.get_disc_params(), (1.25, 1.75, 2.5, 6.0))
+
+        body = get_body()
+        with self.assertRaises(ValueError):
+            body.scale_img_size(0.25)
+
+        body = get_body()
+        body.scale_img_size(0.25, allow_rounding=True)
+        self.assertEqual(body.get_img_size(), (4, 3))
+        self.assertArraysClose(body.get_disc_params(), (0.375, 0.625, 1.25, 6.0))
+
+        body = get_body()
+        with self.assertRaises(ValueError):
+            body.scale_img_size(-1)
+
+    def test_add_img_border(self):
+        def get_body():
+            body = self.body.copy()
+            body.set_img_size(16, 10)
+            body.set_disc_params(3, 4, 5, 6)
+            return body
+
+        body = get_body()
+        body.add_img_border(0)
+        self.assertEqual(body.get_img_size(), (16, 10))
+        self.assertArraysClose(body.get_disc_params(), (3.0, 4.0, 5.0, 6.0))
+
+        body = get_body()
+        body.add_img_border(1)
+        self.assertEqual(body.get_img_size(), (18, 12))
+        self.assertArraysClose(body.get_disc_params(), (4.0, 5.0, 5.0, 6.0))
+
+        body = get_body()
+        body.add_img_border(42)
+        self.assertEqual(body.get_img_size(), (100, 94))
+        self.assertArraysClose(body.get_disc_params(), (45.0, 46.0, 5.0, 6.0))
+
+        body = get_body()
+        body.add_img_border(-2)
+        self.assertEqual(body.get_img_size(), (12, 6))
+        self.assertArraysClose(body.get_disc_params(), (1.0, 2.0, 5.0, 6.0))
+
+        with self.assertRaises(ValueError):
+            body = get_body()
+            body.add_img_border(-10)
 
     def test_disc_method(self):
         method = ' test method '
@@ -1664,6 +1768,8 @@ class TestBodyXY(common_testing.BaseTestCase):
             'PIXEL-Y: Observation y pixel coordinate [pixels]',
             'KM-X: East-West distance in target plane [km]',
             'KM-Y: North-South distance in target plane [km]',
+            'ANGULAR-X: East-West distance in target plane [arcsec]',
+            'ANGULAR-Y: North-South distance in target plane [arcsec]',
             'PHASE: Phase angle [deg]',
             'INCIDENCE: Incidence angle [deg]',
             'EMISSION: Emission angle [deg]',
@@ -1810,6 +1916,65 @@ class TestBodyXY(common_testing.BaseTestCase):
         self.assertEqual(len(ax.get_children()), 27)
         plt.close(fig)
 
+        plt.close('all')
+
+    def test_plot_img(self):
+        coordinates = ('xy', 'radec', 'km', 'angular')
+        body = self.body.copy()
+        body.set_img_size(4, 3)
+
+        img = body.get_backplane_img('RA')
+        img /= np.nanmax(img)
+        img_rgb = np.dstack((img, img, img))
+        img_rgba = np.dstack((img, img, img, np.ones_like(img)))
+
+        for coord in coordinates:
+            with self.subTest('image', coord=coord):
+                fig, ax = plt.subplots()
+                h = body.plot_img(img, ax=ax, coordinates=coord)
+                self.assertIsInstance(h, QuadMesh)
+                self.assertIn(h, ax.get_children())
+                self.assertEqual(len(ax.get_lines()), 21)
+                self.assertEqual(len(ax.get_images()), 0)
+                self.assertEqual(len(ax.get_children()), 33)
+                plt.close(fig)
+
+            with self.subTest('rgb', coord=coord):
+                fig, ax = plt.subplots()
+                h = body.plot_img(img_rgb, ax=ax, coordinates=coord)
+                self.assertIsInstance(h, AxesImage)
+                self.assertIn(h, ax.get_children())
+                self.assertEqual(len(ax.get_lines()), 21)
+                self.assertEqual(len(ax.get_images()), 1)
+                self.assertEqual(len(ax.get_children()), 33)
+                plt.close(fig)
+
+            with self.subTest('rgba', coord=coord):
+                fig, ax = plt.subplots()
+                h = body.plot_img(img_rgba, ax=ax, coordinates=coord)
+                self.assertIsInstance(h, AxesImage)
+                self.assertIn(h, ax.get_children())
+                self.assertEqual(len(ax.get_lines()), 21)
+                self.assertEqual(len(ax.get_images()), 1)
+                self.assertEqual(len(ax.get_children()), 33)
+                plt.close(fig)
+
+        with self.subTest('no wireframe'):
+            fig, ax = plt.subplots()
+            h = body.plot_img(img, ax=ax, add_wireframe=False)
+            self.assertIsInstance(h, QuadMesh)
+            self.assertIn(h, ax.get_children())
+            self.assertEqual(len(ax.get_lines()), 0)
+            self.assertEqual(len(ax.get_images()), 0)
+            self.assertEqual(len(ax.get_children()), 11)
+            plt.close(fig)
+
+        # Extra tests to make sure we don't crash
+        body.plot_img(img)
+        body.plot_img(img, coordinates='angular', wireframe_kwargs={'color': 'r'})
+        body.plot_img(
+            img, coordinates='angular', angular_kwargs={'coordinate_rotation': 45}
+        )
         plt.close('all')
 
     def test_plot_map(self):

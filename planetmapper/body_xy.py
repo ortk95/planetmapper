@@ -1,4 +1,5 @@
 import datetime
+import functools
 import io
 import math
 import warnings
@@ -24,6 +25,7 @@ import scipy.ndimage
 from matplotlib.axes import Axes
 from matplotlib.collections import QuadMesh
 from matplotlib.figure import Figure
+from matplotlib.image import AxesImage
 from spiceypy.utils.exceptions import NotFoundError
 
 from .base import (
@@ -114,9 +116,9 @@ class BodyXY(Body):
     Class representing an astronomical body imaged at a specific time.
 
     This is a subclass of :class:`Body` with additional methods to interact with the
-    image pixel coordinate frame `xy`. This class assumes the tangent plane
-    approximation is valid for the conversion between pixel coordinates `xy` and RA/Dec
-    sky coordinates `radec`.
+    `image pixel coordinates`_ frame `xy`. This class assumes the tangent plane
+    approximation is valid for the conversion between pixel coordinates `xy` and `RA/Dec
+    celestial coordinates`_ `radec`.
 
     The `xy` ↔ `radec` conversion is performed by setting the pixel coordinates of the
     centre of the planet's disc `(x0, y0)`, the (equatorial) pixel radius of the disc
@@ -271,9 +273,7 @@ class BodyXY(Body):
         self.backplanes = {}
         self._register_default_backplanes()
 
-        if self._nx > 0 and self._ny > 0:
-            # centre disc if dimensions provided
-            self.centre_disc()
+        self.reset_disc_params()
 
     @classmethod
     def from_body(
@@ -385,7 +385,7 @@ class BodyXY(Body):
         self, x: FloatOrArray, y: FloatOrArray
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert image pixel coordinates to RA/Dec sky coordinates.
+        Convert `image pixel coordinates`_ to `RA/Dec celestial coordinates`_.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -409,7 +409,7 @@ class BodyXY(Body):
         self, ra: FloatOrArray, dec: FloatOrArray
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert RA/Dec sky coordinates to image pixel coordinates.
+        Convert `RA/Dec celestial coordinates`_ to `image pixel coordinates`_.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -433,8 +433,8 @@ class BodyXY(Body):
         self, x: FloatOrArray, y: FloatOrArray, *, not_found_nan=True, alt: float = 0.0
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert image pixel coordinates to longitude/latitude coordinates on the target
-        body.
+        Convert `image pixel coordinates`_ to `longitude/latitude coordinates`_ on the
+        target body.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -451,9 +451,10 @@ class BodyXY(Body):
                 body in km.
 
         Returns:
-            `(lon, lat)` tuple containing the longitude and latitude of the point(s). If
-            the provided pixel coordinates are missing the target body, and
-            `not_found_nan` is `True`, then the `lon` and `lat` values will both be NaN.
+            `(lon, lat)` tuple containing the planetographic longitude/latitude of
+            the point(s). If the provided pixel coordinates are missing the target body,
+            and `not_found_nan` is `True`, then the `lon` and `lat` values will both be
+            NaN.
 
         Raises:
             NotFoundError: if the input `x` and `y` coordinates are missing the target
@@ -477,7 +478,8 @@ class BodyXY(Body):
         not_visible_nan: bool = False,
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert longitude/latitude on the target body to image pixel coordinates.
+        Convert `longitude/latitude coordinates`_ on the target body to `image pixel
+        coordinates`_.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -486,8 +488,8 @@ class BodyXY(Body):
         NumPy arrays will be returned.
 
         Args:
-            lon: Longitude of point(s) on target body.
-            lat: Latitude of point(s) on target body.
+            lon: Planetographic longitude of point(s) on target body.
+            lat: Planetographic latitude of point(s) on target body.
             alt: Altitude of point above the surface of the target body in km.
             not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
                 the point is not visible to the observer (e.g. it is on the far side of
@@ -512,7 +514,8 @@ class BodyXY(Body):
         self, x: FloatOrArray, y: FloatOrArray
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert image pixel coordinates to distances in the target plane.
+        Convert `image pixel coordinates`_ to `distance coordinates`_ in the target
+        plane.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -537,7 +540,8 @@ class BodyXY(Body):
         self, km_x: FloatOrArray, km_y: FloatOrArray
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert distances in the target plane to image pixel coordinates.
+        Convert `distance coordinates`_ in the target plane to `image pixel
+        coordinates`_.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -564,7 +568,7 @@ class BodyXY(Body):
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert image pixel coordinates to relative angular coordinates.
+        Convert `image pixel coordinates`_ to `relative angular coordinates`_.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -597,7 +601,7 @@ class BodyXY(Body):
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert relative angular coordinates to image pixel coordinates.
+        Convert `relative angular coordinates`_ to `image pixel coordinates`_.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -713,6 +717,27 @@ class BodyXY(Body):
         """
         return self.get_x0(), self.get_y0(), self.get_r0(), self.get_rotation()
 
+    def reset_disc_params(self) -> str:
+        """
+        Reset the disc parameters to their initial values.
+
+        If the image size is non-zero (i.e. `nx` and `ny` are both positive), this sets
+        the rotation to zero and centres the disc in the image by calling
+        :func:`centre_disc`. Otherwise, if the image size is zero, x0 and y0 are set to
+        zero and r0 is set to 10.
+
+        Returns:
+            String returned by :func:`get_disc_method`, indicating the method used to
+            set the disc parameters.
+        """
+        self.set_rotation(0.0)
+        if self._test_if_img_size_valid():
+            self.centre_disc()
+        else:
+            self.set_disc_params(x0=0, y0=0, r0=10)
+            self.set_disc_method('zero')
+        return self.get_disc_method()
+
     def centre_disc(self) -> None:
         """
         Centre the target's planetary disc and make it fill ~90% of the observation.
@@ -730,7 +755,7 @@ class BodyXY(Body):
     def set_x0(self, x0: float) -> None:
         """
         Args:
-            x0: New x pixel coordinate of the centre of the target body.
+            x0: New x `pixel coordinate`_ of the centre of the target body.
 
         Raises:
             ValueError: if `x0` is not finite.
@@ -743,14 +768,14 @@ class BodyXY(Body):
     def get_x0(self) -> float:
         """
         Returns:
-            x pixel coordinate of the centre of the target body.
+            x `pixel coordinate`_ of the centre of the target body.
         """
         return self._x0
 
     def set_y0(self, y0: float) -> None:
         """
         Args:
-            y0: New y pixel coordinate of the centre of the target body.
+            y0: New y `pixel coordinate`_ of the centre of the target body.
 
         Raises:
             ValueError: if `y0` is not finite.
@@ -763,7 +788,7 @@ class BodyXY(Body):
     def get_y0(self) -> float:
         """
         Returns:
-            y pixel coordinate of the centre of the target body.
+            y `pixel coordinate`_ of the centre of the target body.
         """
         return self._y0
 
@@ -802,7 +827,7 @@ class BodyXY(Body):
 
         This rotation defines the angle between the upwards (positive `dec`) direction
         in the RA/Dec sky coordinates and the upwards (positive `y`) direction in the
-        image pixel coordinates.
+        `image pixel coordinates`_.
 
         Args:
             rotation: New rotation of the target body.
@@ -813,6 +838,18 @@ class BodyXY(Body):
         if not math.isfinite(rotation):
             raise ValueError('rotation must be finite')
         self._set_rotation_radians(np.deg2rad(rotation))
+
+    def rotate_north_to_top(self) -> None:
+        """
+        Set the disc rotation so that the north pole of the target body is at the top of
+        the image.
+
+        This is a convenience method, equivalent to calling: ::
+
+            body.set_rotation(-body.north_pole_angle())
+        """
+        self.set_rotation(-self.north_pole_angle())
+        self.set_disc_method('rotate_north_to_top')
 
     def get_rotation(self) -> float:
         """
@@ -865,10 +902,12 @@ class BodyXY(Body):
         Raises:
             TypeError: if `set_img_size` is called on an :class:`Observation` instance.
         """
-        if nx is not None:
-            self._nx = nx
-        if ny is not None:
-            self._ny = ny
+        nx = self._nx if nx is None else int(nx)
+        ny = self._ny if ny is None else int(ny)
+        if nx < 0 or ny < 0:
+            raise ValueError('nx and ny must be non-negative')
+        self._nx = nx
+        self._ny = ny
         self._clear_cache()
 
     def get_img_size(self) -> tuple[int, int]:
@@ -881,6 +920,93 @@ class BodyXY(Body):
         """
         return (self._nx, self._ny)
 
+    def scale_img_size(self, factor: float, *, allow_rounding: bool = False) -> None:
+        """
+        Scale the image size to increase/decrease the pixel resolution of the image.
+
+        The image size is scaled by multiplying the current `nx` and `ny` values by
+        `factor`. The disc parameters `(x0, y0, r0)` are then adjusted to maintain the
+        disc's position and size in the image.
+
+        By default, this method will raise an error if the scaled image size does not
+        have exactly integer pixel dimensions. This can be changed by setting
+        `allow_rounding=True`, which will round the scaled image size up to the nearest
+        integer number of pixels. Rounding will mean that the top and right edges of
+        the scaled image may not be exactly equivalent to the top and right edges of the
+        original image.
+
+        See also :func:`add_img_border`.
+
+        Args:
+            factor: Factor by which to scale the image size. For example, a factor of
+                2 will double the image size, while a factor of 0.5 will halve the image
+                size.
+            allow_rounding: If `True`, then the scaled image size will be rounded up to
+                the nearest integer number of pixels. If `False` (the default), then
+                an error will be raised if the image size cannot be exactly scaled by
+                `factor` to an integer number of pixels.
+
+        Raises:
+            ValueError: if the image size cannot be exactly scaled by `factor` to an
+                integer number of pixels and `allow_rounding` is `False`.
+        """
+        if factor <= 0:
+            raise ValueError('Scaling factor must be greater than zero')
+
+        nx, ny = self.get_img_size()
+        nx_f = nx * factor
+        ny_f = ny * factor
+        nx_ceil = math.ceil(nx_f)
+        ny_ceil = math.ceil(ny_f)
+        if not allow_rounding and (nx_ceil != nx_f or ny_ceil != ny_f):
+            raise ValueError(
+                f'Image size ({nx}, {ny}) cannot be exactly scaled by {factor} to an '
+                f'integer number of pixels: new size would be ({nx_f}, {ny_f}). '
+                'Use `allow_rounding=True` to allow rounding of the image size.'
+            )
+        self.set_img_size(nx_ceil, ny_ceil)
+        self.set_r0(self.get_r0() * factor)
+        # Offset accounts for how the disc position varies slightly with the scaling
+        # due to the pixel grid extending from 0.5 to nx-0.5 and ny-0.5.
+        offset = (factor - 1) / 2
+        self.set_x0(self.get_x0() * factor + offset)
+        self.set_y0(self.get_y0() * factor + offset)
+
+    def add_img_border(self, border: int) -> None:
+        """
+        Add a border of pixels around the image.
+
+        This will increase the size of the image by `2 * border` pixels in both the x
+        and y dimensions, and will adjust the disc position `(x0, y0)` appropriately.
+        If needed, more complex border adjustments can be achieved by using
+        :func:`set_img_size` and :func:`set_x0` and :func:`set_y0` directly: ::
+
+            left = 1
+            right = 2
+            top = 3
+            bottom = 4
+
+            nx, ny = body.get_img_size()
+            body.set_img_size(
+                nx + left + right,
+                ny + top + bottom,
+            )
+            body.set_x0(body.get_x0() + left)
+            body.set_y0(body.get_y0() + bottom)
+
+        See also :func:`scale_img_size`.
+
+        Args:
+            border: The number of pixels to add (or remove) as a border around the
+                image. Negative values will crop the image by that many pixels instead
+                of adding a border.
+        """
+        border = int(border)
+        nx, ny = self.get_img_size()
+        self.set_img_size(nx + 2 * border, ny + 2 * border)
+        self.set_x0(self.get_x0() + border)
+        self.set_y0(self.get_y0() + border)
+
     def set_disc_method(self, method: str) -> None:
         """
         Record the method used to find the coordinates of the target body's disc. This
@@ -888,8 +1014,8 @@ class BodyXY(Body):
         :func:`Observation.save`.
 
         `set_disc_method` is called automatically by functions which find the disc, such
-        as :func:`set_x0` and :func:`Observation.centre_disc`, so does not normally need
-        to be manually called by the user.
+        as :func:`rotate_north_to_top` and :func:`Observation.centre_disc`, so does not
+        normally need to be manually called by the user.
 
         Args:
             method: Short string describing the method used to find the disc.
@@ -993,14 +1119,14 @@ class BodyXY(Body):
 
         Returns:
             `(x_min, x_max), (y_min, y_max)` tuple containing the minimum and maximum
-            pixel coordinates of the pixels in the image.
+            `image pixel coordinates`_ of the pixels in the image.
         """
         return self._get_img_limits(lambda x, y: (x, y))
 
     # Illumination functions etc.
     def limb_xy(self, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         """
-        Pixel coordinate version of :func:`Body.limb_radec`.
+        `Image pixel coordinates`_ version of :func:`Body.limb_radec`.
 
         Args:
             **kwargs: Passed to :func:`Body.limb_radec`.
@@ -1014,7 +1140,7 @@ class BodyXY(Body):
         self, **kwargs
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
-        Pixel coordinate version of :func:`Body.limb_radec_by_illumination`.
+        `Image pixel coordinates`_ version of :func:`Body.limb_radec_by_illumination`.
 
         Args:
             **kwargs: Passed to :func:`Body.limb_radec_by_illumination`.
@@ -1031,7 +1157,7 @@ class BodyXY(Body):
 
     def terminator_xy(self, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         """
-        Pixel coordinate version of :func:`Body.terminator_radec`.
+        `Image pixel coordinates`_ version of :func:`Body.terminator_radec`.
 
         Args:
             **kwargs: Passed to :func:`Body.terminator_radec`.
@@ -1045,7 +1171,7 @@ class BodyXY(Body):
         self, *args, **kwargs: Unpack[LonLatGridKwargs]
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
-        Pixel coordinate version of :func:`Body.visible_lonlat_grid_radec`.
+        `Image pixel coordinates`_ version of :func:`Body.visible_lonlat_grid_radec`.
 
         Args:
             *args: Passed to :func:`Body.visible_lonlat_grid_radec`.
@@ -1061,7 +1187,7 @@ class BodyXY(Body):
 
     def ring_xy(self, radius: float, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         """
-        Pixel coordinate version of :func:`Body.ring_radec`.
+        `Image pixel coordinates`_ version of :func:`Body.ring_radec`.
 
         Args:
             radius: Radius in km of the ring from the centre of the target body.
@@ -1648,6 +1774,140 @@ class BodyXY(Body):
             ax.set_title(self.get_description(multiline=True))
         return ax
 
+    def plot_img(
+        self,
+        img: np.ndarray,
+        ax: Axes | None = None,
+        *,
+        coordinates: Literal['xy', 'radec', 'km', 'angular'] = 'xy',
+        wireframe_kwargs: dict[str, Any] | None = None,
+        add_wireframe: bool = True,
+        angular_kwargs: AngularCoordinateKwargs | None = None,
+        **kwargs,
+    ) -> QuadMesh | AxesImage:
+        """
+        Utility function to easily plot an image with customisable coordinate system,
+        wireframe etc.
+
+        If the input image is a 2D array, it is plotted using `plt.pcolormesh`, and if
+        it is a 3D array (i.e. an RGB or RGBA image), it is plotted using
+        `plt.imshow`.
+
+        A wireframe for the target body is added by default, and the coordinate system
+        (e.g. `xy`, `radec`, `km`, `angular`) can be specified using the `coordinates`
+        argument. ::
+
+            # Plot image in xy coordinates (default)
+            body.plot_img(img)
+
+            # Plot image in RA/Dec coordinates with custom colormap
+            body.plot_img(
+                img,
+                coordinates='radec',
+                cmap='Greys',
+            )
+
+            # Plot image in km coordinates with customised wireframe
+            body.plot_img(
+                img,
+                coordinates='km',
+                wireframe_kwargs={'color': 'red'},
+            )
+
+
+        Args:
+            img: Image to plot. If `img` is a 2D array, it is plotted using
+                `plt.pcolormesh`, and if it is a 3D array (i.e. an RGB or RGBA image),
+                it is plotted using `plt.imshow`. The first two dimensions of the image
+                should have the same shape as the body's image size (as returned by
+                :func:`get_img_size`).
+            ax: Matplotlib axis to use for plotting. If `ax` is None (the default), then
+                a new figure and axis is created.
+            coordinates: Coordinate system to use for plotting the image. Can be one of
+                `'xy'`, `'radec'`, `'km'` or `'angular'`. The default is `'xy'`.
+            wireframe_kwargs: Dictionary of arguments passed to the relevant wireframe
+                plotting function (e.g. :func:`plot_wireframe_radec`).
+            add_wireframe: Enable/disable plotting of wireframe.
+            angular_kwargs: Additional arguments passed used to customise the
+                transformation to/from angular coordinates when `coordinates='angular'`.
+                This is ignored for any other coordinate system.
+            **kwargs: Additional arguments are passed to `plt.pcolormesh` or
+                `plt.imshow` to customise the plot. For example, can be used to set the
+                colormap of the plot using e.g. `body.plot_img(..., cmap='Greys')`.
+
+        Returns:
+            Handle returned by Matplotlib's `pcolormesh` or `imshow`, depending on the
+            input image shape.
+        """
+
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        if coordinates == 'xy':
+            wireframe_func = self.plot_wireframe_xy
+            limits_func = self.get_img_limits_xy
+            transform = ax.transData
+        elif coordinates == 'radec':
+            wireframe_func = self.plot_wireframe_radec
+            limits_func = self.get_img_limits_radec
+            transform = self.matplotlib_xy2radec_transform(ax)
+        elif coordinates == 'km':
+            wireframe_func = self.plot_wireframe_km
+            limits_func = self.get_img_limits_km
+            transform = self.matplotlib_xy2km_transform(ax)
+        elif coordinates == 'angular':
+            if angular_kwargs is None:
+                angular_kwargs = {}
+            wireframe_func = functools.partial(
+                self.plot_wireframe_angular, **angular_kwargs
+            )
+            limits_func = functools.partial(
+                self.get_img_limits_angular, **angular_kwargs
+            )
+            transform = self.matplotlib_xy2angular_transform(ax, **angular_kwargs)
+        else:
+            raise ValueError(f'Unknown coordinates {coordinates!r}')  # pragma: no cover
+
+        if add_wireframe:
+            if wireframe_kwargs is None:
+                wireframe_kwargs = {}
+            wireframe_func(ax=ax, **wireframe_kwargs)
+
+        img = np.asarray(img)
+        if img.ndim == 3:
+            if img.shape[2] == 3:
+                # Convert RGB to RGBA image correct for imshow sometimes filling the
+                # background of rotated images with black pixels similarly to
+                # https://github.com/matplotlib/matplotlib/issues/29300
+                img = np.append(img, np.ones_like(img[:, :, 0])[:, :, None], axis=2)
+            ax.relim()
+            xlim_before = ax.get_xlim()
+            ylim_before = ax.get_ylim()
+            h = ax.imshow(
+                img,
+                origin='lower',
+                transform=transform,
+                **kwargs,
+            )
+            # imshow fixes the limits, and doesn't play nicely with manually specifying
+            # a transform, so manually set the limits here
+            img_xlim, img_ylim = limits_func()
+            ax.set_xlim(
+                min(xlim_before[0], img_xlim[0]), max(xlim_before[1], img_xlim[1])
+            )
+            ax.set_ylim(
+                min(ylim_before[0], img_ylim[0]), max(ylim_before[1], img_ylim[1])
+            )
+        else:
+            h = ax.pcolormesh(
+                self.get_x_img(),
+                self.get_y_img(),
+                img,
+                transform=transform,
+                **kwargs,
+            )
+        return h
+
     def plot_map(
         self,
         map_img: np.ndarray,
@@ -1684,6 +1944,7 @@ class BodyXY(Body):
 
         _, _, xx, yy, _, _ = self.generate_map_coordinates(**map_kwargs)
         h = ax.pcolormesh(xx, yy, map_img, **kwargs)
+        # TODO add option to use imshow for RGB images like in plot_img
         if add_wireframe:
             self.plot_map_wireframe(ax=ax, **(wireframe_kwargs or {}), **map_kwargs)
         return h
@@ -1991,6 +2252,21 @@ class BodyXY(Body):
         When `alt=0`, this method is equivalent to ::
 
             body.get_backplane(name).get_img().copy()
+
+        To create an oversampled backplane image, you can use the method
+        :func:`scale_img_size`. For example, ::
+
+            body = planetmapper.BodyXY('jupiter', sz=10)
+
+            ax = body.plot_backplane_img('EMISSION')
+            ax.set_title('Original unscaled backplane')
+            plt.show()
+
+            body_scaled = body.copy()
+            body_scaled.scale_img_size(10)
+            ax = body_scaled.plot_backplane_img('EMISSION')
+            ax.set_title('Scaled higher resolution backplane')
+            plt.show()
 
         See also :func:`get_backplane_map` and :func:`plot_backplane_img`.
 
@@ -2986,6 +3262,54 @@ class BodyXY(Body):
         """
         return self._get_km_xy_map(**map_kwargs)[:, :, 1]
 
+    @_return_readonly_array
+    def get_angular_x_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            :ref:`Read-only array<readonly arrays>` containing the angular distance in
+            target plane in arcseconds in the East-West direction.
+        """
+        return self.get_km_x_img() / self.km_per_arcsec
+
+    @_return_readonly_array
+    def get_angular_x_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
+        """
+        See :func:`generate_map_coordinates` for accepted arguments. See also
+        :func:`get_backplane_map`.
+
+        Returns:
+            :ref:`Read-only array<readonly arrays>` containing map of the angular
+            distance in target plane in arcseconds in the East-West direction.
+            Locations which are not visible have a value of NaN.
+        """
+        return self.get_km_x_map(**map_kwargs) / self.km_per_arcsec
+
+    @_return_readonly_array
+    def get_angular_y_img(self) -> np.ndarray:
+        """
+        See also :func:`get_backplane_img`.
+
+        Returns:
+            :ref:`Read-only array<readonly arrays>` containing the angular distance in
+            target plane in arcseconds in the North-South direction.
+        """
+        return self.get_km_y_img() / self.km_per_arcsec
+
+    @_return_readonly_array
+    def get_angular_y_map(self, **map_kwargs: Unpack[MapKwargs]) -> np.ndarray:
+        """
+        See :func:`generate_map_coordinates` for accepted arguments. See also
+        :func:`get_backplane_map`.
+
+        Returns:
+            :ref:`Read-only array<readonly arrays>` containing map of the angular
+            distance in target plane in arcseconds in the North-South direction.
+            Locations which are not visible have a value of NaN.
+        """
+        return self.get_km_y_map(**map_kwargs) / self.km_per_arcsec
+
     @_cache_clearable_alt_dependent_result
     @progress_decorator
     @_return_readonly_array
@@ -3585,6 +3909,18 @@ class BodyXY(Body):
             'North-South distance in target plane [km]',
             self.get_km_y_img,
             self.get_km_y_map,
+        )
+        self.register_backplane(
+            'ANGULAR-X',
+            'East-West distance in target plane [arcsec]',
+            self.get_angular_x_img,
+            self.get_angular_x_map,
+        )
+        self.register_backplane(
+            'ANGULAR-Y',
+            'North-South distance in target plane [arcsec]',
+            self.get_angular_y_img,
+            self.get_angular_y_map,
         )
         self.register_backplane(
             'PHASE',

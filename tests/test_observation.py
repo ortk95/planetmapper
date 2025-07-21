@@ -437,6 +437,29 @@ class TestObservation(common_testing.BaseTestCase):
             [0.456, 0.579, 0.702, 0.825, 0.948],
         )
 
+    def test_reset_disc_params(self):
+        observations = [
+            Observation(
+                os.path.join(common_testing.DATA_PATH, 'inputs', 'planmap.fits')
+            ),
+            Observation(
+                data=np.ones((5, 6, 7)),
+                target='Jupiter',
+                observer='hst',
+                utc='2005-01-01T00:00:00',
+            ),
+        ]
+        for obs in observations:
+            initial_params = obs.get_disc_params()
+            initial_method = obs.get_disc_method()
+            with self.subTest(
+                initial_method=initial_method, initial_params=initial_params, obs=obs
+            ):
+                obs.set_disc_params(-1, -2, 3, 4)
+                obs.reset_disc_params()
+                self.assertArraysClose(obs.get_disc_params(), initial_params)
+                self.assertEqual(obs.get_disc_method(), initial_method)
+
     def test_disc_from_header(self):
         with self.assertRaises(ValueError):
             self.observation.disc_from_header()
@@ -456,6 +479,8 @@ class TestObservation(common_testing.BaseTestCase):
         self.assertAlmostEqual(obs.get_y0(), 2.2)
         self.assertAlmostEqual(obs.get_r0(), 3.3)
         self.assertAlmostEqual(obs.get_rotation(), 4.4)
+
+        self.assertEqual(obs.get_disc_method(), 'header')
 
         data = np.ones((5, 6, 7))
         header = fits.Header(
@@ -600,13 +625,54 @@ class TestObservation(common_testing.BaseTestCase):
         obs.disc_from_wcs(validate=False, suppress_warnings=True)
 
         with warnings.catch_warnings():
-            warnings.simplefilter('always')
-            with self.assertWarns(AstropyWarning):
-                obs.disc_from_wcs(validate=False, suppress_warnings=False)
-
-        with warnings.catch_warnings():
             warnings.simplefilter('error')
             obs.position_from_wcs(validate=False, suppress_warnings=True)
+
+        # Test invalid CUNIT3 is ignored properly
+        # Header baased off real MUSE data file
+        header = fits.Header(
+            {
+                'SIMPLE': True,
+                'OBJECT': 'jupiter',
+                'DATE-OBS': '2005-01-01',
+                'BITPIX': -32,
+                'NAXIS': 3,
+                'NAXIS1': 91,
+                'NAXIS2': 91,
+                'NAXIS3': 3681,
+                'WCSAXES': 3,
+                'CRPIX1': 64.135608107686,
+                'CRPIX2': 27.282318423363,
+                'CUNIT1': 'deg',
+                'CUNIT2': 'deg',
+                'CTYPE1': 'RA---TAN',
+                'CTYPE2': 'DEC--TAN',
+                'CRVAL1': 255.071254,
+                'CRVAL2': -22.20829,
+                'CD1_1': -7.0388888888889e-06,
+                'CD1_2': 0.0,
+                'CD2_1': 0.0,
+                'CD2_2': 7.0388888888889e-06,
+                'CRVAL3': 0.474978369140625,
+                'CRPIX3': 1.0,
+                'CUNIT3': 'Microns',
+                'CTYPE3': 'WAVE',
+                'CD3_3': 0.000124999999999986,
+                'CD1_3': 0.0,
+                'CD2_3': 0.0,
+                'CD3_1': 0.0,
+                'CD3_2': 0.0,
+                'BUNIT': '10**-20 Angstrom-1 cm-2 erg s-1',
+                'RADECSYS': 'FK5',
+            }
+        )
+        obs = Observation(data=data, header=header)
+        obs._get_disc_params_from_wcs(suppress_warnings=True)
+
+        with warnings.catch_warnings():
+            warnings.simplefilter('always')
+            with self.assertWarns(AstropyWarning):
+                obs._get_disc_params_from_wcs(validate=False, suppress_warnings=False)
 
     def test_wcs_offset(self):
         with self.assertRaises(ValueError):
@@ -797,6 +863,64 @@ class TestObservation(common_testing.BaseTestCase):
             'pre_JUPITER_2005-01-01T000000_post.fits',
         )
 
+    def test_get_backplane_names_to_save(self):
+        obs = planetmapper.Observation(
+            data=np.ones((5, 10, 8)),
+            target='Jupiter',
+            observer='hst',
+            utc='2005-01-01T00:00:00',
+        )
+        self.assertEqual(
+            obs._get_backplane_names_to_save(None, frozenset()),
+            {
+                'LON-GRAPHIC',
+                'LAT-GRAPHIC',
+                'LON-CENTRIC',
+                'LAT-CENTRIC',
+                'RA',
+                'DEC',
+                'PIXEL-X',
+                'PIXEL-Y',
+                'KM-X',
+                'KM-Y',
+                'ANGULAR-X',
+                'ANGULAR-Y',
+                'PHASE',
+                'INCIDENCE',
+                'EMISSION',
+                'AZIMUTH',
+                'LOCAL-SOLAR-TIME',
+                'DISTANCE',
+                'RADIAL-VELOCITY',
+                'DOPPLER',
+                'LIMB-DISTANCE',
+                'LIMB-LON-GRAPHIC',
+                'LIMB-LAT-GRAPHIC',
+                'RING-RADIUS',
+                'RING-LON-GRAPHIC',
+                'RING-DISTANCE',
+            },
+        )
+        self.assertEqual(
+            obs._get_backplane_names_to_save(['RA', 'DEC'], frozenset()), {'RA', 'DEC'}
+        )
+        self.assertEqual(
+            obs._get_backplane_names_to_save(['RA', 'DEC'], ['RA']), {'DEC'}
+        )
+        self.assertEqual(
+            obs._get_backplane_names_to_save(
+                backplanes_to_save=[
+                    'RA',
+                    '   dec   ',
+                    'DISTANCE',
+                    'radial-VELOCITY',
+                    '<some other backplane>',
+                ],
+                backplanes_to_skip=['DEC', 'dISTANCE   ', 'LIMB-DISTANCE'],
+            ),
+            {'RA', 'RADIAL-VELOCITY', '<SOME OTHER BACKPLANE>'},
+        )
+
     def test_save_observation(self):
         self.observation.set_disc_params(2.5, 3.1, 3.9, 123.456)
         self.observation.set_disc_method('<<<test>>>')
@@ -843,6 +967,23 @@ class TestObservation(common_testing.BaseTestCase):
                 path,
                 alt=34567.8912,
                 wireframe_kwargs=dict(output_size=19, dpi=20),
+            )
+            self.compare_fits_to_reference(path)
+
+        with self.subTest('custom backplanes'):
+            path = os.path.join(
+                common_testing.TEMP_PATH, 'test_nav_custom_backplanes.fits'
+            )
+            self.observation.save_observation(
+                path,
+                backplanes_to_save=[
+                    'RA',
+                    '   dec   ',
+                    'DISTANCE',
+                    'radial-VELOCITY',
+                    '<some other backplane>',
+                ],
+                backplanes_to_skip=['DEC', 'dISTANCE   ', 'LIMB-DISTANCE'],
             )
             self.compare_fits_to_reference(path)
 
@@ -929,6 +1070,24 @@ class TestObservation(common_testing.BaseTestCase):
             path = os.path.join(common_testing.TEMP_PATH, f'map_{map_type}.fits')
             self.observation.save_mapped_observation(
                 Path(path), **map_kw, wireframe_kwargs=dict(output_size=20, dpi=20)
+            )
+            self.compare_fits_to_reference(path)
+
+        with self.subTest('custom backplanes'):
+            path = os.path.join(common_testing.TEMP_PATH, 'map_custom_backplanes.fits')
+            self.observation.save_mapped_observation(
+                path,
+                backplanes_to_save=[
+                    'RA',
+                    '   dec   ',
+                    'DISTANCE',
+                    'radial-VELOCITY',
+                    '<some other backplane>',
+                ],
+                backplanes_to_skip=['DEC', 'dISTANCE   ', 'LIMB-DISTANCE'],
+                degree_interval=30,
+                interpolation='nearest',
+                wireframe_kwargs=dict(output_size=20, dpi=20),
             )
             self.compare_fits_to_reference(path)
 

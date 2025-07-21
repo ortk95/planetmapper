@@ -20,11 +20,13 @@ cd python-type-stubs && git pull && cd ..
 echo -e "\nChecking environment is consistent with requirements..."
 pip install -r requirements.txt -r dev_requirements.txt --dry-run | grep "Would install" || echo "All requirements are satisfied."
 
-# Allow the docstring check to fail (end line with ";"), all others should cause
-# the script to stop (end lines with "&&"), as the docstring check only really
-# matters when we are releasing a new version, so it's normal for it to fail when
-# the next version number is currently unknown.
-echo -e "\nChecking documentation version directives..." && python check_docstring_version_directives.py; \
+# Allow the docstring/tests check to fail (end line with ";"), all others should
+# cause the script to stop (end lines with "&&"), as the docstring check only
+# really matters when we are releasing a new version, so it's normal for it to
+# fail when the next version number is currently unknown.
+echo -e "\nChecking documentation version directives..." && python check_docstring_version_directives.py;
+echo -e "\nChecking for TODO comments..." && python check_for_todo_comments.py;
+
 echo -e "\nRunning black..." && black . --check --diff && \
 echo -e "\nRunning isort..." && isort . --check --diff && \
 echo -e "\nRunning pyright..." && pyright && \

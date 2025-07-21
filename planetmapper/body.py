@@ -427,13 +427,13 @@ class Body(BodyBase):
         self.subpoint_distance: float
         """Distance from the observer to the sub-observer point on the target."""
         self.subpoint_lon: float
-        """Longitude of the sub-observer point on the target."""
+        """Planetographic longitude of the sub-observer point on the target."""
         self.subpoint_lat: float
-        """Latitude of the sub-observer point on the target."""
+        """Planetographic latitude of the sub-observer point on the target."""
         self.subsol_lon: float
-        """Longitude of the sub-solar point on the target."""
+        """Planetographic longitude of the sub-solar point on the target."""
         self.subsol_lat: float
-        """Latitude of the sub-solar point on the target."""
+        """Planetographic latitude of the sub-solar point on the target."""
         self.named_ring_data: dict[str, list[float]]
         """
         Dictionary of ring radii for the target from :func:`data_loader.get_ring_radii`.
@@ -477,17 +477,18 @@ class Body(BodyBase):
         """
         self.coordinates_of_interest_lonlat: list[tuple[float, float]]
         """
-        List of `(lon, lat)` coordinates of interest on the surface of the target body
-        to mark when plotting (points which are not visible will not be plotted). To add
-        a new point of interest, simply append a coordinate pair to this list: ::
+        List of `(lon, lat)` planetographic `longitude/latitude coordinates`_ of
+        interest on the surface of the target body to mark when plotting (points which
+        are not visible will not be plotted). To add a new point of interest, simply
+        append a coordinate pair to this list: ::
 
             body.coordinates_of_interest_lonlat.append((0, -22))
         """
         self.coordinates_of_interest_radec: list[tuple[float, float]]
         """
-        List of `(ra, dec)` sky coordinates of interest to mark when plotting (e.g. 
-        background stars). To add new point of interest, simply append a coordinate pair
-        to this list: ::
+        List of `(ra, dec)` `RA/Dec celestial coordinates`_ of interest to mark when
+        plotting (e.g. background stars). To add new point of interest, simply append a
+        coordinate pair to this list: ::
 
             body.coordinates_of_interest_radec.append((200, -45))
         """
@@ -1068,8 +1069,8 @@ class Body(BodyBase):
         not_visible_nan: bool = False,
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert longitude/latitude coordinates on the target body to RA/Dec sky
-        coordinates for the observer.
+        Convert `longitude/latitude coordinates`_ on the target body to `RA/Dec
+        celestial coordinates`_ for the observer.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -1078,8 +1079,8 @@ class Body(BodyBase):
         NumPy arrays will be returned.
 
         Args:
-            lon: Longitude of point(s) on target body.
-            lat: Latitude of point(s) on target body.
+            lon: Planetographic longitude of point(s) on target body.
+            lat: Planetographic latitude of point(s) on target body.
             alt: Altitude of point above the surface of the target body in km.
             not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
                 the point is not visible to the observer (e.g. it is on the far side of
@@ -1109,8 +1110,8 @@ class Body(BodyBase):
         alt: float = 0.0,
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert RA/Dec sky coordinates for the observer to longitude/latitude
-        coordinates on the target body.
+        Convert `RA/Dec celestial coordinates`_ for the observer to `longitude/latitude
+        coordinates`_ on the target body.
 
         The provided RA/Dec will not necessarily correspond to any longitude/latitude
         coordinates, as they could be 'missing' the target and instead be observing the
@@ -1133,10 +1134,10 @@ class Body(BodyBase):
                 body in km.
 
         Returns:
-            `(lon, lat)` tuple containing the longitude/latitude coordinates on the
-            target body. If the provided RA/Dec coordinates are missing the target body
-            and `not_found_nan` is True, then the `lon` and `lat` values will both be
-            NaN.
+            `(lon, lat)` tuple containing the planetographic longitude/latitude
+            coordinates on the target body. If the provided RA/Dec coordinates are
+            missing the target body and `not_found_nan` is True, then the `lon` and
+            `lat` values will both be NaN.
 
         Raises:
             NotFoundError: If the provided RA/Dec coordinates are missing the target
@@ -1157,12 +1158,13 @@ class Body(BodyBase):
         self, lon: float, lat: float, *, alt: float = 0.0, not_visible_nan: bool = False
     ) -> np.ndarray:
         """
-        Convert longitude/latitude coordinates on the target body to rectangular vector
-        centred in the target frame (e.g. for use as an input to a SPICE function).
+        Convert `longitude/latitude coordinates`_ on the target body to rectangular
+        vector centred in the target frame (e.g. for use as an input to a SPICE
+        function).
 
         Args:
-            lon: Longitude of point on target body.
-            lat: Latitude of point on target body.
+            lon: Planetographic longitude of point on target body.
+            lat: Planetographic latitude of point on target body.
             alt: Altitude of point above the surface of the target body in km.
             not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
                 the point is not visible to the observer (e.g. it is on the far side of
@@ -1183,8 +1185,8 @@ class Body(BodyBase):
         self, targvec: np.ndarray, *, alt: float = 0.0
     ) -> tuple[float, float]:
         """
-        Convert rectangular vector centred in the target frame to longitude/latitude
-        coordinates on the target body (e.g. to convert the output from a SPICE
+        Convert rectangular vector centred in the target frame to `longitude/latitude
+        coordinates`_ on the target body (e.g. to convert the output from a SPICE
         function).
 
         Args:
@@ -1193,8 +1195,8 @@ class Body(BodyBase):
                 body in km.
 
         Returns:
-            `(lon, lat)` tuple containing the longitude and latitude corresponding to
-            the input vector.
+            `(lon, lat)` tuple containing the planetographic longitude/latitude
+            corresponding to the input vector.
         """
         with _AdjustedSurfaceAltitude(self, alt):
             return self._radian_pair2degrees(*self._targvec2lonlat_radians(targvec))
@@ -1299,7 +1301,7 @@ class Body(BodyBase):
         coordinate_rotation: float = 0.0,
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert RA/Dec sky coordinates for the observer to relative angular coordinates.
+        Convert `RA/Dec celestial coordinates`_ for the observer to relative angular coordinates.
 
         The origin and rotation of the relative angular coordinates can be customised
         using the `origin_ra`, `origin_dec` and `coordinate_rotation` arguments. If
@@ -1361,7 +1363,8 @@ class Body(BodyBase):
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert relative angular coordinates to RA/Dec sky coordinates for the observer.
+        Convert `relative angular coordinates`_ to `RA/Dec celestial coordinates` for
+        the observer.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -1403,8 +1406,8 @@ class Body(BodyBase):
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert relative angular coordinates to longitude/latitude coordinates on the
-        target body.
+        Convert `relative angular coordinates`_ to `longitude/latitude coordinates`_ on
+        the target body.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -1424,9 +1427,10 @@ class Body(BodyBase):
                 :func:`radec2angular` for details.
 
         Returns:
-            `(lon, lat)` tuple containing the longitude and latitude of the point(s). If
-            the provided angular coordinates are missing the target body and
-            `not_found_nan` is True, then the `lon` and `lat` values will both be NaN.
+            `(lon, lat)` tuple containing the planetographic longitude/latitude of the
+            point(s). If the provided angular coordinates are missing the target body
+            and `not_found_nan` is True, then the `lon` and `lat` values will both be
+            NaN.
 
         Raises:
             NotFoundError: If the provided angular coordinates are missing the target
@@ -1466,8 +1470,8 @@ class Body(BodyBase):
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert longitude/latitude coordinates on the target body to relative angular
-        coordinates.
+        Convert `longitude/latitude coordinates`_ on the target body to `relative
+        angular coordinates`_.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -1476,8 +1480,8 @@ class Body(BodyBase):
         NumPy arrays will be returned.
 
         Args:
-            lon: Longitude of point(s) on target body.
-            lat: Latitude of point(s) on target body.
+            lon: Planetographic longitude of point(s) on target body.
+            lat: Planetographic latitude of point(s) on target body.
             alt: Altitude of point above the surface of the target body in km.
             not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
                 the point is not visible to the observer (e.g. it is on the far side of
@@ -1546,7 +1550,8 @@ class Body(BodyBase):
         self, km_x: FloatOrArray, km_y: FloatOrArray
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert distance in target plane to RA/Dec sky coordinates for the observer.
+        Convert `distance coordinates`_ in target plane to `RA/Dec celestial
+        coordinates`_ for the observer.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -1570,8 +1575,8 @@ class Body(BodyBase):
         self, ra: FloatOrArray, dec: FloatOrArray
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert RA/Dec sky coordinates for the observer to distances in the target
-        plane.
+        Convert `RA/Dec celestial coordinates`_ for the observer to `distance
+        coordinates`_ in the target plane.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -1601,8 +1606,8 @@ class Body(BodyBase):
         alt: float = 0.0,
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert distance in target plane to longitude/latitude coordinates on the target
-        body.
+        Convert `distance coordinates`_ in target plane to `longitude/latitude
+        coordinates`_ on the target body.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -1619,10 +1624,10 @@ class Body(BodyBase):
                 body in km.
 
         Returns:
-            `(lon, lat)` tuple containing the longitude and latitude of the point(s). If
-            the provided km coordinates are missing the target body, then the `lon` and
-            `lat` values will both be NaN if `not_found_nan` is True, otherwise a
-            NotFoundError will be raised.
+            `(lon, lat)` tuple containing planetographic longitude/latitude of the
+            point(s). If the provided km coordinates are missing the target body, then
+            the `lon` and `lat` values will both be NaN if `not_found_nan` is True,
+            otherwise a NotFoundError will be raised.
 
         Raises:
             NotFoundError: If the provided km coordinates are missing the target body
@@ -1648,8 +1653,8 @@ class Body(BodyBase):
         not_visible_nan: bool = False,
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert longitude/latitude coordinates on the target body to distances in the
-        target plane.
+        Convert `longitude/latitude coordinates`_ on the target body to `distance
+        coordinates`_ in the target plane.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -1658,8 +1663,8 @@ class Body(BodyBase):
         NumPy arrays will be returned.
 
         Args:
-            lon: Longitude of point(s) on the target body.
-            lat: Latitude of point(s) on the target body.
+            lon: Planetographic longitude of point(s) on target body.
+            lat: Planetographic latitude of point(s) on target body.
             alt: Altitude of point above the surface of the target body in km.
             not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
                 the point is not visible to the observer (e.g. it is on the far side of
@@ -1688,7 +1693,8 @@ class Body(BodyBase):
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert distance in target plane to relative angular coordinates.
+        Convert `distance coordinates`_ in target plane to `relative angular
+        coordinates`_.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -1726,7 +1732,8 @@ class Body(BodyBase):
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert relative angular coordinates to distances in the target plane.
+        Convert `relative angular coordinates`_ to `distance coordinates`_ in the target
+        plane.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -1815,7 +1822,7 @@ class Body(BodyBase):
         self, *, alt: float = 0.0, **kwargs
     ) -> tuple[np.ndarray, np.ndarray]:
         """
-        Calculate the RA/Dec coordinates of the target body's limb.
+        Calculate the `RA/Dec celestial coordinates`_ of the target body's limb.
 
         Args:
             npts: Number of points in the generated limb.
@@ -1831,7 +1838,7 @@ class Body(BodyBase):
         self, *, alt: float = 0.0, **kwargs
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
-        Calculate RA/Dec coordinates of the dayside and nightside parts of the target
+        Calculate `RA/Dec celestial coordinates`_ of the dayside and nightside parts of the target
         body's limb.
 
         Output arrays are like the outputs of :func:`limb_radec`, but the dayside
@@ -1862,14 +1869,14 @@ class Body(BodyBase):
 
     def limb_lonlat(self, alt: float = 0.0, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         """
-        Calculate the Lon/Lat coordinates of the target body's limb.
+        Calculate the `longitude/latitude coordinates`_ of the target body's limb.
 
         Args:
             npts: Number of points in the generated limb.
             alt: Altitude of the limb above the surface of the target body, in km.
 
         Returns:
-            `(lon, lat)` tuple of coordinate arrays.
+            `(lon, lat)` tuple of planetographic longitude/latitude arrays.
         """
         with _AdjustedSurfaceAltitude(self, alt):
             lons, lats = zip(
@@ -1884,8 +1891,8 @@ class Body(BodyBase):
         self, ra: float, dec: float, *, alt: float = 0.0
     ) -> tuple[float, float, float]:
         """
-        Calculate the coordinates relative to the target body's limb for a point in the
-        sky.
+        Calculate the coordinates relative to the target body's limb for given
+        `RA/Dec celestial coordinates`_ in the sky of the observer.
 
         The coordinates are calculated for the point on the ray (as defined by RA/Dec)
         which is closest to the target body's limb.
@@ -1986,11 +1993,12 @@ class Body(BodyBase):
         self, lon: float, lat: float, *, alt: float = 0.0
     ) -> bool:
         """
-        Test if longitude/latitude coordinate on (or above) the target body is visible.
+        Test if `longitude/latitude coordinates`_ on (or above) the target body is
+        visible.
 
         Args:
-            lon: Longitude of point on target body.
-            lat: Latitude of point on target body.
+            lon: Planetographic longitude of point on target body.
+            lat: Planetographic latitude of point on target body.
             alt: Altitude of point above the surface of the target body in km.
 
         Returns:
@@ -2119,12 +2127,12 @@ class Body(BodyBase):
         self, lon: float, lat: float, *, alt: float = 0.0
     ) -> tuple[float, float, float]:
         """
-        Calculate the illumination angles of a longitude/latitude coordinate on the
+        Calculate the illumination angles of `longitude/latitude coordinates`_ on the
         target body.
 
         Args:
-            lon: Longitude of point on target body.
-            lat: Latitude of point on target body.
+            lon: Planetographic longitude of point on target body.
+            lat: Planetographic latitude of point on target body.
             alt: Altitude of point above the surface of the target body in km.
 
         Returns:
@@ -2154,12 +2162,12 @@ class Body(BodyBase):
         self, lon: float, lat: float, *, alt: float = 0.0
     ) -> float:
         """
-        Calculate the azimuth angle of a longitude/latitude coordinate on the target
+        Calculate the azimuth angle of `longitude/latitude coordinates`_ on the target
         body.
 
         Args:
-            lon: Longitude of point on target body.
-            lat: Latitude of point on target body.
+            lon: Planetographic longitude of point on target body.
+            lat: Planetographic latitude of point on target body.
             alt: Altitude of point above the surface of the target body in km.
 
         Returns:
@@ -2200,7 +2208,7 @@ class Body(BodyBase):
             for more details.
 
         Args:
-            lon: Longitude of point on target body.
+            lon: Planetographic longitude of point on target body.
 
         Returns:
             Numerical local solar time in 'local hours'.
@@ -2217,7 +2225,7 @@ class Body(BodyBase):
         See :func:`local_solar_time_from_lon` for more details.
 
         Args:
-            lon: Longitude of point on target body.
+            lon: Planetographic longitude of point on target body.
 
         Returns:
             String representation of local solar time.
@@ -2236,9 +2244,9 @@ class Body(BodyBase):
         corloc: str = 'ELLIPSOID TERMINATOR',
     ) -> tuple[np.ndarray, np.ndarray]:
         """
-        Calculate the RA/Dec coordinates of the terminator (line between day and night)
-        on the target body. By default, only the visible part of the terminator is
-        returned (this can be changed with `only_visible`).
+        Calculate the `RA/Dec celestial coordinates`_ of the terminator (line between
+        day and night) on the target body. By default, only the visible part of the
+        terminator is returned (this can be changed with `only_visible`).
 
         Args:
             npts: Number of points in generated terminator.
@@ -2273,8 +2281,8 @@ class Body(BodyBase):
         corloc: str = 'ELLIPSOID TERMINATOR',
     ) -> tuple[np.ndarray, np.ndarray]:
         """
-        Calculate the Lon/Lat coordinates of the terminator (line between day and night)
-        on the target body.
+        Calculate the `longitude/latitude coordinates`_ of the terminator (line between
+        day and night) on the target body.
 
         Args:
             npts: Number of points in generated terminator.
@@ -2285,7 +2293,7 @@ class Body(BodyBase):
             method, corloc: Passed to SPICE function.
 
         Returns:
-            `(lon, lat)` tuple of Lon/Lat coordinate arrays.
+            `(lon, lat)` tuple of planetographic longitude/latitude coordinate arrays.
         """
         targvecs = self._terminator_targvec(
             npts=npts,
@@ -2352,12 +2360,12 @@ class Body(BodyBase):
         self, lon: float, lat: float, *, alt: float = 0.0
     ) -> bool:
         """
-        Test if longitude/latitude coordinate on the surface of the target body is
+        Test if `longitude/latitude coordinates`_ on the surface of the target body is
         illuminated.
 
         Args:
-            lon: Longitude of point on target body.
-            lat: Latitude of point on target body.
+            lon: Planetographic longitude of point on target body.
+            lat: Planetographic latitude of point on target body.
             alt: Altitude of point above the surface of the target body in km.
 
         Returns:
@@ -2453,7 +2461,7 @@ class Body(BodyBase):
         self, radius: float, npts: int = 360, only_visible: bool = True
     ) -> tuple[np.ndarray, np.ndarray]:
         """
-        Calculate RA/Dec coordinates of a ring around the target body.
+        Calculate `RA/Dec celestial coordinates`_ of a ring around the target body.
 
         The ring is assumed to be directly above the planet's equator and has a constant
         `radius` for all longitudes. Use :attr:`ring_radii` to set the rings
@@ -2508,7 +2516,8 @@ class Body(BodyBase):
 
         Returns:
             List of `(ra, dec)` tuples, each of which corresponds to a gridline. `ra`
-            and `dec` are arrays of RA/Dec coordinate values for that gridline.
+            and `dec` are arrays of `RA/Dec celestial coordinates`_ values for that
+            gridline.
         """
 
         lon_radec = self.visible_lon_grid_radec(np.arange(0, 360, interval), **kwargs)
@@ -2525,7 +2534,8 @@ class Body(BodyBase):
         planetocentric: bool = False,
     ) -> list[tuple[np.ndarray, np.ndarray]]:
         """
-        Calculates the RA/Dec coordinates for visible lines of constant longitude.
+        Calculates the `RA/Dec celestial coordinates`_ for visible lines of constant
+        longitude.
 
         For each longitude in `lons`, a `(ra, dec)` tuple is calculated which contains
         arrays of RA and Dec coordinates. Coordinates which correspond to points which
@@ -2548,7 +2558,8 @@ class Body(BodyBase):
 
         Returns:
             List of `(ra, dec)` tuples, corresponding to the list of input `lons`. `ra`
-            and `dec` are arrays of RA/Dec coordinate values for that gridline.
+            and `dec` are arrays of `RA/Dec celestial coordinates`_ values for that
+            gridline.
         """
         lats = np.linspace(-lat_limit, lat_limit, npts)
         out: list[tuple[np.ndarray, np.ndarray]] = []
@@ -2594,7 +2605,8 @@ class Body(BodyBase):
 
         Returns:
             List of `(ra, dec)` tuples, corresponding to the list of input `lats`. `ra`
-            and `dec` are arrays of RA/Dec coordinate values for that gridline.
+            and `dec` are arrays of `RA/Dec celestial coordinates`_ values for that
+            gridline.
         """
         lons = np.linspace(0, 360, npts)
         out: list[tuple[np.ndarray, np.ndarray]] = []
@@ -2647,13 +2659,13 @@ class Body(BodyBase):
         self, lon: float, lat: float, *, alt: float = 0.0
     ) -> float:
         """
-        Calculate radial (i.e. line-of-sight) velocity of a point on the target's
-        surface relative to the observer. This can be used to calculate the doppler
-        shift.
+        Calculate radial (i.e. line-of-sight) velocity of a point (`longitude/latitude
+        coordinates`_) on the target's surface relative to the observer. This can be
+        used to calculate the doppler shift.
 
         Args:
-            lon: Longitude of point on target body.
-            lat: Latitude of point on target body.
+            lon: Planetographic longitude of point on target body.
+            lat: Planetographic latitude of point on target body.
             alt: Altitude of point above the surface of the target body in km.
 
         Returns:
@@ -2667,11 +2679,12 @@ class Body(BodyBase):
         self, lon: float, lat: float, *, alt: float = 0.0
     ) -> float:
         """
-        Calculate distance from observer to a point on the target's surface.
+        Calculate distance from observer to a point (`longitude/latitude coordinates`_)
+        on the target's surface.
 
         Args:
-            lon: Longitude of point on target body.
-            lat: Latitude of point on target body.
+            lon: Planetographic longitude of point on target body.
+            lat: Planetographic latitude of point on target body.
             alt: Altitude of point above the surface of the target body in km.
 
         Returns:
@@ -2697,7 +2710,8 @@ class Body(BodyBase):
         self, lon: FloatOrArray, lat: FloatOrArray, *, alt: float = 0.0
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert planetographic longitude/latitude to planetocentric.
+        Convert planetographic `longitude/latitude coordinates`_ to planetocentric
+        longitude/latitude.
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -2726,7 +2740,8 @@ class Body(BodyBase):
         self, lon_centric: FloatOrArray, lat_centric: FloatOrArray, *, alt: float = 0.0
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
-        Convert planetocentric longitude/latitude to planetographic.
+        Convert planetocentric longitude/latitude to planetographic `longitude/latitude
+        coordinates`_ .
 
         The input coordinates can either be floats or NumPy arrays of values. If both
         input coordinates are floats, the output will be a tuple of floats. If either of
@@ -2740,7 +2755,7 @@ class Body(BodyBase):
             alt: Altitude of point above the surface of the target body in km.
 
         Returns:
-            `(lon, lat)` tuple of planetographic coordinates.
+            `(lon, lat)` tuple of planetographic longitude/latitude.
         """
         return self._maybe_transform_as_arrays(
             self._centric2graphic_lonlat, lon_centric, lat_centric, alt=alt
@@ -3174,8 +3189,8 @@ class Body(BodyBase):
         **wireframe_kwargs: Unpack[WireframeKwargs],
     ) -> Axes:
         """
-        Plot basic wireframe representation of the observation using RA/Dec sky
-        coordinates.
+        Plot basic wireframe representation of the observation using `RA/Dec celestial
+        coordinates`_.
 
         See also :func:`plot_wireframe_km`, :func:`plot_wireframe_angular` and
         :func:`BodyXY.plot_wireframe_xy` to plot the wireframe in other coordinate
@@ -3388,8 +3403,9 @@ class Body(BodyBase):
         **wireframe_kwargs: Unpack[WireframeKwargs],
     ) -> Axes:
         """
-        Plot basic wireframe representation of the observation on a target centred
-        frame. See :func:`plot_wireframe_radec` for details of accepted arguments.
+        Plot basic wireframe representation of the observation on a target centred frame
+        (`distance coordinates`_). See :func:`plot_wireframe_radec` for details of
+        accepted arguments.
 
         Returns:
             The axis containing the plotted wireframe.
@@ -3428,8 +3444,8 @@ class Body(BodyBase):
         **wireframe_kwargs: Unpack[WireframeKwargs],
     ) -> Axes:
         """
-        Plot basic wireframe representation of the observation on a relative angular
-        coordinate frame. See :func:`plot_wireframe_radec` for details of accepted
+        Plot basic wireframe representation of the observation on a `relative angular
+        coordinates`_ frame. See :func:`plot_wireframe_radec` for details of accepted
         arguments.
 
         The `origin_ra`, `origin_dec` and `coordinate_rotation` arguments can be used to

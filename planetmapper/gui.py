@@ -1,4 +1,5 @@
 # pylint: disable=attribute-defined-outside-init,protected-access
+import functools
 import math
 import os
 import platform
@@ -9,10 +10,11 @@ import tkinter.filedialog
 import tkinter.messagebox
 import tkinter.scrolledtext
 import traceback
+import webbrowser
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from tkinter import ttk
-from typing import Any, Callable, Literal, TypedDict, TypeVar
+from typing import Any, Callable, Literal, ParamSpec, TypedDict, TypeVar
 
 import matplotlib as mpl
 import matplotlib.cm
@@ -30,14 +32,24 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from matplotlib.text import Text
 
-from . import base, data_loader, progress, utils
+from . import base, common, data_loader, progress, utils
 from .body import BasicBody, Body, NotFoundError
 from .body_xy import MapKwargs
 from .observation import Observation
 
 Widget = TypeVar('Widget', bound=tk.Widget)
 SetterKey = Literal[
-    'x0', 'y0', 'r0', 'rotation', 'step', 'plate_scale_arcsec', 'plate_scale_km'
+    'x0',
+    'y0',
+    'r0',
+    'rotation',
+    'step',
+    'plate_scale_arcsec',
+    'plate_scale_km',
+    'wcs_offset_ra',
+    'wcs_offset_dec',
+    'wcs_offset_rotation',
+    'wcs_offset_scale',
 ]
 PlotKey = Literal[
     'image',
@@ -123,6 +135,33 @@ X11_FONT_BUGRIX_TRANSLATIONS = str.maketrans(
 )
 
 
+_X11_ERROR_HELP_URL = (
+    'https://planetmapper.readthedocs.io/en/latest/common_issues.html#ssh-errors'
+)
+_X11_ERROR_HELP_TEXT = (
+    'Check you have X11 forwarding set up correctly - see the help page for more info:\n'
+    + _X11_ERROR_HELP_URL
+)
+
+T = TypeVar('T')
+P = ParamSpec('P')
+
+
+def _add_help_note_to_x11_errors(fn: Callable[P, T]) -> Callable[P, T]:
+    @functools.wraps(fn)
+    def decorated(*args: P.args, **kwargs: P.kwargs) -> T:
+        try:
+            return fn(*args, **kwargs)
+        except tkinter.TclError as e:
+            if 'no $DISPLAY' in str(e):
+                note = _X11_ERROR_HELP_TEXT
+                if note not in e.args[0]:
+                    e.args = (e.args[0] + '\n\n' + note,)
+            raise e
+
+    return decorated
+
+
 def _run_gui_from_cli(*args: str | None) -> None:
     """Called with `planetmapper` from the command line"""
     if USE_X11_FONT_BUGFIX:
@@ -176,6 +215,7 @@ class GUI:
 
     MINIMUM_SIZE = (600, 600)
     DEFAULT_GEOMETRY = '800x650+15+15'
+    CONTROLS_WIDTH = 260
 
     def __init__(self, allow_open: bool = True) -> None:
         self.allow_open = allow_open
@@ -186,6 +226,8 @@ class GUI:
         self._observation_wavelengths: np.ndarray | None = None
         self._observation_wavelengths_fmt = 'f'
         self._observation_wavelengths_unit = ''
+        self._observation_full_path: str = ''
+        self._observation_filename: str = ''
 
         self.step_size = 1
 
@@ -234,6 +276,14 @@ class GUI:
                     'plate_scale_km': [
                         lambda f: self.get_observation().set_plate_scale_km(f)
                     ],
+                    'wcs_offset_ra': [lambda f: self._set_wcs_offsets(dra_arcsec=f)],
+                    'wcs_offset_dec': [lambda f: self._set_wcs_offsets(ddec_arcsec=f)],
+                    'wcs_offset_rotation': [
+                        lambda f: self._set_wcs_offsets(drotation=f)
+                    ],
+                    'wcs_offset_scale': [
+                        lambda f: self._set_wcs_offsets(d_scale_arcsec=f)
+                    ],
                 },
             )
         )
@@ -249,62 +299,38 @@ class GUI:
             'step': lambda: self.step_size,
             'plate_scale_arcsec': lambda: self.get_observation().get_plate_scale_arcsec(),
             'plate_scale_km': lambda: self.get_observation().get_plate_scale_km(),
+            'wcs_offset_ra': lambda: self._get_wcs_offsets()[0],
+            'wcs_offset_dec': lambda: self._get_wcs_offsets()[1],
+            'wcs_offset_rotation': lambda: self._get_wcs_offsets()[3],
+            'wcs_offset_scale': lambda: self._get_wcs_offsets()[2],
         }
         self.plot_handles: defaultdict[PlotKey, list[Artist]] = defaultdict(list)
         self.plot_settings: defaultdict[PlotKey, dict] = defaultdict(dict)
         for k, v in DEFAULT_PLOT_SETTINGS.items():
             self.plot_settings[k] = v.copy()
 
+        # {section_title: [(callback, text, hint, required_key), ...]}
         self.disc_finding_routines: dict[
-            str, list[tuple[Callable[[], None], str, str]]
+            str, list[tuple[Callable[[], Any], str, str, str | None]]
         ] = {
-            'Reset position': [
+            'Reset disc': [
+                (
+                    lambda: self.get_observation().reset_disc_params(),
+                    'Reset all disc parameters',
+                    'Reset the disc parameters to their initial values',
+                    None,
+                ),
                 (
                     lambda: self.get_observation().centre_disc(),
                     'Centre disc in image',
                     'Centre the target\'s planetary disc and make it fill ~90% of the observation',
-                ),
-            ],
-            'Use WCS data from FITS header': [
-                (
-                    lambda: self.get_observation().disc_from_wcs(
-                        suppress_warnings=True, validate=False
-                    ),
-                    'Use WCS position, rotation & scale',
-                    'Set all disc parameters using approximate WCS information in the observation\'s FITS header',
+                    None,
                 ),
                 (
-                    lambda: self.get_observation().position_from_wcs(
-                        suppress_warnings=True, validate=False
-                    ),
-                    'Use WCS position',
-                    'Set disc position using approximate WCS information in the observation\'s FITS header',
-                ),
-                (
-                    lambda: self.get_observation().rotation_from_wcs(
-                        suppress_warnings=True, validate=False
-                    ),
-                    'Use WCS rotation',
-                    'Set disc rotation using approximate WCS information in the observation\'s FITS header',
-                ),
-                (
-                    lambda: self.get_observation().plate_scale_from_wcs(
-                        suppress_warnings=True, validate=False
-                    ),
-                    'Use WCS plate scale',
-                    'Set plate scale using approximate WCS information in the observation\'s FITS header',
-                ),
-            ],
-            'Fit observation': [
-                (
-                    lambda: self.get_observation().fit_disc_position(),
-                    'Fit disc position',
-                    'Set x0 and y0 so that the planet\'s disc is fit to the brightest part of the data (this may take a few seconds)',
-                ),
-                (
-                    lambda: self.get_observation().fit_disc_radius(),
-                    'Fit disc radius',
-                    'Set r0 by calculating the radius around (x0, y0) where the brightness decrease is the fastest (this may take a few seconds)',
+                    lambda: self.get_observation().rotate_north_to_top(),
+                    'Rotate north to top',
+                    'Rotate the disc so that the north pole of the target is at the top of the image',
+                    None,
                 ),
             ],
             'Use FITS header metadata': [
@@ -312,9 +338,60 @@ class GUI:
                     lambda: self.get_observation().disc_from_header(),
                     'Use PlanetMapper metadata',
                     'Set disc parameters using information in the observation\'s FITS header generated by any previous runs of PlanetMapper',
+                    'header',
+                ),
+            ],
+            'Use WCS data from FITS header': [
+                (
+                    lambda: self.get_observation().disc_from_wcs(
+                        suppress_warnings=True, validate=False, use_header_offsets=False
+                    ),
+                    'Use WCS position, rotation & scale',
+                    'Set all disc parameters using approximate WCS information in the observation\'s FITS header',
+                    'wcs',
+                ),
+                (
+                    lambda: self.get_observation().position_from_wcs(
+                        suppress_warnings=True, validate=False, use_header_offsets=False
+                    ),
+                    'Use WCS position',
+                    'Set disc position using approximate WCS information in the observation\'s FITS header',
+                    'wcs',
+                ),
+                (
+                    lambda: self.get_observation().rotation_from_wcs(
+                        suppress_warnings=True, validate=False, use_header_offsets=False
+                    ),
+                    'Use WCS rotation',
+                    'Set disc rotation using approximate WCS information in the observation\'s FITS header',
+                    'wcs',
+                ),
+                (
+                    lambda: self.get_observation().plate_scale_from_wcs(
+                        suppress_warnings=True, validate=False, use_header_offsets=False
+                    ),
+                    'Use WCS plate scale',
+                    'Set plate scale using approximate WCS information in the observation\'s FITS header',
+                    'wcs',
+                ),
+            ],
+            'Fit observation': [
+                (
+                    lambda: self.get_observation().fit_disc_position(),
+                    'Fit disc position',
+                    'Set x0 and y0 so that the planet\'s disc is fit to the brightest part of the data (this may take a few seconds)',
+                    None,
+                ),
+                (
+                    lambda: self.get_observation().fit_disc_radius(),
+                    'Fit disc radius',
+                    'Set r0 by calculating the radius around (x0, y0) where the brightness decrease is the fastest (this may take a few seconds)',
+                    None,
                 ),
             ],
         }
+        self._observation_available_disc_finding_routines: set[str] = set()
+        self._disc_finding_enableable_buttons: dict[str, list[ttk.Button]] = {}
 
         self.kernels: list[str] = [
             os.path.join(base.get_kernel_path(), pattern)
@@ -326,9 +403,16 @@ class GUI:
         self.event_time_to_ignore = None
         self.gui_built = False
 
+        self._cached_wcs_offset_info: (
+            tuple[tuple[float, float, float, float], tuple[float, float, float, float]]
+            | None
+        ) = None
+        self._wcs_entries_to_enable: list[NumericEntry | EnableableLabel] = []
+
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
 
+    @_add_help_note_to_x11_errors
     def run(self) -> None:
         """
         Run the GUI.
@@ -395,15 +479,6 @@ class GUI:
             image_idx_b=2,
         )
 
-        if self.gui_built:
-            self.run_all_ui_callbacks()
-            self.rebuild_plot()
-            self.root.title(self.get_observation().get_description(multiline=False))
-            self.reset_help_hint()
-
-        self.click_locations = []
-        self.clear_click_location()
-
         try:
             self._observation_wavelengths = (
                 self.get_observation().get_wavelengths_from_header()
@@ -424,6 +499,47 @@ class GUI:
                 )
         except utils.GetWavelengthsError:
             self._observation_wavelengths = None
+
+        path = observation.path
+        if path is None:
+            self._observation_full_path = ''
+            self._observation_filename = ''
+        else:
+            basename = os.path.basename(path)
+            self._observation_filename = basename
+            if basename == path:
+                path = os.path.abspath(path)
+            self._observation_full_path = path
+
+        self.update_observation_available_disc_finding_routines()
+
+        self.click_locations = []
+        self.clear_click_location()
+
+        self._cached_wcs_offset_info = None
+
+        if self.gui_built:
+            self.run_all_ui_callbacks()
+            self.rebuild_plot()
+            self.root.title(self.get_observation().get_description(multiline=False))
+            self.reset_help_hint()
+            self.enable_disc_finding_buttons()
+
+    def update_observation_available_disc_finding_routines(self):
+        routines = self._observation_available_disc_finding_routines
+        observation = self.get_observation()
+        routines.clear()
+        try:
+            observation.disc_from_wcs(suppress_warnings=True)
+            routines.add('wcs')
+        except ValueError:
+            pass
+        try:
+            observation.disc_from_header()
+            routines.add('header')
+        except ValueError:
+            pass
+        observation.reset_disc_params()
 
     def get_observation(self) -> Observation:
         if self._observation is None:
@@ -476,6 +592,10 @@ class GUI:
             )
 
         self.style.map('TScale', troughcolor=[('disabled', '#d9d9d9')])
+        self.style.configure(
+            'Small.TCheckbutton',
+            font='TkDefaultFont 11',
+        )
 
     def build_controls(self) -> None:
         self.notebook = ttk.Notebook(self.controls_frame)
@@ -484,6 +604,7 @@ class GUI:
         self.build_disc_finding_controls_tab()
         self.build_plot_settings_controls_tab()
         self.build_coords_tab()
+        self.build_help_tab()
 
     def build_main_controls_tab(self) -> None:
         frame = ttk.Frame(self.notebook)
@@ -742,13 +863,11 @@ class GUI:
             hint='points of interest on the surface of the target (click Edit to define POI)',
             callbacks=[self.replot_coordinates_lonlat],
             coordinate_list=self.get_observation().coordinates_of_interest_lonlat,
-            menu_label='\n'.join(
-                [
-                    'List of Lon/Lat points of interest.',
-                    'Coordinates should be written as comma',
-                    'separated "lon, lat" values, with each',
-                    'coordinate pair on a new line:',
-                ]
+            menu_label=(
+                'List of Lon/Lat points of interest. '
+                'Coordinates should be written as comma '
+                'separated "lon, lat" values, with each '
+                'coordinate pair on a new line:'
             ),
         )
         PlotCoordinatesSetting(
@@ -759,13 +878,11 @@ class GUI:
             hint='points of interest in the sky (click Edit to define POI)',
             callbacks=[self.replot_coordinates_radec],
             coordinate_list=self.get_observation().coordinates_of_interest_radec,
-            menu_label='\n'.join(
-                [
-                    'List of RA/Dec points of interest.',
-                    'Coordinates should be written as comma',
-                    'separated "ra, dec" values, with each',
-                    'coordinate pair on a new line:',
-                ]
+            menu_label=(
+                'List of RA/Dec points of interest. '
+                'Coordinates should be written as comma '
+                'separated "ra, dec" values, with each '
+                'coordinate pair on a new line:'
             ),
         )
         PlotOtherBodyScatterSetting(
@@ -801,19 +918,266 @@ class GUI:
     def build_disc_finding_controls_tab(self) -> None:
         frame = ttk.Frame(self.notebook)
         frame.pack()
-        self.notebook.add(frame, text='Find disc')
+        self.notebook.add(frame, text='Disc')
         for label, routines in self.disc_finding_routines.items():
             label_frame = ttk.LabelFrame(frame, text=label)
             label_frame.pack(fill='x', pady=10)
-            for fn, name, description in routines:
-                self.add_tooltip(
-                    ttk.Button(
-                        label_frame,
-                        text=name,
-                        command=self.make_disc_finding_fn(fn),
-                    ),
-                    description,
-                ).pack(fill='x', pady=2, padx=5)
+            for fn, name, description, required_key in routines:
+                button = ttk.Button(
+                    label_frame,
+                    text=name,
+                    command=self.make_disc_finding_fn(fn),
+                )
+                self.add_tooltip(button, description).pack(fill='x', pady=2, padx=5)
+                if required_key is not None:
+                    self._disc_finding_enableable_buttons.setdefault(
+                        required_key, []
+                    ).append(button)
+
+            if label == 'Use WCS data from FITS header':
+                self.build_wcs_offset_section(label_frame)
+
+        self.enable_disc_finding_buttons()
+
+    def build_help_tab(self) -> None:
+        frame = ttk.Frame(self.notebook)
+        frame.pack()
+        self.notebook.add(frame, text='Help')
+
+        wraplength = self.CONTROLS_WIDTH - 10
+
+        label_frame = ttk.LabelFrame(frame, text='About')
+        label_frame.pack(fill='x', pady=10)
+        label = ttk.Label(
+            label_frame,
+            text=f'PlanetMapper {common.__version__}',
+            justify='center',
+            font=('TkDefaultFont', 20),
+            wraplength=wraplength,
+        )
+        label.pack(pady=5)
+
+        label_frame = ttk.LabelFrame(frame, text='Documentation')
+        label_frame.pack(fill='x', pady=10)
+        label = ttk.Label(
+            label_frame,
+            text='For documentation, tutorials & support visit planetmapper.readthedocs.io',
+            justify='center',
+            wraplength=wraplength,
+        )
+        label.pack(pady=2)
+        self.add_tooltip(
+            ttk.Button(
+                label_frame,
+                text='Open documentation',
+                command=lambda: webbrowser.open('https://planetmapper.readthedocs.io'),
+            ),
+            'Open PlanetMapper documentation in your web browser (https://planetmapper.readthedocs.io)',
+        ).pack(padx=5, pady=(2, 5), fill='x')
+
+        label_frame = ttk.LabelFrame(frame, text='Paper')
+        label_frame.pack(fill='x', pady=10)
+        label = ttk.Label(
+            label_frame,
+            text='King et al., (2023). JOSS, 8(90), 5728, https://doi.org/10.21105/joss.05728',
+            justify='center',
+            wraplength=wraplength,
+        )
+        label.pack(pady=2)
+
+        self.add_tooltip(
+            ttk.Button(
+                label_frame,
+                text='Open paper',
+                command=lambda: webbrowser.open(common.CITATION_DOI),
+            ),
+            f'Open the PlanetMapper paper in your web browser ({common.CITATION_DOI})',
+        ).pack(padx=5, pady=2, fill='x')
+        self.add_tooltip(
+            ttk.Button(
+                label_frame,
+                text='Copy citation string',
+                command=lambda: self.copy_to_clipboard(common.CITATION_STRING),
+            ),
+            'Copy full citation string to clipboard',
+        ).pack(padx=5, pady=2, fill='x')
+        self.add_tooltip(
+            ttk.Button(
+                label_frame,
+                text='Copy citation BibTeX',
+                command=lambda: self.copy_to_clipboard(common.CITATION_BIBTEX),
+            ),
+            'Copy citation BibTeX entry to clipboard',
+        ).pack(padx=5, pady=(2, 5), fill='x')
+
+        label_frame = ttk.LabelFrame(frame, text='Credits')
+        label_frame.pack(fill='x', pady=10)
+        label = ttk.Label(
+            label_frame,
+            text=(
+                'PlanetMapper was developed and is maintained by Oliver King '
+                'at the University of Leicester, UK.'
+            ),
+            justify='center',
+            wraplength=wraplength,
+        )
+        label.pack(pady=5)
+        messages = [
+            (
+                'PlanetMapper was developed with support from a European Research '
+                'Council Consolidator Grant (under the European Union\'s Horizon 2020 '
+                'research and innovation programme, grant agreement No 723890).'
+            ),
+            'PlanetMapper is licensed under the MIT License.',
+        ]
+        label = ttk.Label(
+            label_frame,
+            text='\n\n'.join(messages),
+            justify='center',
+            font=('TkDefaultFont', 10),
+            wraplength=wraplength,
+        )
+        label.pack(pady=5)
+
+    def _get_wcs_offsets(self) -> tuple[float, float, float, float]:
+        if 'wcs' not in self._observation_available_disc_finding_routines:
+            return (np.nan, np.nan, np.nan, np.nan)
+        disc_params = self.get_observation().get_disc_params()
+        if (
+            self._cached_wcs_offset_info is not None
+            and self._cached_wcs_offset_info[0] == disc_params
+        ):
+            return self._cached_wcs_offset_info[1]
+        (
+            dra_arcsec,
+            ddec_arcsec,
+            dr,
+            drotation,
+        ) = self.get_observation()._get_wcs_offsets_for_arcsec(
+            suppress_warnings=True, use_header_offsets=False
+        )
+
+        r0_wcs = self.get_observation().get_r0() - dr
+        plate_scale_wcs = self.get_observation().target_diameter_arcsec / (2 * r0_wcs)
+        plate_scale_disc = self.get_observation().get_plate_scale_arcsec()
+        d_scale_arcsec = plate_scale_disc - plate_scale_wcs
+
+        self._cached_wcs_offset_info = (
+            disc_params,
+            (dra_arcsec, ddec_arcsec, d_scale_arcsec, drotation),
+        )
+        return self._cached_wcs_offset_info[1]
+
+    def _set_wcs_offsets(
+        self,
+        *,
+        dra_arcsec: float | None = None,
+        ddec_arcsec: float | None = None,
+        d_scale_arcsec: float | None = None,
+        drotation: float | None = None,
+    ) -> None:
+        if 'wcs' not in self._observation_available_disc_finding_routines:
+            return
+        observation = self.get_observation()
+        x0_wcs, y0_wcs, r0_wcs, rotation_wcs = observation._get_disc_params_from_wcs(
+            suppress_warnings=True, use_header_offsets=False
+        )
+        if dra_arcsec is not None or ddec_arcsec is not None:
+            dra_arcsec = (
+                self._get_wcs_offsets()[0] if dra_arcsec is None else dra_arcsec
+            )
+            ddec_arcsec = (
+                self._get_wcs_offsets()[1] if ddec_arcsec is None else ddec_arcsec
+            )
+            ra0, dec0 = observation.xy2radec(x0_wcs, y0_wcs)
+            x0, y0 = observation.radec2xy(
+                ra0 + dra_arcsec / 3600, dec0 + ddec_arcsec / 3600
+            )
+            observation.set_disc_params(x0=x0, y0=y0)
+        if d_scale_arcsec is not None:
+            plate_scale_wcs = observation.target_diameter_arcsec / (2 * r0_wcs)
+            observation.set_plate_scale_arcsec(plate_scale_wcs + d_scale_arcsec)
+        if drotation is not None:
+            observation.set_disc_params(rotation=rotation_wcs + drotation)
+
+    def build_wcs_offset_section(self, label_frame: ttk.LabelFrame) -> None:
+        container_frame = ttk.Frame(label_frame)
+        container_frame.pack(fill='x')
+        self.add_tooltip(
+            container_frame,
+            'Differences between disc parameters and WCS data '
+            '(useful for navigating multiple observations with systematic pointing errors)',
+        )
+
+        label = EnableableLabel(
+            container_frame, text='Offsets between disc and WCS data:'
+        )
+        label.pack(pady=(5, 0))
+        self._wcs_entries_to_enable.append(label)
+
+        frame = ttk.Frame(container_frame)
+        frame.pack(pady=2)
+
+        entries: list[tuple[SetterKey, str, float | None, tuple[SetterKey, ...]]] = [
+            (
+                'wcs_offset_ra',
+                'RA (arcsec)',
+                1e-5,
+                (
+                    'wcs_offset_rotation',
+                    'wcs_offset_scale',
+                ),
+            ),
+            (
+                'wcs_offset_dec',
+                'Dec (arcsec)',
+                1e-5,
+                (
+                    'wcs_offset_rotation',
+                    'wcs_offset_scale',
+                ),
+            ),
+            (
+                'wcs_offset_rotation',
+                'Rotation (°)',
+                1e-5,
+                (
+                    'wcs_offset_ra',
+                    'wcs_offset_dec',
+                    'wcs_offset_scale',
+                ),
+            ),
+            (
+                'wcs_offset_scale',
+                'Scale (arcsec/pixel)',
+                1e-9,
+                (
+                    'wcs_offset_ra',
+                    'wcs_offset_dec',
+                    'wcs_offset_rotation',
+                ),
+            ),
+        ]
+
+        for key, label, zero_threshold, default_callbacks in entries:
+            ne = NumericEntry(
+                self,
+                frame,
+                key,
+                label=label,
+                value_fmt='+.6g',
+                add_callbacks=[
+                    'x0',
+                    'y0',
+                    'r0',
+                    'rotation',
+                    'plate_scale_arcsec',
+                    'plate_scale_km',
+                ],
+                default_callbacks_to_add=default_callbacks,
+                zero_threshold=zero_threshold,
+            )
+            self._wcs_entries_to_enable.append(ne)
 
     def make_disc_finding_fn(self, fn: Callable[[], None]) -> Callable[[], None]:
         def button_command():
@@ -828,6 +1192,20 @@ class GUI:
 
         return button_command
 
+    def enable_disc_finding_buttons(self) -> None:
+        for key, buttons in self._disc_finding_enableable_buttons.items():
+            state = (
+                'normal'
+                if key in self._observation_available_disc_finding_routines
+                else 'disable'
+            )
+            for button in buttons:
+                button.configure(state=state)
+
+        enable_wcs_entries = 'wcs' in self._observation_available_disc_finding_routines
+        for entry in self._wcs_entries_to_enable:
+            entry.set_enabled(enable_wcs_entries)
+
     def build_help_hint(self) -> None:
         frame = ttk.Frame(self.hint_frame)
         frame.pack(fill='x', padx=5, pady=1)
@@ -841,11 +1219,7 @@ class GUI:
         self.help_hint.configure(text=msg, foreground=color)
 
     def reset_help_hint(self, *, hover: bool = False):
-        path = self.get_observation().path
-        if path is None:
-            msg = ''
-        else:
-            msg = path if hover else os.path.basename(path)
+        msg = self._observation_full_path if hover else self._observation_filename
         self.set_help_hint(msg, color='gray50')
 
     def add_tooltip(
@@ -958,15 +1332,15 @@ class GUI:
         messages = [
             'Click on the plot to get coordinates.',
             'Right click on the plot to clear.',
-            'Note that most of these values change',
-            'when you adjust the disc position.',
+            'Note that most of these values change when you adjust the disc position.',
         ]
         ttk.Label(
             top_level_frame,
             text='\n'.join(messages),
             justify='center',
             foreground='gray50',
-        ).pack(fill='x', padx=5, pady=2)
+            wraplength=self.CONTROLS_WIDTH - 10,
+        ).pack(padx=5, pady=2)
 
     def get_click_coords(self) -> dict[str, float]:
         if self.last_click_location is None:
@@ -1217,7 +1591,7 @@ class GUI:
 
         self.add_tooltip(
             self.canvas.get_tk_widget(),
-            'Customise the displayed data, colour scales and plotted features in the "Settings" tab',
+            'Customise plot in the "Settings" tab and click on the plot to get values in the "Coords" tab',
         )
 
     def rebuild_plot(self) -> None:
@@ -1905,9 +2279,24 @@ class OpenObservation(Popup):
         path = tkinter.filedialog.askopenfilename(
             title='Choose observation',
             parent=self.window,
+            initialdir=self.get_open_initialdir(),
         )
         if path:
             self.stringvars['path'].set(str(path))
+
+    def get_open_initialdir(self) -> str:
+        path = self.stringvars['path'].get()
+        path = os.path.expandvars(os.path.expanduser(path))
+        if len(path.strip()) == 0:
+            return os.getcwd()
+        for _ in range(32):  # Limit to 32 iterations to avoid infinite loop
+            if os.path.isdir(path):
+                return path
+            dirname = os.path.dirname(path)
+            if dirname == path:
+                break
+            path = dirname
+        return os.getcwd()
 
     def click_ok(self) -> None:
         if self.apply_changes():
@@ -2053,7 +2442,7 @@ class SaveObservation(Popup):
         x, y = (int(s) for s in self.gui.root.geometry().split('+')[1:])
         self.window.geometry(
             '{sz}+{x:.0f}+{y:.0f}'.format(
-                sz='600x400',
+                sz='600x575',
                 x=x + 50,
                 y=y + 50,
             )
@@ -2078,7 +2467,7 @@ class SaveObservation(Popup):
         window_frame.pack(expand=True, fill='both')
 
         self.menu_frame = ttk.Frame(window_frame)
-        self.menu_frame.pack(side='top', padx=10, pady=10, fill='x')
+        self.menu_frame.pack(side='top', padx=10, pady=10, fill='both', expand=True)
 
         self.heading_frame = ttk.Frame(self.menu_frame)
         self.heading_frame.pack(fill='x')
@@ -2247,18 +2636,67 @@ class SaveObservation(Popup):
         w.grid(row=3, column=5, sticky='w')
         self.map_ortho_widgets.append(w)
 
+        # Backplanes to include
+        ttk.Label(self.menu_frame, text='\n').pack(fill='x')  # Spacer
+        self.backplanes_to_save_dict: dict[str, tk.IntVar] = {}
+        self.backplanes_label_frame = ttk.Frame(self.menu_frame)
+        self.backplanes_label_frame.pack(fill='x', pady=2)
+        ttk.Label(
+            self.backplanes_label_frame,
+            text='Backplanes to include: ',
+            justify='left',
+        ).pack(side='left', fill='y')
+
+        self.backplanes_all_button = ttk.Button(
+            self.backplanes_label_frame,
+            text='Select all',
+            command=lambda: [
+                var.set(1) for var in self.backplanes_to_save_dict.values()
+            ],
+            padding=0,
+        )
+        self.backplanes_none_button = ttk.Button(
+            self.backplanes_label_frame,
+            text='Select none',
+            command=lambda: [
+                var.set(0) for var in self.backplanes_to_save_dict.values()
+            ],
+            padding=0,
+        )
+        self.backplanes_all_button.pack(side='left', fill='y')
+        self.backplanes_none_button.pack(side='left', fill='y')
+
+        self.backplane_grid = ttk.Frame(self.menu_frame)
+        self.backplane_grid.pack(fill='x')
+        ncols = 4
+        for col in range(ncols):
+            self.backplane_grid.grid_columnconfigure(col, weight=1)
+        for i, backplane in enumerate(self.gui.get_observation().backplanes.keys()):
+            row, col = divmod(i, ncols)
+            var = tk.IntVar(value=1)
+            self.backplanes_to_save_dict[backplane] = var
+            cb = ttk.Checkbutton(
+                self.backplane_grid,
+                text=backplane,
+                style='Small.TCheckbutton',
+                variable=var,
+            )
+            cb.grid(row=row, column=col, sticky='ew', padx=5, pady=0)
+
+        # Footer
+        menu_footer_frame = ttk.Frame(self.menu_frame)
+        menu_footer_frame.pack(side='bottom', fill='x')
+
         message = '\n'.join(
             [
-                '',
                 'Click SAVE below to save the requested files',
                 'For larger files, backplane generation, mapping, and saving can take ~1 minute',
                 '',
             ]
         )
-        ttk.Label(self.menu_frame, text='\n' + message, justify='center').pack()
-
+        ttk.Label(menu_footer_frame, text=message, justify='center').pack()
         ttk.Checkbutton(
-            self.menu_frame,
+            menu_footer_frame,
             text='Keep this popup open after saving files',
             variable=self.keep_open,
         ).pack()
@@ -2366,6 +2804,10 @@ class SaveObservation(Popup):
         except ValueError:
             return
 
+        backplanes_to_save = {
+            k for k, v in self.backplanes_to_save_dict.items() if v.get()
+        }
+
         # If we get to this point, everything should (hopefully) be working
 
         saving_process = SavingProgress(
@@ -2377,6 +2819,7 @@ class SaveObservation(Popup):
             interpolation=interpolation,
             map_kw=map_kw,
             keep_open=keep_open,
+            backplanes_to_save=backplanes_to_save,
         )
         try:
             saving_process.run_save()
@@ -2411,6 +2854,7 @@ class SavingProgress(Popup):
         interpolation: str,
         map_kw: MapKwargs,
         keep_open: bool,
+        backplanes_to_save: set[str],
     ):
         self.parent = parent
         self.parent.saving_progress_window = self
@@ -2421,6 +2865,7 @@ class SavingProgress(Popup):
         self.path_map = path_map
         self.interpolation = interpolation
         self.map_kw = map_kw
+        self.backplanes_to_save = backplanes_to_save
 
         self.keep_open = keep_open
 
@@ -2493,9 +2938,14 @@ class SavingProgress(Popup):
 
     def run_save(self) -> None:
         SaveKwargs = TypedDict(
-            'SaveKwargs', {'show_progress': bool, 'print_info': bool}
+            'SaveKwargs',
+            {'show_progress': bool, 'print_info': bool, 'backplanes_to_save': set[str]},
         )
-        save_kwargs = SaveKwargs(show_progress=False, print_info=True)
+        save_kwargs = SaveKwargs(
+            show_progress=False,
+            print_info=True,
+            backplanes_to_save=self.backplanes_to_save,
+        )
         observation = self.parent.gui.get_observation()
         self.is_running_save = True
         save_nav_done = False
@@ -2800,6 +3250,10 @@ class ArtistSetting(Popup, ABC):
 
     def get_window_size(self) -> str:
         return '350x350'
+
+    @property
+    def label_wraplength(self) -> int:
+        return 330
 
 
 class PlotImageSetting(ArtistSetting):
@@ -3113,21 +3567,24 @@ class PlotImageSetting(ArtistSetting):
         ]
         self.add_to_menu_grid([(a, b) for a, b, c in self.grid], frame=frame)
 
-        msg = '\n'.join(
-            [
-                '',
-                'Images are scaled to vary from 0 to 100,',
-                'so set vmin=0 and vmax=100 to show the',
-                'entire dynamic range.',
-                '',
-                'Set vmin/vmax type to "percentile" to',
-                'calculate the limits as percentiles of the',
-                'data in the image. This can be useful if',
-                'your data has extreme outliers (e.g. try',
-                'vmin=1, vmax=99 & type=percentile).',
-            ]
-        )
-        ttk.Label(self.grid_frame, text=msg).pack()
+        messages = [
+            (
+                '\nImages are scaled to vary from 0 to 100, so set vmin=0 and vmax=100 '
+                'to show the entire dynamic range.'
+            ),
+            (
+                'Set vmin/vmax type to "percentile" to calculate the limits as '
+                'percentiles of the data in the image. This can be useful if your data '
+                'has extreme outliers (e.g. try vmin=1, vmax=99 & type=percentile).'
+            ),
+        ]
+        ttk.Label(
+            self.grid_frame,
+            text='\n\n'.join(messages),
+            wraplength=self.label_wraplength,
+            foreground='gray40',
+            justify='center',
+        ).pack()
 
         self.image_mode.trace_add('write', self.change_image_mode_radio)
         self.change_image_mode_radio()  # run initial setup
@@ -3342,16 +3799,13 @@ class PlotRingsSetting(PlotLineSetting):
                 radii_selected -= set(radii)
 
         value = '\n'.join(str(r) for r in sorted(radii_selected))
-        label = '\n'.join(
-            [
-                'Manually list{s} ring radii in km from the'.format(
-                    s=' more' if self.checkbox_dict else ''
-                ),
-                'target\'s centre below. Each radius should',
-                'be listed on a new line:',
-            ]
-        )
-        ttk.Label(self.menu_frame, text='\n' + label).pack(fill='x')
+        label = (
+            'Manually list{s} ring radii in km from the target\'s centre below. '
+            'Each radius should be listed on a new line:'
+        ).format(s=' more' if self.checkbox_dict else '')
+        ttk.Label(
+            self.menu_frame, text='\n' + label, wraplength=self.label_wraplength
+        ).pack(fill='x')
         self.txt = tkinter.scrolledtext.ScrolledText(self.menu_frame)
         self.txt.pack(fill='both')
         self.txt.insert('1.0', value)
@@ -3460,7 +3914,11 @@ class PlotCoordinatesSetting(PlotScatterSetting):
     def make_menu(self) -> None:
         super().make_menu()
         value = '\n'.join(f'{a}, {b}' for a, b in self.coordinate_list)
-        ttk.Label(self.menu_frame, text='\n' + self.menu_label).pack(fill='x')
+        ttk.Label(
+            self.menu_frame,
+            text='\n' + self.menu_label,
+            wraplength=self.label_wraplength,
+        ).pack(fill='x')
         self.txt = tkinter.scrolledtext.ScrolledText(self.menu_frame)
         self.txt.pack(fill='both')
         self.txt.insert('1.0', value)
@@ -3546,16 +4004,16 @@ class PlotOutlinedTextSetting(ArtistSetting):
 
 class GenericOtherBodySetting(ArtistSetting):
     def add_other_body_menu_setting(self):
-        label = '\n'.join(
-            [
-                'List other bodies of interest to',
-                'mark (e.g. moons). Body names should',
-                'be recognisable by SPICE (e.g "Europa"',
-                'or "502") with each body listed on a',
-                'new line:',
-            ]
+        label = (
+            'List other bodies of interest to '
+            'mark (e.g. moons). Body names should '
+            'be recognisable by SPICE (e.g "Europa" '
+            'or "502") with each body listed on a '
+            'new line:'
         )
-        ttk.Label(self.menu_frame, text='\n' + label).pack(fill='x')
+        ttk.Label(
+            self.menu_frame, text='\n' + label, wraplength=self.label_wraplength
+        ).pack(fill='x')
         self.txt = tkinter.scrolledtext.ScrolledText(self.menu_frame)
         self.txt.pack(fill='both')
 
@@ -3671,11 +4129,24 @@ class NumericEntry:
         label: str | None = None,
         row: int | None = None,
         add_callbacks: list[SetterKey] | None = None,
+        entry_width: int = 10,
+        value_fmt: str = '.8g',
+        default_callbacks_to_add: tuple[SetterKey, ...] = (
+            'wcs_offset_ra',
+            'wcs_offset_dec',
+            'wcs_offset_rotation',
+            'wcs_offset_scale',
+        ),
+        zero_threshold: float | None = None,
         **kw,
     ):
         self.parent = parent
         self.key: SetterKey = key
         self.gui = gui
+        self.entry_width = entry_width
+        self.value_fmt = value_fmt
+        self.zero_threshold = zero_threshold
+
         self._enable_callback = True
 
         if label is None:
@@ -3684,12 +4155,14 @@ class NumericEntry:
 
         self.sv = tk.StringVar()
         self.sv.trace_add('write', self.text_input)
-        self.entry = ttk.Entry(parent, width=10, textvariable=self.sv)
+        self.entry = ttk.Entry(parent, width=self.entry_width, textvariable=self.sv)
 
         self.gui.ui_callbacks[self.key].add(self.update_text)
         if add_callbacks:
             for k in add_callbacks:
                 self.gui.ui_callbacks[k].add(self.update_text)
+        for k in default_callbacks_to_add:
+            self.gui.ui_callbacks[k].add(self.update_text)
 
         self.update_text()
 
@@ -3716,7 +4189,9 @@ class NumericEntry:
         self._enable_callback = True
 
     def format_value(self, value: float) -> str:
-        return format(value, '.8g')
+        if self.zero_threshold is not None and abs(value) < self.zero_threshold:
+            return '0'
+        return format(value, self.value_fmt)
 
     def text_input(self, *_) -> None:
         if not self._enable_callback:
@@ -3729,6 +4204,23 @@ class NumericEntry:
         except (ValueError, ZeroDivisionError):
             self.entry.configure(foreground='red')
         self._enable_callback = True
+
+    def set_enabled(self, enabled: bool) -> None:
+        """Enable or disable the entry."""
+        state = 'normal' if enabled else 'disabled'
+        self._enable_callback = enabled
+        self.label.configure(state=state)
+        self.entry.configure(state=state)
+        if enabled:
+            self.update_text()
+        else:
+            self.sv.set('')
+
+
+class EnableableLabel(ttk.Label):
+    def set_enabled(self, enabled: bool) -> None:
+        state = 'normal' if enabled else 'disabled'
+        self.configure(state=state)
 
 
 # Plotting stuff

@@ -31,7 +31,7 @@ def main() -> None:
 
 def check_planetmapper_source() -> int:
     paths = sorted(PLANETMAPPER_ROOT.rglob('*.py'))
-    print(f'Checking {len(paths)} files in {PLANETMAPPER_ROOT}')
+    print(f'Checking {len(paths)} files for invalid versions in {PLANETMAPPER_ROOT}')
     found_errors = 0
     for path in paths:
         found_errors += check_docstring_version_directives(path)
@@ -55,7 +55,6 @@ def check_docstring_version_directives(path: Path) -> int:
             except InvalidVersion:
                 found_errors += 1
                 print_error(path, i, lines, maybe_version)
-
     return found_errors
 
 
