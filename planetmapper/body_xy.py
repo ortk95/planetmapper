@@ -430,7 +430,12 @@ class BodyXY(Body):
         return self._obsvec2xy(self._radec2obsvec_norm(ra, dec))
 
     def xy2lonlat(
-        self, x: FloatOrArray, y: FloatOrArray, *, not_found_nan=True, alt: float = 0.0
+        self,
+        x: FloatOrArray,
+        y: FloatOrArray,
+        *,
+        not_found_nan: bool = True,
+        alt: float = 0.0,
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert `image pixel coordinates`_ to `longitude/latitude coordinates`_ on the
@@ -4094,7 +4099,9 @@ def _make_backplane_documentation_str() -> str:
     return '\n'.join(msg)
 
 
-def _extract_map_kwargs_from_dict(kwargs_dict) -> tuple[MapKwargs, dict[str, Any]]:
+def _extract_map_kwargs_from_dict(
+    kwargs_dict: dict,
+) -> tuple[MapKwargs, dict[str, Any]]:
     """
     Split a dictionary of keyword arguments into a dictionary of map kwargs and a
     dictionary of other kwargs.
