@@ -213,7 +213,7 @@ class GUI:
     command line.
     """
 
-    MINIMUM_SIZE = (600, 600)
+    MINIMUM_SIZE = (400, 650)
     DEFAULT_GEOMETRY = '800x650+15+15'
     CONTROLS_WIDTH = 260
 
@@ -1574,14 +1574,18 @@ class GUI:
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
         self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
 
-        toolbar_frame = tk.Frame(self.plot_frame)
+        bg_color = '#eeeeee'
+        toolbar_frame = tk.Frame(self.plot_frame, background=bg_color)
         toolbar_frame.pack(side='bottom', fill='x')
-        tk.Label(toolbar_frame, text='\N{NO-BREAK SPACE}').pack(side='left')
+        tk.Label(toolbar_frame, text='\N{NO-BREAK SPACE}', background=bg_color).pack(
+            side='left'
+        )
         self.toolbar = CustomNavigationToolbar(
             self.canvas,
             toolbar_frame,
             pack_toolbar=False,
             gui=self,
+            bg_color=bg_color,
         )
         self.toolbar.pack(side='bottom', fill='x')
 
@@ -1988,9 +1992,11 @@ class Popup:
         *,
         bind_escape: bool = True,
         create_window_immediately: bool = True,
+        minimum_size: tuple[int, int] | None = (200, 200),
     ) -> None:
         self.gui = gui
         self.bind_escape = bind_escape
+        self.minimum_size = minimum_size
         if create_window_immediately:
             self.create_window()
 
@@ -2018,6 +2024,9 @@ class Popup:
         self.window.protocol('WM_DELETE_WINDOW', self.close_window)
         if self.bind_escape:
             self.window.bind('<Escape>', self.close_window)
+
+        if self.minimum_size is not None:
+            self.window.minsize(*self.minimum_size)
 
     def close_window(self, *_) -> None:
         self.window.destroy()
@@ -4247,7 +4256,16 @@ class OutlinedText(Text):
 
 
 class CustomNavigationToolbar(NavigationToolbar2Tk):
-    def __init__(self, canvas, window, *, pack_toolbar: bool = True, gui: GUI) -> None:
+    # Custom navigation toolbar for matplotlib plots that improves the cosmetics
+    # slightly. This uses our own GUI tooltips rather than the matplotlib ones, and
+    # applies some custom colours for consistency with the rest of the GUI. This is
+    # especially useful when using dark mode, as the default navigation toolbar will be
+    # dark while the rest of the GUI is always in light mode.
+    # See issue #320 for more details: https://github.com/ortk95/planetmapper/issues/320
+
+    def __init__(
+        self, canvas, window, *, pack_toolbar: bool = True, gui: GUI, bg_color: str
+    ) -> None:
         # Default tooltips don't work with tk (on my laptop with dark mode at least)
         # so disable them here by setting to None, then use our custom tooltips instead.
         # This list also removes the Subplots button which we don't want.
@@ -4262,11 +4280,17 @@ class CustomNavigationToolbar(NavigationToolbar2Tk):
             ('Save', None, 'filesave', 'save_figure'),
         )
         super().__init__(canvas, window, pack_toolbar=pack_toolbar)
+
+        # The following lines are all cosmetic styling, so aren't crucial. Therefore,
+        # wrap everything in try/except to avoid breaking the GUI if matplotlib changes
+        # the internals of the toolbar.
+
         try:
-            self._message_label.configure(foreground='#888888')
+            self.configure(background=bg_color)
         # pylint: disable-next=bare-except
         except:
             pass
+
         try:
             for name, button in self._buttons.items():
                 # Get default tooltips from super() and use them
@@ -4275,6 +4299,23 @@ class CustomNavigationToolbar(NavigationToolbar2Tk):
                         hint = tooltip_text.replace('\n', ', ')
                         gui.add_tooltip(button, hint)
                         break
+                button.configure(highlightbackground=bg_color)
+                if isinstance(button, tk.Checkbutton):
+                    # In dark mode, text can default to white, making the checkbutton
+                    # image difficult to read, especially with the custom backgrounds
+                    # we use here. Therefore, set the foreground to black and re-set
+                    # the image for the button to ensure it is updated properly.
+                    button.configure(foreground='black')
+                    self._set_image_for_button(button)
+        # pylint: disable-next=bare-except
+        except:
+            pass
+
+        try:
+            for child in self.winfo_children():
+                if isinstance(child, tk.Label):
+                    child.configure(background=bg_color)
+            self._message_label.configure(foreground='#888888')
         # pylint: disable-next=bare-except
         except:
             pass
