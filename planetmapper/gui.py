@@ -7,6 +7,7 @@ import sys
 import tkinter as tk
 import tkinter.colorchooser
 import tkinter.filedialog
+import tkinter.font
 import tkinter.messagebox
 import tkinter.scrolledtext
 import traceback
@@ -552,8 +553,26 @@ class GUI:
         self.root = tk.Tk()
         self.root.geometry(self.DEFAULT_GEOMETRY)
         self.root.minsize(*self.MINIMUM_SIZE)
+        self.root.protocol('WM_DELETE_WINDOW', self.quit)
+
         self.configure_style(self.root)
         self.root.title(self.get_observation().get_description(multiline=False))
+
+        # On some systems (e.g. over SSH/X11), building the GUI can be a bit slow,
+        # especially creating the matplotlib plot. Therefore, create the initial bare
+        # version of the GUI, then display it with update to give the user some feedback
+        # and impression of progress while the rest of the GUI is being built.
+        loading_frame = ttk.Frame(self.root)
+        loading_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
+        loading_label = ttk.Label(
+            loading_frame,
+            text='Loading...',
+            justify='center',
+            foreground='grey70',
+            font=('TkDefaultFont', self._default_font_size + 20),
+        )
+        loading_label.place(relx=0.5, rely=0.5, anchor='center')
+        self.root.update_idletasks()
 
         self.hint_frame = ttk.Frame(self.root)
         self.hint_frame.pack(side='bottom', fill='x')
@@ -567,8 +586,17 @@ class GUI:
         self.build_help_hint()
         self.build_controls()
         self.update_plot()
+        self.root.update_idletasks()
 
-        self.root.protocol('WM_DELETE_WINDOW', self.quit)
+        # Figure can sometimes be initialised with a slightly incorrect shape, so force
+        # it to fit the plot frame nicely here once the frame has its final shape.
+        self.fig.set_size_inches(
+            self.canvas_frame.winfo_width() / self.fig.dpi,
+            self.canvas_frame.winfo_height() / self.fig.dpi,
+        )
+        self.update_plot()
+
+        loading_frame.destroy()
         self.gui_built = True
 
     def quit(self) -> None:
@@ -591,10 +619,13 @@ class GUI:
                 selectforeground='black',
             )
 
+        self._default_font = tkinter.font.nametofont('TkDefaultFont').actual()
+        self._default_font_size = self._default_font['size']
+
         self.style.map('TScale', troughcolor=[('disabled', '#d9d9d9')])
         self.style.configure(
             'Small.TCheckbutton',
-            font='TkDefaultFont 11',
+            font=('TkDefaultFont', int(self._default_font_size * 0.85)),
         )
 
     def build_controls(self) -> None:
@@ -952,7 +983,7 @@ class GUI:
             label_frame,
             text=f'PlanetMapper {common.__version__}',
             justify='center',
-            font=('TkDefaultFont', 20),
+            font=('TkDefaultFont', int(self._default_font_size * 1.6)),
             wraplength=wraplength,
         )
         label.pack(pady=5)
@@ -1034,7 +1065,7 @@ class GUI:
             label_frame,
             text='\n\n'.join(messages),
             justify='center',
-            font=('TkDefaultFont', 10),
+            font=('TkDefaultFont', int(self._default_font_size * 0.8)),
             wraplength=wraplength,
         )
         label.pack(pady=5)
@@ -1568,18 +1599,15 @@ class GUI:
         self.ax = self.fig.add_axes([0.06, 0.03, 0.93, 0.96])
         self.update_plot_transforms()
 
-        self.replot_all()
-        self.format_plot()
-
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
-        self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
-
         bg_color = '#eeeeee'
         toolbar_frame = tk.Frame(self.plot_frame, background=bg_color)
         toolbar_frame.pack(side='bottom', fill='x')
         tk.Label(toolbar_frame, text='\N{NO-BREAK SPACE}', background=bg_color).pack(
             side='left'
         )
+        self.canvas_frame = tk.Frame(self.plot_frame, background='white')
+        self.canvas_frame.pack(side='top', fill='both', expand=True)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.canvas_frame)
         self.toolbar = CustomNavigationToolbar(
             self.canvas,
             toolbar_frame,
@@ -1588,6 +1616,7 @@ class GUI:
             bg_color=bg_color,
         )
         self.toolbar.pack(side='bottom', fill='x')
+        self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
 
         self.fig.canvas.callbacks.connect(
             'button_press_event', self.figure_click_callback
@@ -1597,6 +1626,9 @@ class GUI:
             self.canvas.get_tk_widget(),
             'Customise plot in the "Settings" tab and click on the plot to get values in the "Coords" tab',
         )
+
+        self.replot_all()
+        self.format_plot()
 
     def rebuild_plot(self) -> None:
         self.update_plot_transforms()
@@ -3262,7 +3294,7 @@ class ArtistSetting(Popup, ABC):
 
     @property
     def label_wraplength(self) -> int:
-        return 330
+        return 320
 
 
 class PlotImageSetting(ArtistSetting):
