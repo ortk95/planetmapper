@@ -188,9 +188,9 @@ def decimal_degrees_to_dms(decimal_degrees: float) -> tuple[int, int, float]:
     return int(degrees), int(minutes), seconds
 
 
-def decimal_degrees_to_dms_str(decimal_degrees: float, seconds_fmt: str = '') -> str:
+def decimal_degrees_to_dms_str(decimal_degrees: float, seconds_fmt: str = 'g') -> str:
     """
-    Create nicely formated DMS string from decimal degrees value (e.g. `'12°34′56″'`).
+    Create nicely formatted DMS string from decimal degrees value (e.g. `'12°34′56″'`).
 
     Uses :func:`decimal_degrees_to_dms` to perform the conversion.
 
@@ -198,13 +198,18 @@ def decimal_degrees_to_dms_str(decimal_degrees: float, seconds_fmt: str = '') ->
         decimal_degrees: Decimal degrees.
         seconds_fmt: Optionally specify a format string for the seconds part of the
             returned value. For example, `seconds_fmt='.3f'` will fix three decimal
-            places for the fractional part of the seconds value.
+            places for the fractional part of the seconds value. Note that the integral
+            part of the seconds value will always be zero-padded to two digits, so
+            `seconds_fmt='.3f'` will return seconds as e.g. `01.234`.
 
     Returns:
-        String representting the degress, minutes, seconds of the angle.
+        String representing the degrees, minutes, seconds of the angle.
     """
     d, m, s = decimal_degrees_to_dms(decimal_degrees)
-    return f'{d}°{m}′{s:{seconds_fmt}}″'
+    s_str = f'{s:{seconds_fmt}}'
+    if len(s_str.split('.')[0]) < 2:
+        s_str = '0' + s_str  # Zero pad integer part of seconds to e.g. 01.234
+    return f'{d}°{m:02d}′{s_str}″'
 
 
 class ignore_warnings(warnings.catch_warnings):
@@ -212,9 +217,9 @@ class ignore_warnings(warnings.catch_warnings):
     Context manager to ignore general warnings using warnings.filterwarnings.
     """
 
-    def __init__(self, *warining_strings: str, **kwargs):
+    def __init__(self, *warning_strings: str, **kwargs):
         super().__init__(**kwargs)
-        self.warning_strings = warining_strings
+        self.warning_strings = warning_strings
 
     def __enter__(self):
         out = super().__enter__()

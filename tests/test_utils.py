@@ -75,11 +75,11 @@ class TestUtils(common_testing.BaseTestCase):
 
     def test_decimal_degrees_to_dms_str(self):
         pairs = [
-            [0, '0°0′0.0000″'],
-            [1, '1°0′0.0000″'],
-            [1.23456789, '1°14′4.4444″'],
+            [0, '0°00′00.0000″'],
+            [1, '1°00′00.0000″'],
+            [1.23456789, '1°14′04.4444″'],
             [-123.456, '-123°27′21.6000″'],
-            [360, '360°0′0.0000″'],
+            [360, '360°00′00.0000″'],
         ]
         for decimal_degrees, dms_str in pairs:
             with self.subTest(decimal_degrees=decimal_degrees):
@@ -87,6 +87,18 @@ class TestUtils(common_testing.BaseTestCase):
                     utils.decimal_degrees_to_dms_str(
                         decimal_degrees, seconds_fmt='.4f'
                     ),
+                    dms_str,
+                )
+        pairs = [
+            [0, '0°00′00″'],
+            [123.46, '123°27′36″'],
+            [123.456, '123°27′21.6″'],
+            [-123.456, '-123°27′21.6″'],
+        ]
+        for decimal_degrees, dms_str in pairs:
+            with self.subTest(decimal_degrees=decimal_degrees):
+                self.assertEqual(
+                    utils.decimal_degrees_to_dms_str(decimal_degrees),
                     dms_str,
                 )
 
