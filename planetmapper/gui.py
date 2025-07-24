@@ -7,6 +7,7 @@ import sys
 import tkinter as tk
 import tkinter.colorchooser
 import tkinter.filedialog
+import tkinter.font
 import tkinter.messagebox
 import tkinter.scrolledtext
 import traceback
@@ -213,7 +214,7 @@ class GUI:
     command line.
     """
 
-    MINIMUM_SIZE = (600, 600)
+    MINIMUM_SIZE = (400, 650)
     DEFAULT_GEOMETRY = '800x650+15+15'
     CONTROLS_WIDTH = 260
 
@@ -552,8 +553,26 @@ class GUI:
         self.root = tk.Tk()
         self.root.geometry(self.DEFAULT_GEOMETRY)
         self.root.minsize(*self.MINIMUM_SIZE)
+        self.root.protocol('WM_DELETE_WINDOW', self.quit)
+
         self.configure_style(self.root)
         self.root.title(self.get_observation().get_description(multiline=False))
+
+        # On some systems (e.g. over SSH/X11), building the GUI can be a bit slow,
+        # especially creating the matplotlib plot. Therefore, create the initial bare
+        # version of the GUI, then display it with update to give the user some feedback
+        # and impression of progress while the rest of the GUI is being built.
+        loading_frame = ttk.Frame(self.root)
+        loading_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
+        loading_label = ttk.Label(
+            loading_frame,
+            text='Loading...',
+            justify='center',
+            foreground='grey70',
+            font=('TkDefaultFont', self._default_font_size + 20),
+        )
+        loading_label.place(relx=0.5, rely=0.5, anchor='center')
+        self.root.update_idletasks()
 
         self.hint_frame = ttk.Frame(self.root)
         self.hint_frame.pack(side='bottom', fill='x')
@@ -567,8 +586,17 @@ class GUI:
         self.build_help_hint()
         self.build_controls()
         self.update_plot()
+        self.root.update_idletasks()
 
-        self.root.protocol('WM_DELETE_WINDOW', self.quit)
+        # Figure can sometimes be initialised with a slightly incorrect shape, so force
+        # it to fit the plot frame nicely here once the frame has its final shape.
+        self.fig.set_size_inches(
+            self.canvas_frame.winfo_width() / self.fig.dpi,
+            self.canvas_frame.winfo_height() / self.fig.dpi,
+        )
+        self.update_plot()
+
+        loading_frame.destroy()
         self.gui_built = True
 
     def quit(self) -> None:
@@ -591,10 +619,13 @@ class GUI:
                 selectforeground='black',
             )
 
+        self._default_font = tkinter.font.nametofont('TkDefaultFont').actual()
+        self._default_font_size = self._default_font['size']
+
         self.style.map('TScale', troughcolor=[('disabled', '#d9d9d9')])
         self.style.configure(
             'Small.TCheckbutton',
-            font='TkDefaultFont 11',
+            font=('TkDefaultFont', int(self._default_font_size * 0.85)),
         )
 
     def build_controls(self) -> None:
@@ -952,7 +983,7 @@ class GUI:
             label_frame,
             text=f'PlanetMapper {common.__version__}',
             justify='center',
-            font=('TkDefaultFont', 20),
+            font=('TkDefaultFont', int(self._default_font_size * 1.6)),
             wraplength=wraplength,
         )
         label.pack(pady=5)
@@ -1034,7 +1065,7 @@ class GUI:
             label_frame,
             text='\n\n'.join(messages),
             justify='center',
-            font=('TkDefaultFont', 10),
+            font=('TkDefaultFont', int(self._default_font_size * 0.8)),
             wraplength=wraplength,
         )
         label.pack(pady=5)
@@ -1568,22 +1599,24 @@ class GUI:
         self.ax = self.fig.add_axes([0.06, 0.03, 0.93, 0.96])
         self.update_plot_transforms()
 
-        self.replot_all()
-        self.format_plot()
-
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.plot_frame)
-        self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
-
-        toolbar_frame = tk.Frame(self.plot_frame)
+        bg_color = '#eeeeee'
+        toolbar_frame = tk.Frame(self.plot_frame, background=bg_color)
         toolbar_frame.pack(side='bottom', fill='x')
-        tk.Label(toolbar_frame, text='\N{NO-BREAK SPACE}').pack(side='left')
+        tk.Label(toolbar_frame, text='\N{NO-BREAK SPACE}', background=bg_color).pack(
+            side='left'
+        )
+        self.canvas_frame = tk.Frame(self.plot_frame, background='white')
+        self.canvas_frame.pack(side='top', fill='both', expand=True)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.canvas_frame)
         self.toolbar = CustomNavigationToolbar(
             self.canvas,
             toolbar_frame,
             pack_toolbar=False,
             gui=self,
+            bg_color=bg_color,
         )
         self.toolbar.pack(side='bottom', fill='x')
+        self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
 
         self.fig.canvas.callbacks.connect(
             'button_press_event', self.figure_click_callback
@@ -1593,6 +1626,9 @@ class GUI:
             self.canvas.get_tk_widget(),
             'Customise plot in the "Settings" tab and click on the plot to get values in the "Coords" tab',
         )
+
+        self.replot_all()
+        self.format_plot()
 
     def rebuild_plot(self) -> None:
         self.update_plot_transforms()
@@ -1988,9 +2024,11 @@ class Popup:
         *,
         bind_escape: bool = True,
         create_window_immediately: bool = True,
+        minimum_size: tuple[int, int] | None = (200, 200),
     ) -> None:
         self.gui = gui
         self.bind_escape = bind_escape
+        self.minimum_size = minimum_size
         if create_window_immediately:
             self.create_window()
 
@@ -2018,6 +2056,9 @@ class Popup:
         self.window.protocol('WM_DELETE_WINDOW', self.close_window)
         if self.bind_escape:
             self.window.bind('<Escape>', self.close_window)
+
+        if self.minimum_size is not None:
+            self.window.minsize(*self.minimum_size)
 
     def close_window(self, *_) -> None:
         self.window.destroy()
@@ -3253,7 +3294,7 @@ class ArtistSetting(Popup, ABC):
 
     @property
     def label_wraplength(self) -> int:
-        return 330
+        return 320
 
 
 class PlotImageSetting(ArtistSetting):
@@ -4247,7 +4288,16 @@ class OutlinedText(Text):
 
 
 class CustomNavigationToolbar(NavigationToolbar2Tk):
-    def __init__(self, canvas, window, *, pack_toolbar: bool = True, gui: GUI) -> None:
+    # Custom navigation toolbar for matplotlib plots that improves the cosmetics
+    # slightly. This uses our own GUI tooltips rather than the matplotlib ones, and
+    # applies some custom colours for consistency with the rest of the GUI. This is
+    # especially useful when using dark mode, as the default navigation toolbar will be
+    # dark while the rest of the GUI is always in light mode.
+    # See issue #320 for more details: https://github.com/ortk95/planetmapper/issues/320
+
+    def __init__(
+        self, canvas, window, *, pack_toolbar: bool = True, gui: GUI, bg_color: str
+    ) -> None:
         # Default tooltips don't work with tk (on my laptop with dark mode at least)
         # so disable them here by setting to None, then use our custom tooltips instead.
         # This list also removes the Subplots button which we don't want.
@@ -4262,11 +4312,17 @@ class CustomNavigationToolbar(NavigationToolbar2Tk):
             ('Save', None, 'filesave', 'save_figure'),
         )
         super().__init__(canvas, window, pack_toolbar=pack_toolbar)
+
+        # The following lines are all cosmetic styling, so aren't crucial. Therefore,
+        # wrap everything in try/except to avoid breaking the GUI if matplotlib changes
+        # the internals of the toolbar.
+
         try:
-            self._message_label.configure(foreground='#888888')
+            self.configure(background=bg_color)
         # pylint: disable-next=bare-except
         except:
             pass
+
         try:
             for name, button in self._buttons.items():
                 # Get default tooltips from super() and use them
@@ -4275,6 +4331,23 @@ class CustomNavigationToolbar(NavigationToolbar2Tk):
                         hint = tooltip_text.replace('\n', ', ')
                         gui.add_tooltip(button, hint)
                         break
+                button.configure(highlightbackground=bg_color)
+                if isinstance(button, tk.Checkbutton):
+                    # In dark mode, text can default to white, making the checkbutton
+                    # image difficult to read, especially with the custom backgrounds
+                    # we use here. Therefore, set the foreground to black and re-set
+                    # the image for the button to ensure it is updated properly.
+                    button.configure(foreground='black')
+                    self._set_image_for_button(button)
+        # pylint: disable-next=bare-except
+        except:
+            pass
+
+        try:
+            for child in self.winfo_children():
+                if isinstance(child, tk.Label):
+                    child.configure(background=bg_color)
+            self._message_label.configure(foreground='#888888')
         # pylint: disable-next=bare-except
         except:
             pass
