@@ -84,6 +84,7 @@ DEFAULT_PLOT_SETTINGS: dict[PlotKey, dict] = {
     'image': dict(zorder=0.9, cmap='inferno'),
     '_': dict(
         grid_interval=30,
+        grid_lat_limit=90,
         grid_planetocentric=False,
         image_mode='single',
         image_idx_single=0,
@@ -1737,11 +1738,12 @@ class GUI:
     def replot_grid(self) -> None:
         self.remove_artists('grid')
         interval = self.plot_settings['_'].setdefault('grid_interval', 30)
+        lat_limit = self.plot_settings['_'].setdefault('grid_lat_limit', 90)
         planetocentric = self.plot_settings['_'].setdefault(
             'grid_planetocentric', False
         )
         for ra, dec in self.get_observation().visible_lonlat_grid_radec(
-            interval, planetocentric=planetocentric
+            interval, planetocentric=planetocentric, lat_limit=lat_limit
         ):
             self.plot_handles['grid'].extend(
                 self.ax.plot(
@@ -3766,6 +3768,9 @@ class PlotGridSetting(PlotLineSetting):
         self.grid_interval = tk.StringVar(
             value=str(self.gui.plot_settings['_'].setdefault('grid_interval', 30))
         )
+        self.grid_lat_limit = tk.StringVar(
+            value=str(self.gui.plot_settings['_'].setdefault('grid_lat_limit', 90))
+        )
         self.grid_type = tk.StringVar(
             value=(
                 'planetocentric'
@@ -3783,6 +3788,17 @@ class PlotGridSetting(PlotLineSetting):
                         self.grid_frame,
                         textvariable=self.grid_interval,
                         values=GRID_INTERVALS,
+                        width=11,
+                    ),
+                ),
+                (
+                    ttk.Label(self.grid_frame, text='Latitude limit (°): '),
+                    ttk.Spinbox(
+                        self.grid_frame,
+                        textvariable=self.grid_lat_limit,
+                        from_=0,
+                        to=90,
+                        increment=5,
                         width=10,
                     ),
                 ),
@@ -3800,10 +3816,12 @@ class PlotGridSetting(PlotLineSetting):
     def apply_settings(self) -> bool:
         try:
             grid_interval = self.get_float(self.grid_interval, 'grid interval')
+            grid_lat_limit = self.get_float(self.grid_lat_limit, 'latitude limit')
             grid_planetocentric = self.grid_type.get() == 'planetocentric'
         except ValueError:
             return False
         self.gui.plot_settings['_']['grid_interval'] = grid_interval
+        self.gui.plot_settings['_']['grid_lat_limit'] = grid_lat_limit
         self.gui.plot_settings['_']['grid_planetocentric'] = grid_planetocentric
         return super().apply_settings()
 
