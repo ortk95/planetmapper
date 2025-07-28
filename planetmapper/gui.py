@@ -529,7 +529,7 @@ class GUI:
 
     def update_observation_available_disc_finding_routines(self):
         routines = self._observation_available_disc_finding_routines
-        observation = self.get_observation()
+        observation = self.get_observation().copy()
         routines.clear()
         try:
             observation.disc_from_wcs(suppress_warnings=True)
@@ -541,7 +541,6 @@ class GUI:
             routines.add('header')
         except ValueError:
             pass
-        observation.reset_disc_params()
 
     def get_observation(self) -> Observation:
         if self._observation is None:
