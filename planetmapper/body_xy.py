@@ -1788,6 +1788,7 @@ class BodyXY(Body):
         wireframe_kwargs: dict[str, Any] | None = None,
         add_wireframe: bool = True,
         angular_kwargs: AngularCoordinateKwargs | None = None,
+        zorder: float = 0.0,
         **kwargs,
     ) -> QuadMesh | AxesImage:
         """
@@ -1892,6 +1893,7 @@ class BodyXY(Body):
                 img,
                 origin='lower',
                 transform=transform,
+                zorder=zorder,
                 **kwargs,
             )
             # imshow fixes the limits, and doesn't play nicely with manually specifying
@@ -1909,6 +1911,7 @@ class BodyXY(Body):
                 self.get_y_img(),
                 img,
                 transform=transform,
+                zorder=zorder,
                 **kwargs,
             )
         return h
