@@ -656,28 +656,31 @@ class TestBodyBase(common_testing.BaseTestCase):
         obj = BodyBase(utc='2005-01-01 12:00', **kw)
         self.assertEqual(obj.utc, '2005-01-01T12:00:00.000000')
 
-        self.assertEqual(
-            obj,
-            BodyBase(utc=datetime.datetime(2005, 1, 1, 12), **kw),
-        )
-        self.assertEqual(
-            obj,
-            BodyBase(utc=53371.5, **kw),
-        )
-
-        self.assertEqual(
-            obj,
-            BodyBase(
-                utc=datetime.datetime(
-                    2005,
-                    1,
-                    1,
-                    15,
-                    tzinfo=datetime.timezone(datetime.timedelta(hours=3)),
-                ),
-                **kw,
+        equivalent_utcs = [
+            datetime.datetime(2005, 1, 1, 12),
+            datetime.datetime(
+                2005, 1, 1, 15, tzinfo=datetime.timezone(datetime.timedelta(hours=3))
             ),
-        )
+            53371.5,
+            '2005-01-01T12:00',
+            '2005-01-01T12:00:00',
+            '2005-01-01T12:00:00.000',
+            '2005-01-01T12:00:00.000000',
+            '2005-01-01T12:00:00.000000Z',
+            '2005 January 1 12:00',
+            '2005-01-01 12:00 UTC',
+            '2005-01-01 11:00 UTC-1',
+            '2005-01-01 23:12 UTC+11:12',
+        ]
+        for utc in equivalent_utcs:
+            with self.subTest(utc=utc):
+                obj_test = BodyBase(utc=utc, **kw)
+                self.assertEqual(obj_test, obj)
+                self.assertEqual(obj_test.utc, '2005-01-01T12:00:00.000000')
+                self.assertEqual(
+                    obj_test.dtm,
+                    datetime.datetime(2005, 1, 1, 12, tzinfo=datetime.timezone.utc),
+                )
 
         class CustomDateTime(datetime.datetime):
             pass
