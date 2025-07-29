@@ -28,7 +28,7 @@ These will both open a window where you can then choose a file to open:
     :width: 600
     :alt: User interface window with options to choose which file to open.
 
-If your data is a FITS file, PlanetMapper will attempt to automatically fill the target, date and observer fields for you with information from the FITS header (but it's worth double checking that the values are what you expect). The date should be in a format which `can be understood by SPICE <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/utc2et_c.html#Examples>`_ (such as `YYYY-mm-ddTHH:MM:SS`) and should be in UTC. You can also specify a list of :ref:`SPICE kernels` to load here - if you're unsure then the default values will probably work.
+If your data is a FITS file, PlanetMapper will attempt to automatically fill the target, date and observer fields for you with information from the FITS header (but it's worth double checking that the values are what you expect). The date should be in a format which `can be understood by SPICE <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/str2et_c.html#Examples>`_ (such as `YYYY-mm-ddTHH:MM:SS`) and should be in UTC. You can also specify a list of :ref:`SPICE kernels` to load here - if you're unsure then the default values will probably work.
 
 .. hint::
     The target, date and observer fields are passed directly to the `target`, `utc` and `observer` parameters of a :class:`planetmapper.Observation` object, so check the full documentation for :class:`planetmapper.Observation` and :class:`planetmapper.Body` for details of what formats are accepted.

@@ -822,7 +822,7 @@ class BodyBase(SpiceBase):
         self.observer_frame = observer_frame
         self.aberration_correction = aberration_correction
 
-        self.et = spice.utc2et(utc)
+        self.et = float(spice.str2et(utc))
         self.dtm: datetime.datetime = self.et2dtm(self.et)
         self.utc = self.dtm.strftime(self._DEFAULT_DTM_FORMAT_STRING)
         self.target_body_id: int = spice.bods2c(self.target)

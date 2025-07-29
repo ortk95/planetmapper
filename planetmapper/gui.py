@@ -2402,7 +2402,7 @@ class OpenObservation(Popup):
             )  #  type: ignore
         except ValueError:
             try:
-                spice.utc2et(observation_kwargs['utc'])  #  type: ignore
+                spice.str2et(observation_kwargs['utc'])  #  type: ignore
             # pylint: disable-next=broad-except
             except Exception as e:
                 self.show_spice_warning(title='Error parsing date', exception=e)
