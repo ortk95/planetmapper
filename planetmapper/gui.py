@@ -2429,7 +2429,6 @@ class OpenObservation(Popup):
             message = f'{title}\n\n{message}'
             title = ''
         tkinter.messagebox.showwarning(
-            master=self.window,
             parent=self.window,
             title=title,
             message=message,
