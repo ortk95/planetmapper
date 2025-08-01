@@ -300,7 +300,7 @@ class Body(BodyBase):
             assumed to be UTC unless otherwise specified. The accepted formats are: any
             `string` datetime representation compatible with SPICE (e.g.
             `'2000-12-31T23:59:59'` - see the
-            `documentation of acceptable string formats <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/utc2et_c.html>`_),
+            `documentation of acceptable string formats <https://naif.jpl.nasa.gov/pub/naif/toolkit_docs/C/cspice/str2et_c.html>`_),
             a Python `datetime` object, or a `float` representing the Modified Julian
             Date (MJD) of the observation. Alternatively, if `utc` is `None` (the
             default), then the current time is used.

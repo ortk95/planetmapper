@@ -12,6 +12,7 @@ from typing import (
     Concatenate,
     Literal,
     ParamSpec,
+    TypeAlias,
     TypeVar,
     cast,
     overload,
@@ -170,7 +171,9 @@ def _get_spice_error_help_note() -> str:
     )
 
 
-def _replace_np_arrr_args_with_tuples(args, kwargs) -> tuple[tuple, dict[str, Any]]:
+def _replace_np_arrr_args_with_tuples(
+    args: tuple, kwargs: dict
+) -> tuple[tuple, dict[str, Any]]:
     args = tuple(_maybe_np_arr_to_tuple(a) for a in args)
     kwargs = {k: _maybe_np_arr_to_tuple(v) for k, v in kwargs.items()}
     return args, kwargs
@@ -182,7 +185,10 @@ def _maybe_np_arr_to_tuple(o: Any) -> Any:
     return o
 
 
-def _to_tuple(arr: np.ndarray):
+_NestedTupleOfFloats: TypeAlias = 'float | tuple[float | _NestedTupleOfFloats, ...]'
+
+
+def _to_tuple(arr: np.ndarray) -> _NestedTupleOfFloats:
     if arr.ndim > 1:
         return tuple(_to_tuple(a) for a in arr)
     elif arr.ndim == 1:
@@ -432,7 +438,7 @@ class SpiceBase:
         """
         return self.__replace__(**changes)
 
-    def _clear_cache(self):
+    def _clear_cache(self) -> None:
         """
         Clear cached results from `_cache_result`.
         """
@@ -816,7 +822,7 @@ class BodyBase(SpiceBase):
         self.observer_frame = observer_frame
         self.aberration_correction = aberration_correction
 
-        self.et = spice.utc2et(utc)
+        self.et = float(spice.str2et(utc))
         self.dtm: datetime.datetime = self.et2dtm(self.et)
         self.utc = self.dtm.strftime(self._DEFAULT_DTM_FORMAT_STRING)
         self.target_body_id: int = spice.bods2c(self.target)

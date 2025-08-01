@@ -173,11 +173,11 @@ class Observation(BodyXY):
         )
 
     @staticmethod
-    def _str_array_formatter(array: np.ndarray):
+    def _str_array_formatter(array: np.ndarray) -> str:
         return f'<{"x".join(map(str, array.shape))} array>'
 
     @staticmethod
-    def _str_header_formatter(header: np.ndarray):
+    def _str_header_formatter(header: np.ndarray) -> str:
         return f'<{len(header)} card Header>'
 
     def to_body_xy(self) -> BodyXY:
@@ -229,14 +229,14 @@ class Observation(BodyXY):
             **super_defaults,
         )
 
-    def _load_data_from_path(self):
+    def _load_data_from_path(self) -> None:
         assert self.path is not None
         if any(self.path.endswith(ext) for ext in self.FITS_FILE_EXTENSIONS):
             self._load_fits_data()
         else:
             self._load_image_data()
 
-    def _load_fits_data(self):
+    def _load_fits_data(self) -> None:
         assert self.path is not None
         with fits.open(self.path, memmap=False) as hdul:  # type: ignore
             for idx, hdu in enumerate(hdul):
@@ -259,7 +259,7 @@ class Observation(BodyXY):
         self.data = data
         self.header = header
 
-    def _load_image_data(self):
+    def _load_image_data(self) -> None:
         assert self.path is not None
         image = np.flipud(np.array(PIL.Image.open(self.path)))
 
@@ -274,7 +274,7 @@ class Observation(BodyXY):
         self.data = image
 
     @classmethod
-    def _add_kw_from_header(cls, kw: dict, header: fits.Header):
+    def _add_kw_from_header(cls, kw: dict, header: fits.Header) -> None:
         # fill in kwargs with values from header (if they aren't specified by the user)
 
         _try_get_header_value(
@@ -836,7 +836,7 @@ class Observation(BodyXY):
         spline_smoothing: float,
         propagate_nan: bool,
         **map_kwargs: Unpack[MapKwargs],
-    ):
+    ) -> np.ndarray:
         projected = []
         data = self.data
         for idx, img in enumerate(data):
@@ -862,7 +862,7 @@ class Observation(BodyXY):
         header: fits.Header | None = None,
         truncate_strings: bool = True,
         remove_existing: bool = True,
-    ):
+    ) -> None:
         """
         Add a card to a FITS header. If a `header` is not specified, then :attr:`header`
         is modified.
@@ -901,7 +901,7 @@ class Observation(BodyXY):
     def _make_fits_kw(cls, keyword: str) -> str:
         return f'HIERARCH {cls.FITS_KEYWORD} {keyword}'
 
-    def add_header_metadata(self, header: fits.Header | None = None):
+    def add_header_metadata(self, header: fits.Header | None = None) -> None:
         """
         Add automatically generated metadata a FITS header. This is automatically
         called by :func:`save` so `add_header_metadata` does not normally need to be
@@ -1420,7 +1420,7 @@ class Observation(BodyXY):
         spline_smoothing: float,
         propagate_nan: bool,
         **map_kwargs: Unpack[MapKwargs],
-    ):
+    ) -> None:
         lons, lats, xx, yy, transformer, info = self.generate_map_coordinates(
             **map_kwargs
         )
