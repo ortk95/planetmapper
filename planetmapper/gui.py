@@ -33,7 +33,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from matplotlib.text import Text
 
-from . import base, common, data_loader, progress, utils
+from . import _assets, base, common, data_loader, progress, utils
 from .body import BasicBody, Body, NotFoundError
 from .body_xy import MapKwargs
 from .observation import Observation
@@ -557,6 +557,12 @@ class GUI:
 
         self.configure_style(self.root)
         self.root.title(self.get_observation().get_description(multiline=False))
+        try:
+            self.root.iconphoto(True, tk.PhotoImage(file=_assets.get_gui_icon_path()))
+        except tk.TclError:
+            # The icon is just cosmetic, so if there is an issue loading the appropriate
+            # asset, ignore it rather than crashing the GUI.
+            pass
 
         # On some systems (e.g. over SSH/X11), building the GUI can be a bit slow,
         # especially creating the matplotlib plot. Therefore, create the initial bare
