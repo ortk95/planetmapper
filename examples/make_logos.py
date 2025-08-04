@@ -142,7 +142,8 @@ def plot_logo_wide():
 
 
 def plot_readthedocs_logo():
-    rtd_color = [x / 255 for x in (41, 128, 185)]
+    # rtd_color = [x / 255 for x in (41, 128, 185)]
+    rtd_color = matplotlib.colors.to_rgb(OUTLINE_COLOR)
     w = 1280
     h = 480
     dpi = 250

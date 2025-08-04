@@ -62,8 +62,10 @@ html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
 # html_extra_path = ['google065a4d650d8ee82d.html']
 html_logo = 'images/logo_rtd_transparent.png'
+html_favicon = 'images/icon.png'
 html_theme_options = {
     'logo_only': True,
+    'style_nav_header_background': 'royalblue',
 }
 
 # Dynamically generate backplane documentation
