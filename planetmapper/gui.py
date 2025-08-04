@@ -33,7 +33,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from matplotlib.text import Text
 
-from . import base, common, data_loader, progress, utils
+from . import _assets, base, common, data_loader, progress, utils
 from .body import BasicBody, Body, NotFoundError
 from .body_xy import MapKwargs
 from .observation import Observation
@@ -548,6 +548,14 @@ class GUI:
         assert self._observation is not None
         return self._observation
 
+    def set_icon(self, root: tk.Tk) -> None:
+        try:
+            root.iconphoto(False, tk.PhotoImage(file=_assets.get_gui_icon_path()))
+        except tk.TclError:
+            # The icon is just cosmetic, so if there is an issue loading the appropriate
+            # asset, ignore it rather than crashing the GUI.
+            pass
+
     # GUI Building
     def build_gui(self) -> None:
         self.root = tk.Tk()
@@ -557,6 +565,7 @@ class GUI:
 
         self.configure_style(self.root)
         self.root.title(self.get_observation().get_description(multiline=False))
+        self.set_icon(self.root)
 
         # On some systems (e.g. over SSH/X11), building the GUI can be a bit slow,
         # especially creating the matplotlib plot. Therefore, create the initial bare
@@ -2053,6 +2062,7 @@ class Popup:
             # GUI hasn't been created yet, so create a new window
             self.window = tk.Tk()
             self.gui.configure_style(self.window)
+            self.gui.set_icon(self.window)
 
         self.window.protocol('WM_DELETE_WINDOW', self.close_window)
         if self.bind_escape:

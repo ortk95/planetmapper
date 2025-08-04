@@ -12,6 +12,7 @@
 !*.bib
 !docs/images/*.png
 !examples/**/*.fits
+!planetmapper/assets/*.png
 
 # Include testing data, but not temp testing outputs
 !tests/data/**/*.bsp
