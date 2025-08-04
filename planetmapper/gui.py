@@ -257,8 +257,8 @@ class GUI:
             self.decrease_radius: ['-', '_'],
             self.save_button: ['<Control-s>'],
             self.load_observation: ['<Control-o>'],
-            self.copy_machine_coord_values: ['<Control-c>'],
-            self.copy_formatted_coord_values: ['<Control-Shift-C>'],
+            self.copy_machine_coord_values: ['c'],
+            self.copy_formatted_coord_values: ['<Shift-C>'],
             self.display_header: ['<Control-h>'],
         }
         self.shortcuts_to_keep_in_entry = ['<Control-s>', '<Control-o>']
@@ -1561,14 +1561,14 @@ class GUI:
             pass
 
     def copy_formatted_coord_values(self) -> None:
-        self.copy_to_clipboard(self.coords_formatted_str)
+        if self.coords_formatted_str is not None:
+            self.copy_to_clipboard(self.coords_formatted_str)
 
     def copy_machine_coord_values(self) -> None:
-        self.copy_to_clipboard(self.coords_machine_str)
+        if self.coords_machine_str is not None:
+            self.copy_to_clipboard(self.coords_machine_str)
 
-    def copy_to_clipboard(self, s: str | None) -> None:
-        if s is None:
-            s = ''
+    def copy_to_clipboard(self, s: str) -> None:
         self.root.clipboard_clear()
         self.root.clipboard_append(s)
 
