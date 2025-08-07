@@ -126,11 +126,11 @@ If you use PlanetMapper in your research, please :ref:`cite the following paper
    https://doi.org/10.21105/joss.05728
 
 
-.. warning::
+.. caution::
 
-    This code is in active development, so may contain bugs! Any issues, bugs and
-    suggestions can be
-    `reported on GitHub <https://github.com/ortk95/planetmapper/issues/new>`__.
+    This code is provided "as is", so use at your own risk! Any issues, bugs and
+    suggestions can be `reported on GitHub
+    <https://github.com/ortk95/planetmapper/issues/new>`__.
 
 ..
     MIT License
