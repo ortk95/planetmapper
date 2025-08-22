@@ -17,7 +17,7 @@ from collections import defaultdict
 from tkinter import ttk
 from typing import Any, Callable, Literal, ParamSpec, TypedDict, TypeVar
 
-import matplotlib as mpl
+import matplotlib
 import matplotlib.cm
 import matplotlib.colors
 import matplotlib.markers
@@ -28,6 +28,7 @@ import spiceypy as spice
 from astropy.io import fits
 from matplotlib.artist import Artist
 from matplotlib.backend_bases import MouseButton, MouseEvent
+from matplotlib.backends import backend_registry  # type: ignore
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk  # type: ignore
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
@@ -137,12 +138,14 @@ X11_FONT_BUGRIX_TRANSLATIONS = str.maketrans(
 )
 
 
-_X11_ERROR_HELP_URL = (
-    'https://planetmapper.readthedocs.io/en/latest/common_issues.html#ssh-errors'
-)
+_COMMON_ISSUES_URL = 'https://planetmapper.readthedocs.io/en/latest/common_issues.html'
 _X11_ERROR_HELP_TEXT = (
     'Check you have X11 forwarding set up correctly - see the help page for more info:\n'
-    + _X11_ERROR_HELP_URL
+    f'{_COMMON_ISSUES_URL}#ssh-errors'
+)
+_BACKEND_ERROR_HELP_TEXT = (
+    'Try setting the backend with matplotlib.use(\'tkagg\') before creating any plots - see the help page for more info:\n'
+    f'{_COMMON_ISSUES_URL}#matplotlib-backend-error'
 )
 
 T = TypeVar('T')
@@ -162,6 +165,44 @@ def _add_help_note_to_x11_errors(fn: Callable[P, T]) -> Callable[P, T]:
             raise e
 
     return decorated
+
+
+def _maybe_switch_matplotlib_backend_to_tkagg() -> None:
+    """
+    If using a GUI backend, attempt to switch to the tkagg backend and raise a helpful
+    error if this fails.
+
+    This is to avoid possible later issues with multiple event loops running at the same
+    time (e.g. matplotlib's macosx backend loop, and our Tk loop) which can conflict and
+    cause a crash. By running this manual switch, we ensure that a catchable error is
+    raised, which we can annotate and re-raise, rather than a later crash which would be
+    more confusing.
+
+    See GitHub issues for more details & background:
+    - https://github.com/ortk95/planetmapper/issues/508
+    - https://github.com/matplotlib/matplotlib/issues/30388
+    """
+    backend = matplotlib.get_backend()
+    if backend.lower() == 'tkagg':
+        return  # Short circuit default case
+
+    # If the backend doesn't have a ui framework, there won't be an event loop running,
+    # so we should be safe to leave things untouched.
+    # https://github.com/ortk95/planetmapper/issues/508#issuecomment-3160304761
+    _, ui_framework = backend_registry.resolve_backend(backend)
+    if ui_framework is None:
+        return
+
+    # Attempt to switch to the tkagg backend, so we don't get conflicting event loops.
+    # This will either work (in which case we return cleanly) or raise an ImportError
+    # (if another event loop is already running) which we catch, annotate and re-raise.
+    # The alternative is continuing with the conflicting event loops, which will
+    # probably trigger a crash later on that we will be unable to catch.
+    try:
+        plt.switch_backend('tkagg')
+    except ImportError as e:
+        e.msg += '\n\n' + _BACKEND_ERROR_HELP_TEXT
+        raise e
 
 
 def _run_gui_from_cli(*args: str | None) -> None:
@@ -185,7 +226,8 @@ def run_gui(path: str | os.PathLike | None = None) -> None:
 
     This is the Python equivalent of running `planetmapper` from the command line. See
     :ref:`the user interface documentation <gui examples>` for more details about how to
-    use the GUI.
+    use the GUI. Note that running the PlanetMapper GUI may change the Matplotlib
+    backend to `tkagg` if it is not already set to a compatible backend.
 
     See also :func:`Observation.run_gui`.
 
@@ -213,14 +255,26 @@ class GUI:
     directly from an :class:`planetmapper.Observation` object using
     :func:`planetmapper.Observation.run_gui`, or by calling `planetmapper` from the
     command line.
+
+    Args:
+        allow_open: If `True`, the GUI will allow the user to open an observation file
+            using the "Open" button. If `False`, the GUI will hide the "Open" button.
+        check_matplotlib_backend: If `True`, the GUI will check the matplotlib backend
+            and switch to the `tkagg` backend if necessary. If `False`, the GUI will not
+            check the matplotlib backend.
     """
 
     MINIMUM_SIZE = (400, 650)
     DEFAULT_GEOMETRY = '800x650+15+15'
     CONTROLS_WIDTH = 260
 
-    def __init__(self, allow_open: bool = True) -> None:
+    def __init__(
+        self, *, allow_open: bool = True, check_matplotlib_backend: bool = True
+    ) -> None:
         self.allow_open = allow_open
+
+        if check_matplotlib_backend:
+            _maybe_switch_matplotlib_backend_to_tkagg()
 
         self._popups: list[Popup] = []
 
@@ -427,10 +481,10 @@ class GUI:
             return
         # Disable keyboard shortcuts
         context = {}
-        for k in mpl.rcParams:
+        for k in matplotlib.rcParams:
             if k.startswith('keymap.'):
                 context[k] = []
-        with mpl.rc_context(context):
+        with matplotlib.rc_context(context):
             self.build_gui()
             self.bind_keyboard()
             self.root.mainloop()
