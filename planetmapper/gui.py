@@ -29,8 +29,10 @@ from astropy.io import fits
 from matplotlib.artist import Artist
 from matplotlib.backend_bases import MouseButton, MouseEvent
 from matplotlib.backends import backend_registry  # type: ignore
-from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk  # type: ignore
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import (
+    FigureCanvasTkAgg,
+    NavigationToolbar2Tk,  # type: ignore
+)
 from matplotlib.figure import Figure
 from matplotlib.text import Text
 
@@ -2539,9 +2541,7 @@ class OpenObservation(Popup):
             return False
 
         try:
-            observation_kwargs['utc'] = float(
-                observation_kwargs['utc']
-            )  #  type: ignore
+            observation_kwargs['utc'] = float(observation_kwargs['utc'])  #  type: ignore
         except ValueError:
             try:
                 spice.str2et(observation_kwargs['utc'])  #  type: ignore
@@ -3163,11 +3163,13 @@ class SavingProgress(Popup):
             self.window.title('Cancelled saving files')
             if self.save_nav and not save_nav_done:
                 self.nav_widgets['message'].configure(
-                    text='Cancelled', foreground='red3'  # type: ignore
+                    text='Cancelled',  # type: ignore
+                    foreground='red3',  # type: ignore
                 )
             if self.save_map and not save_map_done:
                 self.map_widgets['message'].configure(
-                    text='Cancelled', foreground='red3'  # type: ignore
+                    text='Cancelled',  # type: ignore
+                    foreground='red3',  # type: ignore
                 )
         finally:
             self.is_running_save = False

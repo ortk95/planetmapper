@@ -974,15 +974,15 @@ class TestBodyXY(common_testing.BaseTestCase):
                 [100.0, -100.0, 100.0, -100.0, 100.0, nan],
             ]
         )
+        # fmt: off
         expected_interpolations: dict[str | int | tuple[int, int], list] = {
-            # fmt: off
             'nearest': [[nan, nan, 100.0, 100.0, -1.0, nan, nan, nan], [nan, nan, nan, 75.0, 999.0, 3.3, 3.3, nan], [nan, nan, nan, 0.0, 123.45, nan, 123.456789, nan], [nan, nan, nan, 3.0, 3.0, 0.1, nan, nan]],
             'linear': [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 61.591824124152424, 488.0893412811879, 4.181692402514696, nan, nan], [nan, nan, nan, 3.678385742930187, 94.03788871233297, nan, nan, nan], [nan, nan, nan, -25.28910210942658, -1.6502703714050462, nan, nan, nan]],
             'quadratic': [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 47.43961193970507, 780.1933190874719, -11.958641161828965, nan, nan], [nan, nan, nan, -40.33639788223132, 106.33548747800452, nan, nan, nan], [nan, nan, nan, -35.84554405305129, -19.35757229218872, nan, nan, nan]],
             'cubic': [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 38.17050096080083, 837.0682797065551, -40.810161294299334, nan, nan], [nan, nan, nan, -77.21287210436617, 103.88323214798433, nan, nan, nan], [nan, nan, nan, -29.994884067130222, -35.81550582449343, nan, nan, nan]],
             (1, 2): [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 48.82728713390978, 584.7164003757379, -0.9895987798646678, nan, nan], [nan, nan, nan, -0.625402661173368, 99.24054961575526, nan, nan, nan], [nan, nan, nan, -33.19407454333914, -8.380623602166663, nan, nan, nan]],
-            # fmt: on
         }
+        # fmt: on
         for interpolation, expected_img in expected_interpolations.items():
             with self.subTest(interpolation=interpolation):
                 self.assertArraysClose(
@@ -1050,12 +1050,12 @@ class TestBodyXY(common_testing.BaseTestCase):
                 )
 
         # NaN propagation
+        # fmt: off
         expected_propagations: dict[bool, list] = {
-            # fmt: off
             True: [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 61.591824124152424, 488.0893412811879, 4.181692402514696, nan, nan], [nan, nan, nan, 3.678385742930187, 94.03788871233297, nan, nan, nan], [nan, nan, nan, -25.28910210942658, -1.6502703714050462, nan, nan, nan]],
             False: [[nan, nan, 83.42502054006614, 61.410255547165704, 1.0972142916279704, nan, nan, nan], [nan, nan, nan, 61.591824124152424, 488.0893412811879, 4.181692402514696, 3.8032713799190443, nan], [nan, nan, nan, 3.678385742930187, 94.03788871233297, 35.721226497463014, 94.00305287602345, nan], [nan, nan, nan, -25.28910210942658, -1.6502703714050462, 4.265385156596395, nan, nan]],
-            # fmt: on
         }
+        # fmt: on
         for propagate_nan, expected_img in expected_propagations.items():
             with self.subTest(propagate_nan=propagate_nan):
                 self.assertArraysClose(
@@ -1069,14 +1069,14 @@ class TestBodyXY(common_testing.BaseTestCase):
                 )
 
         # Check smoothing
+        # fmt: off
         expected_smoothings: dict[float, list] = {
-            # fmt: off
             0: [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 61.591824124152424, 488.0893412811879, 4.181692402514696, nan, nan], [nan, nan, nan, 3.678385742930187, 94.03788871233297, nan, nan, nan], [nan, nan, nan, -25.28910210942658, -1.6502703714050462, nan, nan, nan]],
             1: [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 61.78601266274162, 487.8146612006081, 4.182606695966389, nan, nan], [nan, nan, nan, 3.7096818751834397, 94.00272821072134, nan, nan, nan], [nan, nan, nan, -25.261262121302103, -1.6266437631103958, nan, nan, nan]],
             2.345: [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 61.88924454749024, 487.6685543716773, 4.183100640730575, nan, nan], [nan, nan, nan, 3.726347429765339, 93.98407173080481, nan, nan, nan], [nan, nan, nan, -25.24645740659029, -1.614083382535183, nan, nan, nan]],
             67.89: [[nan, nan, nan, nan, nan, nan, nan, nan], [nan, nan, nan, 63.190326809626086, 485.8219836178685, 4.1898033877049246, nan, nan], [nan, nan, nan, 3.9380925063904084, 93.75102909782771, nan, nan, nan], [nan, nan, nan, -25.05957376720378, -1.4557553087461503, nan, nan, nan]],
-            # fmt: on
         }
+        # fmt: on
         for smoothing, expected_img in expected_smoothings.items():
             with self.subTest(smoothing=smoothing):
                 self.assertArraysClose(
