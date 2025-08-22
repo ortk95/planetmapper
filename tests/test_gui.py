@@ -16,7 +16,6 @@ class TestFunctions(common_testing.BaseTestCase):
 
     @patch('planetmapper.gui.GUI')
     def test_run_gui(self, mock_GUI: MagicMock):
-
         mock_gui_instance = MagicMock()
         mock_GUI.return_value = mock_gui_instance
 
@@ -108,7 +107,6 @@ class TestFunctions(common_testing.BaseTestCase):
 
 
 class TestGUI(common_testing.BaseTestCase):
-
     @patch('planetmapper.gui._maybe_switch_matplotlib_backend_to_tkagg')
     def test_init(self, mock_maybe_switch_backend: MagicMock):
         GUI()
