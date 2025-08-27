@@ -7,6 +7,6 @@ scipy<=1.15.3
 photutils<=2.2.0
 tqdm<=4.67.1
 pyproj<=3.7.1
-typing-extensions<=4.14.1
+typing-extensions<=4.15.0
 
 # Copy any changes here to the conda-forge recipe & setup.py
