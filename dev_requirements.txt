@@ -1,7 +1,7 @@
 # Development requirements (e.g. for run_checks.sh)
 ruff==0.12.10
 pyright==1.1.403
-pylint==3.3.7
+pylint==3.3.8
 coverage==7.10.1
 setuptools==80.9.0
 packaging==25.0
