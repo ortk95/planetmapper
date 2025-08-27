@@ -70,7 +70,6 @@ PlotKey = Literal[
     'marked_coord',
     '_',
 ]
-NON_ANIMATED_PLOT_KEYS: set[PlotKey] = {'image', '_'}
 ImageMode = Literal['sum', 'single', 'rgb']
 
 DEFAULT_PLOT_SETTINGS: dict[PlotKey, dict] = {
@@ -468,9 +467,6 @@ class GUI:
         ) = None
         self._wcs_entries_to_enable: list[NumericEntry | EnableableLabel] = []
 
-        self._plot_background = None
-        self._is_drawing_plot = False
-
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
 
@@ -650,19 +646,20 @@ class GUI:
         self.controls_frame.pack(side='left', fill='y')
 
         self.plot_frame = ttk.Frame(self.root)
+        self.plot_frame.pack(side='top', fill='both', expand=True)
         self.build_plot()
         self.build_help_hint()
         self.build_controls()
+        self.update_plot()
         self.root.update_idletasks()
 
         # Figure can sometimes be initialised with a slightly incorrect shape, so force
         # it to fit the plot frame nicely here once the frame has its final shape.
-        self.plot_frame.pack(side='top', fill='both', expand=True)
         self.fig.set_size_inches(
             self.canvas_frame.winfo_width() / self.fig.dpi,
             self.canvas_frame.winfo_height() / self.fig.dpi,
         )
-        self.update_plot_wireframe()
+        self.update_plot()
 
         loading_frame.destroy()
         self.gui_built = True
@@ -908,7 +905,7 @@ class GUI:
             'image',
             label='Observed image',
             hint='the image of your observation',
-            callbacks=[self.replot_image, self.canvas.draw_idle],
+            callbacks=[self.replot_image],
         )
         self.ui_callbacks[None].add(self.image_setting.update_tool_ui_state)
 
@@ -1604,7 +1601,7 @@ class GUI:
                 return
             self.set_click_location(x, y)
         self.replot_marked_coord()
-        self.update_plot_wireframe(print_coords=True)
+        self.update_plot(print_coords=True)
 
     def set_click_location(self, x: float, y: float) -> None:
         self.click_locations.append((x, y))
@@ -1641,81 +1638,14 @@ class GUI:
         self.root.clipboard_append(s)
 
     # Plotting
-    # Plot drawing can be slow with large images, so separate the (slow) drawing of the
-    # background image and the (fast) updating of the wireframe using blitting. This
-    # makes the UI much more responsive for big images (e.g. 5000x5000 px), as the
-    # background image rarely needs redrawing (only usually on window resizes of manual
-    # user adjustment of image settings), while the wireframe can be updated very
-    # frequently (e.g. several times per second while navigating).
-    # https://github.com/ortk95/planetmapper/issues/509
-
-    # pylint: disable-next=unused-argument
-    def on_plot_draw(self, event=None) -> None:
-        # Use delayed action with zero delay to help avoid unneeded repeated calls when
-        # we have multiple back-to-back draws from e.g. resizing the window. The
-        # delayed action system will only ever allow one _on_plot_draw call to be
-        # queued at any time.
-        self.add_delayed_action('on_plot_draw', 0, self._on_plot_draw)
-
-    def _on_plot_draw(self):
-        # https://matplotlib.org/stable/users/explain/animations/blitting.html
-        if self._is_drawing_plot:
-            return
-        self._is_drawing_plot = True
-        self.copy_plot_background()
-        self.draw_plot_animated_artists()
-        self.canvas.blit(self.fig.bbox)  #  type: ignore
-        self.canvas.flush_events()
-        self._is_drawing_plot = False
-
-    def copy_plot_background(self) -> None:
-        # This is called whenever the plot is fully drawn, e.g. when the window is
-        # resized, causing the bg to change. Temporarily set wireframe artists as
-        # animated, so that they aren't included in the plot background that is copied.
-        # At the end, use set_animated(False), as otherwise the artists briefly
-        # dissapear when e.g. the plot is resized or the bg is changed.
-        visible_artists: list[Artist] = []
-        for key, artists in self.plot_handles.items():
-            if key in NON_ANIMATED_PLOT_KEYS:
-                continue
-            for artist in artists:
-                if artist.get_visible():
-                    artist.set_animated(True)
-                    visible_artists.append(artist)
-        self.canvas.draw()
-        self._plot_background = self.canvas.copy_from_bbox(
-            self.fig.bbox  #  type: ignore
-        )
-        for artist in visible_artists:
-            artist.set_animated(False)
-
-    def get_plot_background(self):
-        if self._plot_background is None:
-            self.copy_plot_background()
-        return self._plot_background
-
-    def draw_plot_animated_artists(self) -> None:
-        # https://matplotlib.org/stable/users/explain/animations/blitting.html
-        self.canvas.restore_region(self.get_plot_background())
-        for key, artists in self.plot_handles.items():
-            if key in NON_ANIMATED_PLOT_KEYS:
-                continue
-            for artist in artists:
-                self.fig.draw_artist(artist)
-        self.canvas.blit(self.fig.bbox)  #  type: ignore
-        self.canvas.flush_events()
-
-    def update_plot_wireframe(self, print_coords: bool = False) -> None:
-        self.add_delayed_action('update_plot_wireframe', 0, self._update_plot_wireframe)
-        self.update_coords(print_coords=print_coords)
-
-    def _update_plot_wireframe(self):
+    def update_plot(self, print_coords: bool = False) -> None:
         self.get_observation().update_transform()
-        self.draw_plot_animated_artists()
+        self.canvas.draw()
+        self.update_coords(print_coords=print_coords)
 
     def update_only_image(self) -> None:
         self.replot_image()
-        self.canvas.draw_idle()
+        self.canvas.draw()
 
     def update_plot_transforms(self) -> None:
         # Use func to convert radec -> angular, then matplotlib transform to do
@@ -1762,8 +1692,6 @@ class GUI:
             'Customise plot in the "Settings" tab and click on the plot to get values in the "Coords" tab',
         )
 
-        self._draw_event_cid = self.canvas.mpl_connect('draw_event', self.on_plot_draw)
-
         self.replot_all()
         self.format_plot()
 
@@ -1771,8 +1699,7 @@ class GUI:
         self.update_plot_transforms()
         self.replot_all()
         self.format_plot()
-        self.update_only_image()
-        self.update_plot_wireframe()
+        self.update_plot()
 
     def replot_all(self) -> None:
         self.replot_image()
@@ -1817,8 +1744,6 @@ class GUI:
                 **self.plot_settings['image'],
             )
         )
-
-        self.on_plot_draw()
 
     def replot_limb(self):
         self.remove_artists('limb')
@@ -2044,7 +1969,7 @@ class GUI:
         for fn in all_callbacks:
             fn()
         if update_plot:
-            self.update_plot_wireframe()
+            self.update_plot()
 
     def set_value(self, key: SetterKey, value: float, update_plot: bool = True) -> None:
         for fn in self.setter_callbacks[key]:
@@ -2052,7 +1977,7 @@ class GUI:
         for fn in self.ui_callbacks[key]:
             fn()
         if update_plot:
-            self.update_plot_wireframe()
+            self.update_plot()
 
     def set_step(self, step: float) -> None:
         if not step > 0:
@@ -2387,10 +2312,7 @@ class OpenObservation(Popup):
             kwargs['utc'] = observation.utc
             kwargs['observer'] = observation.observer
 
-        _path = kwargs.get('path', '')
-        self.stringvars['path'] = tk.StringVar(
-            value='' if _path is None else str(_path)
-        )
+        self.stringvars['path'] = tk.StringVar(value=str(kwargs.get('path', '')))
         self.stringvars['target'] = tk.StringVar(value=str(kwargs.get('target', '')))
         self.stringvars['utc'] = tk.StringVar(value=str(kwargs.get('utc', '')))
         self.stringvars['observer'] = tk.StringVar(
@@ -3300,8 +3222,6 @@ class ArtistSetting(Popup, ABC):
         hint: str | None = None,
         callbacks: list[Callable[[], None]] | None = None,
         row: int | None = None,
-        *,
-        run_callbacks_on_checkbutton: bool = False,
     ) -> None:
         self.parent = parent
         self.key: PlotKey = key
@@ -3311,7 +3231,6 @@ class ArtistSetting(Popup, ABC):
             label = key
         self.label = label
         self.callbacks = callbacks
-        self.run_callbacks_on_checkbutton = run_callbacks_on_checkbutton
         if row is None:
             row = parent.grid_size()[1]
 
@@ -3343,9 +3262,7 @@ class ArtistSetting(Popup, ABC):
         for artist in self.gui.plot_handles[self.key]:
             artist.set_visible(enabled)
         self.gui.plot_settings[self.key]['visible'] = enabled
-        if self.run_callbacks_on_checkbutton:
-            self.run_callbacks()
-        self.gui.update_plot_wireframe()
+        self.gui.update_plot()
 
     def button_click(self) -> None:
         self.make_popup()
@@ -3374,7 +3291,7 @@ class ArtistSetting(Popup, ABC):
             # Replot artists
             for callback in self.callbacks:
                 callback()
-        self.gui.update_plot_wireframe()
+        self.gui.update_plot()
 
     def get_popup_id(self) -> str:
         return f'{self.__class__.__name__}:{self.key}'
@@ -3460,16 +3377,7 @@ class PlotImageSetting(ArtistSetting):
         callbacks: list[Callable[[], None]] | None = None,
         row: int | None = None,
     ):
-        super().__init__(
-            gui,
-            parent,
-            key,
-            label,
-            hint,
-            callbacks,
-            row,
-            run_callbacks_on_checkbutton=True,
-        )
+        super().__init__(gui, parent, key, label, hint, callbacks, row)
 
         row = parent.grid_size()[1]
 
@@ -4345,7 +4253,7 @@ class NumericEntry:
         row: int | None = None,
         add_callbacks: list[SetterKey] | None = None,
         entry_width: int = 10,
-        value_fmt: str = '.7g',
+        value_fmt: str = '.8g',
         default_callbacks_to_add: tuple[SetterKey, ...] = (
             'wcs_offset_ra',
             'wcs_offset_dec',
