@@ -1,4 +1,4 @@
-__version__ = '1.13.1'
+__version__ = '1.13.2'
 __author__ = 'Oliver King'
 __url__ = 'https://github.com/ortk95/planetmapper'
 __license__ = 'MIT'

@@ -17,7 +17,7 @@ from collections import defaultdict
 from tkinter import ttk
 from typing import Any, Callable, Literal, ParamSpec, TypedDict, TypeVar
 
-import matplotlib as mpl
+import matplotlib
 import matplotlib.cm
 import matplotlib.colors
 import matplotlib.markers
@@ -28,12 +28,15 @@ import spiceypy as spice
 from astropy.io import fits
 from matplotlib.artist import Artist
 from matplotlib.backend_bases import MouseButton, MouseEvent
-from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk  # type: ignore
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends import backend_registry  # type: ignore
+from matplotlib.backends.backend_tkagg import (
+    FigureCanvasTkAgg,
+    NavigationToolbar2Tk,  # type: ignore
+)
 from matplotlib.figure import Figure
 from matplotlib.text import Text
 
-from . import base, common, data_loader, progress, utils
+from . import _assets, base, common, data_loader, progress, utils
 from .body import BasicBody, Body, NotFoundError
 from .body_xy import MapKwargs
 from .observation import Observation
@@ -67,6 +70,7 @@ PlotKey = Literal[
     'marked_coord',
     '_',
 ]
+NON_ANIMATED_PLOT_KEYS: set[PlotKey] = {'image', '_'}
 ImageMode = Literal['sum', 'single', 'rgb']
 
 DEFAULT_PLOT_SETTINGS: dict[PlotKey, dict] = {
@@ -137,12 +141,14 @@ X11_FONT_BUGRIX_TRANSLATIONS = str.maketrans(
 )
 
 
-_X11_ERROR_HELP_URL = (
-    'https://planetmapper.readthedocs.io/en/latest/common_issues.html#ssh-errors'
-)
+_COMMON_ISSUES_URL = 'https://planetmapper.readthedocs.io/en/latest/common_issues.html'
 _X11_ERROR_HELP_TEXT = (
     'Check you have X11 forwarding set up correctly - see the help page for more info:\n'
-    + _X11_ERROR_HELP_URL
+    f'{_COMMON_ISSUES_URL}#ssh-errors'
+)
+_BACKEND_ERROR_HELP_TEXT = (
+    'Try setting the backend with matplotlib.use(\'tkagg\') before creating any plots - see the help page for more info:\n'
+    f'{_COMMON_ISSUES_URL}#matplotlib-backend-error'
 )
 
 T = TypeVar('T')
@@ -162,6 +168,44 @@ def _add_help_note_to_x11_errors(fn: Callable[P, T]) -> Callable[P, T]:
             raise e
 
     return decorated
+
+
+def _maybe_switch_matplotlib_backend_to_tkagg() -> None:
+    """
+    If using a GUI backend, attempt to switch to the tkagg backend and raise a helpful
+    error if this fails.
+
+    This is to avoid possible later issues with multiple event loops running at the same
+    time (e.g. matplotlib's macosx backend loop, and our Tk loop) which can conflict and
+    cause a crash. By running this manual switch, we ensure that a catchable error is
+    raised, which we can annotate and re-raise, rather than a later crash which would be
+    more confusing.
+
+    See GitHub issues for more details & background:
+    - https://github.com/ortk95/planetmapper/issues/508
+    - https://github.com/matplotlib/matplotlib/issues/30388
+    """
+    backend = matplotlib.get_backend()
+    if backend.lower() == 'tkagg':
+        return  # Short circuit default case
+
+    # If the backend doesn't have a ui framework, there won't be an event loop running,
+    # so we should be safe to leave things untouched.
+    # https://github.com/ortk95/planetmapper/issues/508#issuecomment-3160304761
+    _, ui_framework = backend_registry.resolve_backend(backend)
+    if ui_framework is None:
+        return
+
+    # Attempt to switch to the tkagg backend, so we don't get conflicting event loops.
+    # This will either work (in which case we return cleanly) or raise an ImportError
+    # (if another event loop is already running) which we catch, annotate and re-raise.
+    # The alternative is continuing with the conflicting event loops, which will
+    # probably trigger a crash later on that we will be unable to catch.
+    try:
+        plt.switch_backend('tkagg')
+    except ImportError as e:
+        e.msg += '\n\n' + _BACKEND_ERROR_HELP_TEXT
+        raise e
 
 
 def _run_gui_from_cli(*args: str | None) -> None:
@@ -185,7 +229,8 @@ def run_gui(path: str | os.PathLike | None = None) -> None:
 
     This is the Python equivalent of running `planetmapper` from the command line. See
     :ref:`the user interface documentation <gui examples>` for more details about how to
-    use the GUI.
+    use the GUI. Note that running the PlanetMapper GUI may change the Matplotlib
+    backend to `tkagg` if it is not already set to a compatible backend.
 
     See also :func:`Observation.run_gui`.
 
@@ -213,14 +258,26 @@ class GUI:
     directly from an :class:`planetmapper.Observation` object using
     :func:`planetmapper.Observation.run_gui`, or by calling `planetmapper` from the
     command line.
+
+    Args:
+        allow_open: If `True`, the GUI will allow the user to open an observation file
+            using the "Open" button. If `False`, the GUI will hide the "Open" button.
+        check_matplotlib_backend: If `True`, the GUI will check the matplotlib backend
+            and switch to the `tkagg` backend if necessary. If `False`, the GUI will not
+            check the matplotlib backend.
     """
 
     MINIMUM_SIZE = (400, 650)
     DEFAULT_GEOMETRY = '800x650+15+15'
     CONTROLS_WIDTH = 260
 
-    def __init__(self, allow_open: bool = True) -> None:
+    def __init__(
+        self, *, allow_open: bool = True, check_matplotlib_backend: bool = True
+    ) -> None:
         self.allow_open = allow_open
+
+        if check_matplotlib_backend:
+            _maybe_switch_matplotlib_backend_to_tkagg()
 
         self._popups: list[Popup] = []
 
@@ -257,8 +314,8 @@ class GUI:
             self.decrease_radius: ['-', '_'],
             self.save_button: ['<Control-s>'],
             self.load_observation: ['<Control-o>'],
-            self.copy_machine_coord_values: ['<Control-c>'],
-            self.copy_formatted_coord_values: ['<Control-Shift-C>'],
+            self.copy_machine_coord_values: ['c'],
+            self.copy_formatted_coord_values: ['<Shift-C>'],
             self.display_header: ['<Control-h>'],
         }
         self.shortcuts_to_keep_in_entry = ['<Control-s>', '<Control-o>']
@@ -411,6 +468,9 @@ class GUI:
         ) = None
         self._wcs_entries_to_enable: list[NumericEntry | EnableableLabel] = []
 
+        self._plot_background = None
+        self._is_drawing_plot = False
+
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
 
@@ -427,10 +487,10 @@ class GUI:
             return
         # Disable keyboard shortcuts
         context = {}
-        for k in mpl.rcParams:
+        for k in matplotlib.rcParams:
             if k.startswith('keymap.'):
                 context[k] = []
-        with mpl.rc_context(context):
+        with matplotlib.rc_context(context):
             self.build_gui()
             self.bind_keyboard()
             self.root.mainloop()
@@ -548,6 +608,14 @@ class GUI:
         assert self._observation is not None
         return self._observation
 
+    def set_icon(self, root: tk.Tk) -> None:
+        try:
+            root.iconphoto(False, tk.PhotoImage(file=_assets.get_gui_icon_path()))
+        except tk.TclError:
+            # The icon is just cosmetic, so if there is an issue loading the appropriate
+            # asset, ignore it rather than crashing the GUI.
+            pass
+
     # GUI Building
     def build_gui(self) -> None:
         self.root = tk.Tk()
@@ -557,6 +625,7 @@ class GUI:
 
         self.configure_style(self.root)
         self.root.title(self.get_observation().get_description(multiline=False))
+        self.set_icon(self.root)
 
         # On some systems (e.g. over SSH/X11), building the GUI can be a bit slow,
         # especially creating the matplotlib plot. Therefore, create the initial bare
@@ -581,20 +650,19 @@ class GUI:
         self.controls_frame.pack(side='left', fill='y')
 
         self.plot_frame = ttk.Frame(self.root)
-        self.plot_frame.pack(side='top', fill='both', expand=True)
         self.build_plot()
         self.build_help_hint()
         self.build_controls()
-        self.update_plot()
         self.root.update_idletasks()
 
         # Figure can sometimes be initialised with a slightly incorrect shape, so force
         # it to fit the plot frame nicely here once the frame has its final shape.
+        self.plot_frame.pack(side='top', fill='both', expand=True)
         self.fig.set_size_inches(
             self.canvas_frame.winfo_width() / self.fig.dpi,
             self.canvas_frame.winfo_height() / self.fig.dpi,
         )
-        self.update_plot()
+        self.update_plot_wireframe()
 
         loading_frame.destroy()
         self.gui_built = True
@@ -840,7 +908,7 @@ class GUI:
             'image',
             label='Observed image',
             hint='the image of your observation',
-            callbacks=[self.replot_image],
+            callbacks=[self.replot_image, self.canvas.draw_idle],
         )
         self.ui_callbacks[None].add(self.image_setting.update_tool_ui_state)
 
@@ -1536,7 +1604,7 @@ class GUI:
                 return
             self.set_click_location(x, y)
         self.replot_marked_coord()
-        self.update_plot(print_coords=True)
+        self.update_plot_wireframe(print_coords=True)
 
     def set_click_location(self, x: float, y: float) -> None:
         self.click_locations.append((x, y))
@@ -1561,26 +1629,93 @@ class GUI:
             pass
 
     def copy_formatted_coord_values(self) -> None:
-        self.copy_to_clipboard(self.coords_formatted_str)
+        if self.coords_formatted_str is not None:
+            self.copy_to_clipboard(self.coords_formatted_str)
 
     def copy_machine_coord_values(self) -> None:
-        self.copy_to_clipboard(self.coords_machine_str)
+        if self.coords_machine_str is not None:
+            self.copy_to_clipboard(self.coords_machine_str)
 
-    def copy_to_clipboard(self, s: str | None) -> None:
-        if s is None:
-            s = ''
+    def copy_to_clipboard(self, s: str) -> None:
         self.root.clipboard_clear()
         self.root.clipboard_append(s)
 
     # Plotting
-    def update_plot(self, print_coords: bool = False) -> None:
-        self.get_observation().update_transform()
+    # Plot drawing can be slow with large images, so separate the (slow) drawing of the
+    # background image and the (fast) updating of the wireframe using blitting. This
+    # makes the UI much more responsive for big images (e.g. 5000x5000 px), as the
+    # background image rarely needs redrawing (only usually on window resizes of manual
+    # user adjustment of image settings), while the wireframe can be updated very
+    # frequently (e.g. several times per second while navigating).
+    # https://github.com/ortk95/planetmapper/issues/509
+
+    # pylint: disable-next=unused-argument
+    def on_plot_draw(self, event=None) -> None:
+        # Use delayed action with zero delay to help avoid unneeded repeated calls when
+        # we have multiple back-to-back draws from e.g. resizing the window. The
+        # delayed action system will only ever allow one _on_plot_draw call to be
+        # queued at any time.
+        self.add_delayed_action('on_plot_draw', 0, self._on_plot_draw)
+
+    def _on_plot_draw(self):
+        # https://matplotlib.org/stable/users/explain/animations/blitting.html
+        if self._is_drawing_plot:
+            return
+        self._is_drawing_plot = True
+        self.copy_plot_background()
+        self.draw_plot_animated_artists()
+        self.canvas.blit(self.fig.bbox)  #  type: ignore
+        self.canvas.flush_events()
+        self._is_drawing_plot = False
+
+    def copy_plot_background(self) -> None:
+        # This is called whenever the plot is fully drawn, e.g. when the window is
+        # resized, causing the bg to change. Temporarily set wireframe artists as
+        # animated, so that they aren't included in the plot background that is copied.
+        # At the end, use set_animated(False), as otherwise the artists briefly
+        # dissapear when e.g. the plot is resized or the bg is changed.
+        visible_artists: list[Artist] = []
+        for key, artists in self.plot_handles.items():
+            if key in NON_ANIMATED_PLOT_KEYS:
+                continue
+            for artist in artists:
+                if artist.get_visible():
+                    artist.set_animated(True)
+                    visible_artists.append(artist)
         self.canvas.draw()
+        self._plot_background = self.canvas.copy_from_bbox(
+            self.fig.bbox  #  type: ignore
+        )
+        for artist in visible_artists:
+            artist.set_animated(False)
+
+    def get_plot_background(self):
+        if self._plot_background is None:
+            self.copy_plot_background()
+        return self._plot_background
+
+    def draw_plot_animated_artists(self) -> None:
+        # https://matplotlib.org/stable/users/explain/animations/blitting.html
+        self.canvas.restore_region(self.get_plot_background())
+        for key, artists in self.plot_handles.items():
+            if key in NON_ANIMATED_PLOT_KEYS:
+                continue
+            for artist in artists:
+                self.fig.draw_artist(artist)
+        self.canvas.blit(self.fig.bbox)  #  type: ignore
+        self.canvas.flush_events()
+
+    def update_plot_wireframe(self, print_coords: bool = False) -> None:
+        self.add_delayed_action('update_plot_wireframe', 0, self._update_plot_wireframe)
         self.update_coords(print_coords=print_coords)
+
+    def _update_plot_wireframe(self):
+        self.get_observation().update_transform()
+        self.draw_plot_animated_artists()
 
     def update_only_image(self) -> None:
         self.replot_image()
-        self.canvas.draw()
+        self.canvas.draw_idle()
 
     def update_plot_transforms(self) -> None:
         # Use func to convert radec -> angular, then matplotlib transform to do
@@ -1627,6 +1762,8 @@ class GUI:
             'Customise plot in the "Settings" tab and click on the plot to get values in the "Coords" tab',
         )
 
+        self._draw_event_cid = self.canvas.mpl_connect('draw_event', self.on_plot_draw)
+
         self.replot_all()
         self.format_plot()
 
@@ -1634,7 +1771,8 @@ class GUI:
         self.update_plot_transforms()
         self.replot_all()
         self.format_plot()
-        self.update_plot()
+        self.update_only_image()
+        self.update_plot_wireframe()
 
     def replot_all(self) -> None:
         self.replot_image()
@@ -1679,6 +1817,8 @@ class GUI:
                 **self.plot_settings['image'],
             )
         )
+
+        self.on_plot_draw()
 
     def replot_limb(self):
         self.remove_artists('limb')
@@ -1904,7 +2044,7 @@ class GUI:
         for fn in all_callbacks:
             fn()
         if update_plot:
-            self.update_plot()
+            self.update_plot_wireframe()
 
     def set_value(self, key: SetterKey, value: float, update_plot: bool = True) -> None:
         for fn in self.setter_callbacks[key]:
@@ -1912,7 +2052,7 @@ class GUI:
         for fn in self.ui_callbacks[key]:
             fn()
         if update_plot:
-            self.update_plot()
+            self.update_plot_wireframe()
 
     def set_step(self, step: float) -> None:
         if not step > 0:
@@ -2053,6 +2193,7 @@ class Popup:
             # GUI hasn't been created yet, so create a new window
             self.window = tk.Tk()
             self.gui.configure_style(self.window)
+            self.gui.set_icon(self.window)
 
         self.window.protocol('WM_DELETE_WINDOW', self.close_window)
         if self.bind_escape:
@@ -2246,7 +2387,10 @@ class OpenObservation(Popup):
             kwargs['utc'] = observation.utc
             kwargs['observer'] = observation.observer
 
-        self.stringvars['path'] = tk.StringVar(value=str(kwargs.get('path', '')))
+        _path = kwargs.get('path', '')
+        self.stringvars['path'] = tk.StringVar(
+            value='' if _path is None else str(_path)
+        )
         self.stringvars['target'] = tk.StringVar(value=str(kwargs.get('target', '')))
         self.stringvars['utc'] = tk.StringVar(value=str(kwargs.get('utc', '')))
         self.stringvars['observer'] = tk.StringVar(
@@ -2397,9 +2541,7 @@ class OpenObservation(Popup):
             return False
 
         try:
-            observation_kwargs['utc'] = float(
-                observation_kwargs['utc']
-            )  #  type: ignore
+            observation_kwargs['utc'] = float(observation_kwargs['utc'])  #  type: ignore
         except ValueError:
             try:
                 spice.str2et(observation_kwargs['utc'])  #  type: ignore
@@ -3021,11 +3163,13 @@ class SavingProgress(Popup):
             self.window.title('Cancelled saving files')
             if self.save_nav and not save_nav_done:
                 self.nav_widgets['message'].configure(
-                    text='Cancelled', foreground='red3'  # type: ignore
+                    text='Cancelled',  # type: ignore
+                    foreground='red3',  # type: ignore
                 )
             if self.save_map and not save_map_done:
                 self.map_widgets['message'].configure(
-                    text='Cancelled', foreground='red3'  # type: ignore
+                    text='Cancelled',  # type: ignore
+                    foreground='red3',  # type: ignore
                 )
         finally:
             self.is_running_save = False
@@ -3156,6 +3300,8 @@ class ArtistSetting(Popup, ABC):
         hint: str | None = None,
         callbacks: list[Callable[[], None]] | None = None,
         row: int | None = None,
+        *,
+        run_callbacks_on_checkbutton: bool = False,
     ) -> None:
         self.parent = parent
         self.key: PlotKey = key
@@ -3165,6 +3311,7 @@ class ArtistSetting(Popup, ABC):
             label = key
         self.label = label
         self.callbacks = callbacks
+        self.run_callbacks_on_checkbutton = run_callbacks_on_checkbutton
         if row is None:
             row = parent.grid_size()[1]
 
@@ -3196,7 +3343,9 @@ class ArtistSetting(Popup, ABC):
         for artist in self.gui.plot_handles[self.key]:
             artist.set_visible(enabled)
         self.gui.plot_settings[self.key]['visible'] = enabled
-        self.gui.update_plot()
+        if self.run_callbacks_on_checkbutton:
+            self.run_callbacks()
+        self.gui.update_plot_wireframe()
 
     def button_click(self) -> None:
         self.make_popup()
@@ -3225,7 +3374,7 @@ class ArtistSetting(Popup, ABC):
             # Replot artists
             for callback in self.callbacks:
                 callback()
-        self.gui.update_plot()
+        self.gui.update_plot_wireframe()
 
     def get_popup_id(self) -> str:
         return f'{self.__class__.__name__}:{self.key}'
@@ -3311,7 +3460,16 @@ class PlotImageSetting(ArtistSetting):
         callbacks: list[Callable[[], None]] | None = None,
         row: int | None = None,
     ):
-        super().__init__(gui, parent, key, label, hint, callbacks, row)
+        super().__init__(
+            gui,
+            parent,
+            key,
+            label,
+            hint,
+            callbacks,
+            row,
+            run_callbacks_on_checkbutton=True,
+        )
 
         row = parent.grid_size()[1]
 
@@ -4187,7 +4345,7 @@ class NumericEntry:
         row: int | None = None,
         add_callbacks: list[SetterKey] | None = None,
         entry_width: int = 10,
-        value_fmt: str = '.8g',
+        value_fmt: str = '.7g',
         default_callbacks_to_add: tuple[SetterKey, ...] = (
             'wcs_offset_ra',
             'wcs_offset_dec',

@@ -1149,8 +1149,10 @@ class TestObservation(common_testing.BaseTestCase):
                         else:
                             self.assertEqual(value, value_ref)
 
+    @patch('planetmapper.gui._maybe_switch_matplotlib_backend_to_tkagg')
     @patch('planetmapper.gui.GUI.run')
-    def test_run_gui(self, mock_run: MagicMock):
+    def test_run_gui(self, mock_run: MagicMock, mock_maybe_switch_backend: MagicMock):
         out = self.observation.run_gui()
         self.assertEqual(out, [])
         mock_run.assert_called_once()
+        mock_maybe_switch_backend.assert_called_once()

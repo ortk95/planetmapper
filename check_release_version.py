@@ -3,6 +3,7 @@
 """
 Check GitHub tag version is equal to planetmapper.__version__.
 """
+
 import os
 import sys
 
