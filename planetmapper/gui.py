@@ -28,8 +28,10 @@ import spiceypy as spice
 from astropy.io import fits
 from matplotlib.artist import Artist
 from matplotlib.backend_bases import MouseButton, MouseEvent
-from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk  # type: ignore
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import (
+    FigureCanvasTkAgg,
+    NavigationToolbar2Tk,  # type: ignore
+)
 from matplotlib.figure import Figure
 from matplotlib.text import Text
 
@@ -1599,17 +1601,15 @@ class GUI:
         # we have multiple back-to-back draws from e.g. resizing the window. The
         # delayed action system will only ever allow one _on_plot_draw call to be
         # queued at any time.
-        self.add_delayed_action('on_plot_draw', 0, self._on_plot_draw)
+        self.add_delayed_action('on_plot_draw', 1, self._on_plot_draw)
 
-    def _on_plot_draw(self):
+    def _on_plot_draw(self) -> None:
         # https://matplotlib.org/stable/users/explain/animations/blitting.html
         if self._is_drawing_plot:
             return
         self._is_drawing_plot = True
         self.copy_plot_background()
         self.draw_plot_animated_artists()
-        self.canvas.blit(self.fig.bbox)  #  type: ignore
-        self.canvas.flush_events()
         self._is_drawing_plot = False
 
     def copy_plot_background(self) -> None:
@@ -1626,27 +1626,29 @@ class GUI:
                 if artist.get_visible():
                     artist.set_animated(True)
                     visible_artists.append(artist)
+        self.canvas.flush_events()
         self.canvas.draw()
-        self._plot_background = self.canvas.copy_from_bbox(
-            self.fig.bbox  #  type: ignore
-        )
+        bbox = self.fig.bbox  # type: ignore
+        bg = self.canvas.copy_from_bbox(bbox)
+        self._plot_background = bg, bbox
         for artist in visible_artists:
             artist.set_animated(False)
 
-    def get_plot_background(self):
-        if self._plot_background is None:
+    def get_plot_background(self, bbox) -> tuple:
+        if self._plot_background is None or self._plot_background[1] != bbox:  # type: ignore
             self.copy_plot_background()
-        return self._plot_background
+        return self._plot_background  #  type: ignore
 
     def draw_plot_animated_artists(self) -> None:
         # https://matplotlib.org/stable/users/explain/animations/blitting.html
-        self.canvas.restore_region(self.get_plot_background())
+        bg, bbox = self.get_plot_background(self.fig.bbox)  #  type: ignore
+        self.canvas.restore_region(bg, bbox)
         for key, artists in self.plot_handles.items():
             if key in NON_ANIMATED_PLOT_KEYS:
                 continue
             for artist in artists:
                 self.fig.draw_artist(artist)
-        self.canvas.blit(self.fig.bbox)  #  type: ignore
+        self.canvas.blit(bbox)  #  type: ignore
         self.canvas.flush_events()
 
     def update_plot_wireframe(self, print_coords: bool = False) -> None:
@@ -1710,6 +1712,7 @@ class GUI:
 
         self.replot_all()
         self.format_plot()
+        self._on_plot_draw()
 
     def rebuild_plot(self) -> None:
         self.update_plot_transforms()
@@ -2485,9 +2488,7 @@ class OpenObservation(Popup):
             return False
 
         try:
-            observation_kwargs['utc'] = float(
-                observation_kwargs['utc']
-            )  #  type: ignore
+            observation_kwargs['utc'] = float(observation_kwargs['utc'])  #  type: ignore
         except ValueError:
             try:
                 spice.str2et(observation_kwargs['utc'])  #  type: ignore
@@ -3109,11 +3110,13 @@ class SavingProgress(Popup):
             self.window.title('Cancelled saving files')
             if self.save_nav and not save_nav_done:
                 self.nav_widgets['message'].configure(
-                    text='Cancelled', foreground='red3'  # type: ignore
+                    text='Cancelled',
+                    foreground='red3',  # type: ignore
                 )
             if self.save_map and not save_map_done:
                 self.map_widgets['message'].configure(
-                    text='Cancelled', foreground='red3'  # type: ignore
+                    text='Cancelled',
+                    foreground='red3',  # type: ignore
                 )
         finally:
             self.is_running_save = False
