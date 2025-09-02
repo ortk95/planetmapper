@@ -105,6 +105,7 @@ RA/Dec wireframe plots appear split into two halves
 ===================================================
 If the target body is near RA=0°, the `wireframe plot may appear to be split into two halves <https://github.com/ortk95/planetmapper/issues/326#issuecomment-1934275816>`_, due to part of the body having RA values near 0° and part having RA values near 360°. This can be fixed by using `body.plot_wireframe_radec(use_shifted_meridian=True)`, which will plot the wireframe with RA coordinates between -180° and 180°, rather than the default of 0° to 360°.
 
+.. _ssh errors:
 
 SSH Errors
 ==========
@@ -131,3 +132,27 @@ As a temporary workaround, you can set the `PLANETMAPPER_USE_X11_FONT_BUGFIX` en
     export PLANETMAPPER_USE_X11_FONT_BUGFIX=true
 
 This tells the PlanetMapper user interface to replace certain characters with ASCII equivalents (e.g. `↑` is replaced with `^`) which seems to prevent the use of the fonts which cause XQuartz to crash. Note that this will make the user interface slightly more ugly, but should not affect functionality. If you are still having issues after trying this workaround, you can `add a comment to the GitHub issue <https://github.com/ortk95/planetmapper/issues/145>`_.
+
+
+.. _matplotlib backend error:
+
+Matplotlib backend `ImportError` when running the graphical user interface
+==========================================================================
+If you get an error like `ImportError: Cannot load backend 'tkagg' which requires the 'tk' interactive framework, as 'macosx' is currently running`, then Matplotlib is choosing a configuration that is incompatible with the PlanetMapper Graphical User Interface (GUI).
+
+To fix this, you can manually set the `Matplotlib backend <https://matplotlib.org/stable/users/explain/figure/backends.html#selecting-a-backend>`_ to `tkagg` before creating any plots. This will ensure that Matplotlib uses a backend compatible with the PlanetMapper GUI, preventing any conflicts. You can do this by adding `matplotlib.use('tkagg')` to the top of your script, before creating any plots: ::
+
+    import matplotlib
+    import matplotlib.pyplot as plt
+    import planetmapper
+
+    matplotlib.use('tkagg')
+
+    observation = planetmapper.Observation('data.fits')
+    plt.imshow(observation.data[0])
+
+    observation.run_gui()
+
+See the `Matplotlib documentation <https://matplotlib.org/stable/users/explain/figure/backends.html#selecting-a-backend>`_ for more information on how to set the backend.
+
+This issue occurs if your system defaults to a Matplotlib backend incompatible with the Tk-based PlanetMapper GUI and you create any Matplotlib plots before running the GUI in the same script. For example, this can happen on macOS systems, where the default `macosx` Matplotlib backend is not compatible with Tk. Normally, Matplotlib automatically attempts to choose a backend compatible with other libraries (like PlanetMapper), but Matplotlib's automatic selection is less reliable when creating plots then subsequently running other GUI code, so manually setting the backend with `matplotlib.use('tkagg')` can be necessary to ensure compatibility. See `this issue on the Matplotlib GitHub <https://github.com/matplotlib/matplotlib/issues/30388>`_ for more details.

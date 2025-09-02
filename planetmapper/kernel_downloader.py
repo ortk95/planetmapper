@@ -24,6 +24,7 @@ These functions can be used to download a set of URLS. For example: ::
     )
 
 """
+
 import os
 import urllib.parse
 import urllib.request
@@ -81,7 +82,7 @@ def download_kernels_from_webpage(index_url: str, **kwargs) -> None:
     urls = get_kernel_paths_from_webpage(index_url)
     print(f'{len(urls)} to download from {index_url}')
     for idx, url in enumerate(urls):
-        download_kernel(url, note=f'[{idx+1}/{len(urls)}] ', **kwargs)
+        download_kernel(url, note=f'[{idx + 1}/{len(urls)}] ', **kwargs)
     print(f'All kernels downloaded from {index_url}')
     print()
 

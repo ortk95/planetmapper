@@ -16,11 +16,11 @@ updates:
         patterns:
           - "*"
         exclude-patterns:
-          - "black"
-          - "isort"
+          - "ruff"
           - "pyright"
           - "pylint"
           - "coverage"
+          - "setuptools"
+          - "packaging"
           - "sphinx"
           - "sphinx_rtd_theme"
-          - "setuptools"

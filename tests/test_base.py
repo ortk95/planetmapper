@@ -273,7 +273,8 @@ class TestSpiceBase(common_testing.BaseTestCase):
             with self.subTest(v):
                 self.assertAlmostEqual(self.obj.vector_magnitude(v), magnitude)
                 self.assertAlmostEqual(
-                    self.obj.vector_magnitude(v), np.linalg.norm(v)  # type: ignore
+                    self.obj.vector_magnitude(v),
+                    np.linalg.norm(v),  # type: ignore
                 )
 
         self.assertTrue(np.isnan(self.obj.vector_magnitude(np.array([1, np.nan]))))

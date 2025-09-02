@@ -22,7 +22,7 @@ Each individual pull request should be limited to a single new feature or bug fi
 Pull requests should generally target the `dev` branch, which is where new features are developed.
 
 Contributions must pass all checks before they will be merged, and conform to the the style of existing code. You can run the checks locally using `run_checks.sh` to make sure that:
-- All code is correctly formatted using `black` and `isort`
+- All code is correctly formatted using `ruff format`
 - The code passes `pylint` and `pyright` checks
 - The code passes all tests (on your OS & Python version)
 

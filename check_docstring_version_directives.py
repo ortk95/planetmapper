@@ -8,6 +8,7 @@ when it is written, even if the next version number is currently unknown. This s
 will then catch the missing version directive and remind the developer to update the
 version directive before releasing a new version.
 """
+
 import sys
 from pathlib import Path
 from typing import Sequence

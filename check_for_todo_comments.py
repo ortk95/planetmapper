@@ -6,6 +6,7 @@ Check Python files for TODO comments.
 This checks for TODO comments in the planetmapper source code and tests, then prints
 the found comments.
 """
+
 import sys
 from pathlib import Path
 from typing import Sequence

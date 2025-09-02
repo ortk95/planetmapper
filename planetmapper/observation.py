@@ -1571,7 +1571,8 @@ class Observation(BodyXY):
 
 
         See the :ref:`graphical user interface tutorial <gui examples>` for more details
-        about the GUI.
+        about the GUI. Note that running the PlanetMapper GUI may change the Matplotlib
+        backend to `tkagg` if it is not already set to a compatible backend.
 
         .. note ::
 

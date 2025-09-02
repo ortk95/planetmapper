@@ -5,6 +5,7 @@ Create various logos for PlanetMapper
 
 Run download_spice_kernels() to download the kernels required to generate the logos.
 """
+
 import os
 import sys
 
