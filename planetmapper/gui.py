@@ -70,6 +70,7 @@ PlotKey = Literal[
     'marked_coord',
     '_',
 ]
+NON_ANIMATED_PLOT_KEYS: set[PlotKey] = {'image', '_'}
 ImageMode = Literal['sum', 'single', 'rgb']
 
 DEFAULT_PLOT_SETTINGS: dict[PlotKey, dict] = {
@@ -467,6 +468,9 @@ class GUI:
         ) = None
         self._wcs_entries_to_enable: list[NumericEntry | EnableableLabel] = []
 
+        self._plot_background: tuple | None = None
+        self._is_drawing_plot: bool = False
+
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
 
@@ -650,7 +654,6 @@ class GUI:
         self.build_plot()
         self.build_help_hint()
         self.build_controls()
-        self.update_plot()
         self.root.update_idletasks()
 
         # Figure can sometimes be initialised with a slightly incorrect shape, so force
@@ -659,13 +662,17 @@ class GUI:
             self.canvas_frame.winfo_width() / self.fig.dpi,
             self.canvas_frame.winfo_height() / self.fig.dpi,
         )
-        self.update_plot()
+        self.update_plot_wireframe()
+        self.on_plot_draw()
 
         loading_frame.destroy()
         self.gui_built = True
 
     def quit(self) -> None:
-        plt.close(self.fig)
+        try:
+            plt.close(self.fig)
+        except AttributeError:
+            pass
         self.root.destroy()
         self.gui_built = False
 
@@ -905,7 +912,7 @@ class GUI:
             'image',
             label='Observed image',
             hint='the image of your observation',
-            callbacks=[self.replot_image],
+            callbacks=[self.replot_image, self.canvas.draw_idle],
         )
         self.ui_callbacks[None].add(self.image_setting.update_tool_ui_state)
 
@@ -1601,7 +1608,7 @@ class GUI:
                 return
             self.set_click_location(x, y)
         self.replot_marked_coord()
-        self.update_plot(print_coords=True)
+        self.update_plot_wireframe(print_coords=True)
 
     def set_click_location(self, x: float, y: float) -> None:
         self.click_locations.append((x, y))
@@ -1677,22 +1684,29 @@ class GUI:
                 if artist.get_visible():
                     artist.set_animated(True)
                     visible_artists.append(artist)
-        self.canvas.flush_events()
         self.canvas.draw()
-        bbox = self.fig.bbox  # type: ignore
+        # Save a frozen instance of the bbox at this time for comparison against the
+        # (mutable) value of fig.bbox whenever we get the background. This isn't
+        # normally be needed, but can occasionally get a race condition where the call
+        # to on_plot_draw doesn't use the very latest bbox size, so this adds some
+        # extra safety, especially on laggy systems (e.g. over X11).
+        bbox = self.fig.bbox.frozen()  # type: ignore
         bg = self.canvas.copy_from_bbox(bbox)
         self._plot_background = bg, bbox
         for artist in visible_artists:
             artist.set_animated(False)
 
-    def get_plot_background(self, bbox) -> tuple:
-        if self._plot_background is None or self._plot_background[1] != bbox:  # type: ignore
+    def get_plot_background(self) -> tuple:
+        if (
+            self._plot_background is None
+            or self._plot_background[1].bounds != self.fig.bbox.bounds  # type: ignore
+        ):
             self.copy_plot_background()
         return self._plot_background  #  type: ignore
 
     def draw_plot_animated_artists(self) -> None:
         # https://matplotlib.org/stable/users/explain/animations/blitting.html
-        bg, bbox = self.get_plot_background(self.fig.bbox)  #  type: ignore
+        bg, bbox = self.get_plot_background()
         self.canvas.restore_region(bg, bbox)
         for key, artists in self.plot_handles.items():
             if key in NON_ANIMATED_PLOT_KEYS:
@@ -1706,9 +1720,13 @@ class GUI:
         self.add_delayed_action('update_plot_wireframe', 0, self._update_plot_wireframe)
         self.update_coords(print_coords=print_coords)
 
+    def _update_plot_wireframe(self):
+        self.get_observation().update_transform()
+        self.draw_plot_animated_artists()
+
     def update_only_image(self) -> None:
         self.replot_image()
-        self.canvas.draw()
+        self.canvas.draw_idle()
 
     def update_plot_transforms(self) -> None:
         # Use func to convert radec -> angular, then matplotlib transform to do
@@ -1746,9 +1764,8 @@ class GUI:
         self.toolbar.pack(side='bottom', fill='x')
         self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
 
-        self.fig.canvas.callbacks.connect(
-            'button_press_event', self.figure_click_callback
-        )
+        self.canvas.mpl_connect('button_press_event', self.figure_click_callback)
+        self.canvas.mpl_connect('draw_event', self.on_plot_draw)
 
         self.add_tooltip(
             self.canvas.get_tk_widget(),
@@ -1757,13 +1774,13 @@ class GUI:
 
         self.replot_all()
         self.format_plot()
-        self._on_plot_draw()
 
     def rebuild_plot(self) -> None:
         self.update_plot_transforms()
         self.replot_all()
         self.format_plot()
-        self.update_plot()
+        self.update_only_image()
+        self.update_plot_wireframe()
 
     def replot_all(self) -> None:
         self.replot_image()
@@ -1808,6 +1825,8 @@ class GUI:
                 **self.plot_settings['image'],
             )
         )
+
+        self.on_plot_draw()
 
     def replot_limb(self):
         self.remove_artists('limb')
@@ -2033,7 +2052,7 @@ class GUI:
         for fn in all_callbacks:
             fn()
         if update_plot:
-            self.update_plot()
+            self.update_plot_wireframe()
 
     def set_value(self, key: SetterKey, value: float, update_plot: bool = True) -> None:
         for fn in self.setter_callbacks[key]:
@@ -2041,7 +2060,7 @@ class GUI:
         for fn in self.ui_callbacks[key]:
             fn()
         if update_plot:
-            self.update_plot()
+            self.update_plot_wireframe()
 
     def set_step(self, step: float) -> None:
         if not step > 0:
@@ -2376,7 +2395,10 @@ class OpenObservation(Popup):
             kwargs['utc'] = observation.utc
             kwargs['observer'] = observation.observer
 
-        self.stringvars['path'] = tk.StringVar(value=str(kwargs.get('path', '')))
+        _path = kwargs.get('path', '')
+        self.stringvars['path'] = tk.StringVar(
+            value='' if _path is None else str(_path)
+        )
         self.stringvars['target'] = tk.StringVar(value=str(kwargs.get('target', '')))
         self.stringvars['utc'] = tk.StringVar(value=str(kwargs.get('utc', '')))
         self.stringvars['observer'] = tk.StringVar(
@@ -3286,6 +3308,8 @@ class ArtistSetting(Popup, ABC):
         hint: str | None = None,
         callbacks: list[Callable[[], None]] | None = None,
         row: int | None = None,
+        *,
+        run_callbacks_on_checkbutton: bool = False,
     ) -> None:
         self.parent = parent
         self.key: PlotKey = key
@@ -3295,6 +3319,7 @@ class ArtistSetting(Popup, ABC):
             label = key
         self.label = label
         self.callbacks = callbacks
+        self.run_callbacks_on_checkbutton = run_callbacks_on_checkbutton
         if row is None:
             row = parent.grid_size()[1]
 
@@ -3326,7 +3351,9 @@ class ArtistSetting(Popup, ABC):
         for artist in self.gui.plot_handles[self.key]:
             artist.set_visible(enabled)
         self.gui.plot_settings[self.key]['visible'] = enabled
-        self.gui.update_plot()
+        if self.run_callbacks_on_checkbutton:
+            self.run_callbacks()
+        self.gui.update_plot_wireframe()
 
     def button_click(self) -> None:
         self.make_popup()
@@ -3355,7 +3382,7 @@ class ArtistSetting(Popup, ABC):
             # Replot artists
             for callback in self.callbacks:
                 callback()
-        self.gui.update_plot()
+        self.gui.update_plot_wireframe()
 
     def get_popup_id(self) -> str:
         return f'{self.__class__.__name__}:{self.key}'
@@ -3441,7 +3468,16 @@ class PlotImageSetting(ArtistSetting):
         callbacks: list[Callable[[], None]] | None = None,
         row: int | None = None,
     ):
-        super().__init__(gui, parent, key, label, hint, callbacks, row)
+        super().__init__(
+            gui,
+            parent,
+            key,
+            label,
+            hint,
+            callbacks,
+            row,
+            run_callbacks_on_checkbutton=True,
+        )
 
         row = parent.grid_size()[1]
 
@@ -4317,7 +4353,7 @@ class NumericEntry:
         row: int | None = None,
         add_callbacks: list[SetterKey] | None = None,
         entry_width: int = 10,
-        value_fmt: str = '.8g',
+        value_fmt: str = '.7g',
         default_callbacks_to_add: tuple[SetterKey, ...] = (
             'wcs_offset_ra',
             'wcs_offset_dec',
