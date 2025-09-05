@@ -1059,6 +1059,7 @@ class GUI:
             wraplength=wraplength,
         )
         label.pack(pady=5)
+        self.add_tooltip(label, f'Installation directory: {os.path.dirname(__file__)}')
 
         label_frame = ttk.LabelFrame(frame, text='Documentation')
         label_frame.pack(fill='x', pady=10)
