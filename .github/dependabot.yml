@@ -11,11 +11,9 @@ updates:
       interval: "monthly"
     target-branch: "dev"
     groups:
-      package-requirements:
+      dev-requirements:
         applies-to: version-updates
         patterns:
-          - "*"
-        exclude-patterns:
           - "ruff"
           - "pyright"
           - "pylint"
@@ -24,3 +22,7 @@ updates:
           - "packaging"
           - "sphinx"
           - "sphinx_rtd_theme"
+      package-requirements:
+        applies-to: version-updates
+        patterns:
+          - "*"
