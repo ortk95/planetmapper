@@ -1,7 +1,7 @@
 astropy<=7.0.1
-matplotlib<=3.10.6
+matplotlib<=3.10.7
 numpy<=2.2.6
-Pillow<=11.3.0
+Pillow<=12.0.0
 spiceypy<=7.0.0
 scipy<=1.15.3
 photutils<=2.2.0
