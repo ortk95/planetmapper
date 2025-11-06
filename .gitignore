@@ -29,6 +29,7 @@ tests/temp
 !.gitignore
 !.pylintrc
 !.zenodo.json
+!.python-version
 !CITATION.cff
 !CITATION.bib
 !docs/_templates/*.html
