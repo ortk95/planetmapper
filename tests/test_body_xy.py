@@ -1,3 +1,4 @@
+import warnings
 from typing import Callable
 from unittest.mock import MagicMock, patch
 
@@ -353,14 +354,16 @@ class TestBodyXY(common_testing.BaseTestCase):
             (0, np.nan),
             (np.inf, np.inf),
         ]
-        for a in args:
-            with self.subTest(a):
-                self.assertTrue(not all(np.isfinite(self.body.xy2radec(*a))))
-                self.assertTrue(not all(np.isfinite(self.body.xy2lonlat(*a))))
-                self.assertTrue(not all(np.isfinite(self.body.xy2km(*a))))
-                self.assertTrue(not all(np.isfinite(self.body.radec2xy(*a))))
-                self.assertTrue(not all(np.isfinite(self.body.lonlat2xy(*a))))
-                self.assertTrue(not all(np.isfinite(self.body.km2xy(*a))))
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            for a in args:
+                with self.subTest(a):
+                    self.assertTrue(not all(np.isfinite(self.body.xy2radec(*a))))
+                    self.assertTrue(not all(np.isfinite(self.body.xy2lonlat(*a))))
+                    self.assertTrue(not all(np.isfinite(self.body.xy2km(*a))))
+                    self.assertTrue(not all(np.isfinite(self.body.radec2xy(*a))))
+                    self.assertTrue(not all(np.isfinite(self.body.lonlat2xy(*a))))
+                    self.assertTrue(not all(np.isfinite(self.body.km2xy(*a))))
 
         pairs_with_alts: list[
             tuple[tuple[float, float, float], tuple[float, float]]

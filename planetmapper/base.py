@@ -491,7 +491,7 @@ class SpiceBase:
         Returns:
             Timezone aware (UTC) datetime corresponding to `et`.
         """
-        s = spice.et2utc(et, 'ISOC', 6) + '+0000'
+        s = cast(str, spice.et2utc(et, 'ISOC', 6) + '+0000')
         # manually add '+0000' to string to make it timezone aware
         # i.e. this lets python know it is UTC
         return datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%f%z')

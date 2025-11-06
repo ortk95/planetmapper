@@ -2,6 +2,7 @@ import copy
 import datetime
 import sys
 import unittest
+import warnings
 from typing import Callable
 from unittest.mock import MagicMock, patch
 
@@ -1065,10 +1066,16 @@ class TestBody(common_testing.BaseTestCase):
             (0, np.nan),
             (np.inf, np.inf),
         ]
-        for a in inputs:
-            with self.subTest(a):
-                self.assertTrue(all(not np.isfinite(x) for x in self.body.km2radec(*a)))
-                self.assertTrue(all(not np.isfinite(x) for x in self.body.radec2km(*a)))
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            for a in inputs:
+                with self.subTest(a):
+                    self.assertTrue(
+                        all(not np.isfinite(x) for x in self.body.km2radec(*a))
+                    )
+                    self.assertTrue(
+                        all(not np.isfinite(x) for x in self.body.radec2km(*a))
+                    )
 
     def test_km_lonlat(self):
         pairs = [
@@ -1096,14 +1103,16 @@ class TestBody(common_testing.BaseTestCase):
             (0, np.nan),
             (np.inf, np.inf),
         ]
-        for a in inputs:
-            with self.subTest(a):
-                self.assertTrue(
-                    all(not np.isfinite(x) for x in self.body.km2lonlat(*a))
-                )
-                self.assertTrue(
-                    all(not np.isfinite(x) for x in self.body.lonlat2km(*a))
-                )
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', RuntimeWarning)
+            for a in inputs:
+                with self.subTest(a):
+                    self.assertTrue(
+                        all(not np.isfinite(x) for x in self.body.km2lonlat(*a))
+                    )
+                    self.assertTrue(
+                        all(not np.isfinite(x) for x in self.body.lonlat2km(*a))
+                    )
 
         pairs_with_alts: list[
             tuple[tuple[float, float, float], tuple[float, float]]
