@@ -1,12 +1,12 @@
 astropy<=7.0.1
 matplotlib<=3.10.7
-numpy<=2.2.6
+numpy<=2.3.4
 Pillow<=12.0.0
-spiceypy<=7.0.0
-scipy<=1.15.3
+spiceypy<=8.0.0
+scipy<=1.16.1
 photutils<=2.2.0
 tqdm<=4.67.1
-pyproj<=3.7.1
+pyproj<=3.7.2
 typing-extensions<=4.15.0
 
 # Copy any changes here to the conda-forge recipe & setup.py

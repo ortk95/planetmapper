@@ -1018,7 +1018,7 @@ class TestObservation(common_testing.BaseTestCase):
             'rectangular-interpolation': dict(
                 degree_interval=30,
                 interpolation=(1, 3),
-                spline_smoothing=1.23,
+                spline_smoothing=2.34,
                 include_backplanes=False,
                 include_wireframe=False,
             ),
@@ -1062,7 +1062,18 @@ class TestObservation(common_testing.BaseTestCase):
                 self.observation.save_mapped_observation(
                     path, **map_kw, wireframe_kwargs=dict(output_size=20, dpi=20)
                 )
-                self.compare_fits_to_reference(path)
+                if map_type == 'rectangular-interpolation':
+                    # The exact spline interpolation smoothing can vary between
+                    # different scipy versions in extreme cases, so relax tolerances
+                    # a bit (see e.g. https://github.com/scipy/scipy/pull/22433).
+                    primary_tolerances = [(1e-6, 1e-5)] * 9  # defaults
+                    primary_tolerances[6] = (1e-1, 1e-1)
+                    primary_tolerances[7] = (10, 1)
+                else:
+                    primary_tolerances = None
+                self.compare_fits_to_reference(
+                    path, primary_tolerances=primary_tolerances
+                )
 
         with self.subTest('PathLike'):
             map_type = 'rectangular-nearest'
@@ -1091,7 +1102,12 @@ class TestObservation(common_testing.BaseTestCase):
             )
             self.compare_fits_to_reference(path)
 
-    def compare_fits_to_reference(self, path: str, skip_wireframe: bool = False):
+    def compare_fits_to_reference(
+        self,
+        path: str,
+        skip_wireframe: bool = False,
+        primary_tolerances: list[tuple[float, float]] | None = None,
+    ):
         filename = os.path.basename(path)
         path_ref = os.path.join(common_testing.DATA_PATH, 'outputs', filename)
         with fits.open(path) as hdul, fits.open(path_ref) as hdul_ref:
@@ -1111,21 +1127,37 @@ class TestObservation(common_testing.BaseTestCase):
             for hdu_ref in hdul_ref:
                 extname = hdu_ref.name
                 hdu = hdul[extname]
-                with self.subTest('HDU data', filename=filename, extname=extname):
-                    data = hdu.data
-                    data_ref = hdu_ref.data
+                data = hdu.data
+                data_ref = hdu_ref.data
+                with self.subTest('HDU data shape', filename=filename, extname=extname):
                     self.assertEqual(data.shape, data_ref.shape)
 
-                    # Significantly increase tolerance for wireframe as it is generated
-                    # from a Matplotlib plot, so is sensitive to the OS/environment
-                    # (e.g. fonts available), and is only a cosmetic backplane anyway
-                    # so the actual values don't matter anywhere near as much as the
-                    # other backplanes.
-                    if extname == 'WIREFRAME':
-                        atol = 64
-                    else:
-                        atol = 1e-6
-                    self.assertArraysClose(data, data_ref, atol=atol, equal_nan=True)
+                if primary_tolerances and extname == 'PRIMARY':
+                    for i, (atol, rtol) in enumerate(primary_tolerances):
+                        with self.subTest(
+                            'HDU data', filename=filename, extname=extname, i=i
+                        ):
+                            self.assertArraysClose(
+                                data[i],
+                                data_ref[i],
+                                atol=atol,
+                                rtol=rtol,
+                                equal_nan=True,
+                            )
+                else:
+                    with self.subTest('HDU data', filename=filename, extname=extname):
+                        # Significantly increase tolerance for wireframe as it is
+                        # generated from a Matplotlib plot, so is sensitive to the
+                        # OS/environment (e.g. fonts available), and is only a cosmetic
+                        # backplane anyway so the actual values don't matter anywhere
+                        # near as much as the other backplanes.
+                        if extname == 'WIREFRAME':
+                            atol = 64
+                        else:
+                            atol = 1e-6
+                        self.assertArraysClose(
+                            data, data_ref, atol=atol, equal_nan=True
+                        )
 
                 header = hdu.header
                 header_ref = hdu_ref.header
