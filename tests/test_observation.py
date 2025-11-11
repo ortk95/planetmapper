@@ -5,10 +5,12 @@ import warnings
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import astropy
 import common_testing
 import numpy as np
 from astropy.io import fits
 from astropy.utils.exceptions import AstropyWarning
+from packaging import version
 
 import planetmapper
 import planetmapper.base
@@ -829,9 +831,19 @@ class TestObservation(common_testing.BaseTestCase):
                     s = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...'
                 self.assertEqual(obs.header['HIERARCH PLANMAP TESTING'], s)
 
-        with self.assertRaises(ValueError):
-            obs.append_to_header('TESTING', 'x' * 100, truncate_strings=False)
-            obs.header.tostring()
+        test_string = 'x' * 100
+        obs.append_to_header('TESTING', test_string, truncate_strings=False)
+        self.assertEqual(obs.header['HIERARCH PLANMAP TESTING'], test_string)
+        # Astropy 7.1.0 adds CONTINUE cards for long header values, rather than
+        # raising an error when tostring() is called.
+        # https://docs.astropy.org/en/v7.1.0/changelog.html#astropy-io-fits
+        # https://github.com/astropy/astropy/issues/17748
+        astropy_version = version.Version(astropy.__version__)
+        if astropy_version >= version.Version('7.1.0'):
+            obs.header.tostring()  # should not raise an error
+        else:
+            with self.assertRaises(ValueError):
+                obs.header.tostring()
 
     def test_add_header_metadata(self):
         obs = planetmapper.Observation(
