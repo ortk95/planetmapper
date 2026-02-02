@@ -1,10 +1,10 @@
 # Development requirements (e.g. for run_checks.sh)
-ruff==0.14.10
-pyright==1.1.407
+ruff==0.14.14
+pyright==1.1.408
 pylint==4.0.4
-coverage==7.13.1
-setuptools==80.9.0
-packaging==25.0
+coverage==7.13.2
+setuptools==80.10.2
+packaging==26.0
 -r docs/requirements.txt
 
 # Copy any changes here to exclude-patterns in dependabot.yml
