@@ -356,7 +356,9 @@ class GUI:
             'r0': lambda: self.get_observation().get_r0(),
             'rotation': lambda: self.get_observation().get_rotation(),
             'step': lambda: self.step_size,
-            'plate_scale_arcsec': lambda: self.get_observation().get_plate_scale_arcsec(),
+            'plate_scale_arcsec': lambda: (
+                self.get_observation().get_plate_scale_arcsec()
+            ),
             'plate_scale_km': lambda: self.get_observation().get_plate_scale_km(),
             'wcs_offset_ra': lambda: self._get_wcs_offsets()[0],
             'wcs_offset_dec': lambda: self._get_wcs_offsets()[1],
