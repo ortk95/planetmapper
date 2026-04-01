@@ -1,6 +1,6 @@
 astropy<=7.2.0
 matplotlib<=3.10.8
-numpy<=2.4.2
+numpy<=2.4.4
 Pillow<=12.1.1
 spiceypy<=8.0.2
 scipy<=1.17.1
