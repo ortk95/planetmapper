@@ -1596,6 +1596,7 @@ class GUI:
 
         try:
             # Disable when panning/zooming
+            # pylint: disable-next=no-member
             if self.toolbar.mode._navigate_mode is not None:
                 return
         # pylint: disable-next=bare-except
