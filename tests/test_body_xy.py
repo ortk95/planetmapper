@@ -1102,7 +1102,7 @@ class TestBodyXY(common_testing.BaseTestCase):
                 with self.subTest('cube', idx=idx, f=f):
                     self.assertArraysEqual(
                         mapped_img,
-                        self.body.map_img(image * f, **kwargs),  #  type: ignore
+                        self.body.map_img(image * f, **kwargs),  # type: ignore
                         equal_nan=True,
                     )
 
@@ -1736,8 +1736,8 @@ class TestBodyXY(common_testing.BaseTestCase):
         self.body.register_backplane(
             name,
             description,
-            get_img,  #  type: ignore
-            get_map,  #  type: ignore
+            get_img,  # type: ignore
+            get_map,  # type: ignore
         )
 
         backplane = self.body.get_backplane(name)
@@ -1750,8 +1750,8 @@ class TestBodyXY(common_testing.BaseTestCase):
             self.body.register_backplane(
                 name,
                 description,
-                get_img=get_img,  #  type: ignore
-                get_map=get_map,  #  type: ignore
+                get_img=get_img,  # type: ignore
+                get_map=get_map,  # type: ignore
             )
 
         del self.body.backplanes[name]

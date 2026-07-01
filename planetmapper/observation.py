@@ -302,8 +302,8 @@ class Observation(BodyXY):
                 # If the header has a MJD value for the start and end of the
                 # observation, average them and use astropy to convert this
                 # mid-observation MJD into a fits format time string
-                beg = float(header['MJD-BEG'])  #  type: ignore
-                end = float(header['MJD-END'])  #  type: ignore
+                beg = float(header['MJD-BEG'])  # type: ignore
+                end = float(header['MJD-END'])  # type: ignore
                 mjd = (beg + end) / 2
                 kw['utc'] = mjd
             except (KeyError, TypeError, ValueError):
@@ -1391,7 +1391,7 @@ class Observation(BodyXY):
                 if print_info:
                     print(' Creating wireframe...')
                 wireframe = self.get_wireframe_overlay_map(
-                    **wireframe_kwargs or {},  #  type: ignore
+                    **wireframe_kwargs or {},  # type: ignore
                     **map_kwargs,
                 )
                 header = fits.Header([('ABOUT', 'Wireframe map overlay')])

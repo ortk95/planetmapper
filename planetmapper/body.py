@@ -71,7 +71,7 @@ WireframeComponent = Literal[
 """
 Literal type containing the names of all possible wireframe components.
 """
-_WireframeComponent = WireframeComponent  # keep for backward compatibility
+_WireframeComponent = WireframeComponent  # keep for backward compatibility
 
 
 class WireframeKwargs(TypedDict, total=False):
@@ -99,7 +99,7 @@ class WireframeKwargs(TypedDict, total=False):
     zorder: float
 
 
-_WireframeKwargs = WireframeKwargs  # keep for backward compatibility
+_WireframeKwargs = WireframeKwargs  # keep for backward compatibility
 
 DEFAULT_WIREFRAME_FORMATTING: dict[WireframeComponent, dict[str, Any]] = {
     'all': dict(color='k'),
@@ -724,7 +724,7 @@ class Body(BodyBase):
                     aberration_correction=self.aberration_correction,
                 )
         except NotFoundError as e:
-            e.message += f'\n\nBody name: {other_target!r}'  #  type: ignore
+            e.message += f'\n\nBody name: {other_target!r}'  # type: ignore
             raise e
 
     # Stuff to customise wireframe plots
@@ -935,7 +935,7 @@ class Body(BodyBase):
         transform_matrix = spice.pxfrm2(
             self._target_frame_encoded,  # type: ignore
             self._observer_frame_encoded,  # type: ignore
-            targvec_et,  #  type: ignore
+            targvec_et,  # type: ignore
             self.et,
         )
 

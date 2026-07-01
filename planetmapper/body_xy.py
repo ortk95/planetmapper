@@ -69,7 +69,7 @@ class MapKwargs(TypedDict, total=False):
     alt: float
 
 
-_MapKwargs = MapKwargs  # keep for backward compatibility
+_MapKwargs = MapKwargs  # keep for backward compatibility
 
 
 class _BackplaneMapGetter(Protocol):
@@ -1577,7 +1577,7 @@ class BodyXY(Body):
         cleaned[bad] = median
         # Fix bad pixels that have neighbouring good pixels by replacing them with the
         # mean of the surrounding 3x3 good pixels.
-        to_fix = bad & ~scipy.ndimage.uniform_filter(bad, size=3)  #  type: ignore
+        to_fix = bad & ~scipy.ndimage.uniform_filter(bad, size=3)  # type: ignore
         for i, j in np.argwhere(to_fix):
             cleaned[i, j] = np.nanmean(
                 img[max(i - 1, 0) : i + 2, max(j - 1, 0) : j + 2]

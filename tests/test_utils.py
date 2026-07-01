@@ -20,7 +20,7 @@ class TestUtils(common_testing.BaseTestCase):
     def test_format_radec_axes(self):
         fig, ax = plt.subplots()
         utils.format_radec_axes(ax, 45)
-        self.assertAlmostEqual(ax.get_aspect(), 1 / 0.7071067811865476)  #  type: ignore
+        self.assertAlmostEqual(ax.get_aspect(), 1 / 0.7071067811865476)  # type: ignore
         self.assertTrue(ax.xaxis_inverted())
         plt.close(fig)
 

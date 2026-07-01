@@ -1705,7 +1705,7 @@ class GUI:
             or self._plot_background[1].bounds != self.fig.bbox.bounds  # type: ignore
         ):
             self.copy_plot_background()
-        return self._plot_background  #  type: ignore
+        return self._plot_background  # type: ignore
 
     def draw_plot_animated_artists(self) -> None:
         # https://matplotlib.org/stable/users/explain/animations/blitting.html
@@ -1716,7 +1716,7 @@ class GUI:
                 continue
             for artist in artists:
                 self.fig.draw_artist(artist)
-        self.canvas.blit(bbox)  #  type: ignore
+        self.canvas.blit(bbox)  # type: ignore
         self.canvas.flush_events()
 
     def update_plot_wireframe(self, print_coords: bool = False) -> None:
@@ -2509,7 +2509,7 @@ class OpenObservation(Popup):
         )
         observation_kwargs: ObservationKwargs = {
             k: v.get() for k, v in self.stringvars.items()
-        }  #  type: ignore
+        }  # type: ignore
         for k, v in observation_kwargs.items():
             if isinstance(v, str) and len(v.strip()) == 0:
                 tkinter.messagebox.showwarning(
@@ -2552,10 +2552,10 @@ class OpenObservation(Popup):
             return False
 
         try:
-            observation_kwargs['utc'] = float(observation_kwargs['utc'])  #  type: ignore
+            observation_kwargs['utc'] = float(observation_kwargs['utc'])  # type: ignore
         except ValueError:
             try:
-                spice.str2et(observation_kwargs['utc'])  #  type: ignore
+                spice.str2et(observation_kwargs['utc'])  # type: ignore
             # pylint: disable-next=broad-except
             except Exception as e:
                 self.show_spice_warning(title='Error parsing date', exception=e)
@@ -3860,7 +3860,7 @@ class PlotImageSetting(ArtistSetting):
         if image_mode in {'single', 'sum'}:
             try:
                 cmap = self.cmap.get()
-                plt.get_cmap(cmap)  #  type: ignore
+                plt.get_cmap(cmap)  # type: ignore
             except ValueError:
                 tkinter.messagebox.showwarning(
                     title='Error parsing colormap',
@@ -4167,7 +4167,7 @@ class PlotCoordinatesSetting(PlotScatterSetting):
                         tuple(
                             self.get_float(c, 'coordinate', positive=False)
                             for c in coordinates
-                        )  #  type: ignore
+                        )  # type: ignore
                     )
         except ValueError:
             return False

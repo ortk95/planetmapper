@@ -259,7 +259,7 @@ class TestSpiceBase(common_testing.BaseTestCase):
     def test_unit_vector(self):
         a = np.random.rand(3) * 999
         ahat = self.obj.unit_vector(a)
-        self.assertAlmostEqual(np.linalg.norm(ahat), 1)  #  type: ignore
+        self.assertAlmostEqual(np.linalg.norm(ahat), 1)  # type: ignore
 
     def test_vector_magnitude(self):
         pairs = [
