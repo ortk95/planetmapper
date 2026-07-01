@@ -98,7 +98,7 @@ DEFAULT_PLOT_SETTINGS: dict[PlotKey, dict] = {
         image_gamma=1,
         image_vmin=0,
         image_vmax=100,
-        image_limit_type='absolute',
+        image_limit_type='relative',
     ),
 }
 
@@ -107,7 +107,7 @@ LINESTYLES = ('solid', 'dashed', 'dotted', 'dashdot')
 MARKERS = ('x', '+', 'o', '.', '*', 'v', '^', '<', '>', ',', 'D', 'd', '|', '_')
 GRID_INTERVALS = ('10', '30', '45', '90')
 CMAPS = ('gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis')
-LIMIT_TYPES = ('absolute', 'percentile')
+LIMIT_TYPES = ('relative', 'percentile', 'absolute')
 
 MAP_INTERPOLATIONS = ('nearest', 'linear', 'quadratic', 'cubic')
 MAP_PROJECTIONS = ('rectangular', 'orthographic', 'azimuthal', 'azimuthal equal area')
@@ -520,7 +520,7 @@ class GUI:
 
         self.image_modes: dict[ImageMode, tuple[Callable[[], np.ndarray], str]] = {
             'single': (self.image_single, 'Single wavelength'),
-            'sum': (self.image_sum, 'Sum all wavelengths'),
+            'sum': (self.image_sum, 'Average all wavelengths'),
             'rgb': (self.image_rgb, 'RGB composite'),
         }
         n_wavl = self.get_observation().data.shape[0]
@@ -1812,20 +1812,43 @@ class GUI:
         mode = self.plot_settings['_'].setdefault('image_mode', 'single')
         vmin = self.plot_settings['_'].setdefault('image_vmin', 0)
         vmax = self.plot_settings['_'].setdefault('image_vmax', 1)
-        limit_type = self.plot_settings['_'].setdefault('image_limit_type', 'absolute')
+        gamma = self.plot_settings['_'].setdefault('image_gamma', 1)
+        limit_type = self.plot_settings['_'].setdefault('image_limit_type', 'relative')
 
         with utils.ignore_warnings('All-NaN slice encountered'):
             image = self.image_modes[mode][0]()
-            if limit_type == 'percentile':
+            if limit_type == 'relative':
+                data_min = np.nanmin(image)
+                data_range = np.nanmax(image) - data_min
+                vmin = data_min + (vmin / 100.0) * data_range
+                vmax = data_min + (vmax / 100.0) * data_range
+            elif limit_type == 'percentile':
                 vmin = np.nanpercentile(image, vmin)
                 vmax = np.nanpercentile(image, vmax)
+            # limit_type == 'absolute' means vmin/vmax are pure data values, so no
+            # additional preprocessing is needed
 
+        if mode == 'rgb':
+            # norm isn't applied to RGB images, so manually apply the effects here and
+            # just use a blank placeholder norm
+            norm = matplotlib.colors.Normalize()
+            v_range = vmax - vmin
+            if v_range == 0:
+                v_range = 1
+            image = (image - vmin) / v_range
+            image = np.clip(image, 0.0, 1.0, dtype=float) ** gamma
+        else:
+            # for actual cmapped data images, apply the limits/gamma with a norm so that
+            # the tooltip at the bottom right of the plot shows the correct data values
+            # on mouseover
+            norm = matplotlib.colors.PowerNorm(
+                gamma=gamma, vmin=vmin, vmax=vmax, clip=True
+            )
         self.plot_handles['image'].append(
             self.ax.imshow(
                 image,
                 origin='lower',
-                vmin=vmin,
-                vmax=vmax,
+                norm=norm,
                 **self.plot_settings['image'],
             )
         )
@@ -2005,16 +2028,15 @@ class GUI:
 
     # Image
     def image_sum(self) -> np.ndarray:
-        return 100 * utils.normalise(
-            np.nansum(self.get_observation().data, axis=0)
-        ) ** self.plot_settings['_'].setdefault('image_gamma', 1)
+        summed = np.nansum(self.get_observation().data, axis=0)
+        bad = np.isfinite(self.get_observation().data).sum(axis=0) == 0
+        summed[bad] = np.nan
+        return summed / self.get_observation().data.shape[0]
 
     def image_single(self) -> np.ndarray:
-        return 100 * utils.normalise(
-            self.get_observation().data[
-                self.plot_settings['_'].setdefault('image_idx_single', 0)
-            ]
-        ) ** self.plot_settings['_'].setdefault('image_gamma', 1)
+        return self.get_observation().data[
+            self.plot_settings['_'].setdefault('image_idx_single', 0)
+        ]
 
     def image_rgb(self) -> np.ndarray:
         r = self.get_observation().data[
@@ -2026,9 +2048,7 @@ class GUI:
         b = self.get_observation().data[
             self.plot_settings['_'].setdefault('image_idx_b', 0)
         ]
-        return utils.normalise(np.stack((r, g, b), axis=2)) ** self.plot_settings[
-            '_'
-        ].setdefault('image_gamma', 1)
+        return np.stack((r, g, b), axis=2)
 
     # Keybindings
     def bind_keyboard(self) -> None:
@@ -3542,6 +3562,11 @@ class PlotImageSetting(ArtistSetting):
             return
         is_single = bool(self.single_wavelength_enabled.get())
         self.gui.plot_settings['_']['image_mode'] = 'single' if is_single else 'sum'
+        self.gui.add_delayed_action(
+            'update_image_menu_from_slider',
+            self.REPLOT_DELAY_MS,
+            self.update_menu_from_slider,
+        )
         self.schedule_replot(skip_full_delay=True)
 
     def on_wavelength_slider_change(self, *_) -> None:
@@ -3560,6 +3585,11 @@ class PlotImageSetting(ArtistSetting):
             'set_slider_label',
             self.SLIDER_DELAY_MS,
             self.set_slider_label,
+        )
+        self.gui.add_delayed_action(
+            'update_image_menu_from_slider',
+            self.REPLOT_DELAY_MS,
+            self.update_menu_from_slider,
         )
         self.schedule_replot(set_slider=False)
 
@@ -3644,7 +3674,7 @@ class PlotImageSetting(ArtistSetting):
             value=str(general_settings.setdefault('image_vmax', 100))
         )
         self.image_limit_type = tk.StringVar(
-            value=str(general_settings.setdefault('image_limit_type', 'absolute'))
+            value=str(general_settings.setdefault('image_limit_type', 'relative'))
         )
 
         self.image_mode = tk.StringVar(
@@ -3750,7 +3780,7 @@ class PlotImageSetting(ArtistSetting):
                     increment=5,
                     width=10,
                 ),
-                {'single', 'sum'},
+                {'single', 'sum', 'rgb'},
             ),
             (
                 ttk.Label(frame, text='vmax: '),
@@ -3762,7 +3792,7 @@ class PlotImageSetting(ArtistSetting):
                     increment=5,
                     width=10,
                 ),
-                {'single', 'sum'},
+                {'single', 'sum', 'rgb'},
             ),
             (
                 ttk.Label(frame, text='vmin/vmax type: '),
@@ -3773,21 +3803,22 @@ class PlotImageSetting(ArtistSetting):
                     width=10,
                     state='readonly',
                 ),
-                {'single', 'sum', '_readonly'},
+                {'single', 'sum', 'rgb', '_readonly'},
             ),
         ]
         self.add_to_menu_grid([(a, b) for a, b, c in self.grid], frame=frame)
 
         messages = [
             (
-                '\nImages are scaled to vary from 0 to 100, so set vmin=0 and vmax=100 '
-                'to show the entire dynamic range.'
+                '\n"relative" applies vmin/vmax as a percentage of the data range, '
+                'so vmin=0 and vmax=100 shows the entire dynamic range of the image.'
             ),
             (
-                'Set vmin/vmax type to "percentile" to calculate the limits as '
-                'percentiles of the data in the image. This can be useful if your data '
-                'has extreme outliers (e.g. try vmin=1, vmax=99 & type=percentile).'
+                '"percentile" applies vmin/vmax as percentiles of the data, '
+                'which can be useful to deal with extreme outliers. '
+                'For example, try vmax=99 and type=percentile to deal with hot pixels.'
             ),
+            ('"absolute" applies vmin/vmax directly to the data values.'),
         ]
         ttk.Label(
             self.grid_frame,
@@ -3799,6 +3830,21 @@ class PlotImageSetting(ArtistSetting):
 
         self.image_mode.trace_add('write', self.change_image_mode_radio)
         self.change_image_mode_radio()  # run initial setup
+
+    def update_menu_from_slider(self, *_) -> None:
+        if self not in self.gui.get_popups():
+            return
+        try:
+            image_mode_var = self.image_mode
+            image_idx_single_var = self.image_idx_single
+        except AttributeError:
+            return
+        is_single = bool(self.single_wavelength_enabled.get())
+        if is_single:
+            image_mode_var.set('single')
+            image_idx_single_var.set(str(self.wavelength_variable.get()))
+        else:
+            image_mode_var.set('sum')
 
     def change_image_mode_radio(self, *_) -> None:
         mode = self.image_mode.get()
@@ -3841,20 +3887,19 @@ class PlotImageSetting(ArtistSetting):
             general_settings['image_gamma'] = self.get_float(
                 self.image_gamma, 'gamma', positive=False
             )
-            if image_mode in {'single', 'sum'}:
-                general_settings['image_limit_type'] = self.image_limit_type.get()
-                general_settings['image_vmin'] = self.get_float(
-                    self.image_vmin, 'vmin', positive=False
+            general_settings['image_limit_type'] = self.image_limit_type.get()
+            general_settings['image_vmin'] = self.get_float(
+                self.image_vmin, 'vmin', positive=False
+            )
+            general_settings['image_vmax'] = self.get_float(
+                self.image_vmax, 'vmax', positive=False
+            )
+            if general_settings['image_vmin'] >= general_settings['image_vmax']:
+                tkinter.messagebox.showwarning(
+                    title='Error parsing limits',
+                    message='vmin must be less than vmax',
                 )
-                general_settings['image_vmax'] = self.get_float(
-                    self.image_vmax, 'vmax', positive=False
-                )
-                if general_settings['image_vmin'] >= general_settings['image_vmax']:
-                    tkinter.messagebox.showwarning(
-                        title='Error parsing limits',
-                        message='vmin must be less than vmax',
-                    )
-                    return False
+                return False
         except ValueError:
             return False
 
@@ -3876,7 +3921,7 @@ class PlotImageSetting(ArtistSetting):
         return True
 
     def get_window_size(self) -> str:
-        return '350x600'
+        return '350x650'
 
 
 class PlotLineSetting(ArtistSetting):
