@@ -3438,7 +3438,7 @@ class SpectrumPopup(Popup):
         self._comparison_spectra_handles: list[Artist] = []
 
         self.comparison_coordinates_and_colors: list[
-            tuple[tuple[float, float] | None, matplotlib.colors.Color]
+            tuple[tuple[float, float] | None, str]
         ] = []
 
         self.reset_color_cycle()
