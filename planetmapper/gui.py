@@ -1529,6 +1529,8 @@ class GUI:
         return out
 
     def update_coords(self, print_coords: bool = False) -> None:
+        self.maybe_update_spectrum_popup()
+
         if self.last_click_location is None:
             for k, label in self.coords_tab_labels.items():
                 label.configure(text='')
@@ -3665,21 +3667,17 @@ class SpectrumPopup(Popup):
         self._update_button_state()
         if len(self._comparison_spectra_handles) > 0:
             self.window.title('Spectra comparison')
+        else:
+            label, title = self._get_label_and_title_from_click_location(click_location)
+            self.window.title(title)
 
     def _update_click_location(
         self, click_location: tuple[float, float] | None
     ) -> None:
-        label, title = self._get_label_and_title_from_click_location(click_location)
-        if click_location is None and len(self._comparison_spectra_handles) > 0:
-            spectrum = np.full_like(self.wavelengths, np.nan)
-            label = None
-        else:
-            spectrum = self.get_spectrum(click_location)
-        self.line.set_data(self.wavelengths, spectrum)
-        self.line.set_label(label)  # type: ignore
-        self.line.set_visible(label is not None)
-        if len(self._comparison_spectra_handles) == 0:
-            self.window.title(title)
+        self.line.set_data(self.wavelengths, self.get_spectrum(click_location))
+        self.line.set_visible(
+            click_location is not None or len(self._comparison_spectra_handles) == 0
+        )
 
     def _get_label_and_title_from_click_location(
         self, click_location: tuple[float, float] | None
@@ -3737,12 +3735,25 @@ class SpectrumPopup(Popup):
             self.ax.yaxis.set_minor_locator(matplotlib.ticker.LogLocator(subs='all'))
 
     def _update_legend(self) -> None:
-        if len(self._comparison_spectra_handles) == 0:
+        for line_handle, (click_location, color) in zip(
+            self._comparison_spectra_handles, self.comparison_coordinates_and_colors
+        ):
+            label, title = self._get_label_and_title_from_click_location(click_location)
+            line_handle.set_label(label)
+        if self.line.get_visible():
+            label, title = self._get_label_and_title_from_click_location(
+                self.gui.last_click_location
+            )
+            self.line.set_label(label)
+        else:
+            self.line.set_label(None)  # type: ignore
+
+        if len(self._comparison_spectra_handles) > 0:
+            self._legend_handle = self.ax.legend(fontsize='small')
+        else:
             if self._legend_handle is not None:
                 self._legend_handle.remove()
                 self._legend_handle = None
-            return
-        self._legend_handle = self.ax.legend(fontsize='small')
 
     def _update_button_state(self) -> None:
         if len(self._comparison_spectra_handles) == 0:
