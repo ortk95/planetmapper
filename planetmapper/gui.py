@@ -1,5 +1,6 @@
 # pylint: disable=attribute-defined-outside-init,protected-access
 import functools
+import itertools
 import math
 import os
 import platform
@@ -23,6 +24,7 @@ import matplotlib.colors
 import matplotlib.markers
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
+import matplotlib.ticker
 import numpy as np
 import spiceypy as spice
 from astropy.io import fits
@@ -34,6 +36,7 @@ from matplotlib.backends.backend_tkagg import (
     NavigationToolbar2Tk,  # type: ignore
 )
 from matplotlib.figure import Figure
+from matplotlib.legend import Legend
 from matplotlib.text import Text
 
 from . import _assets, base, common, data_loader, progress, utils
@@ -68,6 +71,7 @@ PlotKey = Literal[
     'other_body_of_interest_marker',
     'other_body_of_interest_label',
     'marked_coord',
+    'comparison_spectrum_marker',
     '_',
 ]
 NON_ANIMATED_PLOT_KEYS: set[PlotKey] = {'image', '_'}
@@ -85,6 +89,7 @@ DEFAULT_PLOT_SETTINGS: dict[PlotKey, dict] = {
     'other_body_of_interest_marker': dict(zorder=3.8, marker='+', color='w', s=36),
     'other_body_of_interest_label': dict(zorder=3.81, color='grey'),
     'marked_coord': dict(zorder=4, color='cyan', linewidth=0.5, linestyle='solid'),
+    'comparison_spectrum_marker': dict(zorder=4.1, marker='o', edgecolor='k', s=36),
     'image': dict(zorder=0.9, cmap='inferno'),
     '_': dict(
         grid_interval=30,
@@ -473,6 +478,8 @@ class GUI:
         self._plot_background: tuple | None = None
         self._is_drawing_plot: bool = False
 
+        self._spectrum_popup: 'SpectrumPopup | None' = None
+
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
 
@@ -587,7 +594,7 @@ class GUI:
             self.rebuild_plot()
             self.root.title(self.get_observation().get_description(multiline=False))
             self.reset_help_hint()
-            self.enable_disc_finding_buttons()
+            self.enable_observation_dependant_buttons()
 
     def update_observation_available_disc_finding_routines(self):
         routines = self._observation_available_disc_finding_routines
@@ -651,6 +658,9 @@ class GUI:
         self.controls_frame = ttk.Frame(self.root)
         self.controls_frame.pack(side='left', fill='y')
 
+        self.top_controls_frame = ttk.Frame(self.root)
+        self.top_controls_frame.pack(side='top', fill='x')
+
         self.plot_frame = ttk.Frame(self.root)
         self.plot_frame.pack(side='top', fill='both', expand=True)
         self.build_plot()
@@ -666,6 +676,8 @@ class GUI:
         )
         self.update_plot_wireframe()
         self.on_plot_draw()
+
+        self.enable_observation_dependant_buttons()
 
         loading_frame.destroy()
         self.gui_built = True
@@ -710,6 +722,7 @@ class GUI:
         self.build_plot_settings_controls_tab()
         self.build_coords_tab()
         self.build_help_tab()
+        self.build_top_controls()
 
     def build_main_controls_tab(self) -> None:
         frame = ttk.Frame(self.notebook)
@@ -738,13 +751,6 @@ class GUI:
                 self.save_button,
                 1,
                 0,
-            ),
-            (
-                'View FITS header',
-                'View the FITS header for the observation',
-                self.display_header,
-                (0, 2) if self.allow_open else 1,
-                1,
             ),
         ]
         if not self.allow_open:
@@ -1019,6 +1025,14 @@ class GUI:
             hint='the location on the image clicked when to calculate coordinates (see the Coords tab)',
             callbacks=[self.replot_marked_coord],
         )
+        PlotComparisonCoordinateScatterSetting(
+            self,
+            frame,
+            'comparison_spectrum_marker',
+            label='Comparison locations',
+            hint='locations on the image plotted in the spectrum popup',
+            callbacks=[self.replot_comparison_spectrum_markers],
+        )
 
     def build_disc_finding_controls_tab(self) -> None:
         frame = ttk.Frame(self.notebook)
@@ -1041,8 +1055,6 @@ class GUI:
 
             if label == 'Use WCS data from FITS header':
                 self.build_wcs_offset_section(label_frame)
-
-        self.enable_disc_finding_buttons()
 
     def build_help_tab(self) -> None:
         frame = ttk.Frame(self.notebook)
@@ -1144,6 +1156,30 @@ class GUI:
             wraplength=wraplength,
         )
         label.pack(pady=5)
+
+    def build_top_controls(self) -> None:
+        bg_color = '#eeeeee'
+        bg_frame = tk.Frame(self.top_controls_frame, background=bg_color)
+        bg_frame.pack(fill='x', expand=True, padx=0, pady=0, ipadx=0, ipady=0)
+
+        frame = tk.Frame(bg_frame, background=bg_color)
+        frame.pack(side='top', pady=5)  # Centre frame
+
+        self.view_header_button = self.add_tooltip(
+            ttk.Button(frame, text='View FITS header', command=self.display_header),
+            'View the FITS header for the observation',
+            self.display_header,
+        )
+        self.view_header_button.pack(side='left', padx=5)
+
+        self.display_spectrum_popup_button = self.add_tooltip(
+            ttk.Button(
+                frame, text='Plot spectrum', command=self.display_spectrum_popup
+            ),
+            'Open a popup showing the spectrum - click on the image to select the plotted location',
+            self.display_spectrum_popup,
+        )
+        self.display_spectrum_popup_button.pack(side='left', padx=5)
 
     def _get_wcs_offsets(self) -> tuple[float, float, float, float]:
         if 'wcs' not in self._observation_available_disc_finding_routines:
@@ -1297,6 +1333,12 @@ class GUI:
             self.run_all_ui_callbacks(update_plot=True)
 
         return button_command
+
+    def enable_observation_dependant_buttons(self) -> None:
+        self.enable_disc_finding_buttons()
+        self.display_spectrum_popup_button.configure(
+            state=('normal' if self.get_observation().data.shape[0] > 1 else 'disable')
+        )
 
     def enable_disc_finding_buttons(self) -> None:
         for key, buttons in self._disc_finding_enableable_buttons.items():
@@ -1596,8 +1638,7 @@ class GUI:
 
         try:
             # Disable when panning/zooming
-            # pylint: disable-next=no-member
-            if self.toolbar.mode._navigate_mode is not None:
+            if self.toolbar.mode != '':
                 return
         # pylint: disable-next=bare-except
         except:
@@ -1622,6 +1663,7 @@ class GUI:
             self.coords_copy_machine_button,
         ]:
             button['state'] = 'normal'
+        self.maybe_update_spectrum_popup()
 
     def clear_click_location(self) -> None:
         self.last_click_location = None
@@ -1635,6 +1677,25 @@ class GUI:
                 button['state'] = 'disable'
         except AttributeError:
             pass
+        self.maybe_update_spectrum_popup()
+
+    def display_spectrum_popup(self) -> None:
+        if self.get_observation().data.shape[0] > 1:
+            SpectrumPopup(self)
+
+    def maybe_update_spectrum_popup(self) -> None:
+        if not self.gui_built:
+            # Don't fire off update spectrum on initial clear of click location
+            return
+        self.add_delayed_action(
+            'update_spectrum_popup',
+            10,
+            self._maybe_update_spectrum_popup,
+        )
+
+    def _maybe_update_spectrum_popup(self) -> None:
+        if self._spectrum_popup is not None:
+            self._spectrum_popup.update()
 
     def copy_formatted_coord_values(self) -> None:
         if self.coords_formatted_str is not None:
@@ -1773,7 +1834,7 @@ class GUI:
 
         self.add_tooltip(
             self.canvas.get_tk_widget(),
-            'Customise plot in the "Settings" tab and click on the plot to get values in the "Coords" tab',
+            'Customise plot in the "Settings" tab; click on the plot to show values in the "Coords" tab (right click to clear)',
         )
 
         self.replot_all()
@@ -1796,6 +1857,8 @@ class GUI:
         self.replot_coordinates_lonlat()
         self.replot_coordinates_radec()
         self.replot_other_bodies()
+        self.replot_marked_coord()
+        self.replot_comparison_spectrum_markers()
 
     def format_plot(self):
         self.fig.set_dpi(100)
@@ -1854,6 +1917,7 @@ class GUI:
         )
 
         self.on_plot_draw()
+        self.maybe_update_spectrum_popup()  # updates wavelength indicators
 
     def replot_limb(self):
         self.remove_artists('limb')
@@ -2004,6 +2068,23 @@ class GUI:
             self.plot_handles['marked_coord'].append(
                 self.ax.axhline(y, **self.plot_settings['marked_coord'])
             )
+
+    def replot_comparison_spectrum_markers(self) -> None:
+        self.remove_artists('comparison_spectrum_marker')
+        if self._spectrum_popup is not None:
+            coordinates = self._spectrum_popup.comparison_coordinates_and_colors
+            for maybe_xy, color in coordinates:
+                if maybe_xy is None:
+                    continue
+                x, y = maybe_xy
+                self.plot_handles['comparison_spectrum_marker'].append(
+                    self.ax.scatter(
+                        x,
+                        y,
+                        color=color,
+                        **self.plot_settings['comparison_spectrum_marker'],
+                    )
+                )
 
     def remove_artists(self, key: PlotKey) -> None:
         while self.plot_handles[key]:
@@ -2169,9 +2250,13 @@ class GUI:
 
     def add_popup(self, popup: 'Popup') -> None:
         self._popups.append(popup)
+        if isinstance(popup, SpectrumPopup):
+            self._spectrum_popup = popup
 
     def remove_popup(self, popup: 'Popup') -> None:
         self._popups.remove(popup)
+        if isinstance(popup, SpectrumPopup):
+            self._spectrum_popup = None
 
     def get_popups(self) -> list['Popup']:
         return self._popups
@@ -3280,22 +3365,18 @@ class SaveMapProgressHookGUI(progress._SaveMapProgressHook, SaveProgressHookGUI)
 # Header
 class HeaderDisplay(Popup):
     def __init__(self, gui: GUI) -> None:
-        try:
-            super().__init__(gui)
-        except PopupAlreadyOpenError:
-            return
+        super().__init__(gui)
         self.make_widget()
 
     def make_widget(self) -> None:
         self.window.title('FITS Header')
         geometry = self.gui.root.geometry()
-
-        x, y = (int(s) for s in geometry.split('+')[1:])
+        w, h, x, y = (int(s) for s in geometry.replace('x', '+').split('+'))
         self.window.geometry(
             '{sz}+{x:.0f}+{y:.0f}'.format(
                 sz='650x800',
-                x=x + 50,
-                y=y + 50,
+                x=x + w,
+                y=y,
             )
         )
 
@@ -3319,6 +3400,364 @@ class HeaderDisplay(Popup):
 
     def click_close(self) -> None:
         self.close_window()
+
+
+# Spectrum
+class SpectrumPopup(Popup):
+    COMPARISON_COLORS: list[str] = [
+        # From the Petroff10 accessible colour cycle: https://arxiv.org/pdf/2107.02270
+        '#3f90da',
+        '#ffa90e',
+        '#bd1f01',
+        '#94a4a2',
+        '#832db6',
+        '#a96b59',
+        '#e76300',
+        '#b9ac70',
+        '#717581',
+        '#92dadd',
+    ]
+
+    def __init__(self, gui: GUI) -> None:
+        try:
+            super().__init__(gui)
+        except PopupAlreadyOpenError:
+            return
+
+        self.wavelengths, self.wavelengths_unit, self.is_real_wavelengths = (
+            self.get_wavelengths()
+        )
+
+        self._previous_click_location: (
+            tuple[float, float] | None | Literal['<UNSET>']
+        ) = '<UNSET>'
+        self._previous_mode_data: tuple[str, int, int, int, int] | None = None
+        self._previous_y_scale: Literal['linear', 'log'] | None = None
+        self._legend_handle: Legend | None = None
+        self._image_mode_handles: list[Artist] = []
+        self._comparison_spectra_handles: list[Artist] = []
+
+        self.comparison_coordinates_and_colors: list[
+            tuple[tuple[float, float] | None, matplotlib.colors.Color]
+        ] = []
+
+        self.reset_color_cycle()
+        self.make_widget()
+        self.update()
+
+    def make_widget(self) -> None:
+        geometry = self.gui.root.geometry()
+        w, h, x, y = (int(s) for s in geometry.replace('x', '+').split('+'))
+        self.window.geometry(
+            '{sz}+{x:.0f}+{y:.0f}'.format(
+                sz='800x400',
+                x=x + w,
+                y=y,
+            )
+        )
+        self.window_frame = ttk.Frame(self.window)
+        self.window_frame.pack(expand=True, fill='both')
+        self.plot_frame = ttk.Frame(self.window_frame)
+        self.plot_frame.pack(expand=True, fill='both')
+        self.build_plot()
+
+    def build_plot(self) -> None:
+        self.fig = Figure()
+        self.ax = self.fig.add_axes((0.07, 0.065, 0.92, 0.89))  # (x0, y0, w, h)
+
+        bg_color = "#d9d9d9"
+        toolbar_frame = tk.Frame(self.plot_frame, background=bg_color)
+        toolbar_frame.pack(side='bottom', fill='x')
+        tk.Label(toolbar_frame, text='\N{NO-BREAK SPACE}', background=bg_color).pack(
+            side='left'
+        )
+        self.canvas_frame = tk.Frame(self.plot_frame, background='white')
+        self.canvas_frame.pack(side='top', fill='both', expand=True)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.canvas_frame)
+        self.toolbar = CustomNavigationToolbar(
+            self.canvas,
+            toolbar_frame,
+            pack_toolbar=False,
+            gui=self.gui,
+            bg_color=bg_color,
+        )
+        self.toolbar.pack(side='bottom', fill='x')
+
+        self.controls_frame = ttk.Frame(self.toolbar)
+        self.controls_frame.pack(expand=True, anchor='w', padx=(10, 0))
+
+        self.build_controls()
+
+        self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
+
+        self.fig.set_dpi(100)
+        self.ax.xaxis.set_tick_params(labelsize='x-small')
+        self.ax.yaxis.set_tick_params(labelsize='x-small')
+        self.ax.yaxis.get_offset_text().set_fontsize('x-small')
+        delta = (
+            0.5
+            * (self.wavelengths[-1] - self.wavelengths[0])
+            / max(len(self.wavelengths), 1)
+        )
+        self.ax.set_xlim(self.wavelengths[0] - delta, self.wavelengths[-1] + delta)
+        self.ax.grid(which='major', alpha=0.25, linewidth=1)
+        self.ax.grid(which='minor', alpha=0.1, linewidth=0.75)
+        self.ax.xaxis.set_major_locator(matplotlib.ticker.AutoLocator())
+        self.ax.xaxis.set_minor_locator(matplotlib.ticker.AutoMinorLocator())
+        self.line = self.ax.plot(
+            self.wavelengths,
+            np.full_like(self.wavelengths, np.nan),
+            linewidth=1,
+            zorder=3.5,
+            color='k',
+        )[0]
+
+        self.gui.add_tooltip(
+            self.canvas.get_tk_widget(),
+            (
+                'Click on the image to choose the location of the spectrum; '
+                'right click on the image to plot the average spectrum'
+            ),
+        )
+
+    def build_controls(self) -> None:
+        self.yscale_var = tk.IntVar(value=0)
+        self.yscale_var.trace_add('write', self.on_change)
+        self.yscale_checkbox = ttk.Checkbutton(
+            self.controls_frame,
+            text='Log scale',
+            variable=self.yscale_var,
+        )
+        self.yscale_checkbox.pack(side='left', padx=2, ipadx=2)
+        self.gui.add_tooltip(
+            self.yscale_checkbox,
+            'Toggle logarithmic/linear scale for the plot\'s y-axis',
+        )
+
+        self.add_to_compare_button = ttk.Button(
+            self.controls_frame,
+            text='Add to comparisons',
+            command=self.add_current_spectrum_to_compare,
+        )
+        self.add_to_compare_button.pack(side='left', padx=2, ipadx=2)
+        self.gui.add_tooltip(
+            self.add_to_compare_button,
+            'Keep the currently displayed spectrum on the plot to allow comparison with other spectra',
+        )
+
+        self.reset_comparisons_button = ttk.Button(
+            self.controls_frame,
+            text='Clear comparisons',
+            command=self.reset_comparisons,
+        )
+        self.reset_comparisons_button.pack(side='left', padx=2, ipadx=2)
+        self.gui.add_tooltip(
+            self.reset_comparisons_button,
+            'Clear all comparison spectra from the plot',
+        )
+
+    def get_wavelengths(self) -> tuple[np.ndarray, str, bool]:
+        wavelengths = self.gui._observation_wavelengths
+        if wavelengths is None:
+            return np.arange(self.gui.get_observation().data.shape[0]), '', False
+        unit = self.gui._observation_wavelengths_unit
+        return wavelengths, unit, True
+
+    def get_spectrum(self, click_location: tuple[float, float] | None) -> np.ndarray:
+        cube = self.gui.get_observation().data
+        if click_location is None:
+            return np.nanmean(cube, axis=(1, 2))
+        x, y = self.round_xy_to_indices(*click_location)
+        try:
+            if x < 0 or y < 0:
+                raise IndexError
+            return cube[:, y, x]
+        except IndexError:
+            return np.full(cube.shape[0], np.nan)
+
+    def round_xy_to_indices(self, x: float, y: float) -> tuple[int, int]:
+        return int(round(x)), int(round(y))
+
+    def on_change(self, *_) -> None:
+        self.update()
+
+    def add_current_spectrum_to_compare(self) -> None:
+        click_location = self.gui.last_click_location
+        spectrum = self.get_spectrum(click_location)
+        label, title = self._get_label_and_title_from_click_location(click_location)
+
+        color = self.get_next_cycle_color()
+
+        line_handle = self.ax.plot(
+            self.wavelengths,
+            spectrum,
+            linewidth=1,
+            zorder=3.0,
+            label=label,
+            color=color,
+        )[0]
+
+        self._comparison_spectra_handles.append(line_handle)
+
+        rounded_location = (
+            self.round_xy_to_indices(*click_location)
+            if click_location is not None
+            else None
+        )
+        self.comparison_coordinates_and_colors.append((rounded_location, color))
+
+        # Hide line and legend entry, as it's now plotted as a comparison
+        self.line.set_label(None)  # type: ignore
+        self.line.set_visible(False)
+        # Remove and re-add line to push it to the bottom of the legend
+        self.line.remove()
+        self.ax.add_line(self.line)
+        self.update()
+        self.update_comparison_markers_on_gui()
+
+    def reset_color_cycle(self) -> None:
+        self.color_cycle = itertools.cycle(self.COMPARISON_COLORS)
+
+    def get_next_cycle_color(self) -> str:
+        return next(self.color_cycle)
+
+    def update_comparison_markers_on_gui(self) -> None:
+        self.gui.replot_comparison_spectrum_markers()
+        self.gui.draw_plot_animated_artists()
+
+    def reset_comparisons(self) -> None:
+        for handle in self._comparison_spectra_handles:
+            handle.remove()
+        self._comparison_spectra_handles.clear()
+        self.comparison_coordinates_and_colors.clear()
+        self.update_comparison_markers_on_gui()
+        self._previous_click_location = '<UNSET>'
+        self.reset_color_cycle()
+        self.update()
+
+    def update(self) -> None:
+        click_location = self.gui.last_click_location
+        if click_location != self._previous_click_location:
+            self._previous_click_location = click_location
+            self._update_click_location(click_location)
+
+        mode = (
+            self.gui.plot_settings['_']['image_mode'],
+            self.gui.plot_settings['_']['image_idx_single'],
+            self.gui.plot_settings['_']['image_idx_r'],
+            self.gui.plot_settings['_']['image_idx_g'],
+            self.gui.plot_settings['_']['image_idx_b'],
+        )
+        if mode != self._previous_mode_data:
+            self._previous_mode_data = mode
+            self._update_mode_vlines(mode)
+
+        yscale = 'log' if self.yscale_var.get() else 'linear'
+        if yscale != self._previous_y_scale:
+            self._previous_y_scale = yscale
+            self._update_yscale(yscale)
+
+        self._update_legend()
+        self.ax.relim()
+        self.ax.autoscale_view(tight=True, scalex=False)
+        self.canvas.draw()
+
+        self._update_button_state()
+        if len(self._comparison_spectra_handles) > 0:
+            self.window.title('Spectra comparison')
+
+    def _update_click_location(
+        self, click_location: tuple[float, float] | None
+    ) -> None:
+        label, title = self._get_label_and_title_from_click_location(click_location)
+        if click_location is None and len(self._comparison_spectra_handles) > 0:
+            spectrum = np.full_like(self.wavelengths, np.nan)
+            label = None
+        else:
+            spectrum = self.get_spectrum(click_location)
+        self.line.set_data(self.wavelengths, spectrum)
+        self.line.set_label(label)  # type: ignore
+        self.line.set_visible(label is not None)
+        if len(self._comparison_spectra_handles) == 0:
+            self.window.title(title)
+
+    def _get_label_and_title_from_click_location(
+        self, click_location: tuple[float, float] | None
+    ) -> tuple[str, str]:
+        if click_location is None:
+            title = 'Cube average spectrum'
+            label = 'Cube average'
+        else:
+            x, y = self.round_xy_to_indices(*click_location)
+            label = f'x={x}, y={y}'
+            lon, lat = self.gui.get_observation().xy2lonlat(x, y)
+            if np.isfinite(lon) and np.isfinite(lat):
+                ew = self.gui.get_observation().positive_longitude_direction
+                ns = 'N' if lat >= 0 else 'S'
+                label += f' ({lon:.1f}°{ew}, {abs(lat):.1f}°{ns})'
+            title = f'Spectrum at {label}'
+        return label, title
+
+    def _update_mode_vlines(self, mode: tuple[str, int, int, int, int]) -> None:
+        for handle in self._image_mode_handles:
+            handle.remove()
+        self._image_mode_handles.clear()
+
+        if mode[0] == 'single':
+            self._image_mode_handles.append(
+                self.ax.axvline(
+                    self.wavelengths[mode[1]],  #  type: ignore
+                    color='tab:grey',
+                    linewidth=1,
+                    alpha=0.75,
+                    linestyle=':',
+                    zorder=0,
+                )
+            )
+        elif mode[0] == 'rgb':
+            for idx, color in zip(mode[2:], ['r', 'g', 'b']):
+                self._image_mode_handles.append(
+                    self.ax.axvline(
+                        self.wavelengths[idx],  #  type: ignore
+                        color=color,
+                        linewidth=1,
+                        alpha=0.75,
+                        linestyle=':',
+                        zorder=0,
+                    )
+                )
+
+    def _update_yscale(self, yscale: Literal['linear', 'log']) -> None:
+        self.ax.set_yscale(yscale)
+        if yscale == 'linear':
+            self.ax.yaxis.set_major_locator(matplotlib.ticker.AutoLocator())
+            self.ax.yaxis.set_minor_locator(matplotlib.ticker.AutoMinorLocator())
+        elif yscale == 'log':
+            self.ax.yaxis.set_major_locator(matplotlib.ticker.LogLocator())
+            self.ax.yaxis.set_minor_locator(matplotlib.ticker.LogLocator(subs='all'))
+
+    def _update_legend(self) -> None:
+        if len(self._comparison_spectra_handles) == 0:
+            if self._legend_handle is not None:
+                self._legend_handle.remove()
+                self._legend_handle = None
+            return
+        self._legend_handle = self.ax.legend(fontsize='small')
+
+    def _update_button_state(self) -> None:
+        if len(self._comparison_spectra_handles) == 0:
+            self.reset_comparisons_button['state'] = 'disable'
+        else:
+            self.reset_comparisons_button['state'] = 'normal'
+
+        if self.line.get_visible():
+            self.add_to_compare_button['state'] = 'normal'
+        else:
+            self.add_to_compare_button['state'] = 'disable'
+
+    def close_window(self, *_) -> None:
+        super().close_window()
+        self.update_comparison_markers_on_gui()
 
 
 # Artist settings popups
@@ -4363,6 +4802,74 @@ class PlotOtherBodyTextSetting(PlotTextSetting, GenericOtherBodySetting):
 
     def apply_settings(self) -> bool:
         return self.apply_other_body_setting() and super().apply_settings()
+
+
+class PlotComparisonCoordinateScatterSetting(ArtistSetting):
+    # Roughly based on PlotScatterSetting, but with some changes due to variable
+    # colours etc.
+
+    def make_menu(self) -> None:
+        settings = self.gui.plot_settings[self.key]
+
+        self.marker = tk.StringVar(value=str(settings.setdefault('marker', 'o')))
+        self.size = tk.StringVar(value=str(settings.setdefault('s', '36')))
+        self.edgecolor = tk.StringVar(
+            value=str(settings.setdefault('edgecolor', 'black'))
+        )
+
+        self.add_to_menu_grid(
+            [
+                (
+                    ttk.Label(self.grid_frame, text='Marker: '),
+                    ttk.Combobox(
+                        self.grid_frame,
+                        textvariable=self.marker,
+                        values=MARKERS,
+                        width=10,
+                    ),
+                ),
+                (
+                    ttk.Label(self.grid_frame, text='Size: '),
+                    ttk.Spinbox(
+                        self.grid_frame,
+                        textvariable=self.size,
+                        from_=1,
+                        to=100,
+                        increment=1,
+                        width=10,
+                    ),
+                ),
+                (
+                    ttk.Label(self.grid_frame, text='Edge colour: '),
+                    ColourButton(
+                        self.grid_frame, width=10, textvariable=self.edgecolor
+                    ),
+                ),
+            ]
+        )
+
+    def apply_settings(self) -> bool:
+        settings = self.gui.plot_settings[self.key]
+
+        try:
+            marker = self.marker.get()
+            matplotlib.markers.MarkerStyle(marker)
+        except ValueError:
+            tkinter.messagebox.showwarning(
+                title='Error parsing marker',
+                message=f'Unrecognised matplotlib marker {self.marker.get()!r}',
+            )
+            return False
+
+        try:
+            size = self.get_float(self.size, 'size')
+        except ValueError:
+            return False
+
+        settings['marker'] = marker
+        settings['s'] = size
+        settings['edgecolor'] = self.edgecolor.get()
+        return True
 
 
 # Generic artist settting elements
