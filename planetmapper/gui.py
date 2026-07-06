@@ -275,6 +275,7 @@ class GUI:
     MINIMUM_SIZE = (400, 650)
     DEFAULT_GEOMETRY = '800x650+15+15'
     CONTROLS_WIDTH = 260
+    LIGHT_FRAME_BACKGROUND_COLOR = '#eeeeee'
 
     def __init__(
         self, *, allow_open: bool = True, check_matplotlib_backend: bool = True
@@ -716,7 +717,7 @@ class GUI:
 
     def build_controls(self) -> None:
         self.notebook = ttk.Notebook(self.controls_frame)
-        self.notebook.pack(fill='both', expand=True)
+        self.notebook.pack(fill='both', expand=True, pady=(1, 0), padx=0)
         self.build_main_controls_tab()
         self.build_disc_finding_controls_tab()
         self.build_plot_settings_controls_tab()
@@ -1158,28 +1159,40 @@ class GUI:
         label.pack(pady=5)
 
     def build_top_controls(self) -> None:
-        bg_color = '#eeeeee'
+        bg_color = self.LIGHT_FRAME_BACKGROUND_COLOR
+
         bg_frame = tk.Frame(self.top_controls_frame, background=bg_color)
-        bg_frame.pack(fill='x', expand=True, padx=0, pady=0, ipadx=0, ipady=0)
+        bg_frame.pack(fill='x', padx=0, pady=0, ipadx=0, ipady=0)
 
         frame = tk.Frame(bg_frame, background=bg_color)
-        frame.pack(side='top', pady=5)  # Centre frame
+        frame.pack(side='top', fill='x', pady=3, padx=5)  # Centre frame
 
         self.view_header_button = self.add_tooltip(
-            ttk.Button(frame, text='View FITS header', command=self.display_header),
+            ttk.Button(
+                frame,
+                text='View FITS header',
+                command=self.display_header,
+                padding=1,
+            ),
             'View the FITS header for the observation',
             self.display_header,
         )
-        self.view_header_button.pack(side='left', padx=5)
+        self.view_header_button.grid(row=0, column=0, sticky='ew', padx=5)
 
         self.display_spectrum_popup_button = self.add_tooltip(
             ttk.Button(
-                frame, text='Plot spectrum', command=self.display_spectrum_popup
+                frame,
+                text='Plot spectrum',
+                command=self.display_spectrum_popup,
+                padding=1,
             ),
             'Open a popup showing the spectrum - click on the image to select the plotted location',
             self.display_spectrum_popup,
         )
-        self.display_spectrum_popup_button.pack(side='left', padx=5)
+        self.display_spectrum_popup_button.grid(row=0, column=1, sticky='ew', padx=1)
+
+        for i in range(2):
+            frame.columnconfigure(i, weight=1)
 
     def _get_wcs_offsets(self) -> tuple[float, float, float, float]:
         if 'wcs' not in self._observation_available_disc_finding_routines:
@@ -1812,7 +1825,7 @@ class GUI:
         self.ax = self.fig.add_axes([0.06, 0.03, 0.93, 0.96])
         self.update_plot_transforms()
 
-        bg_color = '#eeeeee'
+        bg_color = self.LIGHT_FRAME_BACKGROUND_COLOR
         toolbar_frame = tk.Frame(self.plot_frame, background=bg_color)
         toolbar_frame.pack(side='bottom', fill='x')
         tk.Label(toolbar_frame, text='\N{NO-BREAK SPACE}', background=bg_color).pack(
@@ -3540,6 +3553,7 @@ class SpectrumPopup(Popup):
             self.controls_frame,
             text='Add to comparisons',
             command=self.add_current_spectrum_to_compare,
+            padding=(3, 1),
         )
         self.add_to_compare_button.pack(side='left', padx=2, ipadx=2)
         self.gui.add_tooltip(
@@ -3551,6 +3565,7 @@ class SpectrumPopup(Popup):
             self.controls_frame,
             text='Clear comparisons',
             command=self.reset_comparisons,
+            padding=(3, 1),
         )
         self.reset_comparisons_button.pack(side='left', padx=2, ipadx=2)
         self.gui.add_tooltip(
@@ -5045,7 +5060,15 @@ class CustomNavigationToolbar(NavigationToolbar2Tk):
     # See issue #320 for more details: https://github.com/ortk95/planetmapper/issues/320
 
     def __init__(
-        self, canvas, window, *, pack_toolbar: bool = True, gui: GUI, bg_color: str
+        self,
+        canvas,
+        window,
+        *,
+        pack_toolbar: bool = True,
+        gui: GUI,
+        bg_color: str,
+        height: int | None = 35,
+        borderwidth: int | None = 0,
     ) -> None:
         # Default tooltips don't work with tk (on my laptop with dark mode at least)
         # so disable them here by setting to None, then use our custom tooltips instead.
@@ -5061,6 +5084,12 @@ class CustomNavigationToolbar(NavigationToolbar2Tk):
             ('Save', None, 'filesave', 'save_figure'),
         )
         super().__init__(canvas, window, pack_toolbar=pack_toolbar)
+
+        # Override sizes to make toolbar take up a little less space
+        if height is not None:
+            self.configure(height=height)
+        if borderwidth is not None:
+            self.configure(borderwidth=borderwidth)
 
         # The following lines are all cosmetic styling, so aren't crucial. Therefore,
         # wrap everything in try/except to avoid breaking the GUI if matplotlib changes
