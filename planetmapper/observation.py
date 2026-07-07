@@ -385,6 +385,7 @@ class Observation(BodyXY):
             String returned by :func:`BodyXY.get_disc_method`, indicating the method
             used to set the disc parameters.
         """
+        # Update strings in GUI.update_disc_param_source_message with any new methods
         try:
             self.disc_from_header()
         except ValueError:

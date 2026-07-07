@@ -383,7 +383,10 @@ class GUI:
         ] = {
             'Reset disc': [
                 (
-                    lambda: self.get_observation().reset_disc_params(),
+                    lambda: (
+                        self.get_observation().reset_disc_params(),
+                        self.update_disc_param_source_message(),
+                    ),
                     'Reset all disc parameters',
                     'Reset the disc parameters to their initial values',
                     None,
@@ -481,6 +484,10 @@ class GUI:
         self._is_drawing_plot: bool = False
 
         self._spectrum_popup: 'SpectrumPopup | None' = None
+
+        self._initial_disc_params_for_message: (
+            tuple[float, float, float, float] | None
+        ) = None
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
@@ -596,7 +603,7 @@ class GUI:
             self.rebuild_plot()
             self.root.title(self.get_observation().get_description(multiline=False))
             self.reset_help_hint()
-            self.enable_observation_dependant_buttons()
+            self.after_setting_observation()
 
     def update_observation_available_disc_finding_routines(self):
         routines = self._observation_available_disc_finding_routines
@@ -679,7 +686,7 @@ class GUI:
         self.update_plot_wireframe()
         self.on_plot_draw()
 
-        self.enable_observation_dependant_buttons()
+        self.after_setting_observation()
 
         loading_frame.destroy()
         self.gui_built = True
@@ -828,6 +835,15 @@ class GUI:
             numeric_entries=['step'],
         )
 
+        self.disc_method_message = ttk.Label(
+            frame,
+            text='',
+            justify='center',
+            font=('TkDefaultFont', int(self._default_font_size * 0.9), 'bold'),
+            wraplength=self.CONTROLS_WIDTH - 10,
+        )
+        self.disc_method_message.pack(side='top', pady=3)
+
     def build_main_controls_section(
         self,
         frame: ttk.Frame,
@@ -851,7 +867,7 @@ class GUI:
         **kw,
     ) -> None:
         label_frame = ttk.LabelFrame(frame, text=label)
-        label_frame.pack(fill='x', pady=3, ipadx=1, ipady=1)
+        label_frame.pack(fill='x', pady=2, ipadx=1, ipady=1)
 
         if buttons:
             button_frame = ttk.Frame(label_frame)
@@ -1348,6 +1364,10 @@ class GUI:
 
         return button_command
 
+    def after_setting_observation(self) -> None:
+        self.enable_observation_dependant_buttons()
+        self.update_disc_param_source_message()
+
     def enable_observation_dependant_buttons(self) -> None:
         self.enable_disc_finding_buttons()
         self.display_spectrum_popup_button.configure(
@@ -1368,6 +1388,37 @@ class GUI:
         for entry in self._wcs_entries_to_enable:
             entry.set_enabled(enable_wcs_entries)
 
+    def update_disc_param_source_message(self) -> None:
+        self._initial_disc_params_for_message = self.get_observation().get_disc_params()
+        method = self.get_observation().get_disc_method()
+        messages: dict[str, str] = {
+            'manual': 'Disc initialised using manually set parameters',
+            'default': 'Disc initialised using default parameters',
+            'zero': '',
+            'centre_disc': 'Disc initialised in the centre of the image, radius set to fill image & rotation set to zero',
+            'rotate_north': 'Disc initialised with the north pole rotated to the top',
+            'header': 'Disc initialised using PlanetMapper metadata in the FITS header',
+            'wcs': 'Disc initialised using WCS pointing information in the FITS header',
+            'wcs_position': 'Disc initialised using WCS position in the FITS header',
+            'wcs_rotation': 'Disc initialised using WCS rotation in the FITS header',
+            'wcs_plate_scale': 'Disc initialised using WCS plate scale in the FITS header',
+            'fit_position': 'Disc initialised by fitting the position to the image',
+            'fit_r0': 'Disc initialised by fitting the radius to the image',
+        }
+        message = messages.get(method, f'Disc initialised using {method}')
+        color = 'red4' if method in {'centre_disc'} else 'gray50'
+        self.set_disc_method_message(message, color=color)
+
+    def set_disc_method_message(self, msg: str, *, color: str = 'black') -> None:
+        self.disc_method_message.configure(text=msg, foreground=color)
+
+    def maybe_clear_disc_method_message(self):
+        if (
+            self.get_observation().get_disc_params()
+            != self._initial_disc_params_for_message
+        ):
+            self.set_disc_method_message('')
+
     def build_help_hint(self) -> None:
         frame = ttk.Frame(self.hint_frame)
         frame.pack(fill='x', padx=5, pady=1)
@@ -1377,10 +1428,10 @@ class GUI:
         self.help_hint.bind('<Leave>', lambda e: self.reset_help_hint())
         self.reset_help_hint()
 
-    def set_help_hint(self, msg: str, *, color: str = 'black'):
+    def set_help_hint(self, msg: str, *, color: str = 'black') -> None:
         self.help_hint.configure(text=msg, foreground=color)
 
-    def reset_help_hint(self, *, hover: bool = False):
+    def reset_help_hint(self, *, hover: bool = False) -> None:
         msg = self._observation_full_path if hover else self._observation_filename
         self.set_help_hint(msg, color='gray50')
 
@@ -1800,6 +1851,7 @@ class GUI:
     def update_plot_wireframe(self, print_coords: bool = False) -> None:
         self.add_delayed_action('update_plot_wireframe', 0, self._update_plot_wireframe)
         self.update_coords(print_coords=print_coords)
+        self.maybe_clear_disc_method_message()
 
     def _update_plot_wireframe(self):
         self.get_observation().update_transform()
@@ -2182,6 +2234,8 @@ class GUI:
             fn()
         if update_plot:
             self.update_plot_wireframe()
+        else:
+            self.maybe_clear_disc_method_message()
 
     def set_step(self, step: float) -> None:
         if not step > 0:
