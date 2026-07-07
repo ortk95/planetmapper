@@ -868,7 +868,7 @@ class GUI:
     ) -> None:
         label_frame = ttk.LabelFrame(frame, text=label)
         label_frame.pack(fill='x', pady=2, ipadx=1, ipady=1)
-
+        self.add_tooltip(label_frame, entry_tooltip)
         if buttons:
             button_frame = ttk.Frame(label_frame)
             button_frame.pack(
@@ -876,6 +876,7 @@ class GUI:
                 expand=wide_buttons,
                 padx=5 if wide_buttons else 0,
             )
+            self.add_tooltip(button_frame, entry_tooltip)
             for text, hint, fn, column, row in buttons:
                 if isinstance(column, tuple):
                     column, columnspan = column
@@ -910,7 +911,13 @@ class GUI:
             for ne in numeric_entries:
                 if isinstance(ne, str):
                     NumericEntry(
-                        self, entry_frame, ne, pady=2, add_callbacks=add_callbacks, **kw
+                        self,
+                        entry_frame,
+                        ne,
+                        pady=2,
+                        add_callbacks=add_callbacks,
+                        tooltip=entry_tooltip,
+                        **kw,
                     )
                 else:
                     NumericEntry(
@@ -920,6 +927,7 @@ class GUI:
                         ne[1],
                         pady=2,
                         add_callbacks=add_callbacks,
+                        tooltip=entry_tooltip,
                         **kw,
                     )
 
@@ -1275,19 +1283,20 @@ class GUI:
     def build_wcs_offset_section(self, label_frame: ttk.LabelFrame) -> None:
         container_frame = ttk.Frame(label_frame)
         container_frame.pack(fill='x')
-        self.add_tooltip(
-            container_frame,
+        tooltip = (
             'Differences between disc parameters and WCS data '
-            '(useful for navigating multiple observations with systematic pointing errors)',
+            '(useful for navigating multiple observations with systematic pointing errors)'
         )
+        self.add_tooltip(container_frame, tooltip)
 
-        label = EnableableLabel(
-            container_frame, text='Offsets between disc and WCS data:'
+        label = self.add_tooltip(
+            EnableableLabel(container_frame, text='Offsets between disc and WCS data:'),
+            tooltip,
         )
         label.pack(pady=(5, 0))
         self._wcs_entries_to_enable.append(label)
 
-        frame = ttk.Frame(container_frame)
+        frame = self.add_tooltip(ttk.Frame(container_frame), tooltip)
         frame.pack(pady=2)
 
         entries: list[tuple[SetterKey, str, float | None, tuple[SetterKey, ...]]] = [
@@ -1348,6 +1357,7 @@ class GUI:
                 ],
                 default_callbacks_to_add=default_callbacks,
                 zero_threshold=zero_threshold,
+                tooltip=tooltip,
             )
             self._wcs_entries_to_enable.append(ne)
 
@@ -1406,6 +1416,7 @@ class GUI:
             'fit_r0': 'Disc initialised by fitting the radius to the image',
         }
         message = messages.get(method, f'Disc initialised using {method}')
+        # Make message more noticeable for methods which containing no information
         color = 'red4' if method in {'centre_disc'} else 'gray50'
         self.set_disc_method_message(message, color=color)
 
@@ -4998,6 +5009,7 @@ class NumericEntry:
             'wcs_offset_scale',
         ),
         zero_threshold: float | None = None,
+        tooltip: str | None = None,
         **kw,
     ):
         self.parent = parent
@@ -5023,6 +5035,10 @@ class NumericEntry:
                 self.gui.ui_callbacks[k].add(self.update_text)
         for k in default_callbacks_to_add:
             self.gui.ui_callbacks[k].add(self.update_text)
+
+        if tooltip is not None:
+            for widget in (self.label, self.entry):
+                self.gui.add_tooltip(widget, tooltip)
 
         self.update_text()
 
