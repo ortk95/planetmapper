@@ -156,7 +156,7 @@ If you use PlanetMapper in your research, please :ref:`cite the following paper
     SOFTWARE.
 """
 
-from . import base, data_loader, gui, kernel_downloader, utils
+from . import base, data_loader, kernel_downloader, utils
 from .base import SpiceBase, get_kernel_path, set_kernel_path
 from .basic_body import BasicBody
 from .body import (
@@ -177,8 +177,24 @@ from .common import (
     __url__,
     __version__,
 )
-from .gui import run_gui
 from .observation import Observation
+
+# Try and import GUI module, but fail gracefully if tkinter is not available. This
+# should allow users to still use the rest of planetmapper's functionality, and get
+# useful error messages if they try and use any of the GUI functionality.
+try:
+    import gui
+
+    from .gui import run_gui
+except ImportError as e:
+    import _mock_gui_no_tkinter
+
+    _mock_gui_no_tkinter._PARENT_EXCEPTION = e
+    gui = _mock_gui_no_tkinter._mock_gui_module_class()
+    run_gui = _mock_gui_no_tkinter.run_gui
+
+    del _mock_gui_no_tkinter
+
 
 __all__ = [
     'run_gui',

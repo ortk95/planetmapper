@@ -1590,6 +1590,8 @@ class Observation(BodyXY):
         # pylint: disable=cyclic-import
         from .gui import GUI  # Prevent circular imports
 
+        # XXX should we also catch the tkinter import error here?
+
         gui = GUI(allow_open=False)
         gui.set_observation(self)
         gui.run()
