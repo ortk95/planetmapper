@@ -323,6 +323,7 @@ class GUI:
             self.copy_machine_coord_values: ['c'],
             self.copy_formatted_coord_values: ['<Shift-C>'],
             self.display_header: ['<Control-h>'],
+            self.display_spectrum_popup: ['<Control-p>'],
         }
         self.shortcuts_to_keep_in_entry = ['<Control-s>', '<Control-o>']
 
