@@ -835,14 +835,16 @@ class GUI:
             numeric_entries=['step'],
         )
 
+        disc_method_frame = ttk.Frame(frame)
+        disc_method_frame.pack(fill='x', pady=(3, 0))
         self.disc_method_message = ttk.Label(
-            frame,
+            disc_method_frame,
             text='',
             justify='center',
             font=('TkDefaultFont', int(self._default_font_size * 0.9), 'bold'),
             wraplength=self.CONTROLS_WIDTH - 10,
         )
-        self.disc_method_message.pack(side='top', pady=3)
+        self.disc_method_message.pack()
 
     def build_main_controls_section(
         self,
@@ -1432,33 +1434,55 @@ class GUI:
 
     def build_help_hint(self) -> None:
         frame = ttk.Frame(self.hint_frame)
-        frame.pack(fill='x', padx=5, pady=1)
-        self.help_hint = ttk.Label(frame, text=DEFAULT_HINT)
+        frame.pack(fill='x', padx=7, pady=3)  # account for default 2px border
+        self.help_hint = ttk.Label(frame, text=DEFAULT_HINT, border=0)
         self.help_hint.pack(side='left')
-        self.help_hint.bind('<Enter>', lambda e: self.reset_help_hint(hover=True))
-        self.help_hint.bind('<Leave>', lambda e: self.reset_help_hint())
+        self.help_hint_extra = ttk.Label(frame, text='', border=0)
+        self.help_hint_extra.pack(side='left')
+        for widget in (self.help_hint, self.help_hint_extra):
+            widget.bind('<Enter>', lambda e: self.reset_help_hint(hover=True))
+            widget.bind('<Leave>', lambda e: self.reset_help_hint())
         self.reset_help_hint()
 
-    def set_help_hint(self, msg: str, *, color: str = 'black') -> None:
+    def set_help_hint(
+        self,
+        msg: str,
+        *,
+        color: str = 'black',
+        extra_msg: str = '',
+        extra_msg_color: str = 'gray50',
+    ) -> None:
         self.help_hint.configure(text=msg, foreground=color)
+        self.help_hint_extra.configure(text=extra_msg, foreground=extra_msg_color)
 
     def reset_help_hint(self, *, hover: bool = False) -> None:
         msg = self._observation_full_path if hover else self._observation_filename
         self.set_help_hint(msg, color='gray50')
 
     def add_tooltip(
-        self, widget: Widget, msg: str, shortcut_fn: Callable | None = None, **kw
+        self,
+        widget: Widget,
+        msg: str,
+        shortcut_fn: Callable | None = None,
+        *,
+        extra_msg: str | None = None,
+        **kw,
     ) -> Widget:
-        if shortcut_fn is not None:
+        if shortcut_fn is not None and extra_msg is None:
             keys = self.shortcuts.get(shortcut_fn, None)
             if keys is not None:
                 key = keys[0]
                 key = key.replace('<less>', '<').upper()
                 if key[0] == '<' and key[-1] == '>' and len(key) > 2:
                     key = key[1:-1]
-                msg = f'{msg} (keyboard shortcut: {key})'
+                extra_msg = f' (keyboard shortcut: {key})'
 
-        widget.bind('<Enter>', lambda e: self.set_help_hint(msg, **kw))
+        if extra_msg is None:
+            extra_msg = ''
+
+        widget.bind(
+            '<Enter>', lambda e: self.set_help_hint(msg, extra_msg=extra_msg, **kw)
+        )
         widget.bind('<Leave>', lambda e: self.reset_help_hint())
         return widget
 
