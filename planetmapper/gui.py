@@ -3548,7 +3548,6 @@ class SpectrumPopup(Popup):
 
         self.reset_color_cycle()
         self.make_widget()
-        self.update()
 
     def make_widget(self) -> None:
         geometry = self.gui.root.geometry()
@@ -3565,6 +3564,16 @@ class SpectrumPopup(Popup):
         self.plot_frame = ttk.Frame(self.window_frame)
         self.plot_frame.pack(expand=True, fill='both')
         self.build_plot()
+        self.update()
+
+        # Figure can sometimes be initialised with a slightly incorrect shape, so force
+        # it to fit the plot frame nicely here once the frame has its final shape.
+        self.window.update_idletasks()
+        self.fig.set_size_inches(
+            self.canvas_frame.winfo_width() / self.fig.dpi,
+            self.canvas_frame.winfo_height() / self.fig.dpi,
+        )
+        self.update()
 
     def build_plot(self) -> None:
         self.fig = Figure()
