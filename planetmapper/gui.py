@@ -2212,7 +2212,9 @@ class GUI:
 
     # Image
     def image_sum(self) -> np.ndarray:
-        summed = np.nansum(self.get_observation().data, axis=0)
+        # Use dtype=float to as otherwise int images will have an error with
+        # summed[bad] = np.nan
+        summed = np.nansum(self.get_observation().data, axis=0, dtype=float)
         bad = np.isfinite(self.get_observation().data).sum(axis=0) == 0
         summed[bad] = np.nan
         return summed / self.get_observation().data.shape[0]
