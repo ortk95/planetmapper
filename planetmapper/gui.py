@@ -383,7 +383,10 @@ class GUI:
         ] = {
             'Reset disc': [
                 (
-                    lambda: self.get_observation().reset_disc_params(),
+                    lambda: (
+                        self.get_observation().reset_disc_params(),
+                        self.update_disc_param_source_message(),
+                    ),
                     'Reset all disc parameters',
                     'Reset the disc parameters to their initial values',
                     None,
@@ -481,6 +484,10 @@ class GUI:
         self._is_drawing_plot: bool = False
 
         self._spectrum_popup: 'SpectrumPopup | None' = None
+
+        self._initial_disc_params_for_message: (
+            tuple[float, float, float, float] | None
+        ) = None
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
@@ -596,7 +603,7 @@ class GUI:
             self.rebuild_plot()
             self.root.title(self.get_observation().get_description(multiline=False))
             self.reset_help_hint()
-            self.enable_observation_dependant_buttons()
+            self.after_setting_observation()
 
     def update_observation_available_disc_finding_routines(self):
         routines = self._observation_available_disc_finding_routines
@@ -679,7 +686,7 @@ class GUI:
         self.update_plot_wireframe()
         self.on_plot_draw()
 
-        self.enable_observation_dependant_buttons()
+        self.after_setting_observation()
 
         loading_frame.destroy()
         self.gui_built = True
@@ -828,6 +835,17 @@ class GUI:
             numeric_entries=['step'],
         )
 
+        disc_method_frame = ttk.Frame(frame)
+        disc_method_frame.pack(fill='x', pady=(3, 0))
+        self.disc_method_message = ttk.Label(
+            disc_method_frame,
+            text='',
+            justify='center',
+            font=('TkDefaultFont', int(self._default_font_size * 0.9), 'bold'),
+            wraplength=self.CONTROLS_WIDTH - 10,
+        )
+        self.disc_method_message.pack()
+
     def build_main_controls_section(
         self,
         frame: ttk.Frame,
@@ -851,8 +869,8 @@ class GUI:
         **kw,
     ) -> None:
         label_frame = ttk.LabelFrame(frame, text=label)
-        label_frame.pack(fill='x', pady=3, ipadx=1, ipady=1)
-
+        label_frame.pack(fill='x', pady=2, ipadx=1, ipady=1)
+        self.add_tooltip(label_frame, entry_tooltip)
         if buttons:
             button_frame = ttk.Frame(label_frame)
             button_frame.pack(
@@ -860,6 +878,7 @@ class GUI:
                 expand=wide_buttons,
                 padx=5 if wide_buttons else 0,
             )
+            self.add_tooltip(button_frame, entry_tooltip)
             for text, hint, fn, column, row in buttons:
                 if isinstance(column, tuple):
                     column, columnspan = column
@@ -894,7 +913,13 @@ class GUI:
             for ne in numeric_entries:
                 if isinstance(ne, str):
                     NumericEntry(
-                        self, entry_frame, ne, pady=2, add_callbacks=add_callbacks, **kw
+                        self,
+                        entry_frame,
+                        ne,
+                        pady=2,
+                        add_callbacks=add_callbacks,
+                        tooltip=entry_tooltip,
+                        **kw,
                     )
                 else:
                     NumericEntry(
@@ -904,6 +929,7 @@ class GUI:
                         ne[1],
                         pady=2,
                         add_callbacks=add_callbacks,
+                        tooltip=entry_tooltip,
                         **kw,
                     )
 
@@ -1259,19 +1285,20 @@ class GUI:
     def build_wcs_offset_section(self, label_frame: ttk.LabelFrame) -> None:
         container_frame = ttk.Frame(label_frame)
         container_frame.pack(fill='x')
-        self.add_tooltip(
-            container_frame,
+        tooltip = (
             'Differences between disc parameters and WCS data '
-            '(useful for navigating multiple observations with systematic pointing errors)',
+            '(useful for navigating multiple observations with systematic pointing errors)'
         )
+        self.add_tooltip(container_frame, tooltip)
 
-        label = EnableableLabel(
-            container_frame, text='Offsets between disc and WCS data:'
+        label = self.add_tooltip(
+            EnableableLabel(container_frame, text='Offsets between disc and WCS data:'),
+            tooltip,
         )
         label.pack(pady=(5, 0))
         self._wcs_entries_to_enable.append(label)
 
-        frame = ttk.Frame(container_frame)
+        frame = self.add_tooltip(ttk.Frame(container_frame), tooltip)
         frame.pack(pady=2)
 
         entries: list[tuple[SetterKey, str, float | None, tuple[SetterKey, ...]]] = [
@@ -1332,6 +1359,7 @@ class GUI:
                 ],
                 default_callbacks_to_add=default_callbacks,
                 zero_threshold=zero_threshold,
+                tooltip=tooltip,
             )
             self._wcs_entries_to_enable.append(ne)
 
@@ -1347,6 +1375,10 @@ class GUI:
             self.run_all_ui_callbacks(update_plot=True)
 
         return button_command
+
+    def after_setting_observation(self) -> None:
+        self.enable_observation_dependant_buttons()
+        self.update_disc_param_source_message()
 
     def enable_observation_dependant_buttons(self) -> None:
         self.enable_disc_finding_buttons()
@@ -1368,35 +1400,89 @@ class GUI:
         for entry in self._wcs_entries_to_enable:
             entry.set_enabled(enable_wcs_entries)
 
+    def update_disc_param_source_message(self) -> None:
+        self._initial_disc_params_for_message = self.get_observation().get_disc_params()
+        method = self.get_observation().get_disc_method()
+        messages: dict[str, str] = {
+            'manual': 'Disc initialised using manually set parameters',
+            'default': 'Disc initialised using default parameters',
+            'zero': '',
+            'centre_disc': 'Disc initialised in the centre of the image, radius set to fill image & rotation set to zero',
+            'rotate_north': 'Disc initialised with the north pole rotated to the top',
+            'header': 'Disc initialised using PlanetMapper metadata in the FITS header',
+            'wcs': 'Disc initialised using WCS pointing information in the FITS header',
+            'wcs_position': 'Disc initialised using WCS position in the FITS header',
+            'wcs_rotation': 'Disc initialised using WCS rotation in the FITS header',
+            'wcs_plate_scale': 'Disc initialised using WCS plate scale in the FITS header',
+            'fit_position': 'Disc initialised by fitting the position to the image',
+            'fit_r0': 'Disc initialised by fitting the radius to the image',
+        }
+        message = messages.get(method, f'Disc initialised using {method}')
+        # Make message more noticeable for methods which containing no information
+        color = 'red4' if method in {'centre_disc'} else 'gray50'
+        self.set_disc_method_message(message, color=color)
+
+    def set_disc_method_message(self, msg: str, *, color: str = 'black') -> None:
+        self.disc_method_message.configure(text=msg, foreground=color)
+
+    def maybe_clear_disc_method_message(self):
+        if (
+            self.get_observation().get_disc_params()
+            != self._initial_disc_params_for_message
+        ):
+            self.set_disc_method_message('')
+
     def build_help_hint(self) -> None:
         frame = ttk.Frame(self.hint_frame)
-        frame.pack(fill='x', padx=5, pady=1)
-        self.help_hint = ttk.Label(frame, text=DEFAULT_HINT)
+        frame.pack(fill='x', padx=7, pady=3)  # account for default 2px border
+        self.help_hint = ttk.Label(frame, text=DEFAULT_HINT, border=0)
         self.help_hint.pack(side='left')
-        self.help_hint.bind('<Enter>', lambda e: self.reset_help_hint(hover=True))
-        self.help_hint.bind('<Leave>', lambda e: self.reset_help_hint())
+        self.help_hint_extra = ttk.Label(frame, text='', border=0)
+        self.help_hint_extra.pack(side='left')
+        for widget in (self.help_hint, self.help_hint_extra):
+            widget.bind('<Enter>', lambda e: self.reset_help_hint(hover=True))
+            widget.bind('<Leave>', lambda e: self.reset_help_hint())
         self.reset_help_hint()
 
-    def set_help_hint(self, msg: str, *, color: str = 'black'):
+    def set_help_hint(
+        self,
+        msg: str,
+        *,
+        color: str = 'black',
+        extra_msg: str = '',
+        extra_msg_color: str = 'gray50',
+    ) -> None:
         self.help_hint.configure(text=msg, foreground=color)
+        self.help_hint_extra.configure(text=extra_msg, foreground=extra_msg_color)
 
-    def reset_help_hint(self, *, hover: bool = False):
+    def reset_help_hint(self, *, hover: bool = False) -> None:
         msg = self._observation_full_path if hover else self._observation_filename
         self.set_help_hint(msg, color='gray50')
 
     def add_tooltip(
-        self, widget: Widget, msg: str, shortcut_fn: Callable | None = None, **kw
+        self,
+        widget: Widget,
+        msg: str,
+        shortcut_fn: Callable | None = None,
+        *,
+        extra_msg: str | None = None,
+        **kw,
     ) -> Widget:
-        if shortcut_fn is not None:
+        if shortcut_fn is not None and extra_msg is None:
             keys = self.shortcuts.get(shortcut_fn, None)
             if keys is not None:
                 key = keys[0]
                 key = key.replace('<less>', '<').upper()
                 if key[0] == '<' and key[-1] == '>' and len(key) > 2:
                     key = key[1:-1]
-                msg = f'{msg} (keyboard shortcut: {key})'
+                extra_msg = f' (keyboard shortcut: {key})'
 
-        widget.bind('<Enter>', lambda e: self.set_help_hint(msg, **kw))
+        if extra_msg is None:
+            extra_msg = ''
+
+        widget.bind(
+            '<Enter>', lambda e: self.set_help_hint(msg, extra_msg=extra_msg, **kw)
+        )
         widget.bind('<Leave>', lambda e: self.reset_help_hint())
         return widget
 
@@ -1800,6 +1886,7 @@ class GUI:
     def update_plot_wireframe(self, print_coords: bool = False) -> None:
         self.add_delayed_action('update_plot_wireframe', 0, self._update_plot_wireframe)
         self.update_coords(print_coords=print_coords)
+        self.maybe_clear_disc_method_message()
 
     def _update_plot_wireframe(self):
         self.get_observation().update_transform()
@@ -2125,7 +2212,9 @@ class GUI:
 
     # Image
     def image_sum(self) -> np.ndarray:
-        summed = np.nansum(self.get_observation().data, axis=0)
+        # Use dtype=float to as otherwise int images will have an error with
+        # summed[bad] = np.nan
+        summed = np.nansum(self.get_observation().data, axis=0, dtype=float)
         bad = np.isfinite(self.get_observation().data).sum(axis=0) == 0
         summed[bad] = np.nan
         return summed / self.get_observation().data.shape[0]
@@ -2182,6 +2271,8 @@ class GUI:
             fn()
         if update_plot:
             self.update_plot_wireframe()
+        else:
+            self.maybe_clear_disc_method_message()
 
     def set_step(self, step: float) -> None:
         if not step > 0:
@@ -3459,7 +3550,6 @@ class SpectrumPopup(Popup):
 
         self.reset_color_cycle()
         self.make_widget()
-        self.update()
 
     def make_widget(self) -> None:
         geometry = self.gui.root.geometry()
@@ -3476,6 +3566,16 @@ class SpectrumPopup(Popup):
         self.plot_frame = ttk.Frame(self.window_frame)
         self.plot_frame.pack(expand=True, fill='both')
         self.build_plot()
+        self.update()
+
+        # Figure can sometimes be initialised with a slightly incorrect shape, so force
+        # it to fit the plot frame nicely here once the frame has its final shape.
+        self.window.update_idletasks()
+        self.fig.set_size_inches(
+            self.canvas_frame.winfo_width() / self.fig.dpi,
+            self.canvas_frame.winfo_height() / self.fig.dpi,
+        )
+        self.update()
 
     def build_plot(self) -> None:
         self.fig = Figure()
@@ -4944,6 +5044,7 @@ class NumericEntry:
             'wcs_offset_scale',
         ),
         zero_threshold: float | None = None,
+        tooltip: str | None = None,
         **kw,
     ):
         self.parent = parent
@@ -4969,6 +5070,10 @@ class NumericEntry:
                 self.gui.ui_callbacks[k].add(self.update_text)
         for k in default_callbacks_to_add:
             self.gui.ui_callbacks[k].add(self.update_text)
+
+        if tooltip is not None:
+            for widget in (self.label, self.entry):
+                self.gui.add_tooltip(widget, tooltip)
 
         self.update_text()
 
