@@ -1,6 +1,7 @@
 # pylint: disable=attribute-defined-outside-init,protected-access
 import functools
 import itertools
+import json
 import math
 import os
 import platform
@@ -1593,9 +1594,12 @@ class GUI:
     def get_click_coords(self) -> dict[str, float]:
         if self.last_click_location is None:
             return {}
+        return self._get_coords_for_location(*self.last_click_location)
+
+    def _get_coords_for_location(self, x: float, y: float) -> dict[str, float]:
         out: dict[str, float] = {}
         observation = self.get_observation()
-        x, y = self.last_click_location
+
         ra, dec = observation.xy2radec(x, y)
         out['x'] = x
         out['y'] = y
@@ -3540,6 +3544,8 @@ class SpectrumPopup(Popup):
         ) = '<UNSET>'
         self._previous_mode_data: tuple[str, int, int, int, int] | None = None
         self._previous_y_scale: Literal['linear', 'log'] | None = None
+        self._previous_width: int | None = None
+
         self._legend_handle: Legend | None = None
         self._image_mode_handles: list[Artist] = []
         self._comparison_spectra_handles: list[Artist] = []
@@ -3576,6 +3582,9 @@ class SpectrumPopup(Popup):
             self.canvas_frame.winfo_height() / self.fig.dpi,
         )
         self.update()
+        self.on_resize()
+
+        self.window.bind('<Configure>', self.on_resize)
 
     def build_plot(self) -> None:
         self.fig = Figure()
@@ -3637,42 +3646,68 @@ class SpectrumPopup(Popup):
         )
 
     def build_controls(self) -> None:
+        self.control_texts: dict[
+            ttk.Checkbutton | ttk.Button, tuple[str, str, int]
+        ] = {}
+
+        def add_short_text_option(
+            widget: ttk.Checkbutton | ttk.Button,
+            short_text: str,
+            *,
+            threshold: int = 675,
+        ) -> None:
+            self.control_texts[widget] = (short_text, widget.cget('text'), threshold)
+
         self.yscale_var = tk.IntVar(value=0)
         self.yscale_var.trace_add('write', self.on_change)
-        self.yscale_checkbox = ttk.Checkbutton(
-            self.controls_frame,
-            text='Log scale',
-            variable=self.yscale_var,
-        )
-        self.yscale_checkbox.pack(side='left', padx=2, ipadx=2)
-        self.gui.add_tooltip(
-            self.yscale_checkbox,
+        self.yscale_checkbox = self.gui.add_tooltip(
+            ttk.Checkbutton(
+                self.controls_frame,
+                text='Log scale',
+                variable=self.yscale_var,
+            ),
             'Toggle logarithmic/linear scale for the plot\'s y-axis',
         )
+        add_short_text_option(self.yscale_checkbox, 'Log')
+        self.yscale_checkbox.pack(side='left', padx=2, ipadx=2)
 
-        self.add_to_compare_button = ttk.Button(
-            self.controls_frame,
-            text='Add to comparisons',
-            command=self.add_current_spectrum_to_compare,
-            padding=(3, 1),
-        )
-        self.add_to_compare_button.pack(side='left', padx=2, ipadx=2)
-        self.gui.add_tooltip(
-            self.add_to_compare_button,
+        self.add_to_compare_button = self.gui.add_tooltip(
+            ttk.Button(
+                self.controls_frame,
+                text='Add to comparisons',
+                width=0,
+                command=self.add_current_spectrum_to_compare,
+                padding=(3, 1),
+            ),
             'Keep the currently displayed spectrum on the plot to allow comparison with other spectra',
         )
+        add_short_text_option(self.add_to_compare_button, 'Add')
+        self.add_to_compare_button.pack(side='left', padx=(2, 0), ipadx=2)
 
-        self.reset_comparisons_button = ttk.Button(
-            self.controls_frame,
-            text='Clear comparisons',
-            command=self.reset_comparisons,
-            padding=(3, 1),
-        )
-        self.reset_comparisons_button.pack(side='left', padx=2, ipadx=2)
-        self.gui.add_tooltip(
-            self.reset_comparisons_button,
+        self.reset_comparisons_button = self.gui.add_tooltip(
+            ttk.Button(
+                self.controls_frame,
+                text='Reset',
+                width=0,
+                command=self.reset_comparisons,
+                padding=(3, 1),
+            ),
             'Clear all comparison spectra from the plot',
         )
+        self.reset_comparisons_button.pack(side='left', padx=(0, 2), ipadx=2)
+
+        self.copy_data_button = self.gui.add_tooltip(
+            ttk.Button(
+                self.controls_frame,
+                text='Copy data',
+                width=0,
+                command=self.copy_data_to_clipboard,
+                padding=(3, 1),
+            ),
+            'Copy the currently displayed spectral data to the clipboard in machine readable JSON format',
+        )
+        add_short_text_option(self.copy_data_button, 'Copy')
+        self.copy_data_button.pack(side='left', padx=2, ipadx=2)
 
     def get_wavelengths(self) -> tuple[np.ndarray, str, bool]:
         wavelengths = self.gui._observation_wavelengths
@@ -3885,6 +3920,77 @@ class SpectrumPopup(Popup):
     def close_window(self, *_) -> None:
         super().close_window()
         self.update_comparison_markers_on_gui()
+
+    def on_resize(self, *_) -> None:
+        def func():
+            # Check popup still exists
+            if self.gui._spectrum_popup is not None:
+                self.gui._spectrum_popup._on_resize_window()
+
+        self.gui.add_delayed_action('on_resize_spectrum_popup', 1, func)
+
+    def _on_resize_window(self) -> None:
+        self.resize_texts()
+
+    def resize_texts(self) -> None:
+        current_width = self.window.winfo_width()
+        if current_width == self._previous_width:
+            return
+        self._previous_width = current_width
+
+        for widget, (sort_text, long_text, threshold) in self.control_texts.items():
+            widget.configure(text=sort_text if current_width < threshold else long_text)
+
+    def copy_data_to_clipboard(self) -> None:
+        self.gui.copy_to_clipboard(self._get_copyable_data_json_string())
+
+    def _get_copyable_data_json_string(self) -> str:
+        spectra_data_lines: list[str] = []
+        for click_location, color in self.comparison_coordinates_and_colors:
+            spectra_data_lines.append(
+                self._get_copyable_data_for_spectrum(click_location)
+            )
+        if self.line.get_visible():
+            spectra_data_lines.append(
+                self._get_copyable_data_for_spectrum(self.gui.last_click_location)
+            )
+
+        data: dict[str, str] = {}
+        data['description'] = json.dumps('Spectral data exported from PlanetMapper')
+        data['observation'] = json.dumps(
+            self.gui.get_observation().get_description(multiline=False)
+        )
+        if self.gui.get_observation().path is not None:
+            data['path'] = json.dumps(self.gui.get_observation().path)
+        if self.is_real_wavelengths:
+            data['wavelengths'] = self._dump_array(self.wavelengths)
+        data['spectra'] = (
+            '[' + ', '.join('\n    ' + line for line in spectra_data_lines) + '\n  ]'
+        )
+        data['planetmapper_version'] = json.dumps(common.__version__)
+        return '{' + ', '.join(f'\n  "{k}": {v}' for k, v in data.items()) + '\n}'
+
+    def _get_copyable_data_for_spectrum(
+        self, click_location: tuple[float, float] | None
+    ) -> str:
+        data: dict[str, str] = {}
+        data['label'] = json.dumps(
+            self._get_label_and_title_from_click_location(click_location)[0].replace(
+                '\u00b0', ''
+            )
+        )
+        if click_location is not None:
+            x, y = self.round_xy_to_indices(*click_location)
+            coords = self.gui._get_coords_for_location(x, y)
+            formatted_string = self.gui.make_click_json_string(
+                coords, fmt='', fmt_radec=''
+            )
+            data['location'] = formatted_string  # already JSON, so no need for dumps
+        data['spectrum'] = self._dump_array(self.get_spectrum(click_location))
+        return '{' + ', '.join(f'"{k}": {v}' for k, v in data.items()) + '}'
+
+    def _dump_array(self, array: np.ndarray) -> str:
+        return json.dumps([(float(v) if np.isfinite(v) else None) for v in array])
 
 
 # Artist settings popups
