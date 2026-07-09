@@ -2063,7 +2063,9 @@ class GUI:
     def replot_poles(self):
         self.remove_artists('pole')
         for lon, lat, s in self.get_observation().get_poles_to_plot():
-            ra, dec = self.get_observation().lonlat2radec(lon, lat)
+            ra, dec = self.get_observation().lonlat2radec(
+                lon, lat, not_visible_nan=False
+            )
             self.plot_handles['pole'].append(
                 self.ax.add_artist(
                     OutlinedText(
