@@ -376,7 +376,7 @@ class TestBodyXY(common_testing.BaseTestCase):
         for (lon, lat, alt), expected in pairs_with_alts:
             with self.subTest((lon, lat, alt)):
                 self.assertArraysClose(
-                    self.body.lonlat2xy(lon, lat, alt=alt),
+                    self.body.lonlat2xy(lon, lat, alt=alt, not_visible_nan=False),
                     expected,
                     equal_nan=True,
                 )
@@ -400,6 +400,61 @@ class TestBodyXY(common_testing.BaseTestCase):
             with self.subTest((x, y, alt)):
                 self.assertArraysClose(
                     self.body.xy2lonlat(x, y, alt=alt), expected, equal_nan=True
+                )
+
+        # lonlat, not_visible_nan=True, not_visible_nan=False
+        not_visible_nan_coordinates: list[
+            tuple[tuple[float, float], tuple[float, float], tuple[float, float]]
+        ] = [
+            ((0, 90), (nan, nan), (5.997148396961149, 10.618837276380527)),
+            (
+                (0, -90),
+                (4.002852727532121, 5.381146365350973),
+                (4.002852727532121, 5.381146365350973),
+            ),
+            ((0, 0), (nan, nan), (6.2226715347443555, 7.399517739761713)),
+            ((-42.123, -42.123), (nan, nan), (3.7563192307429167, 6.426030001593531)),
+            (
+                (123.45, 42.123),
+                (6.737145127998048, 9.375239631269238),
+                (6.737145127998048, 9.375239631269238),
+            ),
+            ((nan, nan), (nan, nan), (nan, nan)),
+            ((inf, inf), (nan, nan), (nan, nan)),
+            ((0, nan), (nan, nan), (nan, nan)),
+            ((nan, 0), (nan, nan), (nan, nan)),
+        ]
+        for (
+            lonlat,
+            not_visible_true,
+            not_visible_false,
+        ) in not_visible_nan_coordinates:
+            with self.subTest(
+                'not_visible_nan=<DEFAULT>',
+                lonlat=lonlat,
+            ):
+                self.assertArraysClose(
+                    self.body.lonlat2xy(*lonlat),
+                    not_visible_true,
+                    equal_nan=True,
+                )
+            with self.subTest(
+                'not_visible_nan=True',
+                lonlat=lonlat,
+            ):
+                self.assertArraysClose(
+                    self.body.lonlat2xy(*lonlat, not_visible_nan=True),
+                    not_visible_true,
+                    equal_nan=True,
+                )
+            with self.subTest(
+                'not_visible_nan=False',
+                lonlat=lonlat,
+            ):
+                self.assertArraysClose(
+                    self.body.lonlat2xy(*lonlat, not_visible_nan=False),
+                    not_visible_false,
+                    equal_nan=True,
                 )
 
     def test_set_disc_params(self):
