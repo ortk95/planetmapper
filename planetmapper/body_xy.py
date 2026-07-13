@@ -480,7 +480,7 @@ class BodyXY(Body):
         lat: FloatOrArray,
         *,
         alt: float = 0.0,
-        not_visible_nan: bool = False,
+        not_visible_nan: bool = True,
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert `longitude/latitude coordinates`_ on the target body to `image pixel
@@ -496,13 +496,16 @@ class BodyXY(Body):
             lon: Planetographic longitude of point(s) on target body.
             lat: Planetographic latitude of point(s) on target body.
             alt: Altitude of point above the surface of the target body in km.
-            not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
-                the point is not visible to the observer (e.g. it is on the far side of
-                the target). If `False` (the default), then `(ra, dec)` coordinates will
-                be returned, even if the point is not directly visible.
+            not_visible_nan: If `True` (the default), then the returned x/y values will
+                be NaN if the point is not visible to the observer (e.g. it is on the
+                far side of the target). If `False`, then `(x, y)` coordinates will be
+                returned, even if the point is not directly visible.
 
         Returns:
             `(x, y)` tuple containing the image pixel coordinates of the point(s).
+
+        .. versionchanged:: ?.?.?
+            The default value of `not_visible_nan` was changed from `False` to `True`.
         """
         return self._maybe_transform_as_arrays(
             self._lonlat2xy, lon, lat, alt=alt, not_visible_nan=not_visible_nan

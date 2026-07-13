@@ -1066,7 +1066,7 @@ class Body(BodyBase):
         lat: FloatOrArray,
         *,
         alt: float = 0.0,
-        not_visible_nan: bool = False,
+        not_visible_nan: bool = True,
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert `longitude/latitude coordinates`_ on the target body to `RA/Dec
@@ -1082,13 +1082,16 @@ class Body(BodyBase):
             lon: Planetographic longitude of point(s) on target body.
             lat: Planetographic latitude of point(s) on target body.
             alt: Altitude of point above the surface of the target body in km.
-            not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
-                the point is not visible to the observer (e.g. it is on the far side of
-                the target). If `False` (the default), then `(ra, dec)` coordinates will
-                be returned, even if the point is not directly visible.
+            not_visible_nan: If `True` (the default), then the returned RA/Dec values
+                will be NaN if the point is not visible to the observer (e.g. it is on
+                the far side of the target). If `False`, then `(ra, dec)` coordinates
+                will be returned, even if the point is not directly visible.
 
         Returns:
             `(ra, dec)` tuple containing the RA/Dec coordinates of the point(s).
+
+        .. versionchanged:: ?.?.?
+            The default value of `not_visible_nan` was changed from `False` to `True`.
         """
         return self._maybe_transform_as_arrays(
             self._lonlat2radec, lon, lat, alt=alt, not_visible_nan=not_visible_nan
@@ -1166,10 +1169,12 @@ class Body(BodyBase):
             lon: Planetographic longitude of point on target body.
             lat: Planetographic latitude of point on target body.
             alt: Altitude of point above the surface of the target body in km.
-            not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
-                the point is not visible to the observer (e.g. it is on the far side of
-                the target). If `False` (the default), then `(ra, dec)` coordinates will
-                be returned, even if the point is not directly visible.
+            not_visible_nan: If `True`, then the returned vector will be all NaN if the
+                point is not visible to the observer (e.g. it is on the far side of the
+                target). If `False` (the default), then the coordinate vector will be
+                returned be returned, even if the point is not directly visible. Note
+                that `not_visible_nan` defaults to `False` here, whereas it defaults to
+                `True` in methods such as :func:`lonlat2radec`.
 
         Returns:
             Numpy array corresponding to the 3D rectangular vector describing the
@@ -1466,7 +1471,7 @@ class Body(BodyBase):
         lat: FloatOrArray,
         *,
         alt: float = 0.0,
-        not_visible_nan: bool = False,
+        not_visible_nan: bool = True,
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
@@ -1483,10 +1488,10 @@ class Body(BodyBase):
             lon: Planetographic longitude of point(s) on target body.
             lat: Planetographic latitude of point(s) on target body.
             alt: Altitude of point above the surface of the target body in km.
-            not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
-                the point is not visible to the observer (e.g. it is on the far side of
-                the target). If `False` (the default), then `(ra, dec)` coordinates will
-                be returned, even if the point is not directly visible.
+            not_visible_nan: If `True` (the default), then the returned values will be
+                NaN if the point is not visible to the observer (e.g. it is on the far
+                side of the target). If `False`, then `(angular_x, angular_y)`
+                coordinates will be returned, even if the point is not directly visible.
             **angular_kwargs: Additional arguments are used to customise the origin and
                 rotation of the relative angular coordinates. See
                 :func:`radec2angular` for details.
@@ -1494,6 +1499,9 @@ class Body(BodyBase):
         Returns:
             `(angular_x, angular_y)` tuple containing the relative angular coordinates
             of the point(s) in arcseconds.
+
+        .. versionchanged:: ?.?.?
+            The default value of `not_visible_nan` was changed from `False` to `True`.
         """
         return self._maybe_transform_as_arrays(
             self._lonlat2angular,
@@ -1650,7 +1658,7 @@ class Body(BodyBase):
         lat: FloatOrArray,
         *,
         alt: float = 0.0,
-        not_visible_nan: bool = False,
+        not_visible_nan: bool = True,
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert `longitude/latitude coordinates`_ on the target body to `distance
@@ -1666,14 +1674,17 @@ class Body(BodyBase):
             lon: Planetographic longitude of point(s) on target body.
             lat: Planetographic latitude of point(s) on target body.
             alt: Altitude of point above the surface of the target body in km.
-            not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
-                the point is not visible to the observer (e.g. it is on the far side of
-                the target). If `False` (the default), then `(ra, dec)` coordinates will
-                be returned, even if the point is not directly visible.
+            not_visible_nan: If `True` (the default), then the returned values will be
+                NaN if the point is not visible to the observer (e.g. it is on the far
+                side of the target). If `False`, then `(km_x, km_y)` coordinates will be
+                returned, even if the point is not directly visible.
 
         Returns:
             `(km_x, km_y)` tuple containing distances in km in the target plane in the
             East-West and North-South directions respectively.
+
+        .. versionchanged:: ?.?.?
+            The default value of `not_visible_nan` was changed from `False` to `True`.
         """
         return self._maybe_transform_as_arrays(
             self._lonlat2km, lon, lat, alt=alt, not_visible_nan=not_visible_nan
@@ -2790,7 +2801,9 @@ class Body(BodyBase):
         Returns:
             Angle of the north pole in degrees (-180 to 180).
         """
-        np_x, np_y = self.radec2angular(*self.lonlat2radec(0, 90))
+        np_x, np_y = self.radec2angular(
+            *self.lonlat2radec(0, 90, not_visible_nan=False)
+        )
         target_x, target_y = self.radec2angular(self.target_ra, self.target_dec)
         theta = -np.arctan2(target_x - np_x, np_y - target_y)
         theta = np.rad2deg(theta) % 360.0
@@ -3112,12 +3125,16 @@ class Body(BodyBase):
 
             if label_poles:
                 for lon, lat, s in self.get_poles_to_plot():
-                    x, y = coordinate_func(*self.lonlat2radec(lon, lat))
+                    x, y = coordinate_func(
+                        *self.lonlat2radec(lon, lat, not_visible_nan=False)
+                    )
                     ax.text(x, y, s, **kwargs['pole'])
 
             for lon, lat in self.coordinates_of_interest_lonlat:
                 if self.test_if_lonlat_visible(lon, lat):
-                    x, y = coordinate_func(*self.lonlat2radec(lon, lat))
+                    x, y = coordinate_func(
+                        *self.lonlat2radec(lon, lat, not_visible_nan=False)
+                    )
                     ax.scatter(x, y, **kwargs['coordinate_of_interest_lonlat'])
             for ra, dec in self.coordinates_of_interest_radec:
                 ax.scatter(

@@ -10,7 +10,7 @@ import common_testing
 import matplotlib.pyplot as plt
 import numpy as np
 import spiceypy as spice
-from numpy import array, nan
+from numpy import array, inf, nan
 from spiceypy.utils.exceptions import (
     NotFoundError,
     SpiceBODIESNOTDISTINCT,
@@ -654,7 +654,11 @@ class TestBody(common_testing.BaseTestCase):
         for lonlat, radec in pairs:
             with self.subTest(lonlat):
                 self.assertTrue(
-                    np.allclose(self.body.lonlat2radec(*lonlat), radec, equal_nan=True)
+                    np.allclose(
+                        self.body.lonlat2radec(*lonlat, not_visible_nan=False),
+                        radec,
+                        equal_nan=True,
+                    )
                 )
 
         pairs_with_alts: list[
@@ -668,7 +672,7 @@ class TestBody(common_testing.BaseTestCase):
         for (lon, lat, alt), expected in pairs_with_alts:
             with self.subTest((lon, lat, alt)):
                 self.assertArraysClose(
-                    self.body.lonlat2radec(lon, lat, alt=alt),
+                    self.body.lonlat2radec(lon, lat, alt=alt, not_visible_nan=False),
                     expected,
                     equal_nan=True,
                 )
@@ -687,12 +691,7 @@ class TestBody(common_testing.BaseTestCase):
             equal_nan=True,
         )
         self.assertArraysClose(
-            self.body.lonlat2radec(
-                [[0, 90, 123], [100, 200, 300.123]],
-                0,
-                alt=123.456,
-                not_visible_nan=True,
-            ),
+            self.body.lonlat2radec([[0, 90, 123], [100, 200, 300.123]], 0, alt=123.456),
             (
                 array(
                     [
@@ -717,13 +716,70 @@ class TestBody(common_testing.BaseTestCase):
             equal_nan=True,
         )
         self.assertArraysClose(
-            self.body.lonlat2radec([np.nan, np.inf, 0, 1.234, 1234], 0),
+            self.body.lonlat2radec(
+                [np.nan, np.inf, 0, 1.234, 1234], 0, not_visible_nan=False
+            ),
             (
                 array([nan, nan, 196.3698279, 196.36974134, 196.37215256]),
                 array([nan, nan, -5.56506094, -5.56501974, -5.56561021]),
             ),
             equal_nan=True,
         )
+
+        # lonlat, radec(not_visible_nan=True), radec(not_visible_nan=False)
+        not_visible_nan_coordinates: list[
+            tuple[tuple[float, float], tuple[float, float], tuple[float, float]]
+        ] = [
+            ((0, 90), (nan, nan), (196.37390490466322, -5.561534444253402)),
+            (
+                (0, -90),
+                (196.3700662953778, -5.570053261753392),
+                (196.3700662953778, -5.570053261753392),
+            ),
+            ((0, 0), (nan, nan), (196.36982789576643, -5.565060944053696)),
+            ((-42.123, -42.123), (nan, nan), (196.37159471956562, -5.569112859340856)),
+            (
+                (123.45, 42.123),
+                (196.37155730609302, -5.562127656859109),
+                (196.37155730609302, -5.562127656859109),
+            ),
+            ((nan, nan), (nan, nan), (nan, nan)),
+            ((inf, inf), (nan, nan), (nan, nan)),
+            ((0, nan), (nan, nan), (nan, nan)),
+            ((nan, 0), (nan, nan), (nan, nan)),
+        ]
+        for (
+            lonlat,
+            radec_not_visible_true,
+            radec_not_visible_false,
+        ) in not_visible_nan_coordinates:
+            with self.subTest(
+                'not_visible_nan=<DEFAULT>',
+                lonlat=lonlat,
+            ):
+                self.assertArraysClose(
+                    self.body.lonlat2radec(*lonlat),
+                    radec_not_visible_true,
+                    equal_nan=True,
+                )
+            with self.subTest(
+                'not_visible_nan=True',
+                lonlat=lonlat,
+            ):
+                self.assertArraysClose(
+                    self.body.lonlat2radec(*lonlat, not_visible_nan=True),
+                    radec_not_visible_true,
+                    equal_nan=True,
+                )
+            with self.subTest(
+                'not_visible_nan=False',
+                lonlat=lonlat,
+            ):
+                self.assertArraysClose(
+                    self.body.lonlat2radec(*lonlat, not_visible_nan=False),
+                    radec_not_visible_false,
+                    equal_nan=True,
+                )
 
     def test_radec2lonlat(self):
         self.assertTrue(
@@ -1008,7 +1064,7 @@ class TestBody(common_testing.BaseTestCase):
         for (lon, lat, alt), expected in pairs_with_alts:
             with self.subTest((lon, lat, alt)):
                 self.assertArraysClose(
-                    self.body.lonlat2angular(lon, lat, alt=alt),
+                    self.body.lonlat2angular(lon, lat, alt=alt, not_visible_nan=False),
                     expected,
                     equal_nan=True,
                 )
@@ -1032,6 +1088,60 @@ class TestBody(common_testing.BaseTestCase):
                 self.assertArraysClose(
                     self.body.angular2lonlat(x, y, alt=alt), expected, equal_nan=True
                 )
+        # lonlat, not_visible_nan=True, not_visible_nan=False
+        not_visible_nan_coordinates: list[
+            tuple[tuple[float, float], tuple[float, float], tuple[float, float]]
+        ] = [
+            ((0, 90), (nan, nan), (-6.876884688222162, 15.333839200239979)),
+            (
+                (0, -90),
+                (6.876958825091606, -15.333903800125292),
+                (6.876958825091606, -15.333903800125292),
+            ),
+            ((0, 0), (nan, nan), (7.7312107002171615, 2.6384369710660938)),
+            ((-42.123, -42.123), (nan, nan), (1.400614489898544, -11.948444406821393)),
+            (
+                (123.45, 42.123),
+                (1.534685475508013, 13.19828443451154),
+                (1.534685475508013, 13.19828443451154),
+            ),
+            ((nan, nan), (nan, nan), (nan, nan)),
+            ((inf, inf), (nan, nan), (nan, nan)),
+            ((0, nan), (nan, nan), (nan, nan)),
+            ((nan, 0), (nan, nan), (nan, nan)),
+        ]
+        for (
+            lonlat,
+            not_visible_true,
+            not_visible_false,
+        ) in not_visible_nan_coordinates:
+            with self.subTest(
+                'not_visible_nan=<DEFAULT>',
+                lonlat=lonlat,
+            ):
+                self.assertArraysClose(
+                    self.body.lonlat2angular(*lonlat),
+                    not_visible_true,
+                    equal_nan=True,
+                )
+            with self.subTest(
+                'not_visible_nan=True',
+                lonlat=lonlat,
+            ):
+                self.assertArraysClose(
+                    self.body.lonlat2angular(*lonlat, not_visible_nan=True),
+                    not_visible_true,
+                    equal_nan=True,
+                )
+            with self.subTest(
+                'not_visible_nan=False',
+                lonlat=lonlat,
+            ):
+                self.assertArraysClose(
+                    self.body.lonlat2angular(*lonlat, not_visible_nan=False),
+                    not_visible_false,
+                    equal_nan=True,
+                )
 
     def test_km_rotation(self):
         x_target, y_target = self.body.radec2km(
@@ -1041,7 +1151,7 @@ class TestBody(common_testing.BaseTestCase):
         self.assertAlmostEqual(y_target, 0)
         for lat in [-90, 90]:
             with self.subTest(lat):
-                x, y = self.body.lonlat2km(0, lat)
+                x, y = self.body.lonlat2km(0, lat, not_visible_nan=False)
                 self.assertAlmostEqual(x, x_target, delta=1)
                 if lat > 0:
                     self.assertGreater(y, y_target)
@@ -1125,7 +1235,7 @@ class TestBody(common_testing.BaseTestCase):
         for (lon, lat, alt), expected in pairs_with_alts:
             with self.subTest((lon, lat, alt)):
                 self.assertArraysClose(
-                    self.body.lonlat2km(lon, lat, alt=alt),
+                    self.body.lonlat2km(lon, lat, alt=alt, not_visible_nan=False),
                     expected,
                     equal_nan=True,
                 )
@@ -1148,6 +1258,61 @@ class TestBody(common_testing.BaseTestCase):
             with self.subTest((x, y, alt)):
                 self.assertArraysClose(
                     self.body.km2lonlat(x, y, alt=alt), expected, equal_nan=True
+                )
+
+        # lonlat, not_visible_nan=True, not_visible_nan=False
+        not_visible_nan_coordinates: list[
+            tuple[tuple[float, float], tuple[float, float], tuple[float, float]]
+        ] = [
+            ((0, 90), (nan, nan), (-1.433363649994135e-09, 66779.52199294537)),
+            (
+                (0, -90),
+                (0.16375935621545068, -66779.87677061002),
+                (0.16375935621545068, -66779.87677061002),
+            ),
+            ((0, 0), (nan, nan), (32321.992189846314, -3005.186949276849)),
+            ((-42.123, -42.123), (nan, nan), (-14350.827719310022, -45599.95768245907)),
+            (
+                (123.45, 42.123),
+                (27025.925086085685, 45358.56586021766),
+                (27025.925086085685, 45358.56586021766),
+            ),
+            ((nan, nan), (nan, nan), (nan, nan)),
+            ((inf, inf), (nan, nan), (nan, nan)),
+            ((0, nan), (nan, nan), (nan, nan)),
+            ((nan, 0), (nan, nan), (nan, nan)),
+        ]
+        for (
+            lonlat,
+            not_visible_true,
+            not_visible_false,
+        ) in not_visible_nan_coordinates:
+            with self.subTest(
+                'not_visible_nan=<DEFAULT>',
+                lonlat=lonlat,
+            ):
+                self.assertArraysClose(
+                    self.body.lonlat2km(*lonlat),
+                    not_visible_true,
+                    equal_nan=True,
+                )
+            with self.subTest(
+                'not_visible_nan=True',
+                lonlat=lonlat,
+            ):
+                self.assertArraysClose(
+                    self.body.lonlat2km(*lonlat, not_visible_nan=True),
+                    not_visible_true,
+                    equal_nan=True,
+                )
+            with self.subTest(
+                'not_visible_nan=False',
+                lonlat=lonlat,
+            ):
+                self.assertArraysClose(
+                    self.body.lonlat2km(*lonlat, not_visible_nan=False),
+                    not_visible_false,
+                    equal_nan=True,
                 )
 
     def test_km_angular(self):
