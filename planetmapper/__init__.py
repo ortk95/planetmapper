@@ -183,14 +183,13 @@ from .observation import Observation
 # should allow users to still use the rest of planetmapper's functionality, and get
 # useful error messages if they try and use any of the GUI functionality.
 try:
-    import gui
-
+    from . import gui
     from .gui import run_gui
 except ImportError as e:
-    import _mock_gui_no_tkinter
+    from . import _mock_gui_no_tkinter
 
-    _mock_gui_no_tkinter._PARENT_EXCEPTION = e
-    gui = _mock_gui_no_tkinter._mock_gui_module_class()
+    _mock_gui_no_tkinter.PARENT_EXCEPTION = e
+    gui = _mock_gui_no_tkinter.mock_gui_module_class()
     run_gui = _mock_gui_no_tkinter.run_gui
 
     del _mock_gui_no_tkinter
