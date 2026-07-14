@@ -1591,7 +1591,7 @@ class Observation(BodyXY):
         try:
             from .gui import GUI
         except ImportError as e:
-            from ._mock_gui_no_tkinter import raise_tkinter_import_error
+            from ._mock_gui_no_tk import raise_tkinter_import_error
 
             raise_tkinter_import_error(e)
 

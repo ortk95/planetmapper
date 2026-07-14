@@ -186,13 +186,13 @@ try:
     from . import gui
     from .gui import run_gui
 except ImportError as e:
-    from . import _mock_gui_no_tkinter
+    from . import _mock_gui_no_tk
 
-    _mock_gui_no_tkinter.PARENT_EXCEPTION = e
-    gui = _mock_gui_no_tkinter.mock_gui_module_class()
-    run_gui = _mock_gui_no_tkinter.run_gui
+    _mock_gui_no_tk.PARENT_EXCEPTION = e
+    gui = _mock_gui_no_tk.mock_gui_module_class()
+    run_gui = _mock_gui_no_tk.run_gui
 
-    del _mock_gui_no_tkinter
+    del _mock_gui_no_tk
 
 
 __all__ = [

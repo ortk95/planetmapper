@@ -2,8 +2,8 @@
 
 from typing import NoReturn
 
-_ERROR_MESSAGE = (
-    'The "tkinter" package is not included in your Python installation, so PlanetMapper cannot create any graphical user interfaces. '
+ERROR_MESSAGE = (
+    'The "tkinter" package is not included in your Python installation, so PlanetMapper cannot create a graphical user interface. '
     'See https://docs.python.org/3/library/tkinter.html for more information.'
 )
 PARENT_EXCEPTION: ImportError = ImportError()
@@ -11,14 +11,14 @@ PARENT_EXCEPTION: ImportError = ImportError()
 
 def raise_tkinter_import_error(parent_exception: ImportError | None = None) -> NoReturn:
     """
-    Inform the user that tkinter is not available when they try to use the GUI.s
+    Inform the user that tkinter is not available when they try to use the GUI.
     """
     parent_exception = (
         PARENT_EXCEPTION if parent_exception is None else parent_exception
     )
     if PARENT_EXCEPTION.name is not None and 'tkinter' in PARENT_EXCEPTION.name:
-        raise ImportError(_ERROR_MESSAGE, name='tkinter') from PARENT_EXCEPTION
-    raise PARENT_EXCEPTION
+        raise ModuleNotFoundError(ERROR_MESSAGE, name='tkinter') from PARENT_EXCEPTION
+    raise PARENT_EXCEPTION  # pragma: no cover
 
 
 class mock_gui_module_class:
