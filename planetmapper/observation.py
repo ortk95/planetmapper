@@ -1589,7 +1589,12 @@ class Observation(BodyXY):
             clicked on the plot window to mark a location.
         """
         # pylint: disable=cyclic-import
-        from .gui import GUI  # Prevent circular imports
+        try:
+            from .gui import GUI
+        except ImportError as e:
+            from ._mock_gui_no_tk import raise_tkinter_import_error
+
+            raise_tkinter_import_error(e)
 
         gui = GUI(allow_open=False)
         gui.set_observation(self)
