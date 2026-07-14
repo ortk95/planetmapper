@@ -4,6 +4,7 @@ import sys
 import unittest
 
 import common_testing
+import numpy as np
 
 ERROR_MESSAGE = (
     'The "tkinter" package is not included in your Python installation, so PlanetMapper cannot create a graphical user interface. '
@@ -83,6 +84,8 @@ class TestMockGUIWithTkinterImportRaiser(common_testing.BaseTestCase):
         planetmapper.set_kernel_path(common_testing.KERNEL_PATH)
 
         planetmapper.gui
+
+        # Copied from test_body
         body = planetmapper.Body('Jupiter', observer='HST', utc='2005-01-01T00:00:00')
         self.assertEqual(body.target_body_id, 599)
         self.assertEqual(body.utc, '2005-01-01T00:00:00.000000')
@@ -91,7 +94,11 @@ class TestMockGUIWithTkinterImportRaiser(common_testing.BaseTestCase):
         self.assertAlmostEqual(body.subpoint_lon, 153.12585514751467, places=5)
         self.assertAlmostEqual(body.subpoint_lat, -3.0886644594385193, places=5)
         self.assertArraysClose(
-            body.lonlat2radec(0, 0), (196.36982789576643, -5.565060944053696)
+            body.radec2lonlat(0, 0), (np.nan, np.nan), equal_nan=True
+        )
+        self.assertArraysClose(
+            body.radec2lonlat(196.37198562427025, -5.565793847134351),
+            (153.1235185909613, -3.0887371238645795),
         )
 
     def test_init(self):
