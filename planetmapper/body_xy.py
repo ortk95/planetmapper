@@ -436,6 +436,7 @@ class BodyXY(Body):
         *,
         not_found_nan: bool = True,
         alt: float = 0.0,
+        planetocentric: bool = False,
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert `image pixel coordinates`_ to `longitude/latitude coordinates`_ on the
@@ -454,6 +455,9 @@ class BodyXY(Body):
                 are missing the target body.
             alt: Altitude of returned `(lon, lat)` point above the surface of the target
                 body in km.
+            planetocentric: If `True`, return planetocentric rather than planetographic
+                longitude/latitude coordinates. The default is `False`, meaning the
+                returned coordinates are planetographic.
 
         Returns:
             `(lon, lat)` tuple containing the planetographic longitude/latitude of
@@ -466,13 +470,29 @@ class BodyXY(Body):
                 body and `not_found_nan` is `False`.
         """
         return self._maybe_transform_as_arrays(
-            self._xy2lonlat, x, y, not_found_nan=not_found_nan, alt=alt
+            self._xy2lonlat,
+            x,
+            y,
+            not_found_nan=not_found_nan,
+            alt=alt,
+            planetocentric=planetocentric,
         )
 
     def _xy2lonlat(
-        self, x: float, y: float, *, not_found_nan: bool, alt: float
+        self,
+        x: float,
+        y: float,
+        *,
+        not_found_nan: bool,
+        alt: float,
+        planetocentric: bool,
     ) -> tuple[float, float]:
-        return self._obsvec_norm2lonlat(self._xy2obsvec_norm(x, y), not_found_nan, alt)
+        return self._obsvec_norm2lonlat(
+            self._xy2obsvec_norm(x, y),
+            not_found_nan=not_found_nan,
+            alt=alt,
+            planetocentric=planetocentric,
+        )
 
     def lonlat2xy(
         self,
@@ -481,6 +501,7 @@ class BodyXY(Body):
         *,
         alt: float = 0.0,
         not_visible_nan: bool = True,
+        planetocentric: bool = False,
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert `longitude/latitude coordinates`_ on the target body to `image pixel
@@ -500,6 +521,9 @@ class BodyXY(Body):
                 be NaN if the point is not visible to the observer (e.g. it is on the
                 far side of the target). If `False`, then `(x, y)` coordinates will be
                 returned, even if the point is not directly visible.
+            planetocentric: If `True`, treat the input coordinates as planetocentric
+                rather than planetographic longitude/latitude coordinates. The default
+                is `False`, meaning the input coordinates are planetographic.
 
         Returns:
             `(x, y)` tuple containing the image pixel coordinates of the point(s).
@@ -508,14 +532,31 @@ class BodyXY(Body):
             The default value of `not_visible_nan` was changed from `False` to `True`.
         """
         return self._maybe_transform_as_arrays(
-            self._lonlat2xy, lon, lat, alt=alt, not_visible_nan=not_visible_nan
+            self._lonlat2xy,
+            lon,
+            lat,
+            alt=alt,
+            not_visible_nan=not_visible_nan,
+            planetocentric=planetocentric,
         )
 
     def _lonlat2xy(
-        self, lon: float, lat: float, *, alt: float, not_visible_nan: bool
+        self,
+        lon: float,
+        lat: float,
+        *,
+        alt: float,
+        not_visible_nan: bool,
+        planetocentric: bool,
     ) -> tuple[float, float]:
         return self._obsvec2xy(
-            self._lonlat2obsvec(lon, lat, alt=alt, not_visible_nan=not_visible_nan)
+            self._lonlat2obsvec(
+                lon,
+                lat,
+                alt=alt,
+                not_visible_nan=not_visible_nan,
+                planetocentric=planetocentric,
+            )
         )
 
     def xy2km(

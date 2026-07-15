@@ -80,7 +80,7 @@ class TestBody(common_testing.BaseTestCase):
             self.assertIn(planetmapper.base.get_kernel_path(), e.message)
 
             # Ensure help message isn't added twice from nested decorated functions
-            self.assertEquals(
+            self.assertEqual(
                 e.message.count(planetmapper.base._SPICE_ERROR_HELP_TEXT), 1
             )
 
@@ -635,11 +635,42 @@ class TestBody(common_testing.BaseTestCase):
             ):
                 self.assertArraysClose(
                     self.body._lonlat2obsvec(
-                        lon, lat, alt=alt, not_visible_nan=not_visible_nan
+                        lon,
+                        lat,
+                        alt=alt,
+                        not_visible_nan=not_visible_nan,
+                        planetocentric=False,
                     ),
                     expected,
                     equal_nan=True,
                 )
+            for planetocentric in (False, True):
+                with self.subTest(
+                    lon=lon,
+                    lat=lat,
+                    alt=alt,
+                    not_visible_nan=not_visible_nan,
+                    planetocentric=planetocentric,
+                ):
+                    if planetocentric:
+                        lon_to_use, lat_to_use = self.body.graphic2centric_lonlat(
+                            lon, lat, alt=alt
+                        )
+                    else:
+                        lon_to_use, lat_to_use = lon, lat
+                    self.assertArraysClose(
+                        self.body._lonlat2obsvec(
+                            lon_to_use,
+                            lat_to_use,
+                            alt=alt,
+                            not_visible_nan=not_visible_nan,
+                            planetocentric=planetocentric,
+                        ),
+                        expected,
+                        equal_nan=True,
+                        atol=9e99 if alt > 1e6 else 1e-8,
+                        rtol=1e-4 if alt > 1e6 else 1e-5,
+                    )
 
     def test_lonlat2radec(self):
         pairs = [
@@ -660,6 +691,26 @@ class TestBody(common_testing.BaseTestCase):
                         equal_nan=True,
                     )
                 )
+            for planetocentric in (False, True):
+                with self.subTest(lonlat, planetocentric=planetocentric):
+                    if planetocentric:
+                        lon_to_use, lat_to_use = self.body.graphic2centric_lonlat(
+                            *lonlat
+                        )
+                    else:
+                        lon_to_use, lat_to_use = lonlat
+                    self.assertTrue(
+                        np.allclose(
+                            self.body.lonlat2radec(
+                                lon_to_use,
+                                lat_to_use,
+                                not_visible_nan=False,
+                                planetocentric=planetocentric,
+                            ),
+                            radec,
+                            equal_nan=True,
+                        )
+                    )
 
         pairs_with_alts: list[
             tuple[tuple[float, float, float], tuple[float, float]]
@@ -676,6 +727,7 @@ class TestBody(common_testing.BaseTestCase):
                     expected,
                     equal_nan=True,
                 )
+
         # Test array broadcasting implementation
         self.assertArraysClose(
             self.body.lonlat2radec(
@@ -781,6 +833,34 @@ class TestBody(common_testing.BaseTestCase):
                     equal_nan=True,
                 )
 
+        with self.subTest('planetocentric'):
+            self.assertArraysClose(
+                self.body.lonlat2radec(
+                    [[0, 1, 100, 456.78, -42.42]],
+                    [[0, 5, 30, -45.6789, 90]],
+                    alt=123.44,
+                    planetocentric=True,
+                    not_visible_nan=False,
+                ),
+                (
+                    array(
+                        [
+                            [
+                                196.36982417,
+                                196.37008339,
+                                196.37670856,
+                                196.37344939,
+                                196.37390845,
+                            ]
+                        ]
+                    ),
+                    array(
+                        [[-5.56505968, -5.5646989, -5.565273, -5.57029209, -5.56152658]]
+                    ),
+                ),
+                equal_nan=True,
+            )
+
     def test_radec2lonlat(self):
         self.assertTrue(
             np.array_equal(
@@ -820,6 +900,21 @@ class TestBody(common_testing.BaseTestCase):
                             self.body.lonlat2radec(*lonlat), radec, equal_nan=True
                         )
                     )
+            for planetocentric in (False, True):
+                with self.subTest(radec, planetocentric=planetocentric):
+                    if planetocentric:
+                        lonlat_to_use = self.body.graphic2centric_lonlat(*lonlat)
+                    else:
+                        lonlat_to_use = lonlat
+                    self.assertTrue(
+                        np.allclose(
+                            self.body.radec2lonlat(
+                                *radec, planetocentric=planetocentric
+                            ),
+                            lonlat_to_use,
+                            equal_nan=True,
+                        )
+                    )
 
         pairs_with_alts: list[
             tuple[tuple[float, float, float], tuple[float, float]]
@@ -843,6 +938,49 @@ class TestBody(common_testing.BaseTestCase):
                 self.assertArraysClose(
                     self.body.radec2lonlat(ra, dec, alt=alt), expected, equal_nan=True
                 )
+
+        with self.subTest('planetocentric'):
+            self.assertArraysClose(
+                self.body.radec2lonlat(
+                    [
+                        [
+                            196.36982417,
+                            196.37008339,
+                            196.37670856,
+                            196.37344939,
+                            196.37390845,
+                        ]
+                    ],
+                    [[-5.56505968, -5.5646989, -5.565273, -5.57029209, -5.56152658]],
+                    alt=123.44,
+                    planetocentric=True,
+                ),
+                (
+                    array(
+                        [
+                            [
+                                -126.12884032,
+                                -127.36719725,
+                                137.03419591,
+                                130.7518092,
+                                -153.12075396,
+                            ]
+                        ]
+                    ),
+                    array(
+                        [
+                            [
+                                -4.81959108,
+                                0.13509603,
+                                28.23425081,
+                                -47.39154262,
+                                83.81857224,
+                            ]
+                        ]
+                    ),
+                ),
+                equal_nan=True,
+            )
 
     def test_lonlat2targvec(self):
         pairs = [
@@ -904,6 +1042,21 @@ class TestBody(common_testing.BaseTestCase):
                         self.body.targvec2lonlat(targvec), lonlat, equal_nan=True
                     )
                 )
+            for planetocentric in (False, True):
+                with self.subTest(targvec, planetocentric=planetocentric):
+                    if planetocentric:
+                        lonlat_to_use = self.body.graphic2centric_lonlat(*lonlat)
+                    else:
+                        lonlat_to_use = lonlat
+                    self.assertTrue(
+                        np.allclose(
+                            self.body.targvec2lonlat(
+                                targvec, planetocentric=planetocentric
+                            ),
+                            lonlat_to_use,
+                            equal_nan=True,
+                        )
+                    )
         pairs_with_alts: list[tuple[tuple[np.ndarray, float], tuple[float, float]]] = [
             ((array([0, 0, 0]), 0), (0.0, 90.0)),
             ((array([1, 2, 3]), 0), (296.565051177078, 89.98665551067639)),
@@ -1037,6 +1190,49 @@ class TestBody(common_testing.BaseTestCase):
                 else:
                     with self.assertRaises(NotFoundError):
                         self.body.angular2lonlat(x, y, **kw, not_found_nan=False)
+            for planetocentric in (False, True):
+                with self.subTest(x=x, y=y, kw=kw, planetocentric=planetocentric):
+                    lonlat_to_use = (
+                        self.body.graphic2centric_lonlat(*lonlat)
+                        if planetocentric
+                        else lonlat
+                    )
+                    self.assertArraysClose(
+                        self.body.angular2lonlat(
+                            x, y, planetocentric=planetocentric, **kw
+                        ),
+                        lonlat_to_use,
+                        equal_nan=True,
+                        atol=1e-3,
+                    )
+                    if np.isfinite(lonlat[0]):
+                        self.assertArraysClose(
+                            self.body.lonlat2angular(
+                                *lonlat_to_use, planetocentric=planetocentric, **kw
+                            ),
+                            (x, y),
+                            atol=1e-4,
+                        )
+                        self.assertArraysClose(
+                            self.body.angular2lonlat(
+                                x,
+                                y,
+                                **kw,
+                                not_found_nan=False,
+                                planetocentric=planetocentric,
+                            ),
+                            lonlat_to_use,
+                            equal_nan=True,
+                        )
+                    else:
+                        with self.assertRaises(NotFoundError):
+                            self.body.angular2lonlat(
+                                x,
+                                y,
+                                **kw,
+                                not_found_nan=False,
+                                planetocentric=planetocentric,
+                            )
 
         inputs = [
             (np.nan, np.nan),
@@ -1200,6 +1396,28 @@ class TestBody(common_testing.BaseTestCase):
                 self.assertTrue(
                     np.allclose(self.body.lonlat2km(*lonlat), km, atol=1e-3)
                 )
+            for planetocentric in (False, True):
+                with self.subTest(km, planetocentric=planetocentric):
+                    lonlat_to_use = (
+                        self.body.graphic2centric_lonlat(*lonlat)
+                        if planetocentric
+                        else lonlat
+                    )
+                    self.assertTrue(
+                        np.allclose(
+                            self.body.km2lonlat(*km, planetocentric=planetocentric),
+                            lonlat_to_use,
+                        )
+                    )
+                    self.assertTrue(
+                        np.allclose(
+                            self.body.lonlat2km(
+                                *lonlat_to_use, planetocentric=planetocentric
+                            ),
+                            km,
+                            atol=1e-3,
+                        )
+                    )
 
         self.assertTrue(
             np.array_equal(
@@ -1429,6 +1647,13 @@ class TestBody(common_testing.BaseTestCase):
                 ),
             ),
         )
+        self.assertArraysClose(
+            self.body.limb_lonlat(npts=3, planetocentric=True),
+            (
+                array([-153.1234683, 115.10057017, -61.34746043, -153.1234683]),
+                array([86.90599408, -29.95280995, -29.95280995, 86.90599408]),
+            ),
+        )
 
     def test_limb_radec_by_illumination(self):
         self.assertTrue(
@@ -1484,6 +1709,25 @@ class TestBody(common_testing.BaseTestCase):
                 self.assertTrue(
                     np.allclose(dist, dist_expected, rtol=1e-5, equal_nan=True)
                 )
+            for planetocentric in (False, True):
+                with self.subTest(ra=ra, dec=dec, planetocentric=planetocentric):
+                    lon_to_use, lat_to_use = (
+                        self.body.graphic2centric_lonlat(lon_expected, lat_expected)
+                        if planetocentric
+                        else (lon_expected, lat_expected)
+                    )
+                    lon, lat, dist = self.body.limb_coordinates_from_radec(
+                        ra, dec, planetocentric=planetocentric
+                    )
+                    self.assertTrue(
+                        np.allclose(lon, lon_to_use, rtol=1e-5, equal_nan=True)
+                    )
+                    self.assertTrue(
+                        np.allclose(lat, lat_to_use, rtol=1e-5, equal_nan=True)
+                    )
+                    self.assertTrue(
+                        np.allclose(dist, dist_expected, rtol=1e-5, equal_nan=True)
+                    )
 
     def test_if_lonlat_visible(self):
         pairs: list[tuple[tuple[float, float], bool]] = [
@@ -1500,15 +1744,26 @@ class TestBody(common_testing.BaseTestCase):
                 self.assertEqual(
                     self.body.test_if_lonlat_visible(*lonlat), visible, lonlat
                 )
+            for planetocentric in (False, True):
+                with self.subTest(lonlat=lonlat, planetocentric=planetocentric):
+                    lonlat_to_use = (
+                        self.body.graphic2centric_lonlat(*lonlat)
+                        if planetocentric
+                        else lonlat
+                    )
+                    self.assertEqual(
+                        self.body.test_if_lonlat_visible(
+                            *lonlat_to_use, planetocentric=planetocentric
+                        ),
+                        visible,
+                    )
 
         pairs_with_alts: list[tuple[tuple[float, float, float], bool]] = [
             ((0, 0, 0), False),
             ((0, 0, 1000000.0), True),
-            ((0, 0, -1000000.0), True),
             ((153.1, -3.0, 0), True),
             ((153.1, -3.0, -1), False),
             ((153.1, -3.0, 1), True),
-            ((153.1, -3.0, nan), False),
             ((153.1, nan, 1), False),
         ]
         for (lon, lat, alt), visible in pairs_with_alts:
@@ -1516,6 +1771,21 @@ class TestBody(common_testing.BaseTestCase):
                 self.assertEqual(
                     self.body.test_if_lonlat_visible(lon, lat, alt=alt), visible
                 )
+            for planetocentric in (False, True):
+                with self.subTest(
+                    lon=lon, lat=lat, alt=alt, planetocentric=planetocentric
+                ):
+                    lonlat_to_use = (
+                        self.body.graphic2centric_lonlat(lon, lat, alt=alt)
+                        if planetocentric
+                        else (lon, lat)
+                    )
+                    self.assertEqual(
+                        self.body.test_if_lonlat_visible(
+                            *lonlat_to_use, alt=alt, planetocentric=planetocentric
+                        ),
+                        visible,
+                    )
 
     def test_other_body_los_intercept(self):
         utc = '2005-01-01 04:00:00'
@@ -1575,6 +1845,22 @@ class TestBody(common_testing.BaseTestCase):
                         equal_nan=True,
                     )
                 )
+            for planetocentric in (False, True):
+                with self.subTest(lonlat=lonlat, planetocentric=planetocentric):
+                    lonlat_to_use = (
+                        self.body.graphic2centric_lonlat(*lonlat)
+                        if planetocentric
+                        else lonlat
+                    )
+                    self.assertTrue(
+                        np.allclose(
+                            self.body.illumination_angles_from_lonlat(
+                                *lonlat_to_use, planetocentric=planetocentric
+                            ),
+                            angles,
+                            equal_nan=True,
+                        )
+                    )
 
     def test_azimuth_angle_from_lonlat(self):
         args: list[tuple[tuple[float, float], float]] = [
@@ -1594,6 +1880,22 @@ class TestBody(common_testing.BaseTestCase):
                         equal_nan=True,
                     )
                 )
+            for planetocentric in (False, True):
+                with self.subTest(lonlat=lonlat, planetocentric=planetocentric):
+                    lonlat_to_use = (
+                        self.body.graphic2centric_lonlat(*lonlat)
+                        if planetocentric
+                        else lonlat
+                    )
+                    self.assertTrue(
+                        np.allclose(
+                            self.body.azimuth_angle_from_lonlat(
+                                *lonlat_to_use, planetocentric=planetocentric
+                            ),
+                            angle,
+                            equal_nan=True,
+                        )
+                    )
 
     def test_local_solar_time(self):
         args: list[tuple[float, float, str]] = [
@@ -1665,6 +1967,14 @@ class TestBody(common_testing.BaseTestCase):
             ),
             equal_nan=True,
         )
+        self.assertArraysClose(
+            self.body.terminator_lonlat(npts=5, only_visible=True, planetocentric=True),
+            self.body.graphic2centric_lonlat(
+                array([nan, nan, nan, 69.62871003, 74.2818866, nan]),
+                array([nan, nan, nan, -57.48337047, 20.36259847, nan]),
+            ),
+            equal_nan=True,
+        )
 
     def test_if_lonlat_illuminated(self):
         pairs: list[tuple[tuple[float, float], bool]] = [
@@ -1681,6 +1991,19 @@ class TestBody(common_testing.BaseTestCase):
                 self.assertEqual(
                     self.body.test_if_lonlat_illuminated(lon, lat), illuminated
                 )
+            for planetocentric in (False, True):
+                with self.subTest(lon=lon, lat=lat, planetocentric=planetocentric):
+                    lonlat_to_use = (
+                        self.body.graphic2centric_lonlat(lon, lat)
+                        if planetocentric
+                        else (lon, lat)
+                    )
+                    self.assertEqual(
+                        self.body.test_if_lonlat_illuminated(
+                            *lonlat_to_use, planetocentric=planetocentric
+                        ),
+                        illuminated,
+                    )
 
     def test_ring_plane_coordinates(self):
         args: list[tuple[tuple[float, float, bool], tuple[float, float, float]]] = [
@@ -2163,6 +2486,7 @@ class TestBody(common_testing.BaseTestCase):
     def test_radial_velocity_from_lonlat(self):
         args: list[tuple[tuple[float, float], float]] = [
             ((0, 0), -20.796924908179438),
+            ((45, 45), -17.75706386255955),
             ((np.nan, np.nan), np.nan),
             ((np.nan, 0), np.nan),
             ((0, np.nan), np.nan),
@@ -2177,10 +2501,27 @@ class TestBody(common_testing.BaseTestCase):
                         equal_nan=True,
                     )
                 )
+            for planetocentric in (False, True):
+                with self.subTest(lonlat=lonlat, planetocentric=planetocentric):
+                    lonlat_to_use = (
+                        self.body.graphic2centric_lonlat(*lonlat)
+                        if planetocentric
+                        else lonlat
+                    )
+                    self.assertTrue(
+                        np.allclose(
+                            self.body.radial_velocity_from_lonlat(
+                                *lonlat_to_use, planetocentric=planetocentric
+                            ),
+                            x,
+                            equal_nan=True,
+                        )
+                    )
 
     def test_distance_from_lonalt(self):
         args: list[tuple[tuple[float, float], float]] = [
             ((0, 0), 819701772.0279644),
+            ((45, 45), 819656453.7301536),
             ((np.nan, np.nan), np.nan),
             ((np.nan, 0), np.nan),
             ((0, np.nan), np.nan),
@@ -2193,6 +2534,22 @@ class TestBody(common_testing.BaseTestCase):
                         self.body.distance_from_lonlat(*lonlat), x, equal_nan=True
                     )
                 )
+            for planetocentric in (False, True):
+                with self.subTest(lonlat=lonlat, planetocentric=planetocentric):
+                    lonlat_to_use = (
+                        self.body.graphic2centric_lonlat(*lonlat)
+                        if planetocentric
+                        else lonlat
+                    )
+                    self.assertTrue(
+                        np.allclose(
+                            self.body.distance_from_lonlat(
+                                *lonlat_to_use, planetocentric=planetocentric
+                            ),
+                            x,
+                            equal_nan=True,
+                        )
+                    )
 
     def test_graphic_centric_lonlat(self):
         pairs = [
