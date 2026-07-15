@@ -3346,7 +3346,7 @@ class BodyXY(Body):
 
         Returns:
             :ref:`Read-only array<readonly arrays>` containing the phase angle value of
-            each pixel in the image. Points off the disc have a value of NaN.
+            each pixel in the image in degrees. Points off the disc have a value of NaN.
         """
         return self._get_illumination_gie_img()[:, :, 0]
 
@@ -3357,7 +3357,7 @@ class BodyXY(Body):
 
         Returns:
             :ref:`Read-only array<readonly arrays>` containing map of the phase angle
-            value at each point on the target's surface.
+            value at each point on the target's surface in degrees.
         """
         return self._get_illumf_map(**map_kwargs)[:, :, 0]
 
@@ -3367,7 +3367,8 @@ class BodyXY(Body):
 
         Returns:
             :ref:`Read-only array<readonly arrays>` containing the incidence angle value
-            of each pixel in the image. Points off the disc have a value of NaN.
+            of each pixel in the image in degrees. Points off the disc have a value of
+            NaN.
         """
         return self._get_illumination_gie_img()[:, :, 1]
 
@@ -3378,7 +3379,7 @@ class BodyXY(Body):
 
         Returns:
             :ref:`Read-only array<readonly arrays>` containing map of the incidence
-            angle value at each point on the target's surface.
+            angle value at each point on the target's surface in degrees.
         """
         return self._get_illumf_map(**map_kwargs)[:, :, 1]
 
@@ -3388,7 +3389,8 @@ class BodyXY(Body):
 
         Returns:
             :ref:`Read-only array<readonly arrays>` containing the emission angle value
-            of each pixel in the image. Points off the disc have a value of NaN.
+            of each pixel in the image in degrees. Points off the disc have a value of
+            NaN.
         """
         return self._get_illumination_gie_img()[:, :, 2]
 
@@ -3399,7 +3401,7 @@ class BodyXY(Body):
 
         Returns:
             :ref:`Read-only array<readonly arrays>` containing map of the emission angle
-            value at each point on the target's surface.
+            value at each point on the target's surface in degrees.
         """
         return self._get_illumf_map(**map_kwargs)[:, :, 2]
 
@@ -3411,7 +3413,8 @@ class BodyXY(Body):
 
         Returns:
             :ref:`Read-only array<readonly arrays>` containing the azimuth angle value
-            of each pixel in the image. Points off the disc have a value of NaN.
+            of each pixel in the image in degrees. Points off the disc have a value of
+            NaN.
         """
         phase_radians = np.deg2rad(self._get_illumination_gie_img()[:, :, 0])
         incidence_radians = np.deg2rad(self._get_illumination_gie_img()[:, :, 1])
@@ -3434,7 +3437,7 @@ class BodyXY(Body):
 
         Returns:
             :ref:`Read-only array<readonly arrays>` containing map of the azimuth angle
-            value at each point on the target's surface.
+            value at each point on the target's surface in degrees.
         """
         phase_radians = np.deg2rad(self._get_illumf_map(**map_kwargs)[:, :, 0])
         incidence_radians = np.deg2rad(self._get_illumf_map(**map_kwargs)[:, :, 1])

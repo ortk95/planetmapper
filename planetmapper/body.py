@@ -2147,7 +2147,8 @@ class Body(BodyBase):
             alt: Altitude of point above the surface of the target body in km.
 
         Returns:
-            `(phase, incidence, emission)` tuple containing the illumination angles.
+            `(phase, incidence, emission)` tuple containing the illumination angles in
+            degrees.
         """
         phase, incdnc, emissn = self._illumination_angles_from_targvec_radians(
             self.lonlat2targvec(lon, lat, alt=alt)
@@ -2789,8 +2790,9 @@ class Body(BodyBase):
     # Other
     def north_pole_angle(self) -> float:
         """
-        Calculate the angle of the north pole of the target body relative to the
-        positive declination direction.
+        Calculate the angle of the north pole of the target body, relative to the
+        positive declination direction. A north pole angle of 0° means that the north
+        pole will point directly up in the :func:`plot_wireframe_radec` plot.
 
         .. note::
 
@@ -2799,7 +2801,8 @@ class Body(BodyBase):
             directly at the celestial pole.
 
         Returns:
-            Angle of the north pole in degrees (-180 to 180).
+            Angle of the north pole in degrees (-180 to 180), measured clockwise from
+            the positive declination direction.
         """
         np_x, np_y = self.radec2angular(
             *self.lonlat2radec(0, 90, not_visible_nan=False)
