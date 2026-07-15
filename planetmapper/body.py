@@ -2013,7 +2013,7 @@ class Body(BodyBase):
             return ra_day, dec_day, ra_night, dec_night
 
     def limb_lonlat(
-        self, alt: float = 0.0, planetocentric: bool = False, **kwargs
+        self, alt: float = 0.0, *, planetocentric: bool = False, **kwargs
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Calculate the `longitude/latitude coordinates`_ of the target body's limb.

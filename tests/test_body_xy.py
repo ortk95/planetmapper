@@ -347,6 +347,38 @@ class TestBodyXY(common_testing.BaseTestCase):
                     self.assertArraysClose(
                         body.angular2xy(*angular), xy, equal_nan=True, atol=1e-3
                     )
+                for planetocentric in (False, True):
+                    lonlat_to_use = (
+                        self.body.graphic2centric_lonlat(*lonlat)
+                        if planetocentric
+                        else lonlat
+                    )
+                    with self.subTest(
+                        xy=xy,
+                        body=body,
+                        func='xy2lonlat',
+                        planetocentric=planetocentric,
+                    ):
+                        self.assertArraysClose(
+                            body.xy2lonlat(*xy, planetocentric=planetocentric),
+                            lonlat_to_use,
+                            equal_nan=True,
+                        )
+                    with self.subTest(
+                        xy=xy,
+                        body=body,
+                        func='lonlat2xy',
+                        planetocentric=planetocentric,
+                    ):
+                        if not any(np.isnan(lonlat)):
+                            self.assertArraysClose(
+                                body.lonlat2xy(
+                                    *lonlat_to_use, planetocentric=planetocentric
+                                ),
+                                xy,
+                                equal_nan=True,
+                                atol=1e-3,
+                            )
 
         args = [
             (np.nan, np.nan),
