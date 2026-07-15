@@ -45,15 +45,19 @@ for more details. The surface altitude can also be customised with the `alt` par
 for example, `body.lonlat2radec(12, 34, alt=1000)` will calculate the RA/Dec coordinates
 of the point at planetographic coordinates (12, 34) and with an altitude of 1000 km.
 
-If planetocentric longitude/latitude coordinates are desired, then functions
-:func:`Body.graphic2centric_lonlat` and :func:`Body.centric2graphic_lonlat` can be used
-to convert between planetographic and planetocentric coordinates: ::
+If you would rather work with planetocentric coordinates, then most functions accepting
+or returning longitude/latitude coordinates have an optional `planetocentric` parameter:
+::
 
-    # Use planetocentric coordinates as inputs to PlanetMapper methods
-    radec = body.lonlat2radec(*body.centric2graphic_lonlat(12, 34), alt=1000)
+    body.lonlat2radec(lon, lat)  # lon/lat are planetographic
+    body.lonlat2radec(lon, lat, planetocentric=True)  # lon/lat are planetocentric
 
-    # Convert PlanetMapper lonlat outputs to planetocentric coordinates
-    lonlat_centric = body.graphic2centric_lonlat(*body.radec2lonlat(12, 34))
+    body.radec2lonlat(ra, dec)  # returns planetographic lon/lat
+    body.radec2lonlat(ra, dec, planetocentric=True)  # returns planetocentric lon/lat
+
+You can also use the functions :func:`Body.graphic2centric_lonlat` and
+:func:`Body.centric2graphic_lonlat` to directly convert between planetographic and
+planetocentric coordinates.
 
 ----
 

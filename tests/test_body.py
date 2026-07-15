@@ -635,7 +635,11 @@ class TestBody(common_testing.BaseTestCase):
             ):
                 self.assertArraysClose(
                     self.body._lonlat2obsvec(
-                        lon, lat, alt=alt, not_visible_nan=not_visible_nan
+                        lon,
+                        lat,
+                        alt=alt,
+                        not_visible_nan=not_visible_nan,
+                        planetocentric=False,
                     ),
                     expected,
                     equal_nan=True,

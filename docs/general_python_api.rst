@@ -65,6 +65,15 @@ If you are interested in features above (or below) the target's nominal surface,
 
     ra, dec = body.lonlat2radec(lon, lat, alt=100)  # position of a feature at altitude of 100 km
 
+PlanetMapper defaults to using planetographic :ref:`longitude/latitude coordinates <longitude/latitude coordinates>`, but you would rather work with planetocentric coordinates, then most longitude/latitude functions have an optional `planetocentric` parameter: ::
+
+    body.lonlat2radec(lon, lat)  # lon/lat are planetographic
+    body.lonlat2radec(lon, lat, planetocentric=True)  # lon/lat are planetocentric
+
+    body.radec2lonlat(ra, dec)  # returns planetographic lon/lat
+    body.radec2lonlat(ra, dec, planetocentric=True)  # returns planetocentric lon/lat
+
+
 .. hint::
     The main classes in PlanetMapper are subclasses of each other, with :class:`planetmapper.SpiceBase` the parent class of :class:`planetmapper.Body` which is the parent of :class:`planetmapper.BodyXY` which is the parent of :class:`planetmapper.Observation`. 
     

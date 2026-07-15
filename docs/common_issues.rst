@@ -73,6 +73,11 @@ This is likely to be due to an issue with your SPICE kernels or settings, possib
 - If you are using WCS information saved in the FITS header to automatically set the disc position, note that telescope pointing information (i.e. the WCS information) is never perfect. For example, due to the errors in guide star tracking, JWST pointing is only accurate to ~0.5".
 
 
+Latitude/longitude coordinates seem incorrect
+=============================================
+There are two main conventions used for latitude/longitude coordinates: planetographic and planetocentric. PlanetMapper uses the planetographic coordinates by default, but you can specify the planetocentric coordinates by setting the `planetocentric` keyword argument to `True` when calling the relevant methods (e.g. :func:`planetmapper.Body.radec2lonlat`). See the :ref:`longitude/latitude coordinate documentation <longitude/latitude coordinates>` for more information.
+
+
 .. _readonly arrays:
 
 Read-only NumPy arrays
