@@ -156,3 +156,18 @@ To fix this, you can manually set the `Matplotlib backend <https://matplotlib.or
 See the `Matplotlib documentation <https://matplotlib.org/stable/users/explain/figure/backends.html#selecting-a-backend>`_ for more information on how to set the backend.
 
 This issue occurs if your system defaults to a Matplotlib backend incompatible with the Tk-based PlanetMapper GUI and you create any Matplotlib plots before running the GUI in the same script. For example, this can happen on macOS systems, where the default `macosx` Matplotlib backend is not compatible with Tk. Normally, Matplotlib automatically attempts to choose a backend compatible with other libraries (like PlanetMapper), but Matplotlib's automatic selection is less reliable when creating plots then subsequently running other GUI code, so manually setting the backend with `matplotlib.use('tkagg')` can be necessary to ensure compatibility. See `this issue on the Matplotlib GitHub <https://github.com/matplotlib/matplotlib/issues/30388>`_ for more details.
+
+
+`NSException` when running the graphical user interface
+=======================================================
+When attempting to run the PlanetMapper GUI on macOS through `ipython`, you may encounter an error like the following: ::
+
+    libc++abi: terminating due to uncaught exception of type NSException
+    Abort trap: 6
+
+This is likely due to a bug in the macOS version of the Tk library, which is used by PlanetMapper to create the GUI. To fix this, you can try:
+
+- If you are using `ipython --pylab`, try running `ipython` without the `--pylab` option.
+- Try running the GUI from a standard Python terminal instead of `ipython`.
+
+If you are still having issues after trying these workarounds, please :ref:`get in touch through our help pages <help>`.
