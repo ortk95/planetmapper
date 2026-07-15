@@ -34,19 +34,36 @@ This code shows an example of using some of the functions in :class:`planetmappe
 
     body = planetmapper.Body('jupiter', '2020-01-01', observer='venus')
 
-    coordinates = [(42, 0), (123, 45)]
+    coordinates =  [(42, 0), (123, 45), (0, 60)]
     for lon, lat in coordinates:
-        print(f'\nlongitude = {lon}°, latitude = {lat}°')
+        print(f'longitude = {lon}°, latitude = {lat}°')
+
         if body.test_if_lonlat_visible(lon, lat):
             ra, dec = body.lonlat2radec(lon, lat)
             print(f'  RA = {ra:.4f}°, Dec = {dec:.4f}°')
+
             if body.test_if_lonlat_illuminated(lon, lat):
                 phase, incidence, emission = body.illumination_angles_from_lonlat(lon, lat)
-                print(f'  phase angle: {phase:.2f}°')     
-                print(f'  incidence angle: {phase:.2f}°')     
-                print(f'  emission angle: {phase:.2f}°')     
+                print(f'  phase angle: {phase:.2f}°')
+                print(f'  incidence angle: {incidence:.2f}°')
+                print(f'  emission angle: {emission:.2f}°')
+
         else:
             print('  (Not visible)')
+
+    # longitude = 42°, latitude = 0°
+    #   RA = 267.6718°, Dec = -22.8677°
+    # longitude = 123°, latitude = 45°
+    #   (Not visible)
+    # longitude = 0°, latitude = 60°
+    #   RA = 267.6681°, Dec = -22.8635°
+    #   phase angle: 7.94°
+    #   incidence angle: 72.41°
+    #   emission angle: 70.03°
+
+If you are interested in features above (or below) the target's nominal surface, you can specify the altitude of the feature in km using the optional `alt` parameter of functions such as :func:`planetmapper.Body.lonlat2radec`: ::
+
+    ra, dec = body.lonlat2radec(lon, lat, alt=100)  # position of a feature at altitude of 100 km
 
 .. hint::
     The main classes in PlanetMapper are subclasses of each other, with :class:`planetmapper.SpiceBase` the parent class of :class:`planetmapper.Body` which is the parent of :class:`planetmapper.BodyXY` which is the parent of :class:`planetmapper.Observation`. 
@@ -237,6 +254,7 @@ The appearance and units of wireframe plots can be fully customised to suit your
     :width: 600
     :alt: Wireframe plot of Saturn with custom formatting
 
+If you are interested in features above (or below) the target's nominal surface, you can specify an using the optional `alt` parameter of methods such as :func:`planetmapper.Body.plot_wireframe_radec`, :func:`planetmapper.Body.visible_lonlat_grid_radec` and :func:`planetmapper.Body.lonlat2radec`. `Click here for an example <https://github.com/ortk95/planetmapper/pull/365>`_ of plotting multiple wireframes at different altitudes.
 
 Observations, backplanes and mapping
 ====================================
