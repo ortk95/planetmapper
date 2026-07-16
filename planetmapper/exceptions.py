@@ -3,6 +3,7 @@ Module containing any exceptions and warnings used by PlanetMapper.
 """
 
 import os
+import sys
 import warnings
 
 
@@ -14,11 +15,21 @@ class PlanetmapperWarning(Warning):
 
 def warn(message: str, *, category: type[Warning] = PlanetmapperWarning) -> None:
     """
-    Issue a warning, skipping stack frames within the planetmapper package. This means
-    that the warning will to be attributed to the relevant line of user code.
+    Emit a warning with the given message.
     """
-    warnings.warn(
-        message,
-        category=category,
-        skip_file_prefixes=(os.path.dirname(__file__),),
-    )
+    if sys.version_info >= (3, 12):
+        # Skip stack frames within the planetmapper package, so that the warning is
+        # attributed to the relevant line of user code.
+        warnings.warn(
+            message,
+            category=category,
+            skip_file_prefixes=(os.path.dirname(__file__),),
+        )
+    else:
+        # skip_file_prefixes was added in Python 3.12, so for earlier versions, simply
+        # skip this warn() function instead.
+        warnings.warn(
+            message,
+            category=category,
+            stacklevel=2,
+        )
