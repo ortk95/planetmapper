@@ -19,6 +19,7 @@ from .body import (
     _cache_clearable_alt_dependent_result,
 )
 from .body_xy import BodyXY, MapKwargs, Unpack
+from .exceptions import warn
 from .progress import SaveMapProgressHookCLI, SaveNavProgressHookCLI, progress_decorator
 
 
@@ -435,6 +436,7 @@ class Observation(BodyXY):
         suppress_warnings: bool = False,
         validate: bool = True,
         use_header_offsets: bool = True,
+        distortion_warning_threshold: float | None = 0.25,
     ) -> tuple[float, float, float, float]:
         wcs = self._get_wcs_from_header(suppress_warnings=suppress_warnings)
 
@@ -450,8 +452,15 @@ class Observation(BodyXY):
                 raise ValueError(
                     'WCS axes are not RA/Dec coordinates'
                 )  # pragma: no cover
-            if wcs.has_distortion:
-                raise ValueError('WCS conversion contains distortion terms')
+
+            if distortion_warning_threshold is not None:
+                max_distortion, avg_distortion = (
+                    self._get_max_and_average_wcs_distortion(wcs)
+                )
+                if max_distortion > distortion_warning_threshold:
+                    warn(
+                        f'The WCS contains distortion of up to {max_distortion:.3f} pixels (average {avg_distortion:.3f} pixels), which is not accounted for by PlanetMapper.',
+                    )
 
         x0, y0 = wcs.world_to_pixel_values(self.target_ra, self.target_dec)
 
@@ -478,11 +487,24 @@ class Observation(BodyXY):
                 x0, y0, r0, rotation = body.get_disc_params()
         return x0, y0, r0, rotation
 
+    def _get_max_and_average_wcs_distortion(
+        self, wcs: astropy.wcs.WCS
+    ) -> tuple[float, float]:
+        if not wcs.has_distortion:
+            return 0.0, 0.0
+        x, y = np.meshgrid(
+            np.arange(0, self.data.shape[2]), np.arange(0, self.data.shape[1])
+        )
+        x_foc, y_foc = wcs.pix2foc(x, y, 0)
+        distortion_img = np.hypot(x_foc - x, y_foc - y)
+        return np.max(distortion_img), np.mean(distortion_img)
+
     def disc_from_wcs(
         self,
         suppress_warnings: bool = False,
         validate: bool = True,
         use_header_offsets: bool = True,
+        distortion_warning_threshold: float | None = 0.25,
     ) -> None:
         """
         Set disc parameters using WCS information in the observation's FITS header.
@@ -493,7 +515,11 @@ class Observation(BodyXY):
 
             There may be very slight differences between the coordinates converted
             directly from the WCS information and the coordinates converted by
-            PlanetMapper.
+            PlanetMapper depending on the location in the image the WCS uses as the
+            reference point. This is because PlanetMapper always uses the centre of the
+            target as the reference point for the tangent plane projection. Any
+            differences are usually incredibly small (e.g. < 0.1 pixels) so unlikely to
+            be significant for most applications.
 
         Args:
             suppress_warnings: Hide warnings produced by astropy when calculating WCS
@@ -501,16 +527,29 @@ class Observation(BodyXY):
             validate: Run checks to ensure the WCS conversion has appropriate RA/Dec
                 coordinate dimensions.
             use_header_offsets: If present, use the `HIERARCH NAV RA_OFFSET` and
-                `HIERARCH NAV DEC_OFFSET` values from the FITS headerr to adjust the
+                `HIERARCH NAV DEC_OFFSET` values from the FITS header to adjust the
                 target's disc location by the specified arcsecond offsets. If these
                 keywords are not present or `use_header_offsets` is `False`, no
                 adjustment is made.
+            distortion_warning_threshold: If the WCS contains distortion terms, a
+                :class:`planetmapper.exceptions.PlanetmapperWarning` will be emitted if
+                the maximum distortion at any point in the image exceeds this threshold
+                (in pixels). If this is `None`, no warning will be emitted regardless of
+                the distortion.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
+
+        .. versionchanged:: ?.?.?
+            Distorted WCS will now be accepted, and emit a warning if the maximum
+            distortion exceeds `distortion_warning_threshold`. Previously, a ValueError
+            was raised if any distortion terms were present in the WCS, however small.
         """
         x0, y0, r0, rotation = self._get_disc_params_from_wcs(
-            suppress_warnings, validate, use_header_offsets
+            suppress_warnings,
+            validate,
+            use_header_offsets,
+            distortion_warning_threshold=distortion_warning_threshold,
         )
         self.set_x0(x0)
         self.set_y0(y0)

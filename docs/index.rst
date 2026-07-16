@@ -82,6 +82,7 @@ If you use PlanetMapper in your research, please cite the following paper:
 
    documentation
    base
+   exceptions
    gui
    cli
    utils
