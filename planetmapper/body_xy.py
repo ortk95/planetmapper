@@ -1637,6 +1637,7 @@ class BodyXY(Body):
         add_axis_labels: bool | None = None,
         aspect_adjustable: Literal['box', 'datalim'] | None = 'box',
         show: bool = False,
+        freeze_transform: bool = True,
         **wireframe_kwargs: Unpack[WireframeKwargs],
     ) -> Axes:
         """
@@ -1644,18 +1645,37 @@ class BodyXY(Body):
         coordinates. See :func:`Body.plot_wireframe_radec` for details of accepted
         arguments.
 
+        Args:
+            freeze_transform: If `True` (the default), then the wireframe is 'frozen'
+                with the disc parameters at the time that `plot_wireframe_xy` is called.
+                If `False`, then the wireframe will update if the disc parameters are
+                adjusted after `plot_wireframe_xy` is called - this is mainly useful
+                when creating interactive plots. See
+                :func:`matplotlib_xy2radec_transform` for more details.
+            **kwargs: See :func:`Body.plot_wireframe_radec` for details of other
+                arguments.
+
         Returns:
             The axis containing the plotted wireframe.
+
+        .. versionchanged:: ?.?.?
+            Added `freeze_transform` to freeze the wireframe in place by default when
+            plotting. The previous behaviour of an auto-updating wireframe can be
+            achieved by setting `freeze_transform=False`.
         """
         if add_axis_labels is None:
             add_axis_labels = scale_factor is None
+
+        transform = self._get_matplotlib_angular_fixed2xy_transform()
+        if freeze_transform:
+            transform = transform.frozen()
 
         # Use combo of corodinate_func and matplotlib transform so that the plot can be
         # updated with new disc parameters without having to replot the entire thing
         ax = self._plot_wireframe(
             coordinate_func=self.radec2angular,
             scale_factor=scale_factor,
-            transform=self._get_matplotlib_angular_fixed2xy_transform(),
+            transform=transform,
             aspect_adjustable=aspect_adjustable,
             ax=ax,
             **wireframe_kwargs,
