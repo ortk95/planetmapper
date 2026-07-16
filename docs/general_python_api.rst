@@ -341,12 +341,12 @@ Mapped data can also be manipulated and plotted directly. In the example below, 
     degree_interval = 0.25  # Plot maps with 4 pixels/degree
     emission_cutoff = 80
 
-    mapped_data = observation.get_mapped_data(degree_interval)  # get the mapped data
+    mapped_data = observation.get_mapped_data(degree_interval=degree_interval)  # get the mapped data
     rgb_map = np.moveaxis(mapped_data, 0, 2)  # imshow needs wavelength index last
     rgb_map = planetmapper.utils.normalise(rgb_map)  # normalise to make plot look nicer
 
     # Only plot areas with emission angles <80deg
-    emission_map = observation.get_backplane_map('EMISSION', degree_interval)
+    emission_map = observation.get_backplane_map('EMISSION', degree_interval=degree_interval)
     for idx in range(3):
         rgb_map[:, :, idx][np.where(emission_map > emission_cutoff)] = 1
     
@@ -374,6 +374,55 @@ Mapped data can also be manipulated and plotted directly. In the example below, 
     :alt: Plot of a mapped Jupiter observation
 
 .. [#jupiterhst] The `Jupiter image <https://hubblesite.org/contents/media/images/2020/42/4739-Image>`_ is from the OPAL program using the Hubble Space Telescope. Credit: *NASA, ESA, STScI, A. Simon (Goddard Space Flight Center), and M.H. Wong (University of California, Berkeley) and the OPAL team*
+
+Mapping is fully customisable, and various different map projections are available. See :func:`planetmapper.BodyXY.map_img` and :func:`planetmapper.Observation.get_mapped_data` for more details on the available map projections and how to customise them. The snippets below show some different examples of how to use, plot and customise mapped images and data: ::
+
+    img = np.nanmean(observation.data, axis=0)  # get an image averaged over wavelengths
+
+    # Plot a the mapped image using the default rectangular projection
+    mapped_img = observation.map_img(img)
+    observation.plot_map(mapped_img)
+    
+    # Plot the mapped image using an orthographic projection centred on the north pole
+    mapped_img = observation.map_img(img, projection='orthographic', lat=90)
+    observation.plot_map(mapped_img, projection='orthographic', lat=90)
+    # plot_map needs the same projection related arguments as map_img
+
+    # Limit the mapping to the northern hemisphere and lower the resolution for speed
+    mapped_img = observation.map_img(img, degree_interval=10, ylim=(0, 90))
+    observation.plot_map(mapped_img, degree_interval=10, ylim=(0, 90))
+
+    # Create a higher resolution map (1000px x 1000px) using an orthographic projection
+    # (note that the higher the resolution, the longer it will take to generate the map)
+    mapped_img = observation.map_img(img, projection='orthographic', size=1000)
+    observation.plot_map(mapped_img, projection='orthographic', size=1000)
+
+    # Project the map at 1000 km above the nominal surface of the target
+    mapped_img = observation.map_img(img, alt=1000)
+    observation.plot_map(mapped_img, alt=1000)
+
+    # Customise the plotted map and wireframe
+    mapped_img = observation.map_img(img, projection='azimuthal')
+    observation.plot_map(
+        mapped_img,
+        projection='azimuthal',
+        cmap='inferno',
+        wireframe_kwargs=dict(
+            label_poles=False,
+            grid_interval=10,
+            grid_lat_limit=80,
+            formatting={
+                'grid': {'linestyle': '--'},
+                'map_boundary': {'color': 'red'},
+            },
+        ),
+    )
+
+    # Customise the interpolation to get a smoother looking map...
+    mapped_img = observation.map_img(img, interpolation='cubic')
+    # ... or to see the individual pixels in the data
+    mapped_img = observation.map_img(img, interpolation='nearest')
+
 
 Backplanes can also be generated for observations which do not exist using :class:`planetmapper.BodyXY`: ::
     
