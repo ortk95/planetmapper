@@ -1037,6 +1037,42 @@ class TestBodyXY(common_testing.BaseTestCase):
         )
         plt.close(fig)
 
+        with self.subTest('frozen transforms'):
+
+            def are_transforms_equal(ax1, ax2):
+                t1 = ax1.get_lines()[0].get_transform() - ax1.transData
+                t2 = ax2.get_lines()[0].get_transform() - ax2.transData
+                return t1 == t2
+
+            self.body.set_disc_params(7.5, 5.0, 4.5, 0.0)
+            fig1, ax1 = plt.subplots()
+            self.body.plot_wireframe_xy(ax=ax1)
+            fig2, ax2 = plt.subplots()
+            self.body.plot_wireframe_xy(ax=ax2)
+            self.assertTrue(are_transforms_equal(ax1, ax2))
+            plt.close(fig1)
+            plt.close(fig2)
+
+            self.body.set_disc_params(7.5, 5.0, 4.5, 0.0)
+            fig1, ax1 = plt.subplots()
+            self.body.plot_wireframe_xy(ax=ax1)
+            self.body.adjust_disc_params(dx=1, dy=2, dr=3, drotation=4)
+            fig2, ax2 = plt.subplots()
+            self.body.plot_wireframe_xy(ax=ax2)
+            self.assertFalse(are_transforms_equal(ax1, ax2))
+            plt.close(fig1)
+            plt.close(fig2)
+
+            self.body.set_disc_params(7.5, 5.0, 4.5, 0.0)
+            fig1, ax1 = plt.subplots()
+            self.body.plot_wireframe_xy(ax=ax1, freeze_transform=False)
+            self.body.adjust_disc_params(dx=1, dy=2, dr=3, drotation=4)
+            fig2, ax2 = plt.subplots()
+            self.body.plot_wireframe_xy(ax=ax2)
+            self.assertTrue(are_transforms_equal(ax1, ax2))
+            plt.close(fig1)
+            plt.close(fig2)
+
     def test_get_wireframe_overlay(self):
         img = self.body.get_wireframe_overlay_img(output_size=100)
         self.assertEqual(max(img.shape), 100)
