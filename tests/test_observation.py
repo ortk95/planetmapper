@@ -812,32 +812,52 @@ class TestObservation(common_testing.BaseTestCase):
         obs.set_disc_params(x0=150, y0=150)
         obs.fit_disc_radius()
 
-    def test_get_mapped_data(self):
+    def test_map_function_params(self):
         # get_mapped_data also tested against output references
 
-        get_mapped_data_params = inspect.signature(
-            self.observation.get_mapped_data
-        ).parameters
-        map_img_params = inspect.signature(self.observation.map_img).parameters
-
-        params_to_check = set(get_mapped_data_params.keys()) | set(
-            map_img_params.keys()
-        ) - {'img', 'warn_nan'}
-
-        def get_details(parameter: inspect.Parameter):
+        def compare_parameters(
+            p1: inspect.Parameter,
+            p2: inspect.Parameter,
+            *,
+            allow_empty_default: bool = False,
+        ) -> None:
             # Don't want to check parameter.kind
-            return (
-                parameter.name,
-                parameter.default,
-                parameter.annotation,
-            )
+            self.assertEqual(p1.name, p2.name)
+            self.assertEqual(p1.annotation, p2.annotation)
+            if not allow_empty_default or (
+                p1.default is not inspect.Parameter.empty
+                and p2.default is not inspect.Parameter.empty
+            ):
+                self.assertEqual(p1.default, p2.default)
 
-        for k in params_to_check:
-            with self.subTest(param=k):
-                self.assertEqual(
-                    get_details(get_mapped_data_params[k]),
-                    get_details(map_img_params[k]),
-                )
+        map_img_params = inspect.signature(self.observation.map_img).parameters
+        with self.subTest('get_mapped_data'):
+            func_params = inspect.signature(self.observation.get_mapped_data).parameters
+            params_to_check = set(func_params.keys()) | set(map_img_params.keys()) - {
+                'img',
+                'warn_nan',
+            }
+            for k in params_to_check:
+                with self.subTest(param=k):
+                    compare_parameters(func_params[k], map_img_params[k])
+        with self.subTest('save_mapped_observation'):
+            func_params = inspect.signature(
+                self.observation.save_mapped_observation
+            ).parameters
+            params_to_check = set(map_img_params.keys()) - {'img', 'warn_nan'}
+            for k in params_to_check:
+                with self.subTest(param=k):
+                    compare_parameters(func_params[k], map_img_params[k])
+        with self.subTest('_add_map_header_metadata'):
+            func_params = inspect.signature(
+                self.observation._add_map_header_metadata
+            ).parameters
+            params_to_check = set(map_img_params.keys()) - {'img', 'warn_nan'}
+            for k in params_to_check:
+                with self.subTest(param=k):
+                    compare_parameters(
+                        func_params[k], map_img_params[k], allow_empty_default=True
+                    )
 
     def test_append_to_header(self):
         obs = Observation(
@@ -1084,6 +1104,12 @@ class TestObservation(common_testing.BaseTestCase):
             'rectangular-cubic': dict(
                 degree_interval=30,
                 interpolation='cubic',
+                include_backplanes=False,
+                include_wireframe=False,
+            ),
+            'rectangular-smooth': dict(
+                degree_interval=30,
+                interpolation='smooth',
                 include_backplanes=False,
                 include_wireframe=False,
             ),

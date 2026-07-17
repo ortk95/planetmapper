@@ -1531,6 +1531,12 @@ class BodyXY(Body):
             average value of the surrounding non-NaN pixels, whereas previously NaN
             values were always replaced with 0.
         """
+        # Any updates to signature should be reflected in:
+        # - self.map_img array function below
+        # - Observation.get_mapped_data & Observation._get_mapped_data
+        # - Observation.save_mapped_observation
+        # - Observation._add_map_header_metadata
+
         img = np.asarray(img)
         if img.ndim == 3:
             return np.array(
