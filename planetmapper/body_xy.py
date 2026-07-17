@@ -1440,7 +1440,7 @@ class BodyXY(Body):
 
         .. warning ::
             The spline interpolation methods `'cubic'` and `'quadratic'` are
-            non-monotonic, so can produce artefacts in the interpolated map, such as
+            non-monotonic, so may produce artefacts in the interpolated data, such as
             dark rings around bright parts of the map. The `'smooth'` interpolation
             method is guaranteed to be monotonic, so is recommended over these spline
             methods to avoid introducing artefacts into the data.
