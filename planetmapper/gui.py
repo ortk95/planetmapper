@@ -115,7 +115,7 @@ GRID_INTERVALS = ('10', '30', '45', '90')
 CMAPS = ('gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis')
 LIMIT_TYPES = ('relative', 'percentile', 'absolute')
 
-MAP_INTERPOLATIONS = ('nearest', 'linear', 'quadratic', 'cubic')
+MAP_INTERPOLATIONS = ('nearest', 'smooth', 'linear', 'quadratic', 'cubic')
 MAP_PROJECTIONS = ('rectangular', 'orthographic', 'azimuthal', 'azimuthal equal area')
 
 DEFAULT_HINT = ''

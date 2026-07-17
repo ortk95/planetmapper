@@ -812,7 +812,32 @@ class TestObservation(common_testing.BaseTestCase):
         obs.set_disc_params(x0=150, y0=150)
         obs.fit_disc_radius()
 
-    # get_mapped_data tested against output references
+    def test_get_mapped_data(self):
+        # get_mapped_data also tested against output references
+
+        get_mapped_data_params = inspect.signature(
+            self.observation.get_mapped_data
+        ).parameters
+        map_img_params = inspect.signature(self.observation.map_img).parameters
+
+        params_to_check = set(get_mapped_data_params.keys()) | set(
+            map_img_params.keys()
+        ) - {'img', 'warn_nan'}
+
+        def get_details(parameter: inspect.Parameter):
+            # Don't want to check parameter.kind
+            return (
+                parameter.name,
+                parameter.default,
+                parameter.annotation,
+            )
+
+        for k in params_to_check:
+            with self.subTest(param=k):
+                self.assertEqual(
+                    get_details(get_mapped_data_params[k]),
+                    get_details(map_img_params[k]),
+                )
 
     def test_append_to_header(self):
         obs = Observation(

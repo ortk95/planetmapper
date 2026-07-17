@@ -826,11 +826,15 @@ class Observation(BodyXY):
     def get_mapped_data(
         self,
         interpolation: (
-            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
+            Literal['nearest', 'smooth', 'linear', 'quadratic', 'cubic']
+            | int
+            | tuple[int, int]
         ) = 'linear',
         *,
-        spline_smoothing: float = 0,
         propagate_nan: bool = True,
+        spline_smoothing: float = 0,
+        smooth_oversample_by: int = 5,
+        smooth_max_oversampled_img_size: int = 10_000,
         **map_kwargs: Unpack[MapKwargs],
     ) -> np.ndarray:
         """
@@ -847,8 +851,10 @@ class Observation(BodyXY):
 
         Args:
             interpolation: Passed to :func:`BodyXY.map_img`.
-            spline_smoothing: Passed to :func:`BodyXY.map_img`.
             propagate_nan: Passed to :func:`BodyXY.map_img`.
+            spline_smoothing: Passed to :func:`BodyXY.map_img`.
+            smooth_oversample_by: Passed to :func:`BodyXY.map_img`.
+            smooth_max_oversampled_img_size: Passed to :func:`BodyXY.map_img`.
             **map_kwargs: Additional arguments are passed to
                 :func:`BodyXY.generate_map_coordinates` to specify and customise the map
                 projection.
@@ -862,6 +868,8 @@ class Observation(BodyXY):
             interpolation=interpolation,
             spline_smoothing=spline_smoothing,
             propagate_nan=propagate_nan,
+            smooth_oversample_by=smooth_oversample_by,
+            smooth_max_oversampled_img_size=smooth_max_oversampled_img_size,
             **map_kwargs,
         ).copy()
 
@@ -871,10 +879,14 @@ class Observation(BodyXY):
         self,
         *,
         interpolation: (
-            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
+            Literal['nearest', 'smooth', 'linear', 'quadratic', 'cubic']
+            | int
+            | tuple[int, int]
         ),
         spline_smoothing: float,
         propagate_nan: bool,
+        smooth_oversample_by: int,
+        smooth_max_oversampled_img_size: int,
         **map_kwargs: Unpack[MapKwargs],
     ) -> np.ndarray:
         projected = []
@@ -887,6 +899,8 @@ class Observation(BodyXY):
                     spline_smoothing=spline_smoothing,
                     interpolation=interpolation,
                     propagate_nan=propagate_nan,
+                    smooth_oversample_by=smooth_oversample_by,
+                    smooth_max_oversampled_img_size=smooth_max_oversampled_img_size,
                     **map_kwargs,
                 )
             )

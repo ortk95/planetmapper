@@ -419,7 +419,7 @@ Mapping is fully customisable, and various different map projections are availab
     )
 
     # Customise the interpolation to get a smoother looking map...
-    mapped_img = observation.map_img(img, interpolation='cubic')
+    mapped_img = observation.map_img(img, interpolation='smooth')
     # ... or to see the individual pixels in the data
     mapped_img = observation.map_img(img, interpolation='nearest')
 
