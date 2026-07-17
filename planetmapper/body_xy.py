@@ -1677,7 +1677,6 @@ class BodyXY(Body):
         max_oversampled_img_size: int,
         limit_padding: float = 5.0,
     ) -> None:
-        # XXX test
         nans = np.isnan(img)
         if np.all(nans):
             return
@@ -1699,8 +1698,6 @@ class BodyXY(Body):
                 # This ensures that the output has points at all original points, plus
                 # additional points equally spaced between, with no extra points on the
                 # edge
-                if oversample_to_use <= 1:
-                    break
                 new_size = old_size * oversample_to_use - (oversample_to_use - 1)
                 if new_size <= max_oversampled_img_size:
                     return np.linspace(original[0], original[-1], new_size)
