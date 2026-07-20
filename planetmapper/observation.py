@@ -540,7 +540,7 @@ class Observation(BodyXY):
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
 
-        .. versionchanged:: ?.?.?
+        .. versionchanged:: 1.14.0
             Distorted WCS will now be accepted, and emit a warning if the maximum
             distortion exceeds `distortion_warning_threshold`. Previously, a ValueError
             was raised if any distortion terms were present in the WCS, however small.

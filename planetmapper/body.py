@@ -1114,7 +1114,7 @@ class Body(BodyBase):
         Returns:
             `(ra, dec)` tuple containing the RA/Dec coordinates of the point(s).
 
-        .. versionchanged:: ?.?.?
+        .. versionchanged:: 1.14.0
             The default value of `not_visible_nan` was changed from `False` to `True`.
         """
         return self._maybe_transform_as_arrays(
@@ -1587,7 +1587,7 @@ class Body(BodyBase):
             `(angular_x, angular_y)` tuple containing the relative angular coordinates
             of the point(s) in arcseconds.
 
-        .. versionchanged:: ?.?.?
+        .. versionchanged:: 1.14.0
             The default value of `not_visible_nan` was changed from `False` to `True`.
         """
         return self._maybe_transform_as_arrays(
@@ -1800,7 +1800,7 @@ class Body(BodyBase):
             `(km_x, km_y)` tuple containing distances in km in the target plane in the
             East-West and North-South directions respectively.
 
-        .. versionchanged:: ?.?.?
+        .. versionchanged:: 1.14.0
             The default value of `not_visible_nan` was changed from `False` to `True`.
         """
         return self._maybe_transform_as_arrays(

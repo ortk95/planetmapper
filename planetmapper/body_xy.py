@@ -528,7 +528,7 @@ class BodyXY(Body):
         Returns:
             `(x, y)` tuple containing the image pixel coordinates of the point(s).
 
-        .. versionchanged:: ?.?.?
+        .. versionchanged:: 1.14.0
             The default value of `not_visible_nan` was changed from `False` to `True`.
         """
         return self._maybe_transform_as_arrays(
@@ -1932,7 +1932,7 @@ class BodyXY(Body):
         Returns:
             The axis containing the plotted wireframe.
 
-        .. versionchanged:: ?.?.?
+        .. versionchanged:: 1.14.0
             Added `freeze_transform` to freeze the wireframe in place by default when
             plotting. The previous behaviour of an auto-updating wireframe can be
             achieved by setting `freeze_transform=False`.
