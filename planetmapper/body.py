@@ -3481,6 +3481,8 @@ class Body(BodyBase):
             body.plot_wireframe_angular(scale_factor=1/60) # units of arcminutes
             body.plot_wireframe_angular(scale_factor=1/3600) # units of degrees
 
+        See also :func:`BodyXY.plot_img`.
+
         .. warning::
 
             Even though the numerical values will be correct, the plot may appear warped

@@ -826,17 +826,19 @@ class Observation(BodyXY):
     def get_mapped_data(
         self,
         interpolation: (
-            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
+            Literal['nearest', 'smooth', 'linear', 'quadratic', 'cubic']
+            | int
+            | tuple[int, int]
         ) = 'linear',
         *,
-        spline_smoothing: float = 0,
         propagate_nan: bool = True,
+        spline_smoothing: float = 0,
+        smooth_oversample_by: int = 5,
+        smooth_max_oversampled_img_size: int = 10_000,
         **map_kwargs: Unpack[MapKwargs],
     ) -> np.ndarray:
         """
-        Projects the observed :attr:`data` onto a map. See
-        :func:`BodyXY.generate_map_coordinates` for details about customising the
-        projection used.
+        Projects the observed :attr:`data` onto a map using :func:`BodyXY.map_img`.
 
         For larger datasets, it can take some time to map every wavelength. Therefore,
         the mapped data is automatically cached (in a similar way to backplanes - see
@@ -847,8 +849,10 @@ class Observation(BodyXY):
 
         Args:
             interpolation: Passed to :func:`BodyXY.map_img`.
-            spline_smoothing: Passed to :func:`BodyXY.map_img`.
             propagate_nan: Passed to :func:`BodyXY.map_img`.
+            spline_smoothing: Passed to :func:`BodyXY.map_img`.
+            smooth_oversample_by: Passed to :func:`BodyXY.map_img`.
+            smooth_max_oversampled_img_size: Passed to :func:`BodyXY.map_img`.
             **map_kwargs: Additional arguments are passed to
                 :func:`BodyXY.generate_map_coordinates` to specify and customise the map
                 projection.
@@ -862,6 +866,8 @@ class Observation(BodyXY):
             interpolation=interpolation,
             spline_smoothing=spline_smoothing,
             propagate_nan=propagate_nan,
+            smooth_oversample_by=smooth_oversample_by,
+            smooth_max_oversampled_img_size=smooth_max_oversampled_img_size,
             **map_kwargs,
         ).copy()
 
@@ -871,10 +877,14 @@ class Observation(BodyXY):
         self,
         *,
         interpolation: (
-            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
+            Literal['nearest', 'smooth', 'linear', 'quadratic', 'cubic']
+            | int
+            | tuple[int, int]
         ),
         spline_smoothing: float,
         propagate_nan: bool,
+        smooth_oversample_by: int,
+        smooth_max_oversampled_img_size: int,
         **map_kwargs: Unpack[MapKwargs],
     ) -> np.ndarray:
         projected = []
@@ -887,6 +897,8 @@ class Observation(BodyXY):
                     spline_smoothing=spline_smoothing,
                     interpolation=interpolation,
                     propagate_nan=propagate_nan,
+                    smooth_oversample_by=smooth_oversample_by,
+                    smooth_max_oversampled_img_size=smooth_max_oversampled_img_size,
                     **map_kwargs,
                 )
             )
@@ -1306,10 +1318,14 @@ class Observation(BodyXY):
         path: str | os.PathLike,
         *,
         interpolation: (
-            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
+            Literal['nearest', 'smooth', 'linear', 'quadratic', 'cubic']
+            | int
+            | tuple[int, int]
         ) = 'linear',
-        spline_smoothing: float = 0,
         propagate_nan: bool = True,
+        spline_smoothing: float = 0,
+        smooth_oversample_by: int = 5,
+        smooth_max_oversampled_img_size: int = 10_000,
         include_backplanes: bool = True,
         backplanes_to_save: Collection[str] | None = None,
         backplanes_to_skip: Collection[str] = frozenset(),
@@ -1339,14 +1355,15 @@ class Observation(BodyXY):
         will only save the 'DISTANCE' backplane, as the 'RA' and 'DEC' backplanes are
         specified to be skipped.
 
-
         See also :func:`save_observation`.
 
         Args:
             path: Filepath of output file.
             interpolation: Passed to :func:`BodyXY.map_img`.
-            spline_smoothing: Passed to :func:`BodyXY.map_img`.
             propagate_nan: Passed to :func:`BodyXY.map_img`.
+            spline_smoothing: Passed to :func:`BodyXY.map_img`.
+            smooth_oversample_by: Passed to :func:`BodyXY.map_img`.
+            smooth_max_oversampled_img_size: Passed to :func:`BodyXY.map_img`.
             include_backplanes: Toggle generating and saving backplanes to output FITS
                 file.
             backplanes_to_save: Collection of backplane names to save in the output
@@ -1395,6 +1412,8 @@ class Observation(BodyXY):
                 interpolation=interpolation,
                 spline_smoothing=spline_smoothing,
                 propagate_nan=propagate_nan,
+                smooth_oversample_by=smooth_oversample_by,
+                smooth_max_oversampled_img_size=smooth_max_oversampled_img_size,
                 **map_kwargs,
             )
             header = self.header.copy()
@@ -1407,6 +1426,8 @@ class Observation(BodyXY):
                 interpolation=interpolation,
                 spline_smoothing=spline_smoothing,
                 propagate_nan=propagate_nan,
+                smooth_oversample_by=smooth_oversample_by,
+                smooth_max_oversampled_img_size=smooth_max_oversampled_img_size,
                 **map_kwargs,
             )
             self._add_map_wcs_to_header(header, **map_kwargs)
@@ -1456,23 +1477,27 @@ class Observation(BodyXY):
         self,
         header: fits.Header,
         *,
-        interpolation: str | int | tuple[int, int],
+        interpolation: (
+            Literal['nearest', 'smooth', 'linear', 'quadratic', 'cubic']
+            | int
+            | tuple[int, int]
+        ),
         spline_smoothing: float,
         propagate_nan: bool,
+        smooth_oversample_by: int,
+        smooth_max_oversampled_img_size: int,
         **map_kwargs: Unpack[MapKwargs],
     ) -> None:
         lons, lats, xx, yy, transformer, info = self.generate_map_coordinates(
             **map_kwargs
         )
-        if isinstance(interpolation, tuple):
-            interpolation = str(interpolation)
         self.append_to_header(
             'MAP INTERPOLATION',
-            interpolation,
+            str(interpolation) if isinstance(interpolation, tuple) else interpolation,
             'Interpolation method used in mapping.',
             header=header,
         )
-        if interpolation != 'nearest':
+        if interpolation not in {'nearest', 'smooth'}:
             self.append_to_header(
                 'MAP SPLINE-SMOOTHING',
                 spline_smoothing,
@@ -1485,7 +1510,19 @@ class Observation(BodyXY):
                 'Propagate NaN pixels to map when mapping.',
                 header=header,
             )
-
+        if interpolation == 'smooth':
+            self.append_to_header(
+                'MAP SMOOTH-OVERSAMPLE-BY',
+                smooth_oversample_by,
+                'Oversampling factor used in map interpolation.',
+                header=header,
+            )
+            self.append_to_header(
+                'MAP SMOOTH-MAX-OVERSAMPLED-IMG-SIZE',
+                smooth_max_oversampled_img_size,
+                'Maximum oversampled image size allowed map interpolation.',
+                header=header,
+            )
         self.append_to_header(
             'MAP PROJECTION',
             info['projection'],

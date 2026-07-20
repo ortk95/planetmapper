@@ -115,7 +115,7 @@ GRID_INTERVALS = ('10', '30', '45', '90')
 CMAPS = ('gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis')
 LIMIT_TYPES = ('relative', 'percentile', 'absolute')
 
-MAP_INTERPOLATIONS = ('nearest', 'linear', 'quadratic', 'cubic')
+MAP_INTERPOLATIONS = ('nearest', 'smooth', 'linear', 'quadratic', 'cubic')
 MAP_PROJECTIONS = ('rectangular', 'orthographic', 'azimuthal', 'azimuthal equal area')
 
 DEFAULT_HINT = ''
@@ -131,7 +131,7 @@ try:
     USE_X11_FONT_BUGFIX = bool(os.environ['PLANETMAPPER_USE_X11_FONT_BUGFIX'])
 except KeyError:
     USE_X11_FONT_BUGFIX = False  # pyright: ignore[reportConstantRedefinition]
-X11_FONT_BUGRIX_TRANSLATIONS = str.maketrans(
+X11_FONT_BUGFIX_TRANSLATIONS = str.maketrans(
     {
         '↖': None,
         '↑': '^',
@@ -143,6 +143,7 @@ X11_FONT_BUGRIX_TRANSLATIONS = str.maketrans(
         '↘': None,
         '↺': '<',
         '↻': '>',
+        '⚠': '!',
     }
 )
 
@@ -711,7 +712,7 @@ class GUI:
                 foreground='black',
                 insertcolor='black',
                 fieldbackground='white',
-                selectbackground='#bdf',
+                selectbackground='#bbddff',
                 selectforeground='black',
             )
 
@@ -719,6 +720,12 @@ class GUI:
         self._default_font_size = self._default_font['size']
 
         self.style.map('TScale', troughcolor=[('disabled', '#d9d9d9')])
+        self.style.map(
+            'TCombobox',
+            fieldbackground=[('readonly', 'white'), ('disabled', '#d9d9d9')],
+            selectbackground=[('readonly', 'white')],
+        )
+
         self.style.configure(
             'Small.TCheckbutton',
             font=('TkDefaultFont', int(self._default_font_size * 0.85)),
@@ -2355,7 +2362,7 @@ class GUI:
     def maybe_replace_string_with_x11_bugfix(self, s: str) -> str:
         # X11 font bug https://github.com/ortk95/planetmapper/issues/145
         if USE_X11_FONT_BUGFIX:
-            s = s.translate(X11_FONT_BUGRIX_TRANSLATIONS)
+            s = s.translate(X11_FONT_BUGFIX_TRANSLATIONS)
         return s
 
     def display_header(self) -> None:
@@ -2844,6 +2851,7 @@ class SaveObservation(Popup):
         self.make_menu()
         self.save_nav_toggle()
         self.save_map_toggle()
+        self.on_change_map_interpolation()
 
     def make_widget(self) -> None:
         self.window.title('Save observation')
@@ -2942,6 +2950,7 @@ class SaveObservation(Popup):
         self.save_nav.trace_add('write', self.save_nav_toggle)
         self.save_map.trace_add('write', self.save_map_toggle)
         self.map_projection.trace_add('write', self.save_map_toggle)
+        self.map_interpolation.trace_add('write', self.on_change_map_interpolation)
 
         self.nav_widgets: list[tk.Widget] = []
         self.map_widgets: list[tk.Widget] = []
@@ -2992,15 +3001,22 @@ class SaveObservation(Popup):
         ttk.Label(self.map_option_grid, text='Interpolation: ').grid(
             row=0, column=0, **label_kwargs
         )
+        interpolation_frame = ttk.Frame(self.map_option_grid)
+        interpolation_frame.grid(row=0, column=1, columnspan=5, sticky='w')
+
         w = ttk.Combobox(
-            self.map_option_grid,
+            interpolation_frame,
             textvariable=self.map_interpolation,
             width=15,
             values=MAP_INTERPOLATIONS,
             state='readonly',
         )
-        w.grid(row=0, column=1, columnspan=5, sticky='w')
+        w.pack(side='left')
         self.map_widgets.append(w)
+        self.map_interpolation_hint_label = ttk.Label(
+            interpolation_frame, text='', foreground='orange4'
+        )
+        self.map_interpolation_hint_label.pack(side='left')
 
         ttk.Label(self.map_option_grid, text='Projection: ').grid(
             row=1, column=0, **label_kwargs
@@ -3159,6 +3175,14 @@ class SaveObservation(Popup):
             self.save_button['state'] = 'normal'
         else:
             self.save_button['state'] = 'disable'
+
+    def on_change_map_interpolation(self, *_) -> None:
+        if self.map_interpolation.get() in {'cubic', 'quadratic'}:
+            text = ' ⚠ May produce artifacts in the mapped data'
+        else:
+            text = ''
+        text = self.gui.maybe_replace_string_with_x11_bugfix(text)
+        self.map_interpolation_hint_label.configure(text=text)
 
     def click_save(self) -> None:
         self.try_run_save()

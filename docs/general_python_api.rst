@@ -375,7 +375,7 @@ Mapped data can also be manipulated and plotted directly. In the example below, 
 
 .. [#jupiterhst] The `Jupiter image <https://hubblesite.org/contents/media/images/2020/42/4739-Image>`_ is from the OPAL program using the Hubble Space Telescope. Credit: *NASA, ESA, STScI, A. Simon (Goddard Space Flight Center), and M.H. Wong (University of California, Berkeley) and the OPAL team*
 
-Mapping is fully customisable, and various different map projections are available. See :func:`planetmapper.BodyXY.map_img` and :func:`planetmapper.Observation.get_mapped_data` for more details on the available map projections and how to customise them. The snippets below show some different examples of how to use, plot and customise mapped images and data: ::
+Mapping is fully customisable, and various different map projections are available. See :func:`planetmapper.BodyXY.map_img` and :func:`planetmapper.Observation.get_mapped_data` for more details on the available map projections and how to customise them, and how to project data to a map. The snippets below show some different examples of how to use, plot and customise mapped images and data: ::
 
     img = np.nanmean(observation.data, axis=0)  # get an image averaged over wavelengths
 
@@ -397,9 +397,9 @@ Mapping is fully customisable, and various different map projections are availab
     mapped_img = observation.map_img(img, projection='orthographic', size=1000)
     observation.plot_map(mapped_img, projection='orthographic', size=1000)
 
-    # Project the map at 1000 km above the nominal surface of the target
-    mapped_img = observation.map_img(img, alt=1000)
-    observation.plot_map(mapped_img, alt=1000)
+    # Project the map at 1234 km above the nominal surface of the target
+    mapped_img = observation.map_img(img, alt=1234)
+    observation.plot_map(mapped_img, alt=1234)
 
     # Customise the plotted map and wireframe
     mapped_img = observation.map_img(img, projection='azimuthal')
@@ -419,7 +419,7 @@ Mapping is fully customisable, and various different map projections are availab
     )
 
     # Customise the interpolation to get a smoother looking map...
-    mapped_img = observation.map_img(img, interpolation='cubic')
+    mapped_img = observation.map_img(img, interpolation='smooth')
     # ... or to see the individual pixels in the data
     mapped_img = observation.map_img(img, interpolation='nearest')
 
