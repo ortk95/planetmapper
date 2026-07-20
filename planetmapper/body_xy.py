@@ -1440,10 +1440,11 @@ class BodyXY(Body):
 
         .. warning ::
             The spline interpolation methods `'cubic'` and `'quadratic'` are
-            non-monotonic, so may produce artefacts in the interpolated data, such as
-            dark rings around bright parts of the map. The `'smooth'` interpolation
-            method is guaranteed to be monotonic, so is recommended over these spline
-            methods to avoid introducing artefacts into the data.
+            non-monotonic, so may produce artefacts in the interpolated data, `such as
+            dark rings around bright parts of the map
+            <https://github.com/ortk95/planetmapper/pull/583>`_. The `'smooth'`
+            interpolation method is guaranteed to be monotonic, so is recommended over
+            these spline methods to avoid introducing artefacts into the data.
 
         If `interpolation` is `'nearest'`, no interpolation is performed, and the mapped
         image takes the value of the nearest pixel in the image to that location. This
@@ -1462,11 +1463,17 @@ class BodyXY(Body):
         guaranteed to be monotonic, so the interpolated data will not overshoot the
         values of any neighbouring pixels.
 
-        If you are unsure about which interpolation method to use, then one of either
-        `'nearest'`, `'linear'` or `'smooth'` is recommended. `'smooth'` generally
-        produces the "nicest" looking maps, `'nearest'` provides the most basic and
-        simple representation of the data, and `'linear'` provides a balance between the
-        two.
+
+        .. hint ::
+            If you are unsure about which interpolation method to use:
+
+            * `'linear'`, the default, is mathematically simple.
+            * `'smooth'` generally produces the "nicest" looking maps.
+            * `'nearest'` provides the most fundamental representation of the data and
+              each pixel.
+
+            `Click here to see examples of the different interpolation methods.
+            <https://github.com/ortk95/planetmapper/pull/583>`_
 
         See also :func:`plot_map` and :func:`Observation.get_mapped_data`.
 
