@@ -31,5 +31,5 @@ echo -e "\nRunning ruff format..." && ruff format . --check --diff && \
 echo -e "\nRunning pyright..." && pyright && \
 echo -e "\nRunning pylint..." && pylint $(git ls-files 'planetmapper/*.py') setup.py check_release_version.py && \
 echo -e "\nRunning tests..." && python -m coverage run -m unittest discover -s tests && python -m coverage report && python -m coverage html && \
-echo -e "\nMaking documentation..." && cd docs && make html && cd .. && \
+echo -e "\nMaking documentation..." && cd docs && rm -r _build && make html && cd .. && \
 echo -e "\nALL DONE"

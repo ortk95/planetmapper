@@ -1,5 +1,7 @@
 # pylint: disable=attribute-defined-outside-init,protected-access
 import functools
+import itertools
+import json
 import math
 import os
 import platform
@@ -23,6 +25,7 @@ import matplotlib.colors
 import matplotlib.markers
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
+import matplotlib.ticker
 import numpy as np
 import spiceypy as spice
 from astropy.io import fits
@@ -34,6 +37,7 @@ from matplotlib.backends.backend_tkagg import (
     NavigationToolbar2Tk,  # type: ignore
 )
 from matplotlib.figure import Figure
+from matplotlib.legend import Legend
 from matplotlib.text import Text
 
 from . import _assets, base, common, data_loader, progress, utils
@@ -68,6 +72,7 @@ PlotKey = Literal[
     'other_body_of_interest_marker',
     'other_body_of_interest_label',
     'marked_coord',
+    'comparison_spectrum_marker',
     '_',
 ]
 NON_ANIMATED_PLOT_KEYS: set[PlotKey] = {'image', '_'}
@@ -85,6 +90,7 @@ DEFAULT_PLOT_SETTINGS: dict[PlotKey, dict] = {
     'other_body_of_interest_marker': dict(zorder=3.8, marker='+', color='w', s=36),
     'other_body_of_interest_label': dict(zorder=3.81, color='grey'),
     'marked_coord': dict(zorder=4, color='cyan', linewidth=0.5, linestyle='solid'),
+    'comparison_spectrum_marker': dict(zorder=4.1, marker='o', edgecolor='k', s=36),
     'image': dict(zorder=0.9, cmap='inferno'),
     '_': dict(
         grid_interval=30,
@@ -98,7 +104,7 @@ DEFAULT_PLOT_SETTINGS: dict[PlotKey, dict] = {
         image_gamma=1,
         image_vmin=0,
         image_vmax=100,
-        image_limit_type='absolute',
+        image_limit_type='relative',
     ),
 }
 
@@ -107,9 +113,9 @@ LINESTYLES = ('solid', 'dashed', 'dotted', 'dashdot')
 MARKERS = ('x', '+', 'o', '.', '*', 'v', '^', '<', '>', ',', 'D', 'd', '|', '_')
 GRID_INTERVALS = ('10', '30', '45', '90')
 CMAPS = ('gray', 'viridis', 'plasma', 'inferno', 'magma', 'cividis')
-LIMIT_TYPES = ('absolute', 'percentile')
+LIMIT_TYPES = ('relative', 'percentile', 'absolute')
 
-MAP_INTERPOLATIONS = ('nearest', 'linear', 'quadratic', 'cubic')
+MAP_INTERPOLATIONS = ('nearest', 'smooth', 'linear', 'quadratic', 'cubic')
 MAP_PROJECTIONS = ('rectangular', 'orthographic', 'azimuthal', 'azimuthal equal area')
 
 DEFAULT_HINT = ''
@@ -125,7 +131,7 @@ try:
     USE_X11_FONT_BUGFIX = bool(os.environ['PLANETMAPPER_USE_X11_FONT_BUGFIX'])
 except KeyError:
     USE_X11_FONT_BUGFIX = False  # pyright: ignore[reportConstantRedefinition]
-X11_FONT_BUGRIX_TRANSLATIONS = str.maketrans(
+X11_FONT_BUGFIX_TRANSLATIONS = str.maketrans(
     {
         '↖': None,
         '↑': '^',
@@ -137,6 +143,7 @@ X11_FONT_BUGRIX_TRANSLATIONS = str.maketrans(
         '↘': None,
         '↺': '<',
         '↻': '>',
+        '⚠': '!',
     }
 )
 
@@ -270,6 +277,7 @@ class GUI:
     MINIMUM_SIZE = (400, 650)
     DEFAULT_GEOMETRY = '800x650+15+15'
     CONTROLS_WIDTH = 260
+    LIGHT_FRAME_BACKGROUND_COLOR = '#eeeeee'
 
     def __init__(
         self, *, allow_open: bool = True, check_matplotlib_backend: bool = True
@@ -317,6 +325,7 @@ class GUI:
             self.copy_machine_coord_values: ['c'],
             self.copy_formatted_coord_values: ['<Shift-C>'],
             self.display_header: ['<Control-h>'],
+            self.display_spectrum_popup: ['<Control-p>'],
         }
         self.shortcuts_to_keep_in_entry = ['<Control-s>', '<Control-o>']
 
@@ -356,7 +365,9 @@ class GUI:
             'r0': lambda: self.get_observation().get_r0(),
             'rotation': lambda: self.get_observation().get_rotation(),
             'step': lambda: self.step_size,
-            'plate_scale_arcsec': lambda: self.get_observation().get_plate_scale_arcsec(),
+            'plate_scale_arcsec': lambda: (
+                self.get_observation().get_plate_scale_arcsec()
+            ),
             'plate_scale_km': lambda: self.get_observation().get_plate_scale_km(),
             'wcs_offset_ra': lambda: self._get_wcs_offsets()[0],
             'wcs_offset_dec': lambda: self._get_wcs_offsets()[1],
@@ -374,7 +385,10 @@ class GUI:
         ] = {
             'Reset disc': [
                 (
-                    lambda: self.get_observation().reset_disc_params(),
+                    lambda: (
+                        self.get_observation().reset_disc_params(),
+                        self.update_disc_param_source_message(),
+                    ),
                     'Reset all disc parameters',
                     'Reset the disc parameters to their initial values',
                     None,
@@ -471,6 +485,12 @@ class GUI:
         self._plot_background: tuple | None = None
         self._is_drawing_plot: bool = False
 
+        self._spectrum_popup: 'SpectrumPopup | None' = None
+
+        self._initial_disc_params_for_message: (
+            tuple[float, float, float, float] | None
+        ) = None
+
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
 
@@ -518,7 +538,7 @@ class GUI:
 
         self.image_modes: dict[ImageMode, tuple[Callable[[], np.ndarray], str]] = {
             'single': (self.image_single, 'Single wavelength'),
-            'sum': (self.image_sum, 'Sum all wavelengths'),
+            'sum': (self.image_sum, 'Average all wavelengths'),
             'rgb': (self.image_rgb, 'RGB composite'),
         }
         n_wavl = self.get_observation().data.shape[0]
@@ -585,7 +605,7 @@ class GUI:
             self.rebuild_plot()
             self.root.title(self.get_observation().get_description(multiline=False))
             self.reset_help_hint()
-            self.enable_disc_finding_buttons()
+            self.after_setting_observation()
 
     def update_observation_available_disc_finding_routines(self):
         routines = self._observation_available_disc_finding_routines
@@ -649,6 +669,9 @@ class GUI:
         self.controls_frame = ttk.Frame(self.root)
         self.controls_frame.pack(side='left', fill='y')
 
+        self.top_controls_frame = ttk.Frame(self.root)
+        self.top_controls_frame.pack(side='top', fill='x')
+
         self.plot_frame = ttk.Frame(self.root)
         self.plot_frame.pack(side='top', fill='both', expand=True)
         self.build_plot()
@@ -664,6 +687,8 @@ class GUI:
         )
         self.update_plot_wireframe()
         self.on_plot_draw()
+
+        self.after_setting_observation()
 
         loading_frame.destroy()
         self.gui_built = True
@@ -687,7 +712,7 @@ class GUI:
                 foreground='black',
                 insertcolor='black',
                 fieldbackground='white',
-                selectbackground='#bdf',
+                selectbackground='#bbddff',
                 selectforeground='black',
             )
 
@@ -695,6 +720,12 @@ class GUI:
         self._default_font_size = self._default_font['size']
 
         self.style.map('TScale', troughcolor=[('disabled', '#d9d9d9')])
+        self.style.map(
+            'TCombobox',
+            fieldbackground=[('readonly', 'white'), ('disabled', '#d9d9d9')],
+            selectbackground=[('readonly', 'white')],
+        )
+
         self.style.configure(
             'Small.TCheckbutton',
             font=('TkDefaultFont', int(self._default_font_size * 0.85)),
@@ -702,12 +733,13 @@ class GUI:
 
     def build_controls(self) -> None:
         self.notebook = ttk.Notebook(self.controls_frame)
-        self.notebook.pack(fill='both', expand=True)
+        self.notebook.pack(fill='both', expand=True, pady=(1, 0), padx=0)
         self.build_main_controls_tab()
         self.build_disc_finding_controls_tab()
         self.build_plot_settings_controls_tab()
         self.build_coords_tab()
         self.build_help_tab()
+        self.build_top_controls()
 
     def build_main_controls_tab(self) -> None:
         frame = ttk.Frame(self.notebook)
@@ -736,13 +768,6 @@ class GUI:
                 self.save_button,
                 1,
                 0,
-            ),
-            (
-                'View FITS header',
-                'View the FITS header for the observation',
-                self.display_header,
-                (0, 2) if self.allow_open else 1,
-                1,
             ),
         ]
         if not self.allow_open:
@@ -818,6 +843,17 @@ class GUI:
             numeric_entries=['step'],
         )
 
+        disc_method_frame = ttk.Frame(frame)
+        disc_method_frame.pack(fill='x', pady=(3, 0))
+        self.disc_method_message = ttk.Label(
+            disc_method_frame,
+            text='',
+            justify='center',
+            font=('TkDefaultFont', int(self._default_font_size * 0.9), 'bold'),
+            wraplength=self.CONTROLS_WIDTH - 10,
+        )
+        self.disc_method_message.pack()
+
     def build_main_controls_section(
         self,
         frame: ttk.Frame,
@@ -841,8 +877,8 @@ class GUI:
         **kw,
     ) -> None:
         label_frame = ttk.LabelFrame(frame, text=label)
-        label_frame.pack(fill='x', pady=3, ipadx=1, ipady=1)
-
+        label_frame.pack(fill='x', pady=2, ipadx=1, ipady=1)
+        self.add_tooltip(label_frame, entry_tooltip)
         if buttons:
             button_frame = ttk.Frame(label_frame)
             button_frame.pack(
@@ -850,6 +886,7 @@ class GUI:
                 expand=wide_buttons,
                 padx=5 if wide_buttons else 0,
             )
+            self.add_tooltip(button_frame, entry_tooltip)
             for text, hint, fn, column, row in buttons:
                 if isinstance(column, tuple):
                     column, columnspan = column
@@ -884,7 +921,13 @@ class GUI:
             for ne in numeric_entries:
                 if isinstance(ne, str):
                     NumericEntry(
-                        self, entry_frame, ne, pady=2, add_callbacks=add_callbacks, **kw
+                        self,
+                        entry_frame,
+                        ne,
+                        pady=2,
+                        add_callbacks=add_callbacks,
+                        tooltip=entry_tooltip,
+                        **kw,
                     )
                 else:
                     NumericEntry(
@@ -894,6 +937,7 @@ class GUI:
                         ne[1],
                         pady=2,
                         add_callbacks=add_callbacks,
+                        tooltip=entry_tooltip,
                         **kw,
                     )
 
@@ -1017,6 +1061,14 @@ class GUI:
             hint='the location on the image clicked when to calculate coordinates (see the Coords tab)',
             callbacks=[self.replot_marked_coord],
         )
+        PlotComparisonCoordinateScatterSetting(
+            self,
+            frame,
+            'comparison_spectrum_marker',
+            label='Comparison locations',
+            hint='locations on the image plotted in the spectrum popup',
+            callbacks=[self.replot_comparison_spectrum_markers],
+        )
 
     def build_disc_finding_controls_tab(self) -> None:
         frame = ttk.Frame(self.notebook)
@@ -1039,8 +1091,6 @@ class GUI:
 
             if label == 'Use WCS data from FITS header':
                 self.build_wcs_offset_section(label_frame)
-
-        self.enable_disc_finding_buttons()
 
     def build_help_tab(self) -> None:
         frame = ttk.Frame(self.notebook)
@@ -1143,6 +1193,42 @@ class GUI:
         )
         label.pack(pady=5)
 
+    def build_top_controls(self) -> None:
+        bg_color = self.LIGHT_FRAME_BACKGROUND_COLOR
+
+        bg_frame = tk.Frame(self.top_controls_frame, background=bg_color)
+        bg_frame.pack(fill='x', padx=0, pady=0, ipadx=0, ipady=0)
+
+        frame = tk.Frame(bg_frame, background=bg_color)
+        frame.pack(side='top', fill='x', pady=3, padx=5)  # Centre frame
+
+        self.view_header_button = self.add_tooltip(
+            ttk.Button(
+                frame,
+                text='View FITS header',
+                command=self.display_header,
+                padding=1,
+            ),
+            'View the FITS header for the observation',
+            self.display_header,
+        )
+        self.view_header_button.grid(row=0, column=0, sticky='ew', padx=5)
+
+        self.display_spectrum_popup_button = self.add_tooltip(
+            ttk.Button(
+                frame,
+                text='Plot spectrum',
+                command=self.display_spectrum_popup,
+                padding=1,
+            ),
+            'Open a popup showing the spectrum - click on the image to select the plotted location',
+            self.display_spectrum_popup,
+        )
+        self.display_spectrum_popup_button.grid(row=0, column=1, sticky='ew', padx=1)
+
+        for i in range(2):
+            frame.columnconfigure(i, weight=1)
+
     def _get_wcs_offsets(self) -> tuple[float, float, float, float]:
         if 'wcs' not in self._observation_available_disc_finding_routines:
             return (np.nan, np.nan, np.nan, np.nan)
@@ -1207,19 +1293,20 @@ class GUI:
     def build_wcs_offset_section(self, label_frame: ttk.LabelFrame) -> None:
         container_frame = ttk.Frame(label_frame)
         container_frame.pack(fill='x')
-        self.add_tooltip(
-            container_frame,
+        tooltip = (
             'Differences between disc parameters and WCS data '
-            '(useful for navigating multiple observations with systematic pointing errors)',
+            '(useful for navigating multiple observations with systematic pointing errors)'
         )
+        self.add_tooltip(container_frame, tooltip)
 
-        label = EnableableLabel(
-            container_frame, text='Offsets between disc and WCS data:'
+        label = self.add_tooltip(
+            EnableableLabel(container_frame, text='Offsets between disc and WCS data:'),
+            tooltip,
         )
         label.pack(pady=(5, 0))
         self._wcs_entries_to_enable.append(label)
 
-        frame = ttk.Frame(container_frame)
+        frame = self.add_tooltip(ttk.Frame(container_frame), tooltip)
         frame.pack(pady=2)
 
         entries: list[tuple[SetterKey, str, float | None, tuple[SetterKey, ...]]] = [
@@ -1280,6 +1367,7 @@ class GUI:
                 ],
                 default_callbacks_to_add=default_callbacks,
                 zero_threshold=zero_threshold,
+                tooltip=tooltip,
             )
             self._wcs_entries_to_enable.append(ne)
 
@@ -1296,6 +1384,16 @@ class GUI:
 
         return button_command
 
+    def after_setting_observation(self) -> None:
+        self.enable_observation_dependant_buttons()
+        self.update_disc_param_source_message()
+
+    def enable_observation_dependant_buttons(self) -> None:
+        self.enable_disc_finding_buttons()
+        self.display_spectrum_popup_button.configure(
+            state=('normal' if self.get_observation().data.shape[0] > 1 else 'disable')
+        )
+
     def enable_disc_finding_buttons(self) -> None:
         for key, buttons in self._disc_finding_enableable_buttons.items():
             state = (
@@ -1310,35 +1408,89 @@ class GUI:
         for entry in self._wcs_entries_to_enable:
             entry.set_enabled(enable_wcs_entries)
 
+    def update_disc_param_source_message(self) -> None:
+        self._initial_disc_params_for_message = self.get_observation().get_disc_params()
+        method = self.get_observation().get_disc_method()
+        messages: dict[str, str] = {
+            'manual': 'Disc initialised using manually set parameters',
+            'default': 'Disc initialised using default parameters',
+            'zero': '',
+            'centre_disc': 'Disc initialised in the centre of the image, radius set to fill image & rotation set to zero',
+            'rotate_north': 'Disc initialised with the north pole rotated to the top',
+            'header': 'Disc initialised using PlanetMapper metadata in the FITS header',
+            'wcs': 'Disc initialised using WCS pointing information in the FITS header',
+            'wcs_position': 'Disc initialised using WCS position in the FITS header',
+            'wcs_rotation': 'Disc initialised using WCS rotation in the FITS header',
+            'wcs_plate_scale': 'Disc initialised using WCS plate scale in the FITS header',
+            'fit_position': 'Disc initialised by fitting the position to the image',
+            'fit_r0': 'Disc initialised by fitting the radius to the image',
+        }
+        message = messages.get(method, f'Disc initialised using {method}')
+        # Make message more noticeable for methods which containing no information
+        color = 'red4' if method in {'centre_disc'} else 'gray50'
+        self.set_disc_method_message(message, color=color)
+
+    def set_disc_method_message(self, msg: str, *, color: str = 'black') -> None:
+        self.disc_method_message.configure(text=msg, foreground=color)
+
+    def maybe_clear_disc_method_message(self):
+        if (
+            self.get_observation().get_disc_params()
+            != self._initial_disc_params_for_message
+        ):
+            self.set_disc_method_message('')
+
     def build_help_hint(self) -> None:
         frame = ttk.Frame(self.hint_frame)
-        frame.pack(fill='x', padx=5, pady=1)
-        self.help_hint = ttk.Label(frame, text=DEFAULT_HINT)
+        frame.pack(fill='x', padx=7, pady=3)  # account for default 2px border
+        self.help_hint = ttk.Label(frame, text=DEFAULT_HINT, border=0)
         self.help_hint.pack(side='left')
-        self.help_hint.bind('<Enter>', lambda e: self.reset_help_hint(hover=True))
-        self.help_hint.bind('<Leave>', lambda e: self.reset_help_hint())
+        self.help_hint_extra = ttk.Label(frame, text='', border=0)
+        self.help_hint_extra.pack(side='left')
+        for widget in (self.help_hint, self.help_hint_extra):
+            widget.bind('<Enter>', lambda e: self.reset_help_hint(hover=True))
+            widget.bind('<Leave>', lambda e: self.reset_help_hint())
         self.reset_help_hint()
 
-    def set_help_hint(self, msg: str, *, color: str = 'black'):
+    def set_help_hint(
+        self,
+        msg: str,
+        *,
+        color: str = 'black',
+        extra_msg: str = '',
+        extra_msg_color: str = 'gray50',
+    ) -> None:
         self.help_hint.configure(text=msg, foreground=color)
+        self.help_hint_extra.configure(text=extra_msg, foreground=extra_msg_color)
 
-    def reset_help_hint(self, *, hover: bool = False):
+    def reset_help_hint(self, *, hover: bool = False) -> None:
         msg = self._observation_full_path if hover else self._observation_filename
         self.set_help_hint(msg, color='gray50')
 
     def add_tooltip(
-        self, widget: Widget, msg: str, shortcut_fn: Callable | None = None, **kw
+        self,
+        widget: Widget,
+        msg: str,
+        shortcut_fn: Callable | None = None,
+        *,
+        extra_msg: str | None = None,
+        **kw,
     ) -> Widget:
-        if shortcut_fn is not None:
+        if shortcut_fn is not None and extra_msg is None:
             keys = self.shortcuts.get(shortcut_fn, None)
             if keys is not None:
                 key = keys[0]
                 key = key.replace('<less>', '<').upper()
                 if key[0] == '<' and key[-1] == '>' and len(key) > 2:
                     key = key[1:-1]
-                msg = f'{msg} (keyboard shortcut: {key})'
+                extra_msg = f' (keyboard shortcut: {key})'
 
-        widget.bind('<Enter>', lambda e: self.set_help_hint(msg, **kw))
+        if extra_msg is None:
+            extra_msg = ''
+
+        widget.bind(
+            '<Enter>', lambda e: self.set_help_hint(msg, extra_msg=extra_msg, **kw)
+        )
         widget.bind('<Leave>', lambda e: self.reset_help_hint())
         return widget
 
@@ -1449,9 +1601,12 @@ class GUI:
     def get_click_coords(self) -> dict[str, float]:
         if self.last_click_location is None:
             return {}
+        return self._get_coords_for_location(*self.last_click_location)
+
+    def _get_coords_for_location(self, x: float, y: float) -> dict[str, float]:
         out: dict[str, float] = {}
         observation = self.get_observation()
-        x, y = self.last_click_location
+
         ra, dec = observation.xy2radec(x, y)
         out['x'] = x
         out['y'] = y
@@ -1485,6 +1640,8 @@ class GUI:
         return out
 
     def update_coords(self, print_coords: bool = False) -> None:
+        self.maybe_update_spectrum_popup()
+
         if self.last_click_location is None:
             for k, label in self.coords_tab_labels.items():
                 label.configure(text='')
@@ -1594,7 +1751,7 @@ class GUI:
 
         try:
             # Disable when panning/zooming
-            if self.toolbar.mode._navigate_mode is not None:
+            if self.toolbar.mode != '':
                 return
         # pylint: disable-next=bare-except
         except:
@@ -1619,6 +1776,7 @@ class GUI:
             self.coords_copy_machine_button,
         ]:
             button['state'] = 'normal'
+        self.maybe_update_spectrum_popup()
 
     def clear_click_location(self) -> None:
         self.last_click_location = None
@@ -1632,6 +1790,25 @@ class GUI:
                 button['state'] = 'disable'
         except AttributeError:
             pass
+        self.maybe_update_spectrum_popup()
+
+    def display_spectrum_popup(self) -> None:
+        if self.get_observation().data.shape[0] > 1:
+            SpectrumPopup(self)
+
+    def maybe_update_spectrum_popup(self) -> None:
+        if not self.gui_built:
+            # Don't fire off update spectrum on initial clear of click location
+            return
+        self.add_delayed_action(
+            'update_spectrum_popup',
+            10,
+            self._maybe_update_spectrum_popup,
+        )
+
+    def _maybe_update_spectrum_popup(self) -> None:
+        if self._spectrum_popup is not None:
+            self._spectrum_popup.update()
 
     def copy_formatted_coord_values(self) -> None:
         if self.coords_formatted_str is not None:
@@ -1703,7 +1880,7 @@ class GUI:
             or self._plot_background[1].bounds != self.fig.bbox.bounds  # type: ignore
         ):
             self.copy_plot_background()
-        return self._plot_background  #  type: ignore
+        return self._plot_background  # type: ignore
 
     def draw_plot_animated_artists(self) -> None:
         # https://matplotlib.org/stable/users/explain/animations/blitting.html
@@ -1714,12 +1891,13 @@ class GUI:
                 continue
             for artist in artists:
                 self.fig.draw_artist(artist)
-        self.canvas.blit(bbox)  #  type: ignore
+        self.canvas.blit(bbox)  # type: ignore
         self.canvas.flush_events()
 
     def update_plot_wireframe(self, print_coords: bool = False) -> None:
         self.add_delayed_action('update_plot_wireframe', 0, self._update_plot_wireframe)
         self.update_coords(print_coords=print_coords)
+        self.maybe_clear_disc_method_message()
 
     def _update_plot_wireframe(self):
         self.get_observation().update_transform()
@@ -1746,7 +1924,7 @@ class GUI:
         self.ax = self.fig.add_axes([0.06, 0.03, 0.93, 0.96])
         self.update_plot_transforms()
 
-        bg_color = '#eeeeee'
+        bg_color = self.LIGHT_FRAME_BACKGROUND_COLOR
         toolbar_frame = tk.Frame(self.plot_frame, background=bg_color)
         toolbar_frame.pack(side='bottom', fill='x')
         tk.Label(toolbar_frame, text='\N{NO-BREAK SPACE}', background=bg_color).pack(
@@ -1770,7 +1948,7 @@ class GUI:
 
         self.add_tooltip(
             self.canvas.get_tk_widget(),
-            'Customise plot in the "Settings" tab and click on the plot to get values in the "Coords" tab',
+            'Customise plot in the "Settings" tab; click on the plot to show values in the "Coords" tab (right click to clear)',
         )
 
         self.replot_all()
@@ -1793,6 +1971,8 @@ class GUI:
         self.replot_coordinates_lonlat()
         self.replot_coordinates_radec()
         self.replot_other_bodies()
+        self.replot_marked_coord()
+        self.replot_comparison_spectrum_markers()
 
     def format_plot(self):
         self.fig.set_dpi(100)
@@ -1809,25 +1989,49 @@ class GUI:
         mode = self.plot_settings['_'].setdefault('image_mode', 'single')
         vmin = self.plot_settings['_'].setdefault('image_vmin', 0)
         vmax = self.plot_settings['_'].setdefault('image_vmax', 1)
-        limit_type = self.plot_settings['_'].setdefault('image_limit_type', 'absolute')
+        gamma = self.plot_settings['_'].setdefault('image_gamma', 1)
+        limit_type = self.plot_settings['_'].setdefault('image_limit_type', 'relative')
 
         with utils.ignore_warnings('All-NaN slice encountered'):
             image = self.image_modes[mode][0]()
-            if limit_type == 'percentile':
+            if limit_type == 'relative':
+                data_min = np.nanmin(image)
+                data_range = np.nanmax(image) - data_min
+                vmin = data_min + (vmin / 100.0) * data_range
+                vmax = data_min + (vmax / 100.0) * data_range
+            elif limit_type == 'percentile':
                 vmin = np.nanpercentile(image, vmin)
                 vmax = np.nanpercentile(image, vmax)
+            # limit_type == 'absolute' means vmin/vmax are pure data values, so no
+            # additional preprocessing is needed
 
+        if mode == 'rgb':
+            # norm isn't applied to RGB images, so manually apply the effects here and
+            # just use a blank placeholder norm
+            norm = matplotlib.colors.Normalize()
+            v_range = vmax - vmin
+            if v_range == 0:
+                v_range = 1
+            image = (image - vmin) / v_range
+            image = np.clip(image, 0.0, 1.0, dtype=float) ** gamma
+        else:
+            # for actual cmapped data images, apply the limits/gamma with a norm so that
+            # the tooltip at the bottom right of the plot shows the correct data values
+            # on mouseover
+            norm = matplotlib.colors.PowerNorm(
+                gamma=gamma, vmin=vmin, vmax=vmax, clip=True
+            )
         self.plot_handles['image'].append(
             self.ax.imshow(
                 image,
                 origin='lower',
-                vmin=vmin,
-                vmax=vmax,
+                norm=norm,
                 **self.plot_settings['image'],
             )
         )
 
         self.on_plot_draw()
+        self.maybe_update_spectrum_popup()  # updates wavelength indicators
 
     def replot_limb(self):
         self.remove_artists('limb')
@@ -1866,7 +2070,9 @@ class GUI:
     def replot_poles(self):
         self.remove_artists('pole')
         for lon, lat, s in self.get_observation().get_poles_to_plot():
-            ra, dec = self.get_observation().lonlat2radec(lon, lat)
+            ra, dec = self.get_observation().lonlat2radec(
+                lon, lat, not_visible_nan=False
+            )
             self.plot_handles['pole'].append(
                 self.ax.add_artist(
                     OutlinedText(
@@ -1979,6 +2185,23 @@ class GUI:
                 self.ax.axhline(y, **self.plot_settings['marked_coord'])
             )
 
+    def replot_comparison_spectrum_markers(self) -> None:
+        self.remove_artists('comparison_spectrum_marker')
+        if self._spectrum_popup is not None:
+            coordinates = self._spectrum_popup.comparison_coordinates_and_colors
+            for maybe_xy, color in coordinates:
+                if maybe_xy is None:
+                    continue
+                x, y = maybe_xy
+                self.plot_handles['comparison_spectrum_marker'].append(
+                    self.ax.scatter(
+                        x,
+                        y,
+                        color=color,
+                        **self.plot_settings['comparison_spectrum_marker'],
+                    )
+                )
+
     def remove_artists(self, key: PlotKey) -> None:
         while self.plot_handles[key]:
             self.plot_handles[key].pop().remove()
@@ -2002,16 +2225,17 @@ class GUI:
 
     # Image
     def image_sum(self) -> np.ndarray:
-        return 100 * utils.normalise(
-            np.nansum(self.get_observation().data, axis=0)
-        ) ** self.plot_settings['_'].setdefault('image_gamma', 1)
+        # Use dtype=float to as otherwise int images will have an error with
+        # summed[bad] = np.nan
+        summed = np.nansum(self.get_observation().data, axis=0, dtype=float)
+        bad = np.isfinite(self.get_observation().data).sum(axis=0) == 0
+        summed[bad] = np.nan
+        return summed / self.get_observation().data.shape[0]
 
     def image_single(self) -> np.ndarray:
-        return 100 * utils.normalise(
-            self.get_observation().data[
-                self.plot_settings['_'].setdefault('image_idx_single', 0)
-            ]
-        ) ** self.plot_settings['_'].setdefault('image_gamma', 1)
+        return self.get_observation().data[
+            self.plot_settings['_'].setdefault('image_idx_single', 0)
+        ]
 
     def image_rgb(self) -> np.ndarray:
         r = self.get_observation().data[
@@ -2023,9 +2247,7 @@ class GUI:
         b = self.get_observation().data[
             self.plot_settings['_'].setdefault('image_idx_b', 0)
         ]
-        return utils.normalise(np.stack((r, g, b), axis=2)) ** self.plot_settings[
-            '_'
-        ].setdefault('image_gamma', 1)
+        return np.stack((r, g, b), axis=2)
 
     # Keybindings
     def bind_keyboard(self) -> None:
@@ -2062,6 +2284,8 @@ class GUI:
             fn()
         if update_plot:
             self.update_plot_wireframe()
+        else:
+            self.maybe_clear_disc_method_message()
 
     def set_step(self, step: float) -> None:
         if not step > 0:
@@ -2138,7 +2362,7 @@ class GUI:
     def maybe_replace_string_with_x11_bugfix(self, s: str) -> str:
         # X11 font bug https://github.com/ortk95/planetmapper/issues/145
         if USE_X11_FONT_BUGFIX:
-            s = s.translate(X11_FONT_BUGRIX_TRANSLATIONS)
+            s = s.translate(X11_FONT_BUGFIX_TRANSLATIONS)
         return s
 
     def display_header(self) -> None:
@@ -2146,9 +2370,13 @@ class GUI:
 
     def add_popup(self, popup: 'Popup') -> None:
         self._popups.append(popup)
+        if isinstance(popup, SpectrumPopup):
+            self._spectrum_popup = popup
 
     def remove_popup(self, popup: 'Popup') -> None:
         self._popups.remove(popup)
+        if isinstance(popup, SpectrumPopup):
+            self._spectrum_popup = None
 
     def get_popups(self) -> list['Popup']:
         return self._popups
@@ -2422,7 +2650,7 @@ class OpenObservation(Popup):
                     textvariable=self.stringvars['path'],
                     # state='disabled',
                 ),
-                ttk.Button(self.grid_frame, text='Open', command=self.get_path),
+                ttk.Button(self.grid_frame, text='...', width=3, command=self.get_path),
             ),
             (
                 ttk.Label(self.grid_frame, text='Target: '),
@@ -2507,7 +2735,7 @@ class OpenObservation(Popup):
         )
         observation_kwargs: ObservationKwargs = {
             k: v.get() for k, v in self.stringvars.items()
-        }  #  type: ignore
+        }  # type: ignore
         for k, v in observation_kwargs.items():
             if isinstance(v, str) and len(v.strip()) == 0:
                 tkinter.messagebox.showwarning(
@@ -2550,10 +2778,10 @@ class OpenObservation(Popup):
             return False
 
         try:
-            observation_kwargs['utc'] = float(observation_kwargs['utc'])  #  type: ignore
+            observation_kwargs['utc'] = float(observation_kwargs['utc'])  # type: ignore
         except ValueError:
             try:
-                spice.str2et(observation_kwargs['utc'])  #  type: ignore
+                spice.str2et(observation_kwargs['utc'])  # type: ignore
             # pylint: disable-next=broad-except
             except Exception as e:
                 self.show_spice_warning(title='Error parsing date', exception=e)
@@ -2623,6 +2851,7 @@ class SaveObservation(Popup):
         self.make_menu()
         self.save_nav_toggle()
         self.save_map_toggle()
+        self.on_change_map_interpolation()
 
     def make_widget(self) -> None:
         self.window.title('Save observation')
@@ -2721,6 +2950,7 @@ class SaveObservation(Popup):
         self.save_nav.trace_add('write', self.save_nav_toggle)
         self.save_map.trace_add('write', self.save_map_toggle)
         self.map_projection.trace_add('write', self.save_map_toggle)
+        self.map_interpolation.trace_add('write', self.on_change_map_interpolation)
 
         self.nav_widgets: list[tk.Widget] = []
         self.map_widgets: list[tk.Widget] = []
@@ -2771,15 +3001,22 @@ class SaveObservation(Popup):
         ttk.Label(self.map_option_grid, text='Interpolation: ').grid(
             row=0, column=0, **label_kwargs
         )
+        interpolation_frame = ttk.Frame(self.map_option_grid)
+        interpolation_frame.grid(row=0, column=1, columnspan=5, sticky='w')
+
         w = ttk.Combobox(
-            self.map_option_grid,
+            interpolation_frame,
             textvariable=self.map_interpolation,
             width=15,
             values=MAP_INTERPOLATIONS,
             state='readonly',
         )
-        w.grid(row=0, column=1, columnspan=5, sticky='w')
+        w.pack(side='left')
         self.map_widgets.append(w)
+        self.map_interpolation_hint_label = ttk.Label(
+            interpolation_frame, text='', foreground='orange4'
+        )
+        self.map_interpolation_hint_label.pack(side='left')
 
         ttk.Label(self.map_option_grid, text='Projection: ').grid(
             row=1, column=0, **label_kwargs
@@ -2938,6 +3175,14 @@ class SaveObservation(Popup):
             self.save_button['state'] = 'normal'
         else:
             self.save_button['state'] = 'disable'
+
+    def on_change_map_interpolation(self, *_) -> None:
+        if self.map_interpolation.get() in {'cubic', 'quadratic'}:
+            text = ' ⚠ May produce artifacts in the mapped data'
+        else:
+            text = ''
+        text = self.gui.maybe_replace_string_with_x11_bugfix(text)
+        self.map_interpolation_hint_label.configure(text=text)
 
     def click_save(self) -> None:
         self.try_run_save()
@@ -3257,22 +3502,18 @@ class SaveMapProgressHookGUI(progress._SaveMapProgressHook, SaveProgressHookGUI)
 # Header
 class HeaderDisplay(Popup):
     def __init__(self, gui: GUI) -> None:
-        try:
-            super().__init__(gui)
-        except PopupAlreadyOpenError:
-            return
+        super().__init__(gui)
         self.make_widget()
 
     def make_widget(self) -> None:
         self.window.title('FITS Header')
         geometry = self.gui.root.geometry()
-
-        x, y = (int(s) for s in geometry.split('+')[1:])
+        w, h, x, y = (int(s) for s in geometry.replace('x', '+').split('+'))
         self.window.geometry(
             '{sz}+{x:.0f}+{y:.0f}'.format(
                 sz='650x800',
-                x=x + 50,
-                y=y + 50,
+                x=x + w,
+                y=y,
             )
         )
 
@@ -3296,6 +3537,486 @@ class HeaderDisplay(Popup):
 
     def click_close(self) -> None:
         self.close_window()
+
+
+# Spectrum
+class SpectrumPopup(Popup):
+    COMPARISON_COLORS: list[str] = [
+        # From the Petroff10 accessible colour cycle: https://arxiv.org/pdf/2107.02270
+        '#3f90da',
+        '#ffa90e',
+        '#bd1f01',
+        '#94a4a2',
+        '#832db6',
+        '#a96b59',
+        '#e76300',
+        '#b9ac70',
+        '#717581',
+        '#92dadd',
+    ]
+
+    def __init__(self, gui: GUI) -> None:
+        try:
+            super().__init__(gui)
+        except PopupAlreadyOpenError:
+            return
+
+        self.wavelengths, self.wavelengths_unit, self.is_real_wavelengths = (
+            self.get_wavelengths()
+        )
+
+        self._previous_click_location: (
+            tuple[float, float] | None | Literal['<UNSET>']
+        ) = '<UNSET>'
+        self._previous_mode_data: tuple[str, int, int, int, int] | None = None
+        self._previous_y_scale: Literal['linear', 'log'] | None = None
+        self._previous_width: int | None = None
+
+        self._legend_handle: Legend | None = None
+        self._image_mode_handles: list[Artist] = []
+        self._comparison_spectra_handles: list[Artist] = []
+
+        self.comparison_coordinates_and_colors: list[
+            tuple[tuple[float, float] | None, str]
+        ] = []
+
+        self.reset_color_cycle()
+        self.make_widget()
+
+    def make_widget(self) -> None:
+        geometry = self.gui.root.geometry()
+        w, h, x, y = (int(s) for s in geometry.replace('x', '+').split('+'))
+        self.window.geometry(
+            '{sz}+{x:.0f}+{y:.0f}'.format(
+                sz='800x400',
+                x=x + w,
+                y=y,
+            )
+        )
+        self.window_frame = ttk.Frame(self.window)
+        self.window_frame.pack(expand=True, fill='both')
+        self.plot_frame = ttk.Frame(self.window_frame)
+        self.plot_frame.pack(expand=True, fill='both')
+        self.build_plot()
+        self.update()
+
+        # Figure can sometimes be initialised with a slightly incorrect shape, so force
+        # it to fit the plot frame nicely here once the frame has its final shape.
+        self.window.update_idletasks()
+        self.fig.set_size_inches(
+            self.canvas_frame.winfo_width() / self.fig.dpi,
+            self.canvas_frame.winfo_height() / self.fig.dpi,
+        )
+        self.update()
+        self.on_resize()
+
+        self.window.bind('<Configure>', self.on_resize)
+
+    def build_plot(self) -> None:
+        self.fig = Figure()
+        self.ax = self.fig.add_axes((0.07, 0.065, 0.92, 0.89))  # (x0, y0, w, h)
+
+        bg_color = "#d9d9d9"
+        toolbar_frame = tk.Frame(self.plot_frame, background=bg_color)
+        toolbar_frame.pack(side='bottom', fill='x')
+        tk.Label(toolbar_frame, text='\N{NO-BREAK SPACE}', background=bg_color).pack(
+            side='left'
+        )
+        self.canvas_frame = tk.Frame(self.plot_frame, background='white')
+        self.canvas_frame.pack(side='top', fill='both', expand=True)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.canvas_frame)
+        self.toolbar = CustomNavigationToolbar(
+            self.canvas,
+            toolbar_frame,
+            pack_toolbar=False,
+            gui=self.gui,
+            bg_color=bg_color,
+        )
+        self.toolbar.pack(side='bottom', fill='x')
+
+        self.controls_frame = ttk.Frame(self.toolbar)
+        self.controls_frame.pack(expand=True, anchor='w', padx=(10, 0))
+
+        self.build_controls()
+
+        self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
+
+        self.fig.set_dpi(100)
+        self.ax.xaxis.set_tick_params(labelsize='x-small')
+        self.ax.yaxis.set_tick_params(labelsize='x-small')
+        self.ax.yaxis.get_offset_text().set_fontsize('x-small')
+        delta = (
+            0.5
+            * (self.wavelengths[-1] - self.wavelengths[0])
+            / max(len(self.wavelengths), 1)
+        )
+        self.ax.set_xlim(self.wavelengths[0] - delta, self.wavelengths[-1] + delta)
+        self.ax.grid(which='major', alpha=0.25, linewidth=1)
+        self.ax.grid(which='minor', alpha=0.1, linewidth=0.75)
+        self.ax.xaxis.set_major_locator(matplotlib.ticker.AutoLocator())
+        self.ax.xaxis.set_minor_locator(matplotlib.ticker.AutoMinorLocator())
+        self.line = self.ax.plot(
+            self.wavelengths,
+            np.full_like(self.wavelengths, np.nan),
+            linewidth=1,
+            zorder=3.5,
+            color='k',
+        )[0]
+
+        self.gui.add_tooltip(
+            self.canvas.get_tk_widget(),
+            (
+                'Click on the image to choose the location of the spectrum; '
+                'right click on the image to plot the average spectrum'
+            ),
+        )
+
+    def build_controls(self) -> None:
+        self.control_texts: dict[
+            ttk.Checkbutton | ttk.Button, tuple[str, str, int]
+        ] = {}
+
+        def add_short_text_option(
+            widget: ttk.Checkbutton | ttk.Button,
+            short_text: str,
+            *,
+            threshold: int = 675,
+        ) -> None:
+            self.control_texts[widget] = (short_text, widget.cget('text'), threshold)
+
+        self.yscale_var = tk.IntVar(value=0)
+        self.yscale_var.trace_add('write', self.on_change)
+        self.yscale_checkbox = self.gui.add_tooltip(
+            ttk.Checkbutton(
+                self.controls_frame,
+                text='Log scale',
+                variable=self.yscale_var,
+            ),
+            'Toggle logarithmic/linear scale for the plot\'s y-axis',
+        )
+        add_short_text_option(self.yscale_checkbox, 'Log')
+        self.yscale_checkbox.pack(side='left', padx=2, ipadx=2)
+
+        self.add_to_compare_button = self.gui.add_tooltip(
+            ttk.Button(
+                self.controls_frame,
+                text='Add to comparisons',
+                width=0,
+                command=self.add_current_spectrum_to_compare,
+                padding=(3, 1),
+            ),
+            'Keep the currently displayed spectrum on the plot to allow comparison with other spectra',
+        )
+        add_short_text_option(self.add_to_compare_button, 'Add')
+        self.add_to_compare_button.pack(side='left', padx=(2, 0), ipadx=2)
+
+        self.reset_comparisons_button = self.gui.add_tooltip(
+            ttk.Button(
+                self.controls_frame,
+                text='Reset',
+                width=0,
+                command=self.reset_comparisons,
+                padding=(3, 1),
+            ),
+            'Clear all comparison spectra from the plot',
+        )
+        self.reset_comparisons_button.pack(side='left', padx=(0, 2), ipadx=2)
+
+        self.copy_data_button = self.gui.add_tooltip(
+            ttk.Button(
+                self.controls_frame,
+                text='Copy data',
+                width=0,
+                command=self.copy_data_to_clipboard,
+                padding=(3, 1),
+            ),
+            'Copy the currently displayed spectral data to the clipboard in machine readable JSON format',
+        )
+        add_short_text_option(self.copy_data_button, 'Copy')
+        self.copy_data_button.pack(side='left', padx=2, ipadx=2)
+
+    def get_wavelengths(self) -> tuple[np.ndarray, str, bool]:
+        wavelengths = self.gui._observation_wavelengths
+        if wavelengths is None:
+            return np.arange(self.gui.get_observation().data.shape[0]), '', False
+        unit = self.gui._observation_wavelengths_unit
+        return wavelengths, unit, True
+
+    def get_spectrum(self, click_location: tuple[float, float] | None) -> np.ndarray:
+        cube = self.gui.get_observation().data
+        if click_location is None:
+            return np.nanmean(cube, axis=(1, 2))
+        x, y = self.round_xy_to_indices(*click_location)
+        try:
+            if x < 0 or y < 0:
+                raise IndexError
+            return cube[:, y, x]
+        except IndexError:
+            return np.full(cube.shape[0], np.nan)
+
+    def round_xy_to_indices(self, x: float, y: float) -> tuple[int, int]:
+        return int(round(x)), int(round(y))
+
+    def on_change(self, *_) -> None:
+        self.update()
+
+    def add_current_spectrum_to_compare(self) -> None:
+        click_location = self.gui.last_click_location
+        spectrum = self.get_spectrum(click_location)
+        label, title = self._get_label_and_title_from_click_location(click_location)
+
+        color = self.get_next_cycle_color()
+
+        line_handle = self.ax.plot(
+            self.wavelengths,
+            spectrum,
+            linewidth=1,
+            zorder=3.0,
+            label=label,
+            color=color,
+        )[0]
+
+        self._comparison_spectra_handles.append(line_handle)
+
+        rounded_location = (
+            self.round_xy_to_indices(*click_location)
+            if click_location is not None
+            else None
+        )
+        self.comparison_coordinates_and_colors.append((rounded_location, color))
+
+        # Hide line and legend entry, as it's now plotted as a comparison
+        self.line.set_label(None)  # type: ignore
+        self.line.set_visible(False)
+        # Remove and re-add line to push it to the bottom of the legend
+        self.line.remove()
+        self.ax.add_line(self.line)
+        self.update()
+        self.update_comparison_markers_on_gui()
+
+    def reset_color_cycle(self) -> None:
+        self.color_cycle = itertools.cycle(self.COMPARISON_COLORS)
+
+    def get_next_cycle_color(self) -> str:
+        return next(self.color_cycle)
+
+    def update_comparison_markers_on_gui(self) -> None:
+        self.gui.replot_comparison_spectrum_markers()
+        self.gui.draw_plot_animated_artists()
+
+    def reset_comparisons(self) -> None:
+        for handle in self._comparison_spectra_handles:
+            handle.remove()
+        self._comparison_spectra_handles.clear()
+        self.comparison_coordinates_and_colors.clear()
+        self.update_comparison_markers_on_gui()
+        self._previous_click_location = '<UNSET>'
+        self.reset_color_cycle()
+        self.update()
+
+    def update(self) -> None:
+        click_location = self.gui.last_click_location
+        if click_location != self._previous_click_location:
+            self._previous_click_location = click_location
+            self._update_click_location(click_location)
+
+        mode = (
+            self.gui.plot_settings['_']['image_mode'],
+            self.gui.plot_settings['_']['image_idx_single'],
+            self.gui.plot_settings['_']['image_idx_r'],
+            self.gui.plot_settings['_']['image_idx_g'],
+            self.gui.plot_settings['_']['image_idx_b'],
+        )
+        if mode != self._previous_mode_data:
+            self._previous_mode_data = mode
+            self._update_mode_vlines(mode)
+
+        yscale = 'log' if self.yscale_var.get() else 'linear'
+        if yscale != self._previous_y_scale:
+            self._previous_y_scale = yscale
+            self._update_yscale(yscale)
+
+        self._update_legend()
+        self.ax.relim()
+        self.ax.autoscale_view(tight=True, scalex=False)
+        self.canvas.draw()
+
+        self._update_button_state()
+        if len(self._comparison_spectra_handles) > 0:
+            self.window.title('Spectra comparison')
+        else:
+            label, title = self._get_label_and_title_from_click_location(click_location)
+            self.window.title(title)
+
+    def _update_click_location(
+        self, click_location: tuple[float, float] | None
+    ) -> None:
+        self.line.set_data(self.wavelengths, self.get_spectrum(click_location))
+        self.line.set_visible(
+            click_location is not None or len(self._comparison_spectra_handles) == 0
+        )
+
+    def _get_label_and_title_from_click_location(
+        self, click_location: tuple[float, float] | None
+    ) -> tuple[str, str]:
+        if click_location is None:
+            title = 'Cube average spectrum'
+            label = 'Cube average'
+        else:
+            x, y = self.round_xy_to_indices(*click_location)
+            label = f'x={x}, y={y}'
+            lon, lat = self.gui.get_observation().xy2lonlat(x, y)
+            if np.isfinite(lon) and np.isfinite(lat):
+                ew = self.gui.get_observation().positive_longitude_direction
+                ns = 'N' if lat >= 0 else 'S'
+                label += f' ({lon:.1f}°{ew}, {abs(lat):.1f}°{ns})'
+            title = f'Spectrum at {label}'
+        return label, title
+
+    def _update_mode_vlines(self, mode: tuple[str, int, int, int, int]) -> None:
+        for handle in self._image_mode_handles:
+            handle.remove()
+        self._image_mode_handles.clear()
+
+        if mode[0] == 'single':
+            self._image_mode_handles.append(
+                self.ax.axvline(
+                    self.wavelengths[mode[1]],  #  type: ignore
+                    color='tab:grey',
+                    linewidth=1,
+                    alpha=0.75,
+                    linestyle=':',
+                    zorder=0,
+                )
+            )
+        elif mode[0] == 'rgb':
+            for idx, color in zip(mode[2:], ['r', 'g', 'b']):
+                self._image_mode_handles.append(
+                    self.ax.axvline(
+                        self.wavelengths[idx],  #  type: ignore
+                        color=color,
+                        linewidth=1,
+                        alpha=0.75,
+                        linestyle=':',
+                        zorder=0,
+                    )
+                )
+
+    def _update_yscale(self, yscale: Literal['linear', 'log']) -> None:
+        self.ax.set_yscale(yscale)
+        if yscale == 'linear':
+            self.ax.yaxis.set_major_locator(matplotlib.ticker.AutoLocator())
+            self.ax.yaxis.set_minor_locator(matplotlib.ticker.AutoMinorLocator())
+        elif yscale == 'log':
+            self.ax.yaxis.set_major_locator(matplotlib.ticker.LogLocator())
+            self.ax.yaxis.set_minor_locator(matplotlib.ticker.LogLocator(subs='all'))
+
+    def _update_legend(self) -> None:
+        for line_handle, (click_location, color) in zip(
+            self._comparison_spectra_handles, self.comparison_coordinates_and_colors
+        ):
+            label, title = self._get_label_and_title_from_click_location(click_location)
+            line_handle.set_label(label)
+        if self.line.get_visible():
+            label, title = self._get_label_and_title_from_click_location(
+                self.gui.last_click_location
+            )
+            self.line.set_label(label)
+        else:
+            self.line.set_label(None)  # type: ignore
+
+        if len(self._comparison_spectra_handles) > 0:
+            self._legend_handle = self.ax.legend(fontsize='small')
+        else:
+            if self._legend_handle is not None:
+                self._legend_handle.remove()
+                self._legend_handle = None
+
+    def _update_button_state(self) -> None:
+        if len(self._comparison_spectra_handles) == 0:
+            self.reset_comparisons_button['state'] = 'disable'
+        else:
+            self.reset_comparisons_button['state'] = 'normal'
+
+        if self.line.get_visible():
+            self.add_to_compare_button['state'] = 'normal'
+        else:
+            self.add_to_compare_button['state'] = 'disable'
+
+    def close_window(self, *_) -> None:
+        super().close_window()
+        self.update_comparison_markers_on_gui()
+
+    def on_resize(self, *_) -> None:
+        def func():
+            # Check popup still exists
+            if self.gui._spectrum_popup is not None:
+                self.gui._spectrum_popup._on_resize_window()
+
+        self.gui.add_delayed_action('on_resize_spectrum_popup', 1, func)
+
+    def _on_resize_window(self) -> None:
+        self.resize_texts()
+
+    def resize_texts(self) -> None:
+        current_width = self.window.winfo_width()
+        if current_width == self._previous_width:
+            return
+        self._previous_width = current_width
+
+        for widget, (sort_text, long_text, threshold) in self.control_texts.items():
+            widget.configure(text=sort_text if current_width < threshold else long_text)
+
+    def copy_data_to_clipboard(self) -> None:
+        self.gui.copy_to_clipboard(self._get_copyable_data_json_string())
+
+    def _get_copyable_data_json_string(self) -> str:
+        spectra_data_lines: list[str] = []
+        for click_location, color in self.comparison_coordinates_and_colors:
+            spectra_data_lines.append(
+                self._get_copyable_data_for_spectrum(click_location)
+            )
+        if self.line.get_visible():
+            spectra_data_lines.append(
+                self._get_copyable_data_for_spectrum(self.gui.last_click_location)
+            )
+
+        data: dict[str, str] = {}
+        data['description'] = json.dumps('Spectral data exported from PlanetMapper')
+        data['observation'] = json.dumps(
+            self.gui.get_observation().get_description(multiline=False)
+        )
+        if self.gui.get_observation().path is not None:
+            data['path'] = json.dumps(self.gui.get_observation().path)
+        if self.is_real_wavelengths:
+            data['wavelengths'] = self._dump_array(self.wavelengths)
+        data['spectra'] = (
+            '[' + ', '.join('\n    ' + line for line in spectra_data_lines) + '\n  ]'
+        )
+        data['planetmapper_version'] = json.dumps(common.__version__)
+        return '{' + ', '.join(f'\n  "{k}": {v}' for k, v in data.items()) + '\n}'
+
+    def _get_copyable_data_for_spectrum(
+        self, click_location: tuple[float, float] | None
+    ) -> str:
+        data: dict[str, str] = {}
+        data['label'] = json.dumps(
+            self._get_label_and_title_from_click_location(click_location)[0].replace(
+                '\u00b0', ''
+            )
+        )
+        if click_location is not None:
+            x, y = self.round_xy_to_indices(*click_location)
+            coords = self.gui._get_coords_for_location(x, y)
+            formatted_string = self.gui.make_click_json_string(
+                coords, fmt='', fmt_radec=''
+            )
+            data['location'] = formatted_string  # already JSON, so no need for dumps
+        data['spectrum'] = self._dump_array(self.get_spectrum(click_location))
+        return '{' + ', '.join(f'"{k}": {v}' for k, v in data.items()) + '}'
+
+    def _dump_array(self, array: np.ndarray) -> str:
+        return json.dumps([(float(v) if np.isfinite(v) else None) for v in array])
 
 
 # Artist settings popups
@@ -3539,6 +4260,11 @@ class PlotImageSetting(ArtistSetting):
             return
         is_single = bool(self.single_wavelength_enabled.get())
         self.gui.plot_settings['_']['image_mode'] = 'single' if is_single else 'sum'
+        self.gui.add_delayed_action(
+            'update_image_menu_from_slider',
+            self.REPLOT_DELAY_MS,
+            self.update_menu_from_slider,
+        )
         self.schedule_replot(skip_full_delay=True)
 
     def on_wavelength_slider_change(self, *_) -> None:
@@ -3557,6 +4283,11 @@ class PlotImageSetting(ArtistSetting):
             'set_slider_label',
             self.SLIDER_DELAY_MS,
             self.set_slider_label,
+        )
+        self.gui.add_delayed_action(
+            'update_image_menu_from_slider',
+            self.REPLOT_DELAY_MS,
+            self.update_menu_from_slider,
         )
         self.schedule_replot(set_slider=False)
 
@@ -3641,7 +4372,7 @@ class PlotImageSetting(ArtistSetting):
             value=str(general_settings.setdefault('image_vmax', 100))
         )
         self.image_limit_type = tk.StringVar(
-            value=str(general_settings.setdefault('image_limit_type', 'absolute'))
+            value=str(general_settings.setdefault('image_limit_type', 'relative'))
         )
 
         self.image_mode = tk.StringVar(
@@ -3747,7 +4478,7 @@ class PlotImageSetting(ArtistSetting):
                     increment=5,
                     width=10,
                 ),
-                {'single', 'sum'},
+                {'single', 'sum', 'rgb'},
             ),
             (
                 ttk.Label(frame, text='vmax: '),
@@ -3759,7 +4490,7 @@ class PlotImageSetting(ArtistSetting):
                     increment=5,
                     width=10,
                 ),
-                {'single', 'sum'},
+                {'single', 'sum', 'rgb'},
             ),
             (
                 ttk.Label(frame, text='vmin/vmax type: '),
@@ -3770,21 +4501,22 @@ class PlotImageSetting(ArtistSetting):
                     width=10,
                     state='readonly',
                 ),
-                {'single', 'sum', '_readonly'},
+                {'single', 'sum', 'rgb', '_readonly'},
             ),
         ]
         self.add_to_menu_grid([(a, b) for a, b, c in self.grid], frame=frame)
 
         messages = [
             (
-                '\nImages are scaled to vary from 0 to 100, so set vmin=0 and vmax=100 '
-                'to show the entire dynamic range.'
+                '\n"relative" applies vmin/vmax as a percentage of the data range, '
+                'so vmin=0 and vmax=100 shows the entire dynamic range of the image.'
             ),
             (
-                'Set vmin/vmax type to "percentile" to calculate the limits as '
-                'percentiles of the data in the image. This can be useful if your data '
-                'has extreme outliers (e.g. try vmin=1, vmax=99 & type=percentile).'
+                '"percentile" applies vmin/vmax as percentiles of the data, '
+                'which can be useful to deal with extreme outliers. '
+                'For example, try vmax=99 and type=percentile to deal with hot pixels.'
             ),
+            ('"absolute" applies vmin/vmax directly to the data values.'),
         ]
         ttk.Label(
             self.grid_frame,
@@ -3796,6 +4528,21 @@ class PlotImageSetting(ArtistSetting):
 
         self.image_mode.trace_add('write', self.change_image_mode_radio)
         self.change_image_mode_radio()  # run initial setup
+
+    def update_menu_from_slider(self, *_) -> None:
+        if self not in self.gui.get_popups():
+            return
+        try:
+            image_mode_var = self.image_mode
+            image_idx_single_var = self.image_idx_single
+        except AttributeError:
+            return
+        is_single = bool(self.single_wavelength_enabled.get())
+        if is_single:
+            image_mode_var.set('single')
+            image_idx_single_var.set(str(self.wavelength_variable.get()))
+        else:
+            image_mode_var.set('sum')
 
     def change_image_mode_radio(self, *_) -> None:
         mode = self.image_mode.get()
@@ -3838,27 +4585,26 @@ class PlotImageSetting(ArtistSetting):
             general_settings['image_gamma'] = self.get_float(
                 self.image_gamma, 'gamma', positive=False
             )
-            if image_mode in {'single', 'sum'}:
-                general_settings['image_limit_type'] = self.image_limit_type.get()
-                general_settings['image_vmin'] = self.get_float(
-                    self.image_vmin, 'vmin', positive=False
+            general_settings['image_limit_type'] = self.image_limit_type.get()
+            general_settings['image_vmin'] = self.get_float(
+                self.image_vmin, 'vmin', positive=False
+            )
+            general_settings['image_vmax'] = self.get_float(
+                self.image_vmax, 'vmax', positive=False
+            )
+            if general_settings['image_vmin'] >= general_settings['image_vmax']:
+                tkinter.messagebox.showwarning(
+                    title='Error parsing limits',
+                    message='vmin must be less than vmax',
                 )
-                general_settings['image_vmax'] = self.get_float(
-                    self.image_vmax, 'vmax', positive=False
-                )
-                if general_settings['image_vmin'] >= general_settings['image_vmax']:
-                    tkinter.messagebox.showwarning(
-                        title='Error parsing limits',
-                        message='vmin must be less than vmax',
-                    )
-                    return False
+                return False
         except ValueError:
             return False
 
         if image_mode in {'single', 'sum'}:
             try:
                 cmap = self.cmap.get()
-                plt.get_cmap(cmap)  #  type: ignore
+                plt.get_cmap(cmap)  # type: ignore
             except ValueError:
                 tkinter.messagebox.showwarning(
                     title='Error parsing colormap',
@@ -3873,7 +4619,7 @@ class PlotImageSetting(ArtistSetting):
         return True
 
     def get_window_size(self) -> str:
-        return '350x600'
+        return '350x650'
 
 
 class PlotLineSetting(ArtistSetting):
@@ -4165,7 +4911,7 @@ class PlotCoordinatesSetting(PlotScatterSetting):
                         tuple(
                             self.get_float(c, 'coordinate', positive=False)
                             for c in coordinates
-                        )  #  type: ignore
+                        )  # type: ignore
                     )
         except ValueError:
             return False
@@ -4317,6 +5063,74 @@ class PlotOtherBodyTextSetting(PlotTextSetting, GenericOtherBodySetting):
         return self.apply_other_body_setting() and super().apply_settings()
 
 
+class PlotComparisonCoordinateScatterSetting(ArtistSetting):
+    # Roughly based on PlotScatterSetting, but with some changes due to variable
+    # colours etc.
+
+    def make_menu(self) -> None:
+        settings = self.gui.plot_settings[self.key]
+
+        self.marker = tk.StringVar(value=str(settings.setdefault('marker', 'o')))
+        self.size = tk.StringVar(value=str(settings.setdefault('s', '36')))
+        self.edgecolor = tk.StringVar(
+            value=str(settings.setdefault('edgecolor', 'black'))
+        )
+
+        self.add_to_menu_grid(
+            [
+                (
+                    ttk.Label(self.grid_frame, text='Marker: '),
+                    ttk.Combobox(
+                        self.grid_frame,
+                        textvariable=self.marker,
+                        values=MARKERS,
+                        width=10,
+                    ),
+                ),
+                (
+                    ttk.Label(self.grid_frame, text='Size: '),
+                    ttk.Spinbox(
+                        self.grid_frame,
+                        textvariable=self.size,
+                        from_=1,
+                        to=100,
+                        increment=1,
+                        width=10,
+                    ),
+                ),
+                (
+                    ttk.Label(self.grid_frame, text='Edge colour: '),
+                    ColourButton(
+                        self.grid_frame, width=10, textvariable=self.edgecolor
+                    ),
+                ),
+            ]
+        )
+
+    def apply_settings(self) -> bool:
+        settings = self.gui.plot_settings[self.key]
+
+        try:
+            marker = self.marker.get()
+            matplotlib.markers.MarkerStyle(marker)
+        except ValueError:
+            tkinter.messagebox.showwarning(
+                title='Error parsing marker',
+                message=f'Unrecognised matplotlib marker {self.marker.get()!r}',
+            )
+            return False
+
+        try:
+            size = self.get_float(self.size, 'size')
+        except ValueError:
+            return False
+
+        settings['marker'] = marker
+        settings['s'] = size
+        settings['edgecolor'] = self.edgecolor.get()
+        return True
+
+
 # Generic artist settting elements
 class ColourButton(ttk.Button):
     def __init__(
@@ -4362,6 +5176,7 @@ class NumericEntry:
             'wcs_offset_scale',
         ),
         zero_threshold: float | None = None,
+        tooltip: str | None = None,
         **kw,
     ):
         self.parent = parent
@@ -4387,6 +5202,10 @@ class NumericEntry:
                 self.gui.ui_callbacks[k].add(self.update_text)
         for k in default_callbacks_to_add:
             self.gui.ui_callbacks[k].add(self.update_text)
+
+        if tooltip is not None:
+            for widget in (self.label, self.entry):
+                self.gui.add_tooltip(widget, tooltip)
 
         self.update_text()
 
@@ -4479,7 +5298,15 @@ class CustomNavigationToolbar(NavigationToolbar2Tk):
     # See issue #320 for more details: https://github.com/ortk95/planetmapper/issues/320
 
     def __init__(
-        self, canvas, window, *, pack_toolbar: bool = True, gui: GUI, bg_color: str
+        self,
+        canvas,
+        window,
+        *,
+        pack_toolbar: bool = True,
+        gui: GUI,
+        bg_color: str,
+        height: int | None = 35,
+        borderwidth: int | None = 0,
     ) -> None:
         # Default tooltips don't work with tk (on my laptop with dark mode at least)
         # so disable them here by setting to None, then use our custom tooltips instead.
@@ -4495,6 +5322,12 @@ class CustomNavigationToolbar(NavigationToolbar2Tk):
             ('Save', None, 'filesave', 'save_figure'),
         )
         super().__init__(canvas, window, pack_toolbar=pack_toolbar)
+
+        # Override sizes to make toolbar take up a little less space
+        if height is not None:
+            self.configure(height=height)
+        if borderwidth is not None:
+            self.configure(borderwidth=borderwidth)
 
         # The following lines are all cosmetic styling, so aren't crucial. Therefore,
         # wrap everything in try/except to avoid breaking the GUI if matplotlib changes

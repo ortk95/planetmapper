@@ -1,8 +1,9 @@
 import inspect
 import os
+import time
 import unittest
 import warnings
-from typing import Callable, Sequence, Type
+from typing import Callable, ParamSpec, Sequence, Type, TypeVar
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -12,6 +13,9 @@ import planetmapper
 DATA_PATH = os.path.join(os.path.dirname(__file__), 'data')
 KERNEL_PATH = os.path.join(DATA_PATH, 'kernels')
 TEMP_PATH = os.path.join(os.path.dirname(__file__), 'temp')
+
+T = TypeVar('T')
+P = ParamSpec('P')
 
 
 class BaseTestCase(unittest.TestCase):
@@ -164,3 +168,25 @@ class BaseTestCase(unittest.TestCase):
                 if signature_default is inspect.Signature.empty:
                     continue
                 self.assertEqual(signature_default, default)
+
+    def retry_errors(
+        self,
+        func: Callable[P, T],
+        max_retries: int,
+        sleep_after_error: float,
+        exceptions_to_catch: tuple[Type[Exception], ...],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> T:
+        for attempt in range(max_retries):
+            try:
+                return func(*args, **kwargs)
+            except exceptions_to_catch as e:
+                if attempt == max_retries - 1:
+                    raise
+                else:
+                    print(
+                        f'Error in {func.__name__}: {e!r}. Retrying in {sleep_after_error}s...'
+                    )
+                    time.sleep(sleep_after_error)
+        assert False

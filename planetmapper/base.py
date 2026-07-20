@@ -491,7 +491,7 @@ class SpiceBase:
         Returns:
             Timezone aware (UTC) datetime corresponding to `et`.
         """
-        s = spice.et2utc(et, 'ISOC', 6) + '+0000'
+        s = cast(str, spice.et2utc(et, 'ISOC', 6) + '+0000')
         # manually add '+0000' to string to make it timezone aware
         # i.e. this lets python know it is UTC
         return datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%f%z')
@@ -548,7 +548,7 @@ class SpiceBase:
             factors is returned.
         """
         beta = radial_velocity / self.speed_of_light()
-        return np.sqrt((1 + beta) / (1 - beta))  #  type: ignore
+        return np.sqrt((1 + beta) / (1 - beta))  # type: ignore
 
     @staticmethod
     def load_spice_kernels(
@@ -753,8 +753,8 @@ class SpiceBase:
                 [arg1, arg2, None, None], op_dtypes=[None, None, float, float]
             ) as it:  # type: ignore
                 for a, b, u, v in it:
-                    u[...], v[...] = func(a, b, *args, **kwargs)  #  type: ignore
-                return it.operands[2], it.operands[3]  #  type: ignore
+                    u[...], v[...] = func(a, b, *args, **kwargs)  # type: ignore
+                return it.operands[2], it.operands[3]  # type: ignore
         # TODO improve performance by using alt context manager for arrays
         # (e.g. add context manager in radec2lonlat)
 

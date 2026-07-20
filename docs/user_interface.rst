@@ -45,7 +45,7 @@ This window allows you to fit the observation, so that the fitted disc (the whit
     :width: 600
     :alt: Screenshot of the fitting window after the disc is fit.
 
-Once the disc is fit, it should look something like the image above. If you want more fine control from clicking the buttons, then you can adjust the step size. It can often be useful to start with a large step size, then decrease it for the final fine alignment.
+Once the disc is fit, it should look something like the image above. If you want more fine control from clicking the buttons, then you can adjust the step size. It can often be useful to start with a large step size, then decrease it for the final fine alignment. There are also a number of useful tools in the :guilabel:`Disc` tab to aid in fitting the disc, such as the ability to find/specify `offsets between any WCS information in the FITS header and the fitted disc <https://github.com/ortk95/planetmapper/pull/489>`_.
 
 .. image:: images/gui_customisation.png
     :width: 600
@@ -75,7 +75,9 @@ Once you click :guilabel:`Save`, your requested files will be generated and save
     :alt: Screenshot of selecting coordinates.
 
 You can also use the user interface to directly measure the coordinates of points of interest. Simply click on a location in the plot and the coordinate values for that location will be displayed in the :guilabel:`Coords` tab. The coordinate values will also be printed to the command line in a machine readable format that can easily be copied directly into a Python script, JSON database etc. If clicking on the plot isn't updating the coordinates for you, make sure you don't have the pan or zoom buttons selected.
-    
+
+For spectral data cubes, clicking the :guilabel:`Plot spectrum` button will `open a popup showing the spectrum <https://github.com/ortk95/planetmapper/pull/572>`_ for the currently marked location, or cube average if no location is marked. Spectra can be added to this popup window to allow comparisons between different locations, and the displayed spectral data can be `copied in a machine readable JSON format <https://github.com/ortk95/planetmapper/pull/575>`_ for further analysis.
+
 
 Running the UI from Python
 ===================================

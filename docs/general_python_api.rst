@@ -34,19 +34,45 @@ This code shows an example of using some of the functions in :class:`planetmappe
 
     body = planetmapper.Body('jupiter', '2020-01-01', observer='venus')
 
-    coordinates = [(42, 0), (123, 45)]
+    coordinates =  [(42, 0), (123, 45), (0, 60)]
     for lon, lat in coordinates:
-        print(f'\nlongitude = {lon}°, latitude = {lat}°')
+        print(f'longitude = {lon}°, latitude = {lat}°')
+
         if body.test_if_lonlat_visible(lon, lat):
             ra, dec = body.lonlat2radec(lon, lat)
             print(f'  RA = {ra:.4f}°, Dec = {dec:.4f}°')
+
             if body.test_if_lonlat_illuminated(lon, lat):
                 phase, incidence, emission = body.illumination_angles_from_lonlat(lon, lat)
-                print(f'  phase angle: {phase:.2f}°')     
-                print(f'  incidence angle: {phase:.2f}°')     
-                print(f'  emission angle: {phase:.2f}°')     
+                print(f'  phase angle: {phase:.2f}°')
+                print(f'  incidence angle: {incidence:.2f}°')
+                print(f'  emission angle: {emission:.2f}°')
+
         else:
             print('  (Not visible)')
+
+    # longitude = 42°, latitude = 0°
+    #   RA = 267.6718°, Dec = -22.8677°
+    # longitude = 123°, latitude = 45°
+    #   (Not visible)
+    # longitude = 0°, latitude = 60°
+    #   RA = 267.6681°, Dec = -22.8635°
+    #   phase angle: 7.94°
+    #   incidence angle: 72.41°
+    #   emission angle: 70.03°
+
+If you are interested in features above (or below) the target's nominal surface, you can specify the altitude of the feature in km using the optional `alt` parameter of functions such as :func:`planetmapper.Body.lonlat2radec`: ::
+
+    ra, dec = body.lonlat2radec(lon, lat, alt=100)  # position of a feature at altitude of 100 km
+
+PlanetMapper defaults to using planetographic :ref:`longitude/latitude coordinates <longitude/latitude coordinates>`, but you would rather work with planetocentric coordinates, then most longitude/latitude functions have an optional `planetocentric` parameter: ::
+
+    body.lonlat2radec(lon, lat)  # lon/lat are planetographic
+    body.lonlat2radec(lon, lat, planetocentric=True)  # lon/lat are planetocentric
+
+    body.radec2lonlat(ra, dec)  # returns planetographic lon/lat
+    body.radec2lonlat(ra, dec, planetocentric=True)  # returns planetocentric lon/lat
+
 
 .. hint::
     The main classes in PlanetMapper are subclasses of each other, with :class:`planetmapper.SpiceBase` the parent class of :class:`planetmapper.Body` which is the parent of :class:`planetmapper.BodyXY` which is the parent of :class:`planetmapper.Observation`. 
@@ -237,6 +263,7 @@ The appearance and units of wireframe plots can be fully customised to suit your
     :width: 600
     :alt: Wireframe plot of Saturn with custom formatting
 
+If you are interested in features above (or below) the target's nominal surface, you can specify an using the optional `alt` parameter of methods such as :func:`planetmapper.Body.plot_wireframe_radec`, :func:`planetmapper.Body.visible_lonlat_grid_radec` and :func:`planetmapper.Body.lonlat2radec`. `Click here for an example <https://github.com/ortk95/planetmapper/pull/365>`_ of plotting multiple wireframes at different altitudes.
 
 Observations, backplanes and mapping
 ====================================
@@ -314,12 +341,12 @@ Mapped data can also be manipulated and plotted directly. In the example below, 
     degree_interval = 0.25  # Plot maps with 4 pixels/degree
     emission_cutoff = 80
 
-    mapped_data = observation.get_mapped_data(degree_interval)  # get the mapped data
+    mapped_data = observation.get_mapped_data(degree_interval=degree_interval)  # get the mapped data
     rgb_map = np.moveaxis(mapped_data, 0, 2)  # imshow needs wavelength index last
     rgb_map = planetmapper.utils.normalise(rgb_map)  # normalise to make plot look nicer
 
     # Only plot areas with emission angles <80deg
-    emission_map = observation.get_backplane_map('EMISSION', degree_interval)
+    emission_map = observation.get_backplane_map('EMISSION', degree_interval=degree_interval)
     for idx in range(3):
         rgb_map[:, :, idx][np.where(emission_map > emission_cutoff)] = 1
     
@@ -347,6 +374,55 @@ Mapped data can also be manipulated and plotted directly. In the example below, 
     :alt: Plot of a mapped Jupiter observation
 
 .. [#jupiterhst] The `Jupiter image <https://hubblesite.org/contents/media/images/2020/42/4739-Image>`_ is from the OPAL program using the Hubble Space Telescope. Credit: *NASA, ESA, STScI, A. Simon (Goddard Space Flight Center), and M.H. Wong (University of California, Berkeley) and the OPAL team*
+
+Mapping is fully customisable, and various different map projections are available. See :func:`planetmapper.BodyXY.map_img` and :func:`planetmapper.Observation.get_mapped_data` for more details on the available map projections and how to customise them, and how to project data to a map. The snippets below show some different examples of how to use, plot and customise mapped images and data: ::
+
+    img = np.nanmean(observation.data, axis=0)  # get an image averaged over wavelengths
+
+    # Plot a the mapped image using the default rectangular projection
+    mapped_img = observation.map_img(img)
+    observation.plot_map(mapped_img)
+    
+    # Plot the mapped image using an orthographic projection centred on the north pole
+    mapped_img = observation.map_img(img, projection='orthographic', lat=90)
+    observation.plot_map(mapped_img, projection='orthographic', lat=90)
+    # plot_map needs the same projection related arguments as map_img
+
+    # Limit the mapping to the northern hemisphere and lower the resolution for speed
+    mapped_img = observation.map_img(img, degree_interval=10, ylim=(0, 90))
+    observation.plot_map(mapped_img, degree_interval=10, ylim=(0, 90))
+
+    # Create a higher resolution map (1000px x 1000px) using an orthographic projection
+    # (note that the higher the resolution, the longer it will take to generate the map)
+    mapped_img = observation.map_img(img, projection='orthographic', size=1000)
+    observation.plot_map(mapped_img, projection='orthographic', size=1000)
+
+    # Project the map at 1234 km above the nominal surface of the target
+    mapped_img = observation.map_img(img, alt=1234)
+    observation.plot_map(mapped_img, alt=1234)
+
+    # Customise the plotted map and wireframe
+    mapped_img = observation.map_img(img, projection='azimuthal')
+    observation.plot_map(
+        mapped_img,
+        projection='azimuthal',
+        cmap='inferno',
+        wireframe_kwargs=dict(
+            label_poles=False,
+            grid_interval=10,
+            grid_lat_limit=80,
+            formatting={
+                'grid': {'linestyle': '--'},
+                'map_boundary': {'color': 'red'},
+            },
+        ),
+    )
+
+    # Customise the interpolation to get a smoother looking map...
+    mapped_img = observation.map_img(img, interpolation='smooth')
+    # ... or to see the individual pixels in the data
+    mapped_img = observation.map_img(img, interpolation='nearest')
+
 
 Backplanes can also be generated for observations which do not exist using :class:`planetmapper.BodyXY`: ::
     

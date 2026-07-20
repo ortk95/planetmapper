@@ -2,6 +2,7 @@ import os
 import shutil
 import time
 import unittest
+import urllib.error
 
 import common_testing
 
@@ -10,6 +11,9 @@ from planetmapper import kernel_downloader
 
 
 class TestKernelDownloader(common_testing.BaseTestCase):
+    MAX_ATTEMPTS: int = 3
+    FAILURE_SLEEP: float = 5.0
+
     def setUp(self):
         self.kernel_path = os.path.join(common_testing.TEMP_PATH, 'kernels')
         planetmapper.set_kernel_path(self.kernel_path)
@@ -24,10 +28,32 @@ class TestKernelDownloader(common_testing.BaseTestCase):
     def test_root(self):
         self.assertEqual(kernel_downloader.URL_ROOT, 'https://naif.jpl.nasa.gov/pub/')
 
+    def retry_urllib_errors(
+        self,
+        func: common_testing.Callable[common_testing.P, common_testing.T],
+        *args: common_testing.P.args,
+        **kwargs: common_testing.P.kwargs,
+    ) -> common_testing.T:
+        """
+        Sometimes get network errors when downloading kernels, especially on GitHub
+        actions automated tests where a large test matrix is run. Therefore, retry a few
+        times if there is a network related error, as this doesn't indicate an issue
+        with PlanetMapper itself.
+        """
+        return self.retry_errors(
+            func,
+            self.MAX_ATTEMPTS,
+            self.FAILURE_SLEEP,
+            (urllib.error.URLError,),
+            *args,
+            **kwargs,
+        )
+
     def test_download_urls(self):
         with self.subTest('single url'):
-            kernel_downloader.download_urls(
-                'https://naif.jpl.nasa.gov/pub/naif/VIKING/kernels/aareadme.txt'
+            self.retry_urllib_errors(
+                kernel_downloader.download_urls,
+                'https://naif.jpl.nasa.gov/pub/naif/VIKING/kernels/aareadme.txt',
             )
             local_path = os.path.join(
                 self.kernel_path, 'naif', 'VIKING', 'kernels', 'aareadme.txt'
@@ -42,8 +68,9 @@ class TestKernelDownloader(common_testing.BaseTestCase):
             self.assertEqual(len(lines), 14)
 
         with self.subTest('multiple urls'):
-            kernel_downloader.download_urls(
-                'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk'
+            self.retry_urllib_errors(
+                kernel_downloader.download_urls,
+                'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk',
             )
             local_path = os.path.join(
                 self.kernel_path, 'naif', 'generic_kernels', 'lsk'
@@ -60,11 +87,13 @@ class TestKernelDownloader(common_testing.BaseTestCase):
             t = os.path.getmtime(local_path)
             if time.time() - t < 1:
                 time.sleep(1)  # ensure at least 1s between downloads
-            kernel_downloader.download_kernel(
-                'https://naif.jpl.nasa.gov/pub/naif/VIKING/kernels/aareadme.txt'
+            self.retry_urllib_errors(
+                kernel_downloader.download_kernel,
+                'https://naif.jpl.nasa.gov/pub/naif/VIKING/kernels/aareadme.txt',
             )
             self.assertEqual(os.path.getmtime(local_path), t)
-            kernel_downloader.download_kernel(
+            self.retry_urllib_errors(
+                kernel_downloader.download_kernel,
                 'https://naif.jpl.nasa.gov/pub/naif/VIKING/kernels/aareadme.txt',
                 force_download=True,
             )
@@ -73,8 +102,9 @@ class TestKernelDownloader(common_testing.BaseTestCase):
     def test_get_kernel_paths_from_webpage(self):
         self.assertEqual(
             set(
-                kernel_downloader.get_kernel_paths_from_webpage(
-                    'https://naif.jpl.nasa.gov/pub/naif/VIKING/kernels/spk'
+                self.retry_urllib_errors(
+                    kernel_downloader.get_kernel_paths_from_webpage,
+                    'https://naif.jpl.nasa.gov/pub/naif/VIKING/kernels/spk',
                 )
             ),
             {

@@ -270,10 +270,10 @@ def normalise(
 
     # Put into 0 to 1 range
     if vmax != vmin:
-        values = (values - vmin) / (vmax - vmin)  #  type: ignore
+        values = (values - vmin) / (vmax - vmin)  # type: ignore
     else:
         values = values - vmin
-    return values * (top - bottom) + bottom  #  type: ignore
+    return values * (top - bottom) + bottom  # type: ignore
 
 
 def check_path(path: str) -> None:
@@ -347,10 +347,10 @@ def generate_wavelengths_from_header(
         naxis3 = int(header[f'NAXIS{axis}'])  # type: ignore
         crval3 = float(header[f'CRVAL{axis}'])  # type: ignore
         try:
-            cdelt3 = float(header[f'CDELT{axis}'])  #  type: ignore
+            cdelt3 = float(header[f'CDELT{axis}'])  # type: ignore
         except KeyError:
             cdelt3 = float(header[f'CD{axis}_{axis}'])  # type: ignore
-        crpix3 = float(header.get(f'CRPIX{axis}', 1))  #  type: ignore
+        crpix3 = float(header.get(f'CRPIX{axis}', 1))  # type: ignore
     except (KeyError, ValueError, TypeError) as e:
         raise GetWavelengthsError(
             'Could not generate wavelength array from FITS Header'

@@ -19,6 +19,7 @@ from .body import (
     _cache_clearable_alt_dependent_result,
 )
 from .body_xy import BodyXY, MapKwargs, Unpack
+from .exceptions import warn
 from .progress import SaveMapProgressHookCLI, SaveNavProgressHookCLI, progress_decorator
 
 
@@ -302,8 +303,8 @@ class Observation(BodyXY):
                 # If the header has a MJD value for the start and end of the
                 # observation, average them and use astropy to convert this
                 # mid-observation MJD into a fits format time string
-                beg = float(header['MJD-BEG'])  #  type: ignore
-                end = float(header['MJD-END'])  #  type: ignore
+                beg = float(header['MJD-BEG'])  # type: ignore
+                end = float(header['MJD-END'])  # type: ignore
                 mjd = (beg + end) / 2
                 kw['utc'] = mjd
             except (KeyError, TypeError, ValueError):
@@ -385,6 +386,7 @@ class Observation(BodyXY):
             String returned by :func:`BodyXY.get_disc_method`, indicating the method
             used to set the disc parameters.
         """
+        # Update strings in GUI.update_disc_param_source_message with any new methods
         try:
             self.disc_from_header()
         except ValueError:
@@ -434,6 +436,7 @@ class Observation(BodyXY):
         suppress_warnings: bool = False,
         validate: bool = True,
         use_header_offsets: bool = True,
+        distortion_warning_threshold: float | None = 0.25,
     ) -> tuple[float, float, float, float]:
         wcs = self._get_wcs_from_header(suppress_warnings=suppress_warnings)
 
@@ -449,8 +452,15 @@ class Observation(BodyXY):
                 raise ValueError(
                     'WCS axes are not RA/Dec coordinates'
                 )  # pragma: no cover
-            if wcs.has_distortion:
-                raise ValueError('WCS conversion contains distortion terms')
+
+            if distortion_warning_threshold is not None:
+                max_distortion, avg_distortion = (
+                    self._get_max_and_average_wcs_distortion(wcs)
+                )
+                if max_distortion > distortion_warning_threshold:
+                    warn(
+                        f'The WCS contains distortion of up to {max_distortion:.3f} pixels (average {avg_distortion:.3f} pixels), which is not accounted for by PlanetMapper.',
+                    )
 
         x0, y0 = wcs.world_to_pixel_values(self.target_ra, self.target_dec)
 
@@ -477,11 +487,24 @@ class Observation(BodyXY):
                 x0, y0, r0, rotation = body.get_disc_params()
         return x0, y0, r0, rotation
 
+    def _get_max_and_average_wcs_distortion(
+        self, wcs: astropy.wcs.WCS
+    ) -> tuple[float, float]:
+        if not wcs.has_distortion:
+            return 0.0, 0.0
+        x, y = np.meshgrid(
+            np.arange(0, self.data.shape[2]), np.arange(0, self.data.shape[1])
+        )
+        x_foc, y_foc = wcs.pix2foc(x, y, 0)
+        distortion_img = np.hypot(x_foc - x, y_foc - y)
+        return np.max(distortion_img), np.mean(distortion_img)
+
     def disc_from_wcs(
         self,
         suppress_warnings: bool = False,
         validate: bool = True,
         use_header_offsets: bool = True,
+        distortion_warning_threshold: float | None = 0.25,
     ) -> None:
         """
         Set disc parameters using WCS information in the observation's FITS header.
@@ -492,7 +515,11 @@ class Observation(BodyXY):
 
             There may be very slight differences between the coordinates converted
             directly from the WCS information and the coordinates converted by
-            PlanetMapper.
+            PlanetMapper depending on the location in the image the WCS uses as the
+            reference point. This is because PlanetMapper always uses the centre of the
+            target as the reference point for the tangent plane projection. Any
+            differences are usually incredibly small (e.g. < 0.1 pixels) so unlikely to
+            be significant for most applications.
 
         Args:
             suppress_warnings: Hide warnings produced by astropy when calculating WCS
@@ -500,16 +527,29 @@ class Observation(BodyXY):
             validate: Run checks to ensure the WCS conversion has appropriate RA/Dec
                 coordinate dimensions.
             use_header_offsets: If present, use the `HIERARCH NAV RA_OFFSET` and
-                `HIERARCH NAV DEC_OFFSET` values from the FITS headerr to adjust the
+                `HIERARCH NAV DEC_OFFSET` values from the FITS header to adjust the
                 target's disc location by the specified arcsecond offsets. If these
                 keywords are not present or `use_header_offsets` is `False`, no
                 adjustment is made.
+            distortion_warning_threshold: If the WCS contains distortion terms, a
+                :class:`planetmapper.exceptions.PlanetmapperWarning` will be emitted if
+                the maximum distortion at any point in the image exceeds this threshold
+                (in pixels). If this is `None`, no warning will be emitted regardless of
+                the distortion.
         Raises:
             ValueError: if no WCS information is found in the FITS header, or validation
                 fails.
+
+        .. versionchanged:: 1.14.0
+            Distorted WCS will now be accepted, and emit a warning if the maximum
+            distortion exceeds `distortion_warning_threshold`. Previously, a ValueError
+            was raised if any distortion terms were present in the WCS, however small.
         """
         x0, y0, r0, rotation = self._get_disc_params_from_wcs(
-            suppress_warnings, validate, use_header_offsets
+            suppress_warnings,
+            validate,
+            use_header_offsets,
+            distortion_warning_threshold=distortion_warning_threshold,
         )
         self.set_x0(x0)
         self.set_y0(y0)
@@ -786,17 +826,19 @@ class Observation(BodyXY):
     def get_mapped_data(
         self,
         interpolation: (
-            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
+            Literal['nearest', 'smooth', 'linear', 'quadratic', 'cubic']
+            | int
+            | tuple[int, int]
         ) = 'linear',
         *,
-        spline_smoothing: float = 0,
         propagate_nan: bool = True,
+        spline_smoothing: float = 0,
+        smooth_oversample_by: int = 5,
+        smooth_max_oversampled_img_size: int = 10_000,
         **map_kwargs: Unpack[MapKwargs],
     ) -> np.ndarray:
         """
-        Projects the observed :attr:`data` onto a map. See
-        :func:`BodyXY.generate_map_coordinates` for details about customising the
-        projection used.
+        Projects the observed :attr:`data` onto a map using :func:`BodyXY.map_img`.
 
         For larger datasets, it can take some time to map every wavelength. Therefore,
         the mapped data is automatically cached (in a similar way to backplanes - see
@@ -807,8 +849,10 @@ class Observation(BodyXY):
 
         Args:
             interpolation: Passed to :func:`BodyXY.map_img`.
-            spline_smoothing: Passed to :func:`BodyXY.map_img`.
             propagate_nan: Passed to :func:`BodyXY.map_img`.
+            spline_smoothing: Passed to :func:`BodyXY.map_img`.
+            smooth_oversample_by: Passed to :func:`BodyXY.map_img`.
+            smooth_max_oversampled_img_size: Passed to :func:`BodyXY.map_img`.
             **map_kwargs: Additional arguments are passed to
                 :func:`BodyXY.generate_map_coordinates` to specify and customise the map
                 projection.
@@ -822,6 +866,8 @@ class Observation(BodyXY):
             interpolation=interpolation,
             spline_smoothing=spline_smoothing,
             propagate_nan=propagate_nan,
+            smooth_oversample_by=smooth_oversample_by,
+            smooth_max_oversampled_img_size=smooth_max_oversampled_img_size,
             **map_kwargs,
         ).copy()
 
@@ -831,10 +877,14 @@ class Observation(BodyXY):
         self,
         *,
         interpolation: (
-            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
+            Literal['nearest', 'smooth', 'linear', 'quadratic', 'cubic']
+            | int
+            | tuple[int, int]
         ),
         spline_smoothing: float,
         propagate_nan: bool,
+        smooth_oversample_by: int,
+        smooth_max_oversampled_img_size: int,
         **map_kwargs: Unpack[MapKwargs],
     ) -> np.ndarray:
         projected = []
@@ -847,6 +897,8 @@ class Observation(BodyXY):
                     spline_smoothing=spline_smoothing,
                     interpolation=interpolation,
                     propagate_nan=propagate_nan,
+                    smooth_oversample_by=smooth_oversample_by,
+                    smooth_max_oversampled_img_size=smooth_max_oversampled_img_size,
                     **map_kwargs,
                 )
             )
@@ -1266,10 +1318,14 @@ class Observation(BodyXY):
         path: str | os.PathLike,
         *,
         interpolation: (
-            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
+            Literal['nearest', 'smooth', 'linear', 'quadratic', 'cubic']
+            | int
+            | tuple[int, int]
         ) = 'linear',
-        spline_smoothing: float = 0,
         propagate_nan: bool = True,
+        spline_smoothing: float = 0,
+        smooth_oversample_by: int = 5,
+        smooth_max_oversampled_img_size: int = 10_000,
         include_backplanes: bool = True,
         backplanes_to_save: Collection[str] | None = None,
         backplanes_to_skip: Collection[str] = frozenset(),
@@ -1299,14 +1355,15 @@ class Observation(BodyXY):
         will only save the 'DISTANCE' backplane, as the 'RA' and 'DEC' backplanes are
         specified to be skipped.
 
-
         See also :func:`save_observation`.
 
         Args:
             path: Filepath of output file.
             interpolation: Passed to :func:`BodyXY.map_img`.
-            spline_smoothing: Passed to :func:`BodyXY.map_img`.
             propagate_nan: Passed to :func:`BodyXY.map_img`.
+            spline_smoothing: Passed to :func:`BodyXY.map_img`.
+            smooth_oversample_by: Passed to :func:`BodyXY.map_img`.
+            smooth_max_oversampled_img_size: Passed to :func:`BodyXY.map_img`.
             include_backplanes: Toggle generating and saving backplanes to output FITS
                 file.
             backplanes_to_save: Collection of backplane names to save in the output
@@ -1355,6 +1412,8 @@ class Observation(BodyXY):
                 interpolation=interpolation,
                 spline_smoothing=spline_smoothing,
                 propagate_nan=propagate_nan,
+                smooth_oversample_by=smooth_oversample_by,
+                smooth_max_oversampled_img_size=smooth_max_oversampled_img_size,
                 **map_kwargs,
             )
             header = self.header.copy()
@@ -1367,6 +1426,8 @@ class Observation(BodyXY):
                 interpolation=interpolation,
                 spline_smoothing=spline_smoothing,
                 propagate_nan=propagate_nan,
+                smooth_oversample_by=smooth_oversample_by,
+                smooth_max_oversampled_img_size=smooth_max_oversampled_img_size,
                 **map_kwargs,
             )
             self._add_map_wcs_to_header(header, **map_kwargs)
@@ -1391,7 +1452,7 @@ class Observation(BodyXY):
                 if print_info:
                     print(' Creating wireframe...')
                 wireframe = self.get_wireframe_overlay_map(
-                    **wireframe_kwargs or {},  #  type: ignore
+                    **wireframe_kwargs or {},  # type: ignore
                     **map_kwargs,
                 )
                 header = fits.Header([('ABOUT', 'Wireframe map overlay')])
@@ -1416,23 +1477,27 @@ class Observation(BodyXY):
         self,
         header: fits.Header,
         *,
-        interpolation: str | int | tuple[int, int],
+        interpolation: (
+            Literal['nearest', 'smooth', 'linear', 'quadratic', 'cubic']
+            | int
+            | tuple[int, int]
+        ),
         spline_smoothing: float,
         propagate_nan: bool,
+        smooth_oversample_by: int,
+        smooth_max_oversampled_img_size: int,
         **map_kwargs: Unpack[MapKwargs],
     ) -> None:
         lons, lats, xx, yy, transformer, info = self.generate_map_coordinates(
             **map_kwargs
         )
-        if isinstance(interpolation, tuple):
-            interpolation = str(interpolation)
         self.append_to_header(
             'MAP INTERPOLATION',
-            interpolation,
+            str(interpolation) if isinstance(interpolation, tuple) else interpolation,
             'Interpolation method used in mapping.',
             header=header,
         )
-        if interpolation != 'nearest':
+        if interpolation not in {'nearest', 'smooth'}:
             self.append_to_header(
                 'MAP SPLINE-SMOOTHING',
                 spline_smoothing,
@@ -1445,7 +1510,19 @@ class Observation(BodyXY):
                 'Propagate NaN pixels to map when mapping.',
                 header=header,
             )
-
+        if interpolation == 'smooth':
+            self.append_to_header(
+                'MAP SMOOTH-OVERSAMPLE-BY',
+                smooth_oversample_by,
+                'Oversampling factor used in map interpolation.',
+                header=header,
+            )
+            self.append_to_header(
+                'MAP SMOOTH-MAX-OVERSAMPLED-IMG-SIZE',
+                smooth_max_oversampled_img_size,
+                'Maximum oversampled image size allowed map interpolation.',
+                header=header,
+            )
         self.append_to_header(
             'MAP PROJECTION',
             info['projection'],
@@ -1588,7 +1665,12 @@ class Observation(BodyXY):
             clicked on the plot window to mark a location.
         """
         # pylint: disable=cyclic-import
-        from .gui import GUI  # Prevent circular imports
+        try:
+            from .gui import GUI
+        except ImportError as e:
+            from ._mock_gui_no_tk import raise_tkinter_import_error
+
+            raise_tkinter_import_error(e)
 
         gui = GUI(allow_open=False)
         gui.set_observation(self)

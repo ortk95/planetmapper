@@ -1,0 +1,7 @@
+3.14
+3.13
+3.12
+3.11
+3.10
+# Preferred Python versions, mainly useful to ensure dependabot runs with the latest version
+# https://github.com/dependabot/dependabot-core/issues/1455#issuecomment-545389290

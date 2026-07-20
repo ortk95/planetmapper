@@ -69,7 +69,7 @@ class MapKwargs(TypedDict, total=False):
     alt: float
 
 
-_MapKwargs = MapKwargs  # keep for backward compatibility
+_MapKwargs = MapKwargs  # keep for backward compatibility
 
 
 class _BackplaneMapGetter(Protocol):
@@ -436,6 +436,7 @@ class BodyXY(Body):
         *,
         not_found_nan: bool = True,
         alt: float = 0.0,
+        planetocentric: bool = False,
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert `image pixel coordinates`_ to `longitude/latitude coordinates`_ on the
@@ -454,6 +455,9 @@ class BodyXY(Body):
                 are missing the target body.
             alt: Altitude of returned `(lon, lat)` point above the surface of the target
                 body in km.
+            planetocentric: If `True`, return planetocentric rather than planetographic
+                longitude/latitude coordinates. The default is `False`, meaning the
+                returned coordinates are planetographic.
 
         Returns:
             `(lon, lat)` tuple containing the planetographic longitude/latitude of
@@ -466,13 +470,29 @@ class BodyXY(Body):
                 body and `not_found_nan` is `False`.
         """
         return self._maybe_transform_as_arrays(
-            self._xy2lonlat, x, y, not_found_nan=not_found_nan, alt=alt
+            self._xy2lonlat,
+            x,
+            y,
+            not_found_nan=not_found_nan,
+            alt=alt,
+            planetocentric=planetocentric,
         )
 
     def _xy2lonlat(
-        self, x: float, y: float, *, not_found_nan: bool, alt: float
+        self,
+        x: float,
+        y: float,
+        *,
+        not_found_nan: bool,
+        alt: float,
+        planetocentric: bool,
     ) -> tuple[float, float]:
-        return self._obsvec_norm2lonlat(self._xy2obsvec_norm(x, y), not_found_nan, alt)
+        return self._obsvec_norm2lonlat(
+            self._xy2obsvec_norm(x, y),
+            not_found_nan=not_found_nan,
+            alt=alt,
+            planetocentric=planetocentric,
+        )
 
     def lonlat2xy(
         self,
@@ -480,7 +500,8 @@ class BodyXY(Body):
         lat: FloatOrArray,
         *,
         alt: float = 0.0,
-        not_visible_nan: bool = False,
+        not_visible_nan: bool = True,
+        planetocentric: bool = False,
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert `longitude/latitude coordinates`_ on the target body to `image pixel
@@ -496,23 +517,46 @@ class BodyXY(Body):
             lon: Planetographic longitude of point(s) on target body.
             lat: Planetographic latitude of point(s) on target body.
             alt: Altitude of point above the surface of the target body in km.
-            not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
-                the point is not visible to the observer (e.g. it is on the far side of
-                the target). If `False` (the default), then `(ra, dec)` coordinates will
-                be returned, even if the point is not directly visible.
+            not_visible_nan: If `True` (the default), then the returned x/y values will
+                be NaN if the point is not visible to the observer (e.g. it is on the
+                far side of the target). If `False`, then `(x, y)` coordinates will be
+                returned, even if the point is not directly visible.
+            planetocentric: If `True`, treat the input coordinates as planetocentric
+                rather than planetographic longitude/latitude coordinates. The default
+                is `False`, meaning the input coordinates are planetographic.
 
         Returns:
             `(x, y)` tuple containing the image pixel coordinates of the point(s).
+
+        .. versionchanged:: 1.14.0
+            The default value of `not_visible_nan` was changed from `False` to `True`.
         """
         return self._maybe_transform_as_arrays(
-            self._lonlat2xy, lon, lat, alt=alt, not_visible_nan=not_visible_nan
+            self._lonlat2xy,
+            lon,
+            lat,
+            alt=alt,
+            not_visible_nan=not_visible_nan,
+            planetocentric=planetocentric,
         )
 
     def _lonlat2xy(
-        self, lon: float, lat: float, *, alt: float, not_visible_nan: bool
+        self,
+        lon: float,
+        lat: float,
+        *,
+        alt: float,
+        not_visible_nan: bool,
+        planetocentric: bool,
     ) -> tuple[float, float]:
         return self._obsvec2xy(
-            self._lonlat2obsvec(lon, lat, alt=alt, not_visible_nan=not_visible_nan)
+            self._lonlat2obsvec(
+                lon,
+                lat,
+                alt=alt,
+                not_visible_nan=not_visible_nan,
+                planetocentric=planetocentric,
+            )
         )
 
     def xy2km(
@@ -1371,11 +1415,15 @@ class BodyXY(Body):
         img: np.ndarray,
         *,
         interpolation: (
-            Literal['nearest', 'linear', 'quadratic', 'cubic'] | int | tuple[int, int]
+            Literal['nearest', 'smooth', 'linear', 'quadratic', 'cubic']
+            | int
+            | tuple[int, int]
         ) = 'linear',
-        spline_smoothing: float = 0,
         propagate_nan: bool = True,
         warn_nan: bool = False,
+        spline_smoothing: float = 0,
+        smooth_oversample_by: int = 5,
+        smooth_max_oversampled_img_size: int = 10_000,
         **map_kwargs: Unpack[MapKwargs],
     ) -> np.ndarray:
         """
@@ -1390,44 +1438,108 @@ class BodyXY(Body):
         spline interpolation is performed, preventing or significantly reducing the
         magnitude of any artefacts on the edge of NaN regions.
 
+        .. warning ::
+            The spline interpolation methods `'cubic'` and `'quadratic'` are
+            non-monotonic, so may produce artefacts in the interpolated data, `such as
+            dark rings around bright parts of the map
+            <https://github.com/ortk95/planetmapper/pull/583>`_. The `'smooth'`
+            interpolation method is guaranteed to be monotonic, so is recommended over
+            these spline methods to avoid introducing artefacts into the data.
+
         If `interpolation` is `'nearest'`, no interpolation is performed, and the mapped
         image takes the value of the nearest pixel in the image to that location. This
         can be useful to easily visualise the pixel scale for low spatial resolution
         observations.
 
-        See also :func:`Observation.get_mapped_data`.
+        If `interpolation` is `'smooth'`, then the data is interpolated using a blend
+        of PCHIP and linear interpolation. This produces a smooth map, whilst preventing
+        overshoots and maximising speed. The input image is first interpolated to a
+        higher resolution grid (as determined by `smooth_oversample_by` and
+        `smooth_max_oversampled_img_size`), using
+        `PCHIP interpolation <https://blogs.mathworks.com/cleve/2012/07/16/splines-and-pchips>`_
+        to produce a smooth (and monotonic) oversampled image. This oversampled image is
+        then interpolated to the map using linear interpolation (interpolating the full
+        map using entirely PCHIP would be computationally expensive). This method is
+        guaranteed to be monotonic, so the interpolated data will not overshoot the
+        values of any neighbouring pixels.
+
+
+        .. hint ::
+            If you are unsure about which interpolation method to use:
+
+            * `'linear'`, the default, is mathematically simple.
+            * `'smooth'` generally produces the "nicest" looking maps.
+            * `'nearest'` provides the most fundamental representation of the data and
+              each pixel.
+
+            `Click here to see examples of the different interpolation methods.
+            <https://github.com/ortk95/planetmapper/pull/583>`_
+
+        See also :func:`plot_map` and :func:`Observation.get_mapped_data`.
+
+        Usage examples: ::
+
+            # Map data using the default rectangular projection
+            body.map_img(img)
+
+            # Map using an orthographic projection centred on the north pole
+            body.map_img(img, projection='orthographic', lat=90)
+
+            # Limit mapping to the northern hemisphere and lower resolution for speed
+            body.map_img(img, degree_interval=10, ylim=(0, 90))
+
+            # Create a higher resolution (1000px x 1000px) azimuthally projected map
+            body.map_img(img, projection='azimuthal', size=1000)
+
+            # Project map at 1234 km above the nominal surface of the target
+            body.map_img(img, alt=1234)
+
+            # Customise the interpolation to get a smoother looking map...
+            body.map_img(img, interpolation='smooth')
+            # ... or to see the individual pixels in the data
+            body.map_img(img, interpolation='nearest')
 
         Args:
             img: Observed image where pixel coordinates correspond to the `xy` pixel
                 coordinates (e.g. those used in :func:`get_x0`). If `img` is a data cube
                 (i.e. has 3 dimensions), then each image in the cube is mapped
                 and a mapped cube is returned, equivalent to
-                `np.array([body.map_img(img) for img in cube])`.
+                `np.array([body.map_img(img, ...) for img in cube])`.
             interpolation: Interpolation method used when mapping. This can be any of
-                `'nearest'`, `'linear'` (the default), `'quadratic'` or `'cubic'`.
-                `'linear'`, `'quadratic'` and `'cubic'` are aliases for spline
-                interpolations of degree 1, 2 and 3 respectively. Alternatively, the
-                degree of spline interpolation can be specified manually by passing an
-                integer or tuple of integers. If an integer is passed, the same
-                interpolation is used in both the x and y directions (i.e.
-                `RectBivariateSpline` with `kx = ky = interpolation`). If a tuple of
-                integers is passed, the first integer is used for the x direction and
+                `'nearest'`, `'smooth'`, `'linear'` (the default), `'quadratic'` or
+                `'cubic'` - see above for details of the interpolation methods, their
+                properties and limitations. `'linear'`, `'quadratic'` and `'cubic'` are
+                aliases for spline interpolations of degree 1, 2 and 3 respectively.
+                Alternatively, the degree of spline interpolation can be specified
+                manually by passing an integer or tuple of integers. If an integer is
+                passed, the same interpolation is used in both the x and y directions
+                (i.e. `RectBivariateSpline` with `kx = ky = interpolation`). If a tuple
+                of integers is passed, the first integer is used for the x direction and
                 the second integer is used for the y direction (i.e.
                 `RectBivariateSpline` with `kx, ky = interpolation`).
+            propagate_nan: By default (`propagate_nan=True`) when performing spline or
+                smooth interpolation, areas of the map corresponding to NaN values in
+                the image are set to NaN, along with areas outside the convex hull of
+                the image's pixel centres. If `propagate_nan` is `False`, then areas
+                corresponding to NaN pixels will be filled with
+                interpolated/extrapolated values where possible, which can be useful to
+                fill in regions of missing data. This parameter has no effect if
+                `interpolation='nearest'`.
+            warn_nan: Print warning if any values in `img` are NaN when any of the
+                spline interpolations are used.
             spline_smoothing: Smoothing factor passed to
                 `RectBivariateSpline(..., s=spline_smoothing)` when spline interpolation
                 is used. This can be useful to smooth over noisy data, though may hide
                 subtle structure if a large smoothing value is used. This parameter is
                 ignored if spline interpolation is not used.
-            propagate_nan: By default (`propagate_nan=True`) when performing spline
-                interpolation, areas of the map corresponding to NaN values in the image
-                are set to NaN, along with areas outside the convex hull of the image's
-                pixel centres. If `propagate_nan` is `False`, then areas corresponding
-                to NaN pixels will be filled with interpolated/extrapolated values where
-                possible, which can be useful to fill in regions of missing data.
-                This parameter has no effect if `interpolation='nearest'`.
-            warn_nan: Print warning if any values in `img` are NaN when any of the
-                spline interpolations are used.
+            smooth_oversample_by: Oversampling factor used when
+                `interpolation='smooth'`. Higher values may produce a slightly smoother
+                interpolated image, at the expense of computation time and memory usage.
+            smooth_max_oversampled_img_size: Maximum size of the oversampled image
+                allowed when `interpolation='smooth'`. If the width or height of the
+                oversampled image would exceed this size, then progressively smaller
+                values of `smooth_oversample_by` are tried until the oversampled image
+                is smaller than `smooth_max_oversampled_img_size`.
             **map_kwargs: Additional arguments are passed to
                 :func:`generate_map_coordinates` to specify and customise the map
                 projection.
@@ -1448,6 +1560,12 @@ class BodyXY(Body):
             average value of the surrounding non-NaN pixels, whereas previously NaN
             values were always replaced with 0.
         """
+        # Any updates to signature should be reflected in:
+        # - self.map_img array function below
+        # - Observation.get_mapped_data & Observation._get_mapped_data
+        # - Observation.save_mapped_observation
+        # - Observation._add_map_header_metadata
+
         img = np.asarray(img)
         if img.ndim == 3:
             return np.array(
@@ -1458,6 +1576,8 @@ class BodyXY(Body):
                         spline_smoothing=spline_smoothing,
                         propagate_nan=propagate_nan,
                         warn_nan=warn_nan,
+                        smooth_oversample_by=smooth_oversample_by,
+                        smooth_max_oversampled_img_size=smooth_max_oversampled_img_size,
                         **map_kwargs,
                     )
                     for img_slice in img
@@ -1478,60 +1598,258 @@ class BodyXY(Body):
             interpolation = spline_k[interpolation]
 
         if interpolation == 'nearest':
-            nan_sentinel = -999  # x_map and y_map are always >= 0
-            x_map = np.asarray(
-                np.nan_to_num(np.round(x_map), nan=nan_sentinel), dtype=int
+            self._do_nearest_interpolation(
+                img=img,
+                x_map=x_map,
+                y_map=y_map,
+                projected=projected,
             )
-            y_map = np.asarray(
-                np.nan_to_num(np.round(y_map), nan=nan_sentinel), dtype=int
-            )
-            for a, b in self._iterate_image(projected.shape):
-                x = x_map[a, b]
-                if x == nan_sentinel:
-                    continue
-                y = y_map[a, b]  # y should never be nan when x is not nan
-                projected[a, b] = img[y, x]
         elif isinstance(interpolation, int | tuple):
-            if isinstance(interpolation, int):
-                kx = ky = interpolation
-            else:
-                kx, ky = interpolation
-            nans = np.isnan(img)
-            if not np.all(nans):
-                img = self._replace_nans_with_interpolated_values(img, warn_nan)
-                interpolator = scipy.interpolate.RectBivariateSpline(
-                    np.arange(img.shape[0]),
-                    np.arange(img.shape[1]),
-                    img,
-                    kx=kx,
-                    ky=ky,
-                    s=spline_smoothing,  # type: ignore (docs say s is a float)
-                )
-
-                # Collect any coordinates to interpolate in these lists, then perform
-                # the interpolation at the end with a single call to interpolator.ev.
-                # This is directly equivalent to doing the interpolation inside the for
-                # loop with `projected[a, b] = interpolator(y, x).item()`, but can be
-                # much faster for large images.
-                a_vals: list[int] = []
-                b_vals: list[int] = []
-                x_vals: list[float] = []
-                y_vals: list[float] = []
-                for a, b in self._iterate_image(projected.shape):
-                    x = x_map[a, b]
-                    if math.isnan(x):
-                        continue
-                    y = y_map[a, b]  # y should never be nan when x is not nan
-                    if propagate_nan and self._should_propagate_nan_to_map(x, y, nans):
-                        continue
-                    a_vals.append(a)
-                    b_vals.append(b)
-                    x_vals.append(x)
-                    y_vals.append(y)
-                projected[a_vals, b_vals] = interpolator.ev(y_vals, x_vals)
+            self._do_spline_interpolation(
+                img=img,
+                x_map=x_map,
+                y_map=y_map,
+                projected=projected,
+                interpolation=interpolation,
+                warn_nan=warn_nan,
+                propagate_nan=propagate_nan,
+                spline_smoothing=spline_smoothing,
+            )
+        elif interpolation == 'smooth':
+            self._do_smooth_interpolation(
+                img=img,
+                x_map=x_map,
+                y_map=y_map,
+                projected=projected,
+                propagate_nan=propagate_nan,
+                oversample_by=smooth_oversample_by,
+                max_oversampled_img_size=smooth_max_oversampled_img_size,
+            )
         else:
             raise ValueError(f'Unknown interpolation method {interpolation!r}')
         return projected
+
+    def _do_nearest_interpolation(
+        self,
+        *,
+        img: np.ndarray,
+        x_map: np.ndarray,
+        y_map: np.ndarray,
+        projected: np.ndarray,
+    ) -> None:
+        nan_sentinel = -999  # x_map and y_map are always >= 0
+        x_map = np.asarray(np.nan_to_num(np.round(x_map), nan=nan_sentinel), dtype=int)
+        y_map = np.asarray(np.nan_to_num(np.round(y_map), nan=nan_sentinel), dtype=int)
+        for a, b in self._iterate_image(projected.shape):
+            x = x_map[a, b]
+            if x == nan_sentinel:
+                continue
+            y = y_map[a, b]  # y should never be nan when x is not nan
+            projected[a, b] = img[y, x]
+
+    def _do_spline_interpolation(
+        self,
+        *,
+        img: np.ndarray,
+        x_map: np.ndarray,
+        y_map: np.ndarray,
+        projected: np.ndarray,
+        interpolation: int | tuple[int, int],
+        warn_nan: bool,
+        propagate_nan: bool,
+        spline_smoothing: float,
+    ) -> None:
+        if isinstance(interpolation, int):
+            kx = ky = interpolation
+        else:
+            kx, ky = interpolation
+
+        nans = np.isnan(img)
+        if np.all(nans):
+            return
+
+        img = self._replace_nans_with_interpolated_values(img, warn_nan)
+        interpolator = scipy.interpolate.RectBivariateSpline(
+            np.arange(img.shape[0]),
+            np.arange(img.shape[1]),
+            img,
+            kx=kx,
+            ky=ky,
+            s=spline_smoothing,  # type: ignore (docs say s is a float)
+        )
+
+        # Collect any coordinates to interpolate in these lists, then perform
+        # the interpolation at the end with a single call to interpolator.ev.
+        # This is directly equivalent to doing the interpolation inside the for
+        # loop with `projected[a, b] = interpolator(y, x).item()`, but can be
+        # much faster for large images.
+        a_vals: list[int] = []
+        b_vals: list[int] = []
+        x_vals: list[float] = []
+        y_vals: list[float] = []
+        for a, b in self._iterate_image(projected.shape):
+            x = x_map[a, b]
+            if math.isnan(x):
+                continue
+            y = y_map[a, b]  # y should never be nan when x is not nan
+            if propagate_nan and self._should_propagate_nan_to_map(x, y, nans):
+                continue
+            a_vals.append(a)
+            b_vals.append(b)
+            x_vals.append(x)
+            y_vals.append(y)
+        projected[a_vals, b_vals] = interpolator.ev(y_vals, x_vals)
+
+    def _do_smooth_interpolation(
+        self,
+        *,
+        img: np.ndarray,
+        x_map: np.ndarray,
+        y_map: np.ndarray,
+        projected: np.ndarray,
+        propagate_nan: bool,
+        oversample_by: int,
+        max_oversampled_img_size: int,
+        limit_padding: float = 5.0,
+    ) -> None:
+        nans = np.isnan(img)
+        if np.all(nans):
+            return
+
+        xlim = (np.nanmin(x_map), np.nanmax(x_map))
+        ylim = (np.nanmin(y_map), np.nanmax(y_map))
+
+        def get_xy_pchip(
+            original: np.ndarray, limits: tuple[float, float]
+        ) -> np.ndarray:
+            # Trim down to only use the part of the of the original arrays near the
+            # points of interest for efficiency
+            original = original[
+                (original >= limits[0] - limit_padding)
+                & (original <= limits[1] + limit_padding)
+            ]
+            old_size = len(original)
+            for oversample_to_use in range(oversample_by, 1, -1):
+                # This ensures that the output has points at all original points, plus
+                # additional points equally spaced between, with no extra points on the
+                # edge
+                new_size = old_size * oversample_to_use - (oversample_to_use - 1)
+                if new_size <= max_oversampled_img_size:
+                    return np.linspace(original[0], original[-1], new_size)
+            return original.astype(float)
+
+        xs_original = np.arange(img.shape[1])
+        ys_original = np.arange(img.shape[0])
+        xs_pchip = get_xy_pchip(xs_original, xlim)
+        ys_pchip = get_xy_pchip(ys_original, ylim)
+
+        # First, interpolate with PCHIP from regular grid to regular grid to get a
+        # smooth img
+        pchip_img = self._pchip_grid_interp2d(
+            xs_original=xs_original,
+            ys_original=ys_original,
+            img=img,
+            xs=xs_pchip,
+            ys=ys_pchip,
+            xlim=xlim,
+            ylim=ylim,
+            limit_padding=limit_padding,
+        )
+
+        # Then interpolate from the pchip_img using linear interpolation
+        interpolator = scipy.interpolate.RegularGridInterpolator(
+            (ys_pchip, xs_pchip),
+            pchip_img,
+            bounds_error=False,
+            fill_value=np.nan,
+            method='linear',
+        )
+
+        # Collect any coordinates to interpolate in these lists, then perform
+        # the interpolation at the end with a single call to interpolator.ev.
+        # This is directly equivalent to doing the interpolation inside the for
+        # loop with `projected[a, b] = interpolator(y, x).item()`, but can be
+        # much faster for large images.
+        a_vals: list[int] = []
+        b_vals: list[int] = []
+        x_vals: list[float] = []
+        y_vals: list[float] = []
+        for a, b in self._iterate_image(projected.shape):
+            x = x_map[a, b]
+            if math.isnan(x):
+                continue
+            y = y_map[a, b]  # y should never be nan when x is not nan
+            if propagate_nan and self._should_propagate_nan_to_map(x, y, nans):
+                continue
+            a_vals.append(a)
+            b_vals.append(b)
+            x_vals.append(x)
+            y_vals.append(y)
+        projected[a_vals, b_vals] = interpolator((y_vals, x_vals))
+
+    @staticmethod
+    def _pchip_grid_interp2d(
+        *,
+        xs_original: np.ndarray,
+        ys_original: np.ndarray,
+        img: np.ndarray,
+        xs: np.ndarray,
+        ys: np.ndarray,
+        xlim: tuple[float, float],
+        ylim: tuple[float, float],
+        limit_padding: float,
+    ) -> np.ndarray:
+        # RegularGridInterpolator(method='pchip') is very slow when interpolating
+        # scattered points, but can be PchipInterpolator can be vectorised here for a
+        # significant speed increase with the specific case of interpolating from a
+        # regular grid to another regular grid.
+
+        # Limit the interpolation points within limit_padding of xlim/ylim. This avoids
+        # potentially expensive interpolation of parts of the image which are far from
+        # disc of the planet, so therefore are not going to be used in the calculation
+        # of final map interpolation. PCHIP is local - "The behavior of pchip on a
+        # particular subinterval is determined by only four points, the two data points
+        # on either side of that interval" [1] - so we don't need a large value for
+        # limit_padding. There may be some NaNs near the edge of the limits, so use a
+        # slightly larger padding than strictle necessary to help in interpolating over
+        # any missing data.
+        # [1] https://blogs.mathworks.com/cleve/2012/07/16/splines-and-pchips/
+
+        # First interpolate along x for each original y,
+        # then interpolate along y for each new x
+        intermediate = np.full((len(ys_original), len(xs)), np.nan, dtype=np.float64)
+        x_mask = (xs_original >= xlim[0] - limit_padding) & (
+            xs_original <= xlim[1] + limit_padding
+        )
+        for i, y in enumerate(ys_original):
+            if y < ylim[0] - limit_padding or y > ylim[1] + limit_padding:
+                continue
+            mask = np.isfinite(img[i]) & x_mask
+            if np.sum(mask) < 2:
+                continue
+            interpolator = scipy.interpolate.PchipInterpolator(
+                xs_original[mask],
+                img[i, mask],
+                extrapolate=False,
+            )
+            intermediate[i] = interpolator(xs)
+        final = np.full((len(ys), len(xs)), np.nan, dtype=np.float64)
+        y_mask = (ys_original >= ylim[0] - limit_padding) & (
+            ys_original <= ylim[1] + limit_padding
+        )
+        for j, x in enumerate(xs):
+            if x < xlim[0] - limit_padding or x > xlim[1] + limit_padding:
+                continue
+            mask = np.isfinite(intermediate[:, j]) & y_mask
+            if np.sum(mask) < 2:
+                continue
+            interpolator = scipy.interpolate.PchipInterpolator(
+                ys_original[mask],
+                intermediate[mask, j],
+                extrapolate=False,
+            )
+            final[:, j] = interpolator(ys)
+        return final
 
     def _should_propagate_nan_to_map(
         self, x: float, y: float, nans: np.ndarray
@@ -1577,7 +1895,7 @@ class BodyXY(Body):
         cleaned[bad] = median
         # Fix bad pixels that have neighbouring good pixels by replacing them with the
         # mean of the surrounding 3x3 good pixels.
-        to_fix = bad & ~scipy.ndimage.uniform_filter(bad, size=3)  #  type: ignore
+        to_fix = bad & ~scipy.ndimage.uniform_filter(bad, size=3)  # type: ignore
         for i, j in np.argwhere(to_fix):
             cleaned[i, j] = np.nanmean(
                 img[max(i - 1, 0) : i + 2, max(j - 1, 0) : j + 2]
@@ -1593,6 +1911,7 @@ class BodyXY(Body):
         add_axis_labels: bool | None = None,
         aspect_adjustable: Literal['box', 'datalim'] | None = 'box',
         show: bool = False,
+        freeze_transform: bool = True,
         **wireframe_kwargs: Unpack[WireframeKwargs],
     ) -> Axes:
         """
@@ -1600,18 +1919,37 @@ class BodyXY(Body):
         coordinates. See :func:`Body.plot_wireframe_radec` for details of accepted
         arguments.
 
+        Args:
+            freeze_transform: If `True` (the default), then the wireframe is 'frozen'
+                with the disc parameters at the time that `plot_wireframe_xy` is called.
+                If `False`, then the wireframe will update if the disc parameters are
+                adjusted after `plot_wireframe_xy` is called - this is mainly useful
+                when creating interactive plots. See
+                :func:`matplotlib_xy2radec_transform` for more details.
+            **kwargs: See :func:`Body.plot_wireframe_radec` for details of other
+                arguments.
+
         Returns:
             The axis containing the plotted wireframe.
+
+        .. versionchanged:: 1.14.0
+            Added `freeze_transform` to freeze the wireframe in place by default when
+            plotting. The previous behaviour of an auto-updating wireframe can be
+            achieved by setting `freeze_transform=False`.
         """
         if add_axis_labels is None:
             add_axis_labels = scale_factor is None
+
+        transform = self._get_matplotlib_angular_fixed2xy_transform()
+        if freeze_transform:
+            transform = transform.frozen()
 
         # Use combo of corodinate_func and matplotlib transform so that the plot can be
         # updated with new disc parameters without having to replot the entire thing
         ax = self._plot_wireframe(
             coordinate_func=self.radec2angular,
             scale_factor=scale_factor,
-            transform=self._get_matplotlib_angular_fixed2xy_transform(),
+            transform=transform,
             aspect_adjustable=aspect_adjustable,
             ax=ax,
             **wireframe_kwargs,
@@ -1659,6 +1997,8 @@ class BodyXY(Body):
                     'map_boundary': {'color': 'red'},
                 }
             )
+
+        See also :func:`map_img` and :func:`plot_map`.
         """
         if ax is None:
             ax = cast(Axes, plt.gca())
@@ -1928,6 +2268,8 @@ class BodyXY(Body):
         """
         Utility function to easily plot a mapped image using `plt.pcolormesh` with
         appropriate extents, axis labels, gridlines etc.
+
+        See also :func:`map_img`.
 
         Args:
             map_img: Image to plot.
@@ -2515,7 +2857,7 @@ class BodyXY(Body):
             lat_coords: Latitude coordinate array to use for `'manual'` projection.
             projection_x_coords: Projected x coordinate array to use with a pyproj
                 projection string.
-            projection_y_coords: Projected x coordinate array to use with a pyproj
+            projection_y_coords: Projected y coordinate array to use with a pyproj
                 projection string.
             xlim: Tuple of `(x_min, x_max)` limits in the projected x coordinates of
                 the map. If `None`, the default, then the no limits are applied (i.e.
@@ -3343,7 +3685,7 @@ class BodyXY(Body):
 
         Returns:
             :ref:`Read-only array<readonly arrays>` containing the phase angle value of
-            each pixel in the image. Points off the disc have a value of NaN.
+            each pixel in the image in degrees. Points off the disc have a value of NaN.
         """
         return self._get_illumination_gie_img()[:, :, 0]
 
@@ -3354,7 +3696,7 @@ class BodyXY(Body):
 
         Returns:
             :ref:`Read-only array<readonly arrays>` containing map of the phase angle
-            value at each point on the target's surface.
+            value at each point on the target's surface in degrees.
         """
         return self._get_illumf_map(**map_kwargs)[:, :, 0]
 
@@ -3364,7 +3706,8 @@ class BodyXY(Body):
 
         Returns:
             :ref:`Read-only array<readonly arrays>` containing the incidence angle value
-            of each pixel in the image. Points off the disc have a value of NaN.
+            of each pixel in the image in degrees. Points off the disc have a value of
+            NaN.
         """
         return self._get_illumination_gie_img()[:, :, 1]
 
@@ -3375,7 +3718,7 @@ class BodyXY(Body):
 
         Returns:
             :ref:`Read-only array<readonly arrays>` containing map of the incidence
-            angle value at each point on the target's surface.
+            angle value at each point on the target's surface in degrees.
         """
         return self._get_illumf_map(**map_kwargs)[:, :, 1]
 
@@ -3385,7 +3728,8 @@ class BodyXY(Body):
 
         Returns:
             :ref:`Read-only array<readonly arrays>` containing the emission angle value
-            of each pixel in the image. Points off the disc have a value of NaN.
+            of each pixel in the image in degrees. Points off the disc have a value of
+            NaN.
         """
         return self._get_illumination_gie_img()[:, :, 2]
 
@@ -3396,7 +3740,7 @@ class BodyXY(Body):
 
         Returns:
             :ref:`Read-only array<readonly arrays>` containing map of the emission angle
-            value at each point on the target's surface.
+            value at each point on the target's surface in degrees.
         """
         return self._get_illumf_map(**map_kwargs)[:, :, 2]
 
@@ -3408,7 +3752,8 @@ class BodyXY(Body):
 
         Returns:
             :ref:`Read-only array<readonly arrays>` containing the azimuth angle value
-            of each pixel in the image. Points off the disc have a value of NaN.
+            of each pixel in the image in degrees. Points off the disc have a value of
+            NaN.
         """
         phase_radians = np.deg2rad(self._get_illumination_gie_img()[:, :, 0])
         incidence_radians = np.deg2rad(self._get_illumination_gie_img()[:, :, 1])
@@ -3431,7 +3776,7 @@ class BodyXY(Body):
 
         Returns:
             :ref:`Read-only array<readonly arrays>` containing map of the azimuth angle
-            value at each point on the target's surface.
+            value at each point on the target's surface in degrees.
         """
         phase_radians = np.deg2rad(self._get_illumf_map(**map_kwargs)[:, :, 0])
         incidence_radians = np.deg2rad(self._get_illumf_map(**map_kwargs)[:, :, 1])

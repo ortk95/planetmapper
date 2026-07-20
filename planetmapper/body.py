@@ -71,7 +71,7 @@ WireframeComponent = Literal[
 """
 Literal type containing the names of all possible wireframe components.
 """
-_WireframeComponent = WireframeComponent  # keep for backward compatibility
+_WireframeComponent = WireframeComponent  # keep for backward compatibility
 
 
 class WireframeKwargs(TypedDict, total=False):
@@ -99,7 +99,7 @@ class WireframeKwargs(TypedDict, total=False):
     zorder: float
 
 
-_WireframeKwargs = WireframeKwargs  # keep for backward compatibility
+_WireframeKwargs = WireframeKwargs  # keep for backward compatibility
 
 DEFAULT_WIREFRAME_FORMATTING: dict[WireframeComponent, dict[str, Any]] = {
     'all': dict(color='k'),
@@ -724,7 +724,7 @@ class Body(BodyBase):
                     aberration_correction=self.aberration_correction,
                 )
         except NotFoundError as e:
-            e.message += f'\n\nBody name: {other_target!r}'  #  type: ignore
+            e.message += f'\n\nBody name: {other_target!r}'  # type: ignore
             raise e
 
     # Stuff to customise wireframe plots
@@ -888,7 +888,12 @@ class Body(BodyBase):
 
     # Coordinate transformations target -> observer direction
     def _lonlat2targvec_radians(
-        self, lon: float, lat: float, *, alt: float, not_visible_nan: bool
+        self,
+        lon: float,
+        lat: float,
+        *,
+        alt: float,
+        not_visible_nan: bool,
     ) -> np.ndarray:
         """
         Transform lon/lat coordinates on body to rectangular vector in target frame.
@@ -935,7 +940,7 @@ class Body(BodyBase):
         transform_matrix = spice.pxfrm2(
             self._target_frame_encoded,  # type: ignore
             self._observer_frame_encoded,  # type: ignore
-            targvec_et,  #  type: ignore
+            targvec_et,  # type: ignore
             self.et,
         )
 
@@ -1032,8 +1037,16 @@ class Body(BodyBase):
 
     # Useful transformations (built from combinations of above transformations)
     def _lonlat2obsvec(
-        self, lon: float, lat: float, *, alt: float, not_visible_nan: bool
+        self,
+        lon: float,
+        lat: float,
+        *,
+        alt: float,
+        not_visible_nan: bool,
+        planetocentric: bool,
     ) -> np.ndarray:
+        if planetocentric:
+            lon, lat = self.centric2graphic_lonlat(lon, lat, alt=alt)
         return self._targvec2obsvec(
             self._lonlat2targvec_radians(
                 *self._degree_pair2radians(lon, lat),
@@ -1043,7 +1056,12 @@ class Body(BodyBase):
         )
 
     def _obsvec_norm2lonlat(
-        self, obsvec_norm: np.ndarray, not_found_nan: bool, alt: float
+        self,
+        obsvec_norm: np.ndarray,
+        *,
+        not_found_nan: bool,
+        alt: float,
+        planetocentric: bool,
     ) -> tuple[float, float]:
         with _AdjustedSurfaceAltitude(self, alt):
             try:
@@ -1058,6 +1076,8 @@ class Body(BodyBase):
                     lat = np.nan
                 else:
                     raise
+            if planetocentric:
+                lon, lat = self.graphic2centric_lonlat(lon, lat, alt=alt)
             return lon, lat
 
     def lonlat2radec(
@@ -1066,7 +1086,8 @@ class Body(BodyBase):
         lat: FloatOrArray,
         *,
         alt: float = 0.0,
-        not_visible_nan: bool = False,
+        not_visible_nan: bool = True,
+        planetocentric: bool = False,
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert `longitude/latitude coordinates`_ on the target body to `RA/Dec
@@ -1082,23 +1103,46 @@ class Body(BodyBase):
             lon: Planetographic longitude of point(s) on target body.
             lat: Planetographic latitude of point(s) on target body.
             alt: Altitude of point above the surface of the target body in km.
-            not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
-                the point is not visible to the observer (e.g. it is on the far side of
-                the target). If `False` (the default), then `(ra, dec)` coordinates will
-                be returned, even if the point is not directly visible.
+            not_visible_nan: If `True` (the default), then the returned RA/Dec values
+                will be NaN if the point is not visible to the observer (e.g. it is on
+                the far side of the target). If `False`, then `(ra, dec)` coordinates
+                will be returned, even if the point is not directly visible.
+            planetocentric: If `True`, treat the input coordinates as planetocentric
+                rather than planetographic longitude/latitude coordinates. The default
+                is `False`, meaning the input coordinates are planetographic.
 
         Returns:
             `(ra, dec)` tuple containing the RA/Dec coordinates of the point(s).
+
+        .. versionchanged:: 1.14.0
+            The default value of `not_visible_nan` was changed from `False` to `True`.
         """
         return self._maybe_transform_as_arrays(
-            self._lonlat2radec, lon, lat, alt=alt, not_visible_nan=not_visible_nan
+            self._lonlat2radec,
+            lon,
+            lat,
+            alt=alt,
+            not_visible_nan=not_visible_nan,
+            planetocentric=planetocentric,
         )
 
     def _lonlat2radec(
-        self, lon: float, lat: float, *, alt: float, not_visible_nan: bool
+        self,
+        lon: float,
+        lat: float,
+        *,
+        alt: float,
+        not_visible_nan: bool,
+        planetocentric: bool,
     ) -> tuple[float, float]:
         return self._obsvec2radec(
-            self._lonlat2obsvec(lon, lat, alt=alt, not_visible_nan=not_visible_nan)
+            self._lonlat2obsvec(
+                lon,
+                lat,
+                alt=alt,
+                not_visible_nan=not_visible_nan,
+                planetocentric=planetocentric,
+            )
         )
 
     def radec2lonlat(
@@ -1108,6 +1152,7 @@ class Body(BodyBase):
         *,
         not_found_nan: bool = True,
         alt: float = 0.0,
+        planetocentric: bool = False,
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert `RA/Dec celestial coordinates`_ for the observer to `longitude/latitude
@@ -1132,6 +1177,9 @@ class Body(BodyBase):
                 are missing the target body.
             alt: Altitude of returned `(lon, lat)` point above the surface of the target
                 body in km.
+            planetocentric: If `True`, return planetocentric rather than planetographic
+                longitude/latitude coordinates. The default is `False`, meaning the
+                returned coordinates are planetographic.
 
         Returns:
             `(lon, lat)` tuple containing the planetographic longitude/latitude
@@ -1144,18 +1192,38 @@ class Body(BodyBase):
                 body and `not_found_nan` is False, then NotFoundError will be raised.
         """
         return self._maybe_transform_as_arrays(
-            self._radec2lonlat, ra, dec, not_found_nan=not_found_nan, alt=alt
+            self._radec2lonlat,
+            ra,
+            dec,
+            not_found_nan=not_found_nan,
+            alt=alt,
+            planetocentric=planetocentric,
         )
 
     def _radec2lonlat(
-        self, ra: float, dec: float, *, not_found_nan: bool, alt: float
+        self,
+        ra: float,
+        dec: float,
+        *,
+        not_found_nan: bool,
+        alt: float,
+        planetocentric: bool,
     ) -> tuple[float, float]:
         return self._obsvec_norm2lonlat(
-            self._radec2obsvec_norm(ra, dec), not_found_nan, alt
+            self._radec2obsvec_norm(ra, dec),
+            not_found_nan=not_found_nan,
+            alt=alt,
+            planetocentric=planetocentric,
         )
 
     def lonlat2targvec(
-        self, lon: float, lat: float, *, alt: float = 0.0, not_visible_nan: bool = False
+        self,
+        lon: float,
+        lat: float,
+        *,
+        alt: float = 0.0,
+        not_visible_nan: bool = False,
+        planetocentric: bool = False,
     ) -> np.ndarray:
         """
         Convert `longitude/latitude coordinates`_ on the target body to rectangular
@@ -1166,15 +1234,22 @@ class Body(BodyBase):
             lon: Planetographic longitude of point on target body.
             lat: Planetographic latitude of point on target body.
             alt: Altitude of point above the surface of the target body in km.
-            not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
-                the point is not visible to the observer (e.g. it is on the far side of
-                the target). If `False` (the default), then `(ra, dec)` coordinates will
-                be returned, even if the point is not directly visible.
+            not_visible_nan: If `True`, then the returned vector will be all NaN if the
+                point is not visible to the observer (e.g. it is on the far side of the
+                target). If `False` (the default), then the coordinate vector will be
+                returned be returned, even if the point is not directly visible. Note
+                that `not_visible_nan` defaults to `False` here, whereas it defaults to
+                `True` in methods such as :func:`lonlat2radec`.
+            planetocentric: If `True`, treat the input coordinates as planetocentric
+                rather than planetographic longitude/latitude coordinates. The default
+                is `False`, meaning the input coordinates are planetographic.
 
         Returns:
             Numpy array corresponding to the 3D rectangular vector describing the
             longitude/latitude point in the target frame of reference.
         """
+        if planetocentric:
+            lon, lat = self.centric2graphic_lonlat(lon, lat, alt=alt)
         return self._lonlat2targvec_radians(
             *self._degree_pair2radians(lon, lat),
             alt=alt,
@@ -1182,7 +1257,7 @@ class Body(BodyBase):
         )
 
     def targvec2lonlat(
-        self, targvec: np.ndarray, *, alt: float = 0.0
+        self, targvec: np.ndarray, *, alt: float = 0.0, planetocentric: bool = False
     ) -> tuple[float, float]:
         """
         Convert rectangular vector centred in the target frame to `longitude/latitude
@@ -1193,13 +1268,19 @@ class Body(BodyBase):
             targvec: 3D rectangular vector in the target frame of reference.
             alt: Altitude of returned `(lon, lat)` point above the surface of the target
                 body in km.
+            planetocentric: If `True`, return planetocentric rather than planetographic
+                longitude/latitude coordinates. The default is `False`, meaning the
+                returned coordinates are planetographic.
 
         Returns:
             `(lon, lat)` tuple containing the planetographic longitude/latitude
             corresponding to the input vector.
         """
         with _AdjustedSurfaceAltitude(self, alt):
-            return self._radian_pair2degrees(*self._targvec2lonlat_radians(targvec))
+            lon, lat = self._radian_pair2degrees(*self._targvec2lonlat_radians(targvec))
+            if planetocentric:
+                lon, lat = self.graphic2centric_lonlat(lon, lat)
+            return lon, lat
 
     def _targvec_arr2radec_arrs_radians(
         self,
@@ -1403,6 +1484,7 @@ class Body(BodyBase):
         *,
         not_found_nan: bool = True,
         alt: float = 0.0,
+        planetocentric: bool = False,
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
@@ -1422,6 +1504,9 @@ class Body(BodyBase):
                 coordinates are missing the target body.
             alt: Altitude of returned `(lon, lat)` point above the surface of the target
                 body in km.
+            planetocentric: If `True`, return planetocentric rather than planetographic
+                longitude/latitude coordinates. The default is `False`, meaning the
+                returned coordinates are planetographic.
             **angular_kwargs: Additional arguments are used to customise the origin and
                 rotation of the relative angular coordinates. See
                 :func:`radec2angular` for details.
@@ -1442,6 +1527,7 @@ class Body(BodyBase):
             angular_y,
             not_found_nan=not_found_nan,
             alt=alt,
+            planetocentric=planetocentric,
             **angular_kwargs,
         )
 
@@ -1452,12 +1538,14 @@ class Body(BodyBase):
         *,
         not_found_nan: bool,
         alt: float,
+        planetocentric: bool,
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[float, float]:
         return self._obsvec_norm2lonlat(
             self._angular2obsvec_norm(angular_x, angular_y, **angular_kwargs),
-            not_found_nan,
-            alt,
+            not_found_nan=not_found_nan,
+            alt=alt,
+            planetocentric=planetocentric,
         )
 
     def lonlat2angular(
@@ -1466,7 +1554,8 @@ class Body(BodyBase):
         lat: FloatOrArray,
         *,
         alt: float = 0.0,
-        not_visible_nan: bool = False,
+        not_visible_nan: bool = True,
+        planetocentric: bool = False,
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
@@ -1483,10 +1572,13 @@ class Body(BodyBase):
             lon: Planetographic longitude of point(s) on target body.
             lat: Planetographic latitude of point(s) on target body.
             alt: Altitude of point above the surface of the target body in km.
-            not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
-                the point is not visible to the observer (e.g. it is on the far side of
-                the target). If `False` (the default), then `(ra, dec)` coordinates will
-                be returned, even if the point is not directly visible.
+            not_visible_nan: If `True` (the default), then the returned values will be
+                NaN if the point is not visible to the observer (e.g. it is on the far
+                side of the target). If `False`, then `(angular_x, angular_y)`
+                coordinates will be returned, even if the point is not directly visible.
+            planetocentric: If `True`, treat the input coordinates as planetocentric
+                rather than planetographic longitude/latitude coordinates. The default
+                is `False`, meaning the input coordinates are planetographic.
             **angular_kwargs: Additional arguments are used to customise the origin and
                 rotation of the relative angular coordinates. See
                 :func:`radec2angular` for details.
@@ -1494,6 +1586,9 @@ class Body(BodyBase):
         Returns:
             `(angular_x, angular_y)` tuple containing the relative angular coordinates
             of the point(s) in arcseconds.
+
+        .. versionchanged:: 1.14.0
+            The default value of `not_visible_nan` was changed from `False` to `True`.
         """
         return self._maybe_transform_as_arrays(
             self._lonlat2angular,
@@ -1501,6 +1596,7 @@ class Body(BodyBase):
             lat,
             alt=alt,
             not_visible_nan=not_visible_nan,
+            planetocentric=planetocentric,
             **angular_kwargs,
         )
 
@@ -1511,10 +1607,17 @@ class Body(BodyBase):
         *,
         alt: float,
         not_visible_nan: bool,
+        planetocentric: bool,
         **angular_kwargs: Unpack[AngularCoordinateKwargs],
     ) -> tuple[float, float]:
         return self._obsvec2angular(
-            self._lonlat2obsvec(lon, lat, alt=alt, not_visible_nan=not_visible_nan),
+            self._lonlat2obsvec(
+                lon,
+                lat,
+                alt=alt,
+                not_visible_nan=not_visible_nan,
+                planetocentric=planetocentric,
+            ),
             **angular_kwargs,
         )
 
@@ -1604,6 +1707,7 @@ class Body(BodyBase):
         *,
         not_found_nan: bool = True,
         alt: float = 0.0,
+        planetocentric: bool = False,
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert `distance coordinates`_ in target plane to `longitude/latitude
@@ -1622,6 +1726,9 @@ class Body(BodyBase):
                 coordinates are missing the target body.
             alt: Altitude of returned `(lon, lat)` point above the surface of the target
                 body in km.
+            planetocentric: If `True`, return planetocentric rather than planetographic
+                longitude/latitude coordinates. The default is `False`, meaning the
+                returned coordinates are planetographic.
 
         Returns:
             `(lon, lat)` tuple containing planetographic longitude/latitude of the
@@ -1634,14 +1741,28 @@ class Body(BodyBase):
             and `not_found_nan` is False, then NotFoundError will be raised.
         """
         return self._maybe_transform_as_arrays(
-            self._km2lonlat, km_x, km_y, not_found_nan=not_found_nan, alt=alt
+            self._km2lonlat,
+            km_x,
+            km_y,
+            not_found_nan=not_found_nan,
+            alt=alt,
+            planetocentric=planetocentric,
         )
 
     def _km2lonlat(
-        self, km_x: float, km_y: float, *, not_found_nan: bool, alt: float
+        self,
+        km_x: float,
+        km_y: float,
+        *,
+        not_found_nan: bool,
+        alt: float,
+        planetocentric: bool,
     ) -> tuple[float, float]:
         return self._obsvec_norm2lonlat(
-            self._km2obsvec_norm(km_x, km_y), not_found_nan, alt
+            self._km2obsvec_norm(km_x, km_y),
+            not_found_nan=not_found_nan,
+            alt=alt,
+            planetocentric=planetocentric,
         )
 
     def lonlat2km(
@@ -1650,7 +1771,8 @@ class Body(BodyBase):
         lat: FloatOrArray,
         *,
         alt: float = 0.0,
-        not_visible_nan: bool = False,
+        not_visible_nan: bool = True,
+        planetocentric: bool = False,
     ) -> tuple[FloatOrArray, FloatOrArray]:
         """
         Convert `longitude/latitude coordinates`_ on the target body to `distance
@@ -1666,24 +1788,47 @@ class Body(BodyBase):
             lon: Planetographic longitude of point(s) on target body.
             lat: Planetographic latitude of point(s) on target body.
             alt: Altitude of point above the surface of the target body in km.
-            not_visible_nan: If `True`, then the returned RA/Dec values will be NaN if
-                the point is not visible to the observer (e.g. it is on the far side of
-                the target). If `False` (the default), then `(ra, dec)` coordinates will
-                be returned, even if the point is not directly visible.
+            not_visible_nan: If `True` (the default), then the returned values will be
+                NaN if the point is not visible to the observer (e.g. it is on the far
+                side of the target). If `False`, then `(km_x, km_y)` coordinates will be
+                returned, even if the point is not directly visible.
+            planetocentric: If `True`, treat the input coordinates as planetocentric
+                rather than planetographic longitude/latitude coordinates. The default
+                is `False`, meaning the input coordinates are planetographic.
 
         Returns:
             `(km_x, km_y)` tuple containing distances in km in the target plane in the
             East-West and North-South directions respectively.
+
+        .. versionchanged:: 1.14.0
+            The default value of `not_visible_nan` was changed from `False` to `True`.
         """
         return self._maybe_transform_as_arrays(
-            self._lonlat2km, lon, lat, alt=alt, not_visible_nan=not_visible_nan
+            self._lonlat2km,
+            lon,
+            lat,
+            alt=alt,
+            not_visible_nan=not_visible_nan,
+            planetocentric=planetocentric,
         )
 
     def _lonlat2km(
-        self, lon: float, lat: float, *, alt: float, not_visible_nan: bool
+        self,
+        lon: float,
+        lat: float,
+        *,
+        alt: float,
+        not_visible_nan: bool,
+        planetocentric: bool,
     ) -> tuple[float, float]:
         return self._obsvec2km(
-            self._lonlat2obsvec(lon, lat, alt=alt, not_visible_nan=not_visible_nan)
+            self._lonlat2obsvec(
+                lon,
+                lat,
+                alt=alt,
+                not_visible_nan=not_visible_nan,
+                planetocentric=planetocentric,
+            )
         )
 
     def km2angular(
@@ -1867,13 +2012,18 @@ class Body(BodyBase):
                     dec_day[idx] = np.nan
             return ra_day, dec_day, ra_night, dec_night
 
-    def limb_lonlat(self, alt: float = 0.0, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+    def limb_lonlat(
+        self, alt: float = 0.0, *, planetocentric: bool = False, **kwargs
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Calculate the `longitude/latitude coordinates`_ of the target body's limb.
 
         Args:
             npts: Number of points in the generated limb.
             alt: Altitude of the limb above the surface of the target body, in km.
+            planetocentric: If `True`, return planetocentric rather than planetographic
+                longitude/latitude coordinates. The default is `False`, meaning the
+                returned coordinates are planetographic.
 
         Returns:
             `(lon, lat)` tuple of planetographic longitude/latitude arrays.
@@ -1881,14 +2031,19 @@ class Body(BodyBase):
         with _AdjustedSurfaceAltitude(self, alt):
             lons, lats = zip(
                 *(
-                    self.targvec2lonlat(targvec)
+                    self.targvec2lonlat(targvec, planetocentric=planetocentric)
                     for targvec in self._limb_targvec(**kwargs)
                 )
             )
             return np.array(lons), np.array(lats)
 
     def limb_coordinates_from_radec(
-        self, ra: float, dec: float, *, alt: float = 0.0
+        self,
+        ra: float,
+        dec: float,
+        *,
+        alt: float = 0.0,
+        planetocentric: bool = False,
     ) -> tuple[float, float, float]:
         """
         Calculate the coordinates relative to the target body's limb for given
@@ -1902,6 +2057,9 @@ class Body(BodyBase):
             dec: Declination of point in the sky of the observer.
             alt: Altitude of the reference limb above the surface of the target body, in
                 km.
+            planetocentric: If `True`, return planetocentric rather than planetographic
+                longitude/latitude coordinates. The default is `False`, meaning the
+                returned coordinates are planetographic.
 
         Returns:
             `(lon, lat, dist)` tuple of coordinates relative to the target body's limb.
@@ -1913,10 +2071,12 @@ class Body(BodyBase):
             disc).
         """
         with _AdjustedSurfaceAltitude(self, alt):
-            coords = self._limb_coordinates_from_obsvec(
+            lon, lat, dist = self._limb_coordinates_from_obsvec(
                 self._radec2obsvec_norm_radians(*self._degree_pair2radians(ra, dec))
             )
-            return coords
+            if planetocentric:
+                lon, lat = self.graphic2centric_lonlat(lon, lat)
+            return lon, lat, dist
 
     def _limb_coordinates_from_obsvec(
         self, obsvec_norm: np.ndarray
@@ -1990,7 +2150,12 @@ class Body(BodyBase):
             return True
 
     def test_if_lonlat_visible(
-        self, lon: float, lat: float, *, alt: float = 0.0
+        self,
+        lon: float,
+        lat: float,
+        *,
+        alt: float = 0.0,
+        planetocentric: bool = False,
     ) -> bool:
         """
         Test if `longitude/latitude coordinates`_ on (or above) the target body is
@@ -2000,12 +2165,16 @@ class Body(BodyBase):
             lon: Planetographic longitude of point on target body.
             lat: Planetographic latitude of point on target body.
             alt: Altitude of point above the surface of the target body in km.
+            planetocentric: If `True`, treat the input coordinates as planetocentric
+                rather than planetographic longitude/latitude coordinates. The default
+                is `False`, meaning the input coordinates are planetographic.
 
         Returns:
             True if the point is visible from the observer, otherwise False.
         """
         return self._test_if_targvec_visible(
-            self.lonlat2targvec(lon, lat, alt=alt), on_surface=alt == 0.0
+            self.lonlat2targvec(lon, lat, alt=alt, planetocentric=planetocentric),
+            on_surface=alt == 0.0,
         )
 
     def other_body_los_intercept(
@@ -2124,7 +2293,7 @@ class Body(BodyBase):
         return phase, incdnc, emissn
 
     def illumination_angles_from_lonlat(
-        self, lon: float, lat: float, *, alt: float = 0.0
+        self, lon: float, lat: float, *, alt: float = 0.0, planetocentric: bool = False
     ) -> tuple[float, float, float]:
         """
         Calculate the illumination angles of `longitude/latitude coordinates`_ on the
@@ -2134,12 +2303,16 @@ class Body(BodyBase):
             lon: Planetographic longitude of point on target body.
             lat: Planetographic latitude of point on target body.
             alt: Altitude of point above the surface of the target body in km.
+            planetocentric: If `True`, treat the input coordinates as planetocentric
+                rather than planetographic longitude/latitude coordinates. The default
+                is `False`, meaning the input coordinates are planetographic.
 
         Returns:
-            `(phase, incidence, emission)` tuple containing the illumination angles.
+            `(phase, incidence, emission)` tuple containing the illumination angles in
+            degrees.
         """
         phase, incdnc, emissn = self._illumination_angles_from_targvec_radians(
-            self.lonlat2targvec(lon, lat, alt=alt)
+            self.lonlat2targvec(lon, lat, alt=alt, planetocentric=planetocentric)
         )
         return np.rad2deg(phase), np.rad2deg(incdnc), np.rad2deg(emissn)
 
@@ -2159,7 +2332,12 @@ class Body(BodyBase):
         return azimuth_radians  # type: ignore
 
     def azimuth_angle_from_lonlat(
-        self, lon: float, lat: float, *, alt: float = 0.0
+        self,
+        lon: float,
+        lat: float,
+        *,
+        alt: float = 0.0,
+        planetocentric: bool = False,
     ) -> float:
         """
         Calculate the azimuth angle of `longitude/latitude coordinates`_ on the target
@@ -2169,13 +2347,16 @@ class Body(BodyBase):
             lon: Planetographic longitude of point on target body.
             lat: Planetographic latitude of point on target body.
             alt: Altitude of point above the surface of the target body in km.
+            planetocentric: If `True`, treat the input coordinates as planetocentric
+                rather than planetographic longitude/latitude coordinates. The default
+                is `False`, meaning the input coordinates are planetographic.
 
         Returns:
             Azimuth angle in degrees.
         """
         azimuth_radians = self._azimuth_angle_from_gie_radians(
             *self._illumination_angles_from_targvec_radians(
-                self.lonlat2targvec(lon, lat, alt=alt)
+                self.lonlat2targvec(lon, lat, alt=alt, planetocentric=planetocentric)
             )
         )
         return np.rad2deg(azimuth_radians)
@@ -2277,6 +2458,7 @@ class Body(BodyBase):
         only_visible: bool = False,
         close_loop: bool = True,
         alt: float = 0.0,
+        planetocentric: bool = False,
         method: str = 'UMBRAL/TANGENT/ELLIPSOID',
         corloc: str = 'ELLIPSOID TERMINATOR',
     ) -> tuple[np.ndarray, np.ndarray]:
@@ -2288,6 +2470,9 @@ class Body(BodyBase):
             npts: Number of points in generated terminator.
             only_visible: Toggle only returning visible part of terminator.
             alt: Altitude adjustment to the surface of the target body in km.
+            planetocentric: If `True`, return planetocentric rather than planetographic
+                longitude/latitude coordinates. The default is `False`, meaning the
+                returned coordinates are planetographic.
             close_loop: If True, passes coordinate arrays through :func:`close_loop`
                 (e.g. to enable nicer plotting).
             method, corloc: Passed to SPICE function.
@@ -2303,7 +2488,12 @@ class Body(BodyBase):
             method=method,
             corloc=corloc,
         )
-        lons, lats = zip(*(self.targvec2lonlat(targvec) for targvec in targvecs))
+        lons, lats = zip(
+            *(
+                self.targvec2lonlat(targvec, planetocentric=planetocentric, alt=alt)
+                for targvec in targvecs
+            )
+        )
         return np.array(lons), np.array(lats)
 
     def _terminator_targvec(
@@ -2357,7 +2547,12 @@ class Body(BodyBase):
         return lit
 
     def test_if_lonlat_illuminated(
-        self, lon: float, lat: float, *, alt: float = 0.0
+        self,
+        lon: float,
+        lat: float,
+        *,
+        alt: float = 0.0,
+        planetocentric: bool = False,
     ) -> bool:
         """
         Test if `longitude/latitude coordinates`_ on the surface of the target body is
@@ -2367,11 +2562,16 @@ class Body(BodyBase):
             lon: Planetographic longitude of point on target body.
             lat: Planetographic latitude of point on target body.
             alt: Altitude of point above the surface of the target body in km.
+            planetocentric: If `True`, treat the input coordinates as planetocentric
+                rather than planetographic longitude/latitude coordinates. The default
+                is `False`, meaning the input coordinates are planetographic.
 
         Returns:
             True if the point is illuminated, otherwise False.
         """
-        return self._test_if_targvec_illuminated(self.lonlat2targvec(lon, lat, alt=alt))
+        return self._test_if_targvec_illuminated(
+            self.lonlat2targvec(lon, lat, alt=alt, planetocentric=planetocentric)
+        )
 
     # Rings
     def _ring_coordinates_from_obsvec(
@@ -2656,7 +2856,7 @@ class Body(BodyBase):
         return self._radial_velocity_from_state(*self._state_from_targvec(targvec))
 
     def radial_velocity_from_lonlat(
-        self, lon: float, lat: float, *, alt: float = 0.0
+        self, lon: float, lat: float, *, alt: float = 0.0, planetocentric: bool = False
     ) -> float:
         """
         Calculate radial (i.e. line-of-sight) velocity of a point (`longitude/latitude
@@ -2667,16 +2867,19 @@ class Body(BodyBase):
             lon: Planetographic longitude of point on target body.
             lat: Planetographic latitude of point on target body.
             alt: Altitude of point above the surface of the target body in km.
+            planetocentric: If `True`, treat the input coordinates as planetocentric
+                rather than planetographic longitude/latitude coordinates. The default
+                is `False`, meaning the input coordinates are planetographic.
 
         Returns:
             Radial velocity of the point in km/s.
         """
         return self._radial_velocity_from_targvec(
-            self.lonlat2targvec(lon, lat, alt=alt)
+            self.lonlat2targvec(lon, lat, alt=alt, planetocentric=planetocentric)
         )
 
     def distance_from_lonlat(
-        self, lon: float, lat: float, *, alt: float = 0.0
+        self, lon: float, lat: float, *, alt: float = 0.0, planetocentric: bool = False
     ) -> float:
         """
         Calculate distance from observer to a point (`longitude/latitude coordinates`_)
@@ -2686,12 +2889,15 @@ class Body(BodyBase):
             lon: Planetographic longitude of point on target body.
             lat: Planetographic latitude of point on target body.
             alt: Altitude of point above the surface of the target body in km.
+            planetocentric: If `True`, treat the input coordinates as planetocentric
+                rather than planetographic longitude/latitude coordinates. The default
+                is `False`, meaning the input coordinates are planetographic.
 
         Returns:
             Distance of the point in km.
         """
         position, velocity, lt = self._state_from_targvec(
-            self.lonlat2targvec(lon, lat, alt=alt)
+            self.lonlat2targvec(lon, lat, alt=alt, planetocentric=planetocentric)
         )
         return lt * self.speed_of_light()
 
@@ -2778,8 +2984,9 @@ class Body(BodyBase):
     # Other
     def north_pole_angle(self) -> float:
         """
-        Calculate the angle of the north pole of the target body relative to the
-        positive declination direction.
+        Calculate the angle of the north pole of the target body, relative to the
+        positive declination direction. A north pole angle of 0° means that the north
+        pole will point directly up in the :func:`plot_wireframe_radec` plot.
 
         .. note::
 
@@ -2788,9 +2995,12 @@ class Body(BodyBase):
             directly at the celestial pole.
 
         Returns:
-            Angle of the north pole in degrees (-180 to 180).
+            Angle of the north pole in degrees (-180 to 180), measured clockwise from
+            the positive declination direction.
         """
-        np_x, np_y = self.radec2angular(*self.lonlat2radec(0, 90))
+        np_x, np_y = self.radec2angular(
+            *self.lonlat2radec(0, 90, not_visible_nan=False)
+        )
         target_x, target_y = self.radec2angular(self.target_ra, self.target_dec)
         theta = -np.arctan2(target_x - np_x, np_y - target_y)
         theta = np.rad2deg(theta) % 360.0
@@ -3112,12 +3322,16 @@ class Body(BodyBase):
 
             if label_poles:
                 for lon, lat, s in self.get_poles_to_plot():
-                    x, y = coordinate_func(*self.lonlat2radec(lon, lat))
+                    x, y = coordinate_func(
+                        *self.lonlat2radec(lon, lat, not_visible_nan=False)
+                    )
                     ax.text(x, y, s, **kwargs['pole'])
 
             for lon, lat in self.coordinates_of_interest_lonlat:
                 if self.test_if_lonlat_visible(lon, lat):
-                    x, y = coordinate_func(*self.lonlat2radec(lon, lat))
+                    x, y = coordinate_func(
+                        *self.lonlat2radec(lon, lat, not_visible_nan=False)
+                    )
                     ax.scatter(x, y, **kwargs['coordinate_of_interest_lonlat'])
             for ra, dec in self.coordinates_of_interest_radec:
                 ax.scatter(
@@ -3266,6 +3480,8 @@ class Body(BodyBase):
             body.plot_wireframe_angular() # units of arcseconds
             body.plot_wireframe_angular(scale_factor=1/60) # units of arcminutes
             body.plot_wireframe_angular(scale_factor=1/3600) # units of degrees
+
+        See also :func:`BodyXY.plot_img`.
 
         .. warning::
 

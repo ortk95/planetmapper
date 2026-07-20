@@ -45,15 +45,19 @@ for more details. The surface altitude can also be customised with the `alt` par
 for example, `body.lonlat2radec(12, 34, alt=1000)` will calculate the RA/Dec coordinates
 of the point at planetographic coordinates (12, 34) and with an altitude of 1000 km.
 
-If planetocentric longitude/latitude coordinates are desired, then functions
-:func:`Body.graphic2centric_lonlat` and :func:`Body.centric2graphic_lonlat` can be used
-to convert between planetographic and planetocentric coordinates: ::
+If you would rather work with planetocentric coordinates, then most functions accepting
+or returning longitude/latitude coordinates have an optional `planetocentric` parameter:
+::
 
-    # Use planetocentric coordinates as inputs to PlanetMapper methods
-    radec = body.lonlat2radec(*body.centric2graphic_lonlat(12, 34), alt=1000)
+    body.lonlat2radec(lon, lat)  # lon/lat are planetographic
+    body.lonlat2radec(lon, lat, planetocentric=True)  # lon/lat are planetocentric
 
-    # Convert PlanetMapper lonlat outputs to planetocentric coordinates
-    lonlat_centric = body.graphic2centric_lonlat(*body.radec2lonlat(12, 34))
+    body.radec2lonlat(ra, dec)  # returns planetographic lon/lat
+    body.radec2lonlat(ra, dec, planetocentric=True)  # returns planetocentric lon/lat
+
+You can also use the functions :func:`Body.graphic2centric_lonlat` and
+:func:`Body.centric2graphic_lonlat` to directly convert between planetographic and
+planetocentric coordinates.
 
 ----
 
@@ -156,7 +160,7 @@ If you use PlanetMapper in your research, please :ref:`cite the following paper
     SOFTWARE.
 """
 
-from . import base, data_loader, gui, kernel_downloader, utils
+from . import base, data_loader, kernel_downloader, utils
 from .base import SpiceBase, get_kernel_path, set_kernel_path
 from .basic_body import BasicBody
 from .body import (
@@ -177,8 +181,20 @@ from .common import (
     __url__,
     __version__,
 )
-from .gui import run_gui
 from .observation import Observation
+
+# Try and import GUI module, but fail gracefully if tkinter is not available. This
+# should allow users to still use the rest of planetmapper's functionality, and get
+# useful error messages if they try and use any of the GUI functionality.
+try:
+    from . import gui
+    from .gui import run_gui
+except ImportError as e:
+    from ._mock_gui_no_tk import get_mocks as _get_mocks
+
+    gui, run_gui = _get_mocks(e)
+    del _get_mocks
+
 
 __all__ = [
     'run_gui',

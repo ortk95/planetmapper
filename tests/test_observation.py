@@ -1,17 +1,21 @@
 import fnmatch
+import inspect
 import os
 import unittest
 import warnings
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import astropy
 import common_testing
 import numpy as np
 from astropy.io import fits
 from astropy.utils.exceptions import AstropyWarning
+from packaging import version
 
 import planetmapper
 import planetmapper.base
+import planetmapper.exceptions
 import planetmapper.progress
 from planetmapper import Observation
 
@@ -517,50 +521,52 @@ class TestObservation(common_testing.BaseTestCase):
         self.assertAlmostEqual(obs.get_rotation(), 4)
 
     def test_stuff_from_wcs(self):
-        with self.assertRaises(ValueError):
-            self.observation.disc_from_wcs(suppress_warnings=True)
-        with self.assertRaises(ValueError):
-            self.observation.position_from_wcs(suppress_warnings=True)
-        with self.assertRaises(ValueError):
-            self.observation.rotation_from_wcs(suppress_warnings=True)
-        with self.assertRaises(ValueError):
-            self.observation.plate_scale_from_wcs(suppress_warnings=True)
+        with self.subTest('no WCS'):
+            with self.assertRaises(ValueError):
+                self.observation.disc_from_wcs(suppress_warnings=True)
+            with self.assertRaises(ValueError):
+                self.observation.position_from_wcs(suppress_warnings=True)
+            with self.assertRaises(ValueError):
+                self.observation.rotation_from_wcs(suppress_warnings=True)
+            with self.assertRaises(ValueError):
+                self.observation.plate_scale_from_wcs(suppress_warnings=True)
 
-        x0 = 198.87871682168858
-        y0 = -31.89770255438151
-        r0 = 164.4473594677842
-        rotation = 260.32237572846986
+        with self.subTest('wcs.fits'):
+            x0 = 198.87871682168858
+            y0 = -31.89770255438151
+            r0 = 164.4473594677842
+            rotation = 260.32237572846986
 
-        path = os.path.join(common_testing.DATA_PATH, 'inputs', 'wcs.fits')
-        obs = Observation(path)
-        self.assertTrue(
-            np.allclose(obs.get_disc_params(), (x0, y0, r0, rotation), atol=0.2)
-        )
+            path = os.path.join(common_testing.DATA_PATH, 'inputs', 'wcs.fits')
+            obs = Observation(path)
+            self.assertTrue(
+                np.allclose(obs.get_disc_params(), (x0, y0, r0, rotation), atol=0.2)
+            )
 
-        obs.set_disc_params(0, 0, 1, 0)
-        self.assertEqual(obs.get_disc_params(), (0, 0, 1, 0))
+            obs.set_disc_params(0, 0, 1, 0)
+            self.assertEqual(obs.get_disc_params(), (0, 0, 1, 0))
 
-        obs.disc_from_wcs(suppress_warnings=True)
-        self.assertEqual(obs.get_disc_method(), 'wcs')
-        self.assertTrue(
-            np.allclose(obs.get_disc_params(), (x0, y0, r0, rotation), atol=0.2)
-        )
+            obs.disc_from_wcs(suppress_warnings=True)
+            self.assertEqual(obs.get_disc_method(), 'wcs')
+            self.assertTrue(
+                np.allclose(obs.get_disc_params(), (x0, y0, r0, rotation), atol=0.2)
+            )
 
-        obs.set_disc_params(0, 0, 1, 0)
-        obs.position_from_wcs(suppress_warnings=True)
-        self.assertEqual(obs.get_disc_method(), 'wcs_position')
-        self.assertAlmostEqual(obs.get_x0(), x0, delta=0.2)
-        self.assertAlmostEqual(obs.get_y0(), y0, delta=0.2)
+            obs.set_disc_params(0, 0, 1, 0)
+            obs.position_from_wcs(suppress_warnings=True)
+            self.assertEqual(obs.get_disc_method(), 'wcs_position')
+            self.assertAlmostEqual(obs.get_x0(), x0, delta=0.2)
+            self.assertAlmostEqual(obs.get_y0(), y0, delta=0.2)
 
-        obs.set_disc_params(0, 0, 1, 0)
-        obs.rotation_from_wcs(suppress_warnings=True)
-        self.assertEqual(obs.get_disc_method(), 'wcs_rotation')
-        self.assertAlmostEqual(obs.get_rotation(), rotation, delta=0.2)
+            obs.set_disc_params(0, 0, 1, 0)
+            obs.rotation_from_wcs(suppress_warnings=True)
+            self.assertEqual(obs.get_disc_method(), 'wcs_rotation')
+            self.assertAlmostEqual(obs.get_rotation(), rotation, delta=0.2)
 
-        obs.set_disc_params(0, 0, 1, 0)
-        obs.plate_scale_from_wcs(suppress_warnings=True)
-        self.assertEqual(obs.get_disc_method(), 'wcs_plate_scale')
-        self.assertAlmostEqual(obs.get_r0(), r0, delta=0.2)
+            obs.set_disc_params(0, 0, 1, 0)
+            obs.plate_scale_from_wcs(suppress_warnings=True)
+            self.assertEqual(obs.get_disc_method(), 'wcs_plate_scale')
+            self.assertAlmostEqual(obs.get_r0(), r0, delta=0.2)
 
         data = np.ones((5, 6, 7))
         header = fits.Header(
@@ -580,99 +586,130 @@ class TestObservation(common_testing.BaseTestCase):
             }
         )
         obs = Observation(data=data, header=header)
-        obs.disc_from_wcs(suppress_warnings=True)
-
-        x0_before = obs.get_x0()
-        y0_before = obs.get_y0()
-
-        data = np.ones((5, 6, 7))
-        h2 = header.copy()
-        h2['HIERARCH NAV RA_OFFSET'] = 1
-        h2['HIERARCH NAV DEC_OFFSET'] = -2.5
-        obs = Observation(data=data, header=h2)
-        obs.disc_from_wcs(suppress_warnings=True)
-        self.assertNotEqual(obs.get_x0(), x0_before)
-        self.assertNotEqual(obs.get_y0(), y0_before)
-
-        obs.add_arcsec_offset(-1, 2.5)  # undo the header offsets
-        self.assertAlmostEqual(obs.get_x0(), x0_before, delta=0.2)
-        self.assertAlmostEqual(obs.get_y0(), y0_before, delta=0.2)
-
-        obs.disc_from_wcs(suppress_warnings=True)
-        self.assertNotEqual(obs.get_x0(), x0_before)
-        self.assertNotEqual(obs.get_y0(), y0_before)
-
-        obs.disc_from_wcs(suppress_warnings=True, use_header_offsets=False)
-        self.assertAlmostEqual(obs.get_x0(), x0_before, delta=0.2)
-        self.assertAlmostEqual(obs.get_y0(), y0_before, delta=0.2)
-
-        h2 = header.copy()
-        h2['CTYPE1'] = 'DEC--TAN'
-        obs = Observation(data=data, header=h2)
-        with self.assertRaises(ValueError):
+        with self.subTest('header'):
             obs.disc_from_wcs(suppress_warnings=True)
 
-        h2 = header.copy()
-        h2['A_ORDER'] = 2
-        h2['B_ORDER'] = 2
-        for n in range(3):
-            for m in range(3):
-                h2[f'A_{n}_{m}'] = 0.1
-                h2[f'B_{n}_{m}'] = 0.2
-        obs = Observation(data=data, header=h2)
-        with self.assertRaises(ValueError):
+            x0_before = obs.get_x0()
+            y0_before = obs.get_y0()
+
+            data = np.ones((5, 6, 7))
+            h2 = header.copy()
+            h2['HIERARCH NAV RA_OFFSET'] = 1
+            h2['HIERARCH NAV DEC_OFFSET'] = -2.5
+            obs = Observation(data=data, header=h2)
             obs.disc_from_wcs(suppress_warnings=True)
-        obs.disc_from_wcs(validate=False, suppress_warnings=True)
+            self.assertNotEqual(obs.get_x0(), x0_before)
+            self.assertNotEqual(obs.get_y0(), y0_before)
 
-        with warnings.catch_warnings():
-            warnings.simplefilter('error')
-            obs.position_from_wcs(validate=False, suppress_warnings=True)
+            obs.add_arcsec_offset(-1, 2.5)  # undo the header offsets
+            self.assertAlmostEqual(obs.get_x0(), x0_before, delta=0.2)
+            self.assertAlmostEqual(obs.get_y0(), y0_before, delta=0.2)
 
-        # Test invalid CUNIT3 is ignored properly
-        # Header baased off real MUSE data file
-        header = fits.Header(
-            {
-                'SIMPLE': True,
-                'OBJECT': 'jupiter',
-                'DATE-OBS': '2005-01-01',
-                'BITPIX': -32,
-                'NAXIS': 3,
-                'NAXIS1': 91,
-                'NAXIS2': 91,
-                'NAXIS3': 3681,
-                'WCSAXES': 3,
-                'CRPIX1': 64.135608107686,
-                'CRPIX2': 27.282318423363,
-                'CUNIT1': 'deg',
-                'CUNIT2': 'deg',
-                'CTYPE1': 'RA---TAN',
-                'CTYPE2': 'DEC--TAN',
-                'CRVAL1': 255.071254,
-                'CRVAL2': -22.20829,
-                'CD1_1': -7.0388888888889e-06,
-                'CD1_2': 0.0,
-                'CD2_1': 0.0,
-                'CD2_2': 7.0388888888889e-06,
-                'CRVAL3': 0.474978369140625,
-                'CRPIX3': 1.0,
-                'CUNIT3': 'Microns',
-                'CTYPE3': 'WAVE',
-                'CD3_3': 0.000124999999999986,
-                'CD1_3': 0.0,
-                'CD2_3': 0.0,
-                'CD3_1': 0.0,
-                'CD3_2': 0.0,
-                'BUNIT': '10**-20 Angstrom-1 cm-2 erg s-1',
-                'RADECSYS': 'FK5',
-            }
-        )
-        obs = Observation(data=data, header=header)
-        obs._get_disc_params_from_wcs(suppress_warnings=True)
+            obs.disc_from_wcs(suppress_warnings=True)
+            self.assertNotEqual(obs.get_x0(), x0_before)
+            self.assertNotEqual(obs.get_y0(), y0_before)
 
-        with warnings.catch_warnings():
-            warnings.simplefilter('always')
-            with self.assertWarns(AstropyWarning):
-                obs._get_disc_params_from_wcs(validate=False, suppress_warnings=False)
+            obs.disc_from_wcs(suppress_warnings=True, use_header_offsets=False)
+            self.assertAlmostEqual(obs.get_x0(), x0_before, delta=0.2)
+            self.assertAlmostEqual(obs.get_y0(), y0_before, delta=0.2)
+
+        with self.subTest('DEC--TAN'):
+            h2 = header.copy()
+            h2['CTYPE1'] = 'DEC--TAN'
+            obs = Observation(data=data, header=h2)
+            with self.assertRaises(ValueError):
+                obs.disc_from_wcs(suppress_warnings=True)
+
+        with self.subTest('distortion'):
+            h2 = header.copy()
+            h2['A_ORDER'] = 2
+            h2['B_ORDER'] = 2
+            for n in range(3):
+                for m in range(3):
+                    h2[f'A_{n}_{m}'] = 0.1
+                    h2[f'B_{n}_{m}'] = 0.2
+            with warnings.catch_warnings():
+                warnings.simplefilter(
+                    'default', category=planetmapper.exceptions.PlanetmapperWarning
+                )
+                with self.assertWarns(
+                    planetmapper.exceptions.PlanetmapperWarning
+                ) as cm:
+                    obs = Observation(data=data, header=h2)
+                self.assertEqual(
+                    str(cm.warning),
+                    'The WCS contains distortion of up to 23.032 pixels (average 8.087 pixels), which is not accounted for by PlanetMapper.',
+                )
+            with self.assertWarns(planetmapper.exceptions.PlanetmapperWarning) as cm:
+                obs.disc_from_wcs(suppress_warnings=True, use_header_offsets=False)
+            self.assertEqual(
+                str(cm.warning),
+                'The WCS contains distortion of up to 23.032 pixels (average 8.087 pixels), which is not accounted for by PlanetMapper.',
+            )
+            obs.disc_from_wcs(validate=False, suppress_warnings=True)
+            obs.disc_from_wcs(suppress_warnings=True, distortion_warning_threshold=24.0)
+            obs.disc_from_wcs(suppress_warnings=True, distortion_warning_threshold=None)
+
+            with warnings.catch_warnings():
+                warnings.simplefilter('error')
+                obs.position_from_wcs(validate=False, suppress_warnings=True)
+
+        with self.subTest('consistent signature'):
+            # Ensure the defaults are consistent (then e.g. rotation_from_wcs will be
+            # consistent as it works with _get_disc_params_from_wcs)
+            self.assertEqual(
+                inspect.signature(obs.disc_from_wcs).parameters,
+                inspect.signature(obs._get_disc_params_from_wcs).parameters,
+            )
+
+        with self.subTest('invalid CUNIT3'):
+            # Test invalid CUNIT3 is ignored properly
+            # Header baased off real MUSE data file
+            header = fits.Header(
+                {
+                    'SIMPLE': True,
+                    'OBJECT': 'jupiter',
+                    'DATE-OBS': '2005-01-01',
+                    'BITPIX': -32,
+                    'NAXIS': 3,
+                    'NAXIS1': 91,
+                    'NAXIS2': 91,
+                    'NAXIS3': 3681,
+                    'WCSAXES': 3,
+                    'CRPIX1': 64.135608107686,
+                    'CRPIX2': 27.282318423363,
+                    'CUNIT1': 'deg',
+                    'CUNIT2': 'deg',
+                    'CTYPE1': 'RA---TAN',
+                    'CTYPE2': 'DEC--TAN',
+                    'CRVAL1': 255.071254,
+                    'CRVAL2': -22.20829,
+                    'CD1_1': -7.0388888888889e-06,
+                    'CD1_2': 0.0,
+                    'CD2_1': 0.0,
+                    'CD2_2': 7.0388888888889e-06,
+                    'CRVAL3': 0.474978369140625,
+                    'CRPIX3': 1.0,
+                    'CUNIT3': 'Microns',
+                    'CTYPE3': 'WAVE',
+                    'CD3_3': 0.000124999999999986,
+                    'CD1_3': 0.0,
+                    'CD2_3': 0.0,
+                    'CD3_1': 0.0,
+                    'CD3_2': 0.0,
+                    'BUNIT': '10**-20 Angstrom-1 cm-2 erg s-1',
+                    'RADECSYS': 'FK5',
+                }
+            )
+            obs = Observation(data=data, header=header)
+            obs._get_disc_params_from_wcs(suppress_warnings=True)
+
+            with warnings.catch_warnings():
+                warnings.simplefilter('always')
+                with self.assertWarns(AstropyWarning):
+                    obs._get_disc_params_from_wcs(
+                        validate=False, suppress_warnings=False
+                    )
 
     def test_wcs_offset(self):
         with self.assertRaises(ValueError):
@@ -775,7 +812,52 @@ class TestObservation(common_testing.BaseTestCase):
         obs.set_disc_params(x0=150, y0=150)
         obs.fit_disc_radius()
 
-    # get_mapped_data tested against output references
+    def test_map_function_params(self):
+        # get_mapped_data also tested against output references
+
+        def compare_parameters(
+            p1: inspect.Parameter,
+            p2: inspect.Parameter,
+            *,
+            allow_empty_default: bool = False,
+        ) -> None:
+            # Don't want to check parameter.kind
+            self.assertEqual(p1.name, p2.name)
+            self.assertEqual(p1.annotation, p2.annotation)
+            if not allow_empty_default or (
+                p1.default is not inspect.Parameter.empty
+                and p2.default is not inspect.Parameter.empty
+            ):
+                self.assertEqual(p1.default, p2.default)
+
+        map_img_params = inspect.signature(self.observation.map_img).parameters
+        with self.subTest('get_mapped_data'):
+            func_params = inspect.signature(self.observation.get_mapped_data).parameters
+            params_to_check = set(func_params.keys()) | set(map_img_params.keys()) - {
+                'img',
+                'warn_nan',
+            }
+            for k in params_to_check:
+                with self.subTest(param=k):
+                    compare_parameters(func_params[k], map_img_params[k])
+        with self.subTest('save_mapped_observation'):
+            func_params = inspect.signature(
+                self.observation.save_mapped_observation
+            ).parameters
+            params_to_check = set(map_img_params.keys()) - {'img', 'warn_nan'}
+            for k in params_to_check:
+                with self.subTest(param=k):
+                    compare_parameters(func_params[k], map_img_params[k])
+        with self.subTest('_add_map_header_metadata'):
+            func_params = inspect.signature(
+                self.observation._add_map_header_metadata
+            ).parameters
+            params_to_check = set(map_img_params.keys()) - {'img', 'warn_nan'}
+            for k in params_to_check:
+                with self.subTest(param=k):
+                    compare_parameters(
+                        func_params[k], map_img_params[k], allow_empty_default=True
+                    )
 
     def test_append_to_header(self):
         obs = Observation(
@@ -829,9 +911,19 @@ class TestObservation(common_testing.BaseTestCase):
                     s = 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...'
                 self.assertEqual(obs.header['HIERARCH PLANMAP TESTING'], s)
 
-        with self.assertRaises(ValueError):
-            obs.append_to_header('TESTING', 'x' * 100, truncate_strings=False)
-            obs.header.tostring()
+        test_string = 'x' * 100
+        obs.append_to_header('TESTING', test_string, truncate_strings=False)
+        self.assertEqual(obs.header['HIERARCH PLANMAP TESTING'], test_string)
+        # Astropy 7.1.0 adds CONTINUE cards for long header values, rather than
+        # raising an error when tostring() is called.
+        # https://docs.astropy.org/en/v7.1.0/changelog.html#astropy-io-fits
+        # https://github.com/astropy/astropy/issues/17748
+        astropy_version = version.Version(astropy.__version__)
+        if astropy_version >= version.Version('7.1.0'):
+            obs.header.tostring()  # should not raise an error
+        else:
+            with self.assertRaises(ValueError):
+                obs.header.tostring()
 
     def test_add_header_metadata(self):
         obs = planetmapper.Observation(
@@ -1015,10 +1107,16 @@ class TestObservation(common_testing.BaseTestCase):
                 include_backplanes=False,
                 include_wireframe=False,
             ),
+            'rectangular-smooth': dict(
+                degree_interval=30,
+                interpolation='smooth',
+                include_backplanes=False,
+                include_wireframe=False,
+            ),
             'rectangular-interpolation': dict(
                 degree_interval=30,
                 interpolation=(1, 3),
-                spline_smoothing=1.23,
+                spline_smoothing=2.34,
                 include_backplanes=False,
                 include_wireframe=False,
             ),
@@ -1062,7 +1160,18 @@ class TestObservation(common_testing.BaseTestCase):
                 self.observation.save_mapped_observation(
                     path, **map_kw, wireframe_kwargs=dict(output_size=20, dpi=20)
                 )
-                self.compare_fits_to_reference(path)
+                if map_type == 'rectangular-interpolation':
+                    # The exact spline interpolation smoothing can vary between
+                    # different scipy versions in extreme cases, so relax tolerances
+                    # a bit (see e.g. https://github.com/scipy/scipy/pull/22433).
+                    primary_tolerances = [(1e-6, 1e-5)] * 9  # defaults
+                    primary_tolerances[6] = (1e-1, 1e-1)
+                    primary_tolerances[7] = (10, 1)
+                else:
+                    primary_tolerances = None
+                self.compare_fits_to_reference(
+                    path, primary_tolerances=primary_tolerances
+                )
 
         with self.subTest('PathLike'):
             map_type = 'rectangular-nearest'
@@ -1091,7 +1200,12 @@ class TestObservation(common_testing.BaseTestCase):
             )
             self.compare_fits_to_reference(path)
 
-    def compare_fits_to_reference(self, path: str, skip_wireframe: bool = False):
+    def compare_fits_to_reference(
+        self,
+        path: str,
+        skip_wireframe: bool = False,
+        primary_tolerances: list[tuple[float, float]] | None = None,
+    ):
         filename = os.path.basename(path)
         path_ref = os.path.join(common_testing.DATA_PATH, 'outputs', filename)
         with fits.open(path) as hdul, fits.open(path_ref) as hdul_ref:
@@ -1111,21 +1225,37 @@ class TestObservation(common_testing.BaseTestCase):
             for hdu_ref in hdul_ref:
                 extname = hdu_ref.name
                 hdu = hdul[extname]
-                with self.subTest('HDU data', filename=filename, extname=extname):
-                    data = hdu.data
-                    data_ref = hdu_ref.data
+                data = hdu.data
+                data_ref = hdu_ref.data
+                with self.subTest('HDU data shape', filename=filename, extname=extname):
                     self.assertEqual(data.shape, data_ref.shape)
 
-                    # Significantly increase tolerance for wireframe as it is generated
-                    # from a Matplotlib plot, so is sensitive to the OS/environment
-                    # (e.g. fonts available), and is only a cosmetic backplane anyway
-                    # so the actual values don't matter anywhere near as much as the
-                    # other backplanes.
-                    if extname == 'WIREFRAME':
-                        atol = 64
-                    else:
-                        atol = 1e-6
-                    self.assertArraysClose(data, data_ref, atol=atol, equal_nan=True)
+                if primary_tolerances and extname == 'PRIMARY':
+                    for i, (atol, rtol) in enumerate(primary_tolerances):
+                        with self.subTest(
+                            'HDU data', filename=filename, extname=extname, i=i
+                        ):
+                            self.assertArraysClose(
+                                data[i],
+                                data_ref[i],
+                                atol=atol,
+                                rtol=rtol,
+                                equal_nan=True,
+                            )
+                else:
+                    with self.subTest('HDU data', filename=filename, extname=extname):
+                        # Significantly increase tolerance for wireframe as it is
+                        # generated from a Matplotlib plot, so is sensitive to the
+                        # OS/environment (e.g. fonts available), and is only a cosmetic
+                        # backplane anyway so the actual values don't matter anywhere
+                        # near as much as the other backplanes.
+                        if extname == 'WIREFRAME':
+                            atol = 64
+                        else:
+                            atol = 1e-6
+                        self.assertArraysClose(
+                            data, data_ref, atol=atol, equal_nan=True
+                        )
 
                 header = hdu.header
                 header_ref = hdu_ref.header
