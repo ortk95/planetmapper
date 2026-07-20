@@ -1465,10 +1465,32 @@ class BodyXY(Body):
         If you are unsure about which interpolation method to use, then one of either
         `'nearest'`, `'linear'` or `'smooth'` is recommended. `'smooth'` generally
         produces the "nicest" looking maps, `'nearest'` provides the most basic and
-        simple representation of the data, and `'linear'` provides a balance btween the
+        simple representation of the data, and `'linear'` provides a balance between the
         two.
 
-        See also :func:`Observation.get_mapped_data`.
+        See also :func:`plot_map` and :func:`Observation.get_mapped_data`.
+
+        Usage examples: ::
+
+            # Map data using the default rectangular projection
+            body.map_img(img)
+
+            # Map using an orthographic projection centred on the north pole
+            body.map_img(img, projection='orthographic', lat=90)
+
+            # Limit mapping to the northern hemisphere and lower resolution for speed
+            body.map_img(img, degree_interval=10, ylim=(0, 90))
+
+            # Create a higher resolution (1000px x 1000px) azimuthally projected map
+            body.map_img(img, projection='azimuthal', size=1000)
+
+            # Project map at 1234 km above the nominal surface of the target
+            body.map_img(img, alt=1234)
+
+            # Customise the interpolation to get a smoother looking map...
+            body.map_img(img, interpolation='smooth')
+            # ... or to see the individual pixels in the data
+            body.map_img(img, interpolation='nearest')
 
         Args:
             img: Observed image where pixel coordinates correspond to the `xy` pixel
@@ -1968,6 +1990,8 @@ class BodyXY(Body):
                     'map_boundary': {'color': 'red'},
                 }
             )
+
+        See also :func:`map_img` and :func:`plot_map`.
         """
         if ax is None:
             ax = cast(Axes, plt.gca())
@@ -2237,6 +2261,8 @@ class BodyXY(Body):
         """
         Utility function to easily plot a mapped image using `plt.pcolormesh` with
         appropriate extents, axis labels, gridlines etc.
+
+        See also :func:`map_img`.
 
         Args:
             map_img: Image to plot.

@@ -838,9 +838,7 @@ class Observation(BodyXY):
         **map_kwargs: Unpack[MapKwargs],
     ) -> np.ndarray:
         """
-        Projects the observed :attr:`data` onto a map. See
-        :func:`BodyXY.generate_map_coordinates` for details about customising the
-        projection used.
+        Projects the observed :attr:`data` onto a map using :func:`BodyXY.map_img`.
 
         For larger datasets, it can take some time to map every wavelength. Therefore,
         the mapped data is automatically cached (in a similar way to backplanes - see

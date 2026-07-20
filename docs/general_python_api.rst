@@ -397,9 +397,9 @@ Mapping is fully customisable, and various different map projections are availab
     mapped_img = observation.map_img(img, projection='orthographic', size=1000)
     observation.plot_map(mapped_img, projection='orthographic', size=1000)
 
-    # Project the map at 1000 km above the nominal surface of the target
-    mapped_img = observation.map_img(img, alt=1000)
-    observation.plot_map(mapped_img, alt=1000)
+    # Project the map at 1234 km above the nominal surface of the target
+    mapped_img = observation.map_img(img, alt=1234)
+    observation.plot_map(mapped_img, alt=1234)
 
     # Customise the plotted map and wireframe
     mapped_img = observation.map_img(img, projection='azimuthal')
