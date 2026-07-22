@@ -10,6 +10,11 @@ PlanetMapper is an open source Python package for visualising, navigating and ma
 .. .. image:: images/logo_wide_transparent.png
 ..     :alt: PlanetMapper logo
 
+.. admonition:: Quick links
+
+   :ref:`Installation <installation>` · :ref:`API reference <api>` · :ref:`GUI examples <gui examples>` · :ref:`Python examples <python examples>` · :ref:`Citation <citation>` · :ref:`Help & support <help>`
+
+
 Key features
 ============
 :ref:`Fit and map astronomical observations using a full featured user interface <gui examples>`

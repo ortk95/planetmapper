@@ -107,3 +107,7 @@ This simple example shows how you could use :func:`planetmapper.Observation.run_
 
 
 .. [#king2022] The example Europa dataset is from King et al. (2022). *Compositional Mapping of Europa using MCMC Modelling of Near-IR VLT/SPHERE and Galileo/NIMS Observations.* DOI: `10.3847/PSJ/ac596d <https://doi.org/10.3847/PSJ/ac596d>`_.
+
+
+.. seealso::
+    For more details on the Python API, see the :ref:`API reference <api>` and :ref:`Python examples page <python examples>`.

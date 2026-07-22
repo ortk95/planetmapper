@@ -493,3 +493,8 @@ The methods which cache their results include...
 
 .. note::
     The Python script used to generate all the figures shown on this page can be found `here <https://github.com/ortk95/planetmapper/blob/main/examples/general_python_api.py>`_
+
+.. seealso::
+    * For more details on the Python API, see the :ref:`API reference documentation <api>`.
+    * For information on how to set up and customise SPICE kernels, see the :ref:`SPICE kernel documentation <SPICE kernels>`.
+    * For examples on using the PlanetMapper GUI, see the :ref:`GUI examples page <gui examples>`.

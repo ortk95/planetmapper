@@ -10,8 +10,9 @@
 
 PlanetMapper is an open source Python package for visualising, navigating and mapping Solar System observations.
 
+
 ## [Documentation](https://planetmapper.readthedocs.io)
-For full documentation, [API reference](https://planetmapper.readthedocs.io/en/latest/documentation.html), and [installation instructions](https://planetmapper.readthedocs.io/en/latest/installation.html), visit [planetmapper.readthedocs.io](https://planetmapper.readthedocs.io/en/latest/index.html).
+For full documentation, [API reference](https://planetmapper.readthedocs.io/en/latest/documentation.html), [code examples](https://planetmapper.readthedocs.io/en/latest/general_python_api.html) and [installation instructions](https://planetmapper.readthedocs.io/en/latest/installation.html), visit [planetmapper.readthedocs.io](https://planetmapper.readthedocs.io/en/latest/index.html).
 
 
 ## [Installation](https://planetmapper.readthedocs.io/en/latest/installation.html)

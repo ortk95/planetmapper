@@ -42,5 +42,5 @@ The core logic of PlanetMapper uses a series of files called ':ref:`SPICE kernel
 
 Once you have the SPICE kernels downloaded, you can type `planetmapper` in the command line to open an interactive window, or `import planetmapper` in a Python script to get the full functionality.
 
-.. hint::
+.. seealso::
     Check the :ref:`list of common issues<common issues>` if you encounter any problems when using PlanetMapper

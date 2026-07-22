@@ -3,7 +3,7 @@
 SPICE kernels
 *************
 
-.. hint::
+.. seealso::
     If you are having issues with loading spice kernels after following the guide on this page, check the :ref:`list of common issues and solutions<common issues>`
 
 Introduction
