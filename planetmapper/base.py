@@ -805,19 +805,7 @@ class BodyBase(SpiceBase):
         super().__init__(**kwargs)
 
         # Process inputs
-        if isinstance(utc, (float, int, numbers.Number)):
-            # Include a check for numbers.Number to allow other numeric types
-            utc = self.mjd2dtm(utc)
-        if utc is None:
-            utc = datetime.datetime.now(datetime.timezone.utc)
-        if isinstance(utc, datetime.datetime):
-            # convert input datetime to UTC, then to a string compatible with spice
-            if utc.tzinfo is None:
-                # Default to UTC if no timezone is specified
-                utc = utc.replace(tzinfo=datetime.timezone.utc)
-            # Standardise to UTC
-            utc = utc.astimezone(tz=datetime.timezone.utc)
-            utc = utc.strftime(self._DEFAULT_DTM_FORMAT_STRING)
+        utc = self._standardise_utc_to_string(utc)
 
         self.target = self.standardise_body_name(target)
         self.observer = self.standardise_body_name(observer)
@@ -849,6 +837,28 @@ class BodyBase(SpiceBase):
         # cast() calls are only here to make type checking play nicely with spice.spkezr
         self.target_distance = self.target_light_time * self.speed_of_light()
         self.target_ra, self.target_dec = self._obsvec2radec(self._target_obsvec)
+
+    @classmethod
+    def _standardise_utc_to_string(
+        cls, utc: str | datetime.datetime | float | None
+    ) -> str:
+        """
+        Standardise a UTC input into a string
+        """
+        if isinstance(utc, (float, int, numbers.Number)):
+            # Include a check for numbers.Number to allow other numeric types
+            utc = cls.mjd2dtm(utc)
+        if utc is None:
+            utc = datetime.datetime.now(datetime.timezone.utc)
+        if isinstance(utc, datetime.datetime):
+            # convert input datetime to UTC, then to a string compatible with spice
+            if utc.tzinfo is None:
+                # Default to UTC if no timezone is specified
+                utc = utc.replace(tzinfo=datetime.timezone.utc)
+            # Standardise to UTC
+            utc = utc.astimezone(tz=datetime.timezone.utc)
+            utc = utc.strftime(cls._DEFAULT_DTM_FORMAT_STRING)
+        return utc
 
     def __repr__(self) -> str:
         return self._generate_repr()
