@@ -72,9 +72,12 @@ plt.show()
 
 
 ## Contributing
-
 If you spot a bug, or want to contribute code to PlanetMapper, check out the [contributing guidelines](https://github.com/ortk95/planetmapper/blob/main/CONTRIBUTING.md).
 
-## Help and support
 
+## Help and support
 If you have any questions, suggestions or feedback, please [visit our support page and get in touch](https://planetmapper.readthedocs.io/en/latest/help.html)!
+
+
+## Release notes
+Find about the new features and updates in each new version of PlanetMapper by [checking out the release notes](https://github.com/ortk95/planetmapper/releases).
