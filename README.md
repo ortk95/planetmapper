@@ -23,8 +23,6 @@ pip install planetmapper --upgrade
 conda install -c conda-forge planetmapper
 ```
 
-_Requires Python 3.10+_
-
 
 ## [Citing PlanetMapper](https://planetmapper.readthedocs.io/en/latest/citation.html)
 If you use PlanetMapper in your research, please cite the following paper:
