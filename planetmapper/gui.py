@@ -2692,6 +2692,8 @@ class OpenObservation(Popup):
             except FileNotFoundError:
                 pass
         for k, v in kwargs.items():
+            if k == 'utc':
+                v = Observation._standardise_utc_to_string(v)
             try:
                 if v:
                     self.stringvars[k].set(str(v))
