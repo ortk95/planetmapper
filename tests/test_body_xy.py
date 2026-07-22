@@ -19,11 +19,6 @@ from planetmapper.body_xy import _MapKwargs as MapKwargs
 
 
 class TestFunctions(common_testing.BaseTestCase):
-    def test_make_backplane_documentation_str(self):
-        self.assertIsInstance(
-            planetmapper.body_xy._make_backplane_documentation_str(), str
-        )
-
     def test_extract_map_kwargs_from_dict(self):
         pairs: list[tuple[dict, tuple[dict, dict]]] = [
             (

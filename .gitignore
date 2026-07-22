@@ -43,4 +43,5 @@ tools.py
 profile_code.py
 line_profile_code.py
 docs/default_backplanes.rst
+docs/images/generated
 python-type-stubs

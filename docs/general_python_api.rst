@@ -1,7 +1,7 @@
 .. _python examples:
 
-Python package
-**************
+Python examples
+***************
 This page shows some simple examples of using the `planetmapper` package in Python code. For more details, see the full :ref:`API documentation <api>`.
 
 For PlanetMapper to function, you will need to download a series of :ref:`SPICE kernels <SPICE kernels>` containing the positions and orientations of the solar system bodies you are interested in. The code snippet below will download all the appropriate kernels needed for the examples on this page. For more details about SPICE kernels, including how to choose, download, and use them, see the :ref:`SPICE kernel documentation page <SPICE kernels>`.
