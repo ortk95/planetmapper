@@ -19,7 +19,7 @@ Key features
 ============
 :ref:`Fit and map astronomical observations using a full featured user interface <gui examples>`
 ------------------------------------------------------------------------------------------------
-.. image:: images/gui_fitting.png
+.. image:: images/gui.png
     :width: 600
     :alt: Screenshot of the fitting window after the disc is fit.
 
@@ -39,7 +39,7 @@ Key features
 :ref:`Convert coordinates, generate backplanes and project maps of telescope observations <python examples>`
 ------------------------------------------------------------------------------------------------------------
 .. image:: images/jupiter_mapped.png
-    :width: 800
+    :width: 100%
     :alt: Plot of a mapped Jupiter observation
 
 

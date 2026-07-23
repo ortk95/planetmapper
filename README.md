@@ -53,7 +53,7 @@ If you use PlanetMapper in your research, please cite the following paper:
 
 ## Key features
 ### [Fit and map astronomical observations using a full featured user interface](https://planetmapper.readthedocs.io/en/latest/user_interface.html)
-[![Screenshot of the PlanetMapper graphical user interface showing an observation of Europa being navigated](docs/images/gui_fitting.png)](https://planetmapper.readthedocs.io/en/latest/user_interface.html)
+[![Screenshot of the PlanetMapper graphical user interface showing an observation of Europa being navigated](docs/images/gui.png)](https://planetmapper.readthedocs.io/en/latest/user_interface.html)
 
 ### [Easily visualise solar system observations with just a few lines of code](https://planetmapper.readthedocs.io/en/latest/general_python_api.html#wireframe-plots)
 
