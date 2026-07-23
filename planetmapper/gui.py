@@ -643,6 +643,10 @@ class GUI:
         self.root.minsize(*self.MINIMUM_SIZE)
         self.root.protocol('WM_DELETE_WINDOW', self.quit)
 
+        # ESC removes focus from whatever widget is currently focused, and resets it
+        # back to the root window (e.g. useful for after typing in an entry box)
+        self.root.bind('<Escape>', lambda _: self.root.focus())
+
         self.configure_style(self.root)
         self.root.title(self.get_observation().get_description(multiline=False))
         self.set_icon(self.root)
@@ -1948,7 +1952,7 @@ class GUI:
 
         self.add_tooltip(
             self.canvas.get_tk_widget(),
-            'Customise plot in the "Settings" tab; click on the plot to show values in the "Coords" tab (right click to clear)',
+            'Customise the plot in the "Settings" tab; click on the plot to show values in the "Coords" tab (right click to clear)',
         )
 
         self.replot_all()
@@ -2692,6 +2696,8 @@ class OpenObservation(Popup):
             except FileNotFoundError:
                 pass
         for k, v in kwargs.items():
+            if k == 'utc':
+                v = Observation._standardise_utc_to_string(v)
             try:
                 if v:
                     self.stringvars[k].set(str(v))

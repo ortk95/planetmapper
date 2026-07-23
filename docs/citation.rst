@@ -5,8 +5,10 @@ Citation
 
 .. image:: https://joss.theoj.org/papers/10.21105/joss.05728/status.svg
    :target: https://doi.org/10.21105/joss.05728
+   :alt: JOSS Paper DOI
 .. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.7963121.svg
    :target: https://doi.org/10.5281/zenodo.7963121
+   :alt: Zenodo Archive DOI
 
 JOSS Paper
 ==========

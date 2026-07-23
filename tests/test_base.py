@@ -1,5 +1,7 @@
 import datetime
+import decimal
 import glob
+import numbers
 import os
 import unittest
 from pathlib import Path
@@ -698,6 +700,93 @@ class TestBodyBase(common_testing.BaseTestCase):
             )
             obj = BodyBase(utc=None, **kw)
             self.assertEqual(obj.utc, '2005-01-01T12:30:00.000000')
+
+    def test_standardise_utc_to_string(self):
+
+        equivalent_utcs = [
+            datetime.datetime(2005, 1, 1, 12),
+            datetime.datetime(
+                2005, 1, 1, 15, tzinfo=datetime.timezone(datetime.timedelta(hours=3))
+            ),
+            53371.5,
+            np.float64(53371.5),
+            decimal.Decimal('53371.5'),
+            '2005-01-01T12:00',
+            '2005-01-01T12:00:00',
+            '2005-01-01T12:00:00.000',
+            '2005-01-01T12:00:00.000000',
+            '2005-01-01T12:00:00.000000Z',
+            '2005 January 1 12:00',
+            '2005-01-01 12:00 UTC',
+            '2005-01-01 11:00 UTC-1',
+            '2005-01-01 23:12 UTC+11:12',
+        ]
+        for utc_in in equivalent_utcs:
+            with self.subTest(utc=utc_in):
+                utc_out = BodyBase._standardise_utc_to_string(utc_in)
+                self.assertIsInstance(utc_out, str)
+                if isinstance(utc_in, str):
+                    self.assertEqual(utc_in, utc_out)
+                else:
+                    self.assertEqual(utc_out, '2005-01-01T12:00:00.000000')
+
+                # Make sure second pass is a no-op
+                self.assertEqual(
+                    BodyBase._standardise_utc_to_string(utc_in),
+                    BodyBase._standardise_utc_to_string(utc_out),
+                )
+
+        equivalent_utcs = [
+            datetime.datetime(2005, 1, 1),
+            datetime.datetime(
+                2005, 1, 1, 3, tzinfo=datetime.timezone(datetime.timedelta(hours=3))
+            ),
+            53371,
+            53371.0,
+            np.float64(53371),
+            np.int64(53371),
+            decimal.Decimal('53371'),
+            decimal.Decimal('53371.0'),
+            '2005 January 1',
+            '2005-01-01',
+            '2005-01-01T00:00',
+            '2005-01-01T00:00:00',
+            '2005-01-01T00:00:00.000',
+            '2005-01-01T00:00:00.000000',
+            '2005-01-01T00:00:00.000000Z',
+            '2005 January 1 00:00',
+            '2005-01-01 00:00 UTC',
+            '2004-12-31 25:00 UTC-1',
+            '2005-01-01 11:12 UTC+11:12',
+        ]
+        for utc_in in equivalent_utcs:
+            with self.subTest('midnight', utc=utc_in):
+                utc_out = BodyBase._standardise_utc_to_string(utc_in)
+                self.assertIsInstance(utc_out, str)
+                if isinstance(utc_in, str):
+                    self.assertEqual(utc_in, utc_out)
+                else:
+                    self.assertEqual(utc_out, '2005-01-01T00:00:00.000000')
+
+                # Make sure second pass is a no-op
+                self.assertEqual(
+                    BodyBase._standardise_utc_to_string(utc_in),
+                    BodyBase._standardise_utc_to_string(utc_out),
+                )
+
+        with self.subTest(utc=None):
+
+            class CustomDateTime(datetime.datetime):
+                pass
+
+            with patch('planetmapper.base.datetime', new=datetime) as mock_datetime:
+                mock_datetime.datetime = CustomDateTime
+                mock_datetime.datetime.now = MagicMock()
+                mock_datetime.datetime.now.return_value = datetime.datetime(
+                    2005, 1, 1, 12
+                )
+                utc_out = BodyBase._standardise_utc_to_string(None)
+                self.assertEqual(utc_out, '2005-01-01T12:00:00.000000')
 
     def test_get_default_init_kwargs(self):
         self._test_get_default_init_kwargs(

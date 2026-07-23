@@ -10,8 +10,9 @@
 
 PlanetMapper is an open source Python package for visualising, navigating and mapping Solar System observations.
 
+
 ## [Documentation](https://planetmapper.readthedocs.io)
-For full documentation, [API reference](https://planetmapper.readthedocs.io/en/latest/documentation.html), and [installation instructions](https://planetmapper.readthedocs.io/en/latest/installation.html), visit [planetmapper.readthedocs.io](https://planetmapper.readthedocs.io/en/latest/index.html).
+For full documentation, [API reference](https://planetmapper.readthedocs.io/en/latest/documentation.html), [code examples](https://planetmapper.readthedocs.io/en/latest/general_python_api.html) and [installation instructions](https://planetmapper.readthedocs.io/en/latest/installation.html), visit [planetmapper.readthedocs.io](https://planetmapper.readthedocs.io/en/latest/index.html).
 
 
 ## [Installation](https://planetmapper.readthedocs.io/en/latest/installation.html)
@@ -22,8 +23,6 @@ pip install planetmapper --upgrade
 ```bash
 conda install -c conda-forge planetmapper
 ```
-
-_Requires Python 3.10+_
 
 
 ## [Citing PlanetMapper](https://planetmapper.readthedocs.io/en/latest/citation.html)
@@ -54,7 +53,7 @@ If you use PlanetMapper in your research, please cite the following paper:
 
 ## Key features
 ### [Fit and map astronomical observations using a full featured user interface](https://planetmapper.readthedocs.io/en/latest/user_interface.html)
-[![Screenshot of the PlanetMapper graphical user interface showing an observation of Europa being navigated](docs/images/gui_fitting.png)](https://planetmapper.readthedocs.io/en/latest/user_interface.html)
+[![Screenshot of the PlanetMapper graphical user interface showing an observation of Europa being navigated](docs/images/gui.png)](https://planetmapper.readthedocs.io/en/latest/user_interface.html)
 
 ### [Easily visualise solar system observations with just a few lines of code](https://planetmapper.readthedocs.io/en/latest/general_python_api.html#wireframe-plots)
 
@@ -74,9 +73,12 @@ plt.show()
 
 
 ## Contributing
-
 If you spot a bug, or want to contribute code to PlanetMapper, check out the [contributing guidelines](https://github.com/ortk95/planetmapper/blob/main/CONTRIBUTING.md).
 
-## Help and support
 
+## Help and support
 If you have any questions, suggestions or feedback, please [visit our support page and get in touch](https://planetmapper.readthedocs.io/en/latest/help.html)!
+
+
+## Release notes
+Find about the new features and updates in each new version of PlanetMapper by [checking out the release notes](https://github.com/ortk95/planetmapper/releases).

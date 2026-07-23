@@ -3,7 +3,7 @@ ruff==0.15.20
 pyright==1.1.411
 pylint==4.0.6
 coverage==7.14.3
-setuptools==82.0.1
+setuptools==83.0.0
 packaging==26.2
 -r docs/requirements.txt
 

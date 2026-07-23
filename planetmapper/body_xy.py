@@ -250,7 +250,8 @@ class BodyXY(Body):
         produce a different image.
 
         This dictionary is used to define the backplanes saved to the output FITS file
-        in :func:`Observation.save`.
+        in :func:`Observation.save_observation` and
+        :func:`Observation.save_mapped_observation`.
         """
 
         # Run setup
@@ -2354,15 +2355,13 @@ class BodyXY(Body):
         **plot_kwargs,
     ) -> np.ndarray:
         """
-        .. warning ::
-
-            This is a beta feature and the API may change in future.
-
         Generate a wireframe image of the target.
 
         This effectively generates an image version of :func:`plot_wireframe_xy` which
         can then be used as an overlay on top of the observation when creating figures
-        in other applications.
+        in other applications. See
+        :ref:`the backplane documentation page <wireframe overlay images>` for an
+        example of a wireframe overlay image.
 
         See also :func:`get_wireframe_overlay_map`.
 
@@ -2396,7 +2395,6 @@ class BodyXY(Body):
         Returns:
             Image of the wireframe which has the same aspect ratio as the observed data.
         """
-        # TODO remove beta note when stable
         return self._get_wireframe_overlay(
             output_size=output_size,
             dpi=dpi,
@@ -2419,15 +2417,13 @@ class BodyXY(Body):
         **map_and_formatting_kwargs,
     ) -> np.ndarray:
         """
-        .. warning ::
-
-            This is a beta feature and the API may change in future.
-
         Generate a wireframe map of the target.
 
         This effectively generates an image version of :func:`plot_map_wireframe` which
         can then be used as an overlay on top of the mapped observation when creating
-        figures in other applications.
+        figures in other applications. See
+        :ref:`the backplane documentation page <wireframe overlay images>` for examples
+        of a wireframe overlay maps.
 
         See also :func:`get_wireframe_overlay_img`.
 
@@ -2463,7 +2459,6 @@ class BodyXY(Body):
         Returns:
             Image of the map wireframe which has the same aspect ratio as the map.
         """
-        # TODO remove beta note when stable
         map_kwargs, plot_kwargs = _extract_map_kwargs_from_dict(
             map_and_formatting_kwargs
         )
@@ -4363,88 +4358,6 @@ class BodyXY(Body):
 
 class BackplaneNotFoundError(Exception):
     pass
-
-
-def _make_backplane_documentation_str() -> str:
-    class _BodyXY_ForDocumentation(BodyXY):
-        # pylint: disable-next=super-init-not-called
-        def __init__(self):
-            self.backplanes = {}
-            self.positive_longitude_direction = 'W'
-            self._register_default_backplanes()
-
-    body = _BodyXY_ForDocumentation()
-
-    msg = []
-    msg.append('..')
-    msg.append('   THIS CONTENT IS AUTOMATICALLY GENERATED')
-    msg.append('')
-
-    msg.append('.. _default backplanes:')
-    msg.append('')
-    msg.append('Default backplanes')
-    msg.append('*' * len(msg[-1]))
-    msg.append('')
-
-    msg.append(
-        'This page lists the backplanes which are automatically registered to '
-        'every instance of :class:`planetmapper.BodyXY`.'
-    )
-    msg.append('')
-
-    for bp in body.backplanes.values():
-        msg.append('------------')
-        msg.append('')
-        msg.append('`{}` {}'.format(bp.name, bp.description))
-        msg.append('')
-        msg.append(
-            '- Image function: :func:`planetmapper.{}`'.format(bp.get_img.__qualname__)
-        )
-        msg.append(
-            '- Map function: :func:`planetmapper.{}`'.format(
-                bp.get_map.__qualname__  # type: ignore
-            )
-        )
-        msg.append('')
-
-    msg.append('------------')
-    msg.append('')
-    msg.append('Wireframe images')
-    msg.append('=' * len(msg[-1]))
-    msg.append('')
-
-    msg.append(
-        'In addition to the above backplanes, a `WIREFRAME` backplane is also included '
-        'by default in saved FITS files. This backplane contains a "wireframe" image '
-        'of the body, which shows latitude/longitude gridlines, labels poles, displays '
-        'the body\'s limb etc. These wireframe images can be used to help orient the '
-        'observations, and can be used as an overlay if you are creating figures from '
-        'the FITS files.'
-    )
-    msg.append('')
-
-    msg.append(
-        'The wireframe images are a graphical guide rather than containing any '
-        'scientific data, so they are not registered like the other backplanes. '
-        'Note that the wireframe images have a fixed size, so they will not be the '
-        'same size as the data/mapped data (although the aspect ratio will be the '
-        'same).'
-    )
-    msg.append('')
-
-    msg.append(
-        '- Image function: :func:`planetmapper.{}`'.format(
-            body.get_wireframe_overlay_img.__qualname__
-        )
-    )
-    msg.append(
-        '- Map function: :func:`planetmapper.{}`'.format(
-            body.get_wireframe_overlay_map.__qualname__
-        )
-    )
-    msg.append('')
-
-    return '\n'.join(msg)
 
 
 def _extract_map_kwargs_from_dict(

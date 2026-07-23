@@ -8,6 +8,9 @@ import sys
 
 import sphinx_rtd_theme
 
+sys.path.insert(0, os.path.join(os.path.split(__file__)[0]))
+import make_default_backplanes_rst_page
+
 sys.path.insert(0, os.path.join(os.path.split(__file__)[0], '..'))
 import planetmapper
 from planetmapper.common import __version__
@@ -69,10 +72,4 @@ html_theme_options = {
 }
 
 # Dynamically generate backplane documentation
-from planetmapper.body_xy import _make_backplane_documentation_str
-
-p = os.path.join(os.path.split(__file__)[0], 'default_backplanes.rst')
-with open(p, 'w') as f:
-    print('Updating default backplanes')
-    s = _make_backplane_documentation_str()
-    f.write(s)
+make_default_backplanes_rst_page.make_page()
