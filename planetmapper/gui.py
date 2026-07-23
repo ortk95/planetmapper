@@ -1952,7 +1952,7 @@ class GUI:
 
         self.add_tooltip(
             self.canvas.get_tk_widget(),
-            'Customise plot in the "Settings" tab; click on the plot to show values in the "Coords" tab (right click to clear)',
+            'Customise the plot in the "Settings" tab; click on the plot to show values in the "Coords" tab (right click to clear)',
         )
 
         self.replot_all()
