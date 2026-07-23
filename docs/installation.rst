@@ -10,25 +10,33 @@ PlanetMapper can easily be `installed from PyPI <https://pypi.org/project/planet
     
     pip install planetmapper
 
-or with conda by running: ::
+or with `conda <https://anaconda.org/channels/conda-forge/packages/planetmapper/overview>`_ by running: ::
 
     conda install -c conda-forge planetmapper
 
-This will automatically install PlanetMapper, along with any dependencies (e.g. NumPy and Astropy) which you do not already have installed. Note that PlanetMapper requires a minimum Python version of 3.10.
+This will automatically install PlanetMapper, along with any dependencies (e.g. NumPy and Astropy) that you do not already have installed. Note that PlanetMapper requires a minimum Python version of 3.10.
+
+.. _updating_planetmapper:
 
 Updating PlanetMapper
 =====================
-.. _updating_planetmapper:
 
-To upgrade an existing PlanetMapper installation to the latest version, run: ::
+If you installed PlanetMapper with pip, it can be upgraded to the latest version by running: ::
 
     pip install planetmapper --upgrade
 
-if you installed PlanetMapper with pip, or: ::
+or, if you installed PlanetMapper with conda, run: ::
 
     conda update planetmapper
 
-if you installed PlanetMapper with conda.
+Note that it can sometimes take a few days for the latest version to appear on conda after it has been released on PyPI, so try again later if you aren't getting the very latest version.
+
+.. image:: https://img.shields.io/pypi/v/planetmapper?label=PyPI
+    :target: https://pypi.org/project/planetmapper/
+    :alt: PyPI Version
+.. image:: https://img.shields.io/conda/vn/conda-forge/planetmapper?label=conda
+    :target: https://anaconda.org/conda-forge/planetmapper
+    :alt: Conda Version
 
 The release notes for each version can be `found on GitHub <https://github.com/ortk95/planetmapper/releases>`__, and you can check what version of PlanetMapper you have installed by running: ::
 
