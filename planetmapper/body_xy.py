@@ -2355,15 +2355,13 @@ class BodyXY(Body):
         **plot_kwargs,
     ) -> np.ndarray:
         """
-        .. warning ::
-
-            This is a beta feature and the API may change in future.
-
         Generate a wireframe image of the target.
 
         This effectively generates an image version of :func:`plot_wireframe_xy` which
         can then be used as an overlay on top of the observation when creating figures
-        in other applications.
+        in other applications. See
+        :ref:`the backplane documentation page <wireframe overlay images>` for an
+        example of a wireframe overlay image.
 
         See also :func:`get_wireframe_overlay_map`.
 
@@ -2397,7 +2395,6 @@ class BodyXY(Body):
         Returns:
             Image of the wireframe which has the same aspect ratio as the observed data.
         """
-        # TODO remove beta note when stable
         return self._get_wireframe_overlay(
             output_size=output_size,
             dpi=dpi,
@@ -2420,15 +2417,13 @@ class BodyXY(Body):
         **map_and_formatting_kwargs,
     ) -> np.ndarray:
         """
-        .. warning ::
-
-            This is a beta feature and the API may change in future.
-
         Generate a wireframe map of the target.
 
         This effectively generates an image version of :func:`plot_map_wireframe` which
         can then be used as an overlay on top of the mapped observation when creating
-        figures in other applications.
+        figures in other applications. See
+        :ref:`the backplane documentation page <wireframe overlay images>` for examples
+        of a wireframe overlay maps.
 
         See also :func:`get_wireframe_overlay_img`.
 
@@ -2464,7 +2459,6 @@ class BodyXY(Body):
         Returns:
             Image of the map wireframe which has the same aspect ratio as the map.
         """
-        # TODO remove beta note when stable
         map_kwargs, plot_kwargs = _extract_map_kwargs_from_dict(
             map_and_formatting_kwargs
         )

@@ -67,7 +67,10 @@ def get_page_content_from_body(body: planetmapper.BodyXY) -> str:
     msg.append('')
     msg.append(
         f'The plots here show the backplanes for an example {BODY_SIZE}x{BODY_SIZE}'
-        f' pixel observation of Jupiter observed from the Earth on {REF_DATE}.'
+        f' pixel observation of Jupiter observed from the Earth at {REF_DATE}.'
+        ' Note that the projection for the backplane maps can be fully customised as'
+        " normal (e.g. by passing `projection='azimuthal', lat=90` to the relevant"
+        ' function).'
     )
     msg.append('')
     msg.append('------------')
@@ -97,6 +100,8 @@ def get_page_content_from_body(body: planetmapper.BodyXY) -> str:
         msg.append('------------')
         msg.append('')
     msg.append('')
+    msg.append('.. _wireframe overlay images:')
+    msg.append('')
     msg.append('Wireframe images')
     msg.append('=' * len(msg[-1]))
     msg.append('')
@@ -105,9 +110,9 @@ def get_page_content_from_body(body: planetmapper.BodyXY) -> str:
         'In addition to the above backplanes, a `WIREFRAME` backplane is also included '
         'by default in saved FITS files. This backplane contains a "wireframe" image '
         'of the body, which shows latitude/longitude gridlines, labels poles, displays '
-        'the body\'s limb etc. These wireframe images can be used to help orient the '
-        'observations, and can be used as an overlay if you are creating figures from '
-        'the FITS files.'
+        'the body\'s limb, terminator etc. These wireframe images can be used to help '
+        'orient the observations, and can be used as an overlay if you are creating '
+        'figures from the FITS files.'
     )
     msg.append('')
 
@@ -131,6 +136,38 @@ def get_page_content_from_body(body: planetmapper.BodyXY) -> str:
         )
     )
     msg.append('')
+
+    msg.append('.. figure:: {}/wireframe_overlay_img.png'.format(IMAGE_DIR))
+    msg.append('    :width: 600')
+    msg.append('    :alt: Example wireframe overlay image')
+    msg.append('    :align: center')
+    msg.append('')
+    msg.append('    Wireframe overlay image for the example observation of Jupiter.')
+    msg.append('')
+
+    msg.append('.. figure:: {}/wireframe_overlay_map_rectangular.png'.format(IMAGE_DIR))
+    msg.append('    :width: 600')
+    msg.append('    :alt: Example wireframe overlay map')
+    msg.append('    :align: center')
+    msg.append('')
+    msg.append(
+        '    Wireframe overlay map for the example observation of Jupiter,'
+        ' with the default rectangular projection.'
+    )
+
+    msg.append('.. figure:: {}/wireframe_overlay_map_azimuthal.png'.format(IMAGE_DIR))
+    msg.append('    :width: 600')
+    msg.append('    :alt: Example wireframe overlay map')
+    msg.append('    :align: center')
+    msg.append('')
+    msg.append(
+        '    Wireframe overlay map for the example observation of Jupiter,'
+        ' with an azimuthal projection centred on the north pole:'
+        " `get_wireframe_overlay_map(projection='azimuthal', lat=90)`."
+    )
+
+    msg.append('')
+
     return '\n'.join(msg)
 
 
@@ -141,45 +178,70 @@ def make_images_for_page(body: planetmapper.BodyXY) -> None:
     for backplane in body.backplanes.values():
         image_path = images_root / get_backplane_img_filename(backplane)
         print(f'Generating {image_path}', flush=True)
+        make_backplane_img(backplane, body, save_to=image_path)
 
-        fig, axs = plt.subplots(
-            nrows=1,
-            ncols=2,
-            figsize=(15, 5),
-            dpi=200,
-            width_ratios=[1, 2],
-            gridspec_kw=dict(
-                left=0.06,
-                right=0.86,
-                top=0.85,
-                bottom=0.15,
-                hspace=0.075,
-            ),
-        )
-        backplane_img = backplane.get_img()
-        backplane_map = backplane.get_map()
+    make_wireframe_images(body, images_root)
 
-        vmin = np.nanmin([np.nanmin(backplane_img), np.nanmin(backplane_map)])
-        vmax = np.nanmax([np.nanmax(backplane_img), np.nanmax(backplane_map)])
 
-        body.plot_img(backplane_img, ax=axs[0], vmin=vmin, vmax=vmax, cmap='viridis')
-        sm = body.plot_map(
-            backplane_map, ax=axs[1], vmin=vmin, vmax=vmax, cmap='viridis'
-        )
+def make_backplane_img(
+    backplane: planetmapper.Backplane, body: planetmapper.BodyXY, save_to: Path | None
+) -> None:
+    fig, axs = plt.subplots(
+        nrows=1,
+        ncols=2,
+        figsize=(15, 5),
+        dpi=200,
+        width_ratios=[1, 2],
+        gridspec_kw=dict(
+            left=0.06,
+            right=0.86,
+            top=0.85,
+            bottom=0.15,
+            hspace=0.075,
+        ),
+    )
+    backplane_img = backplane.get_img()
+    backplane_map = backplane.get_map()
 
-        pos = axs[1].get_position()
-        cax = fig.add_axes((pos.x1 + 0.05, pos.y0, 0.02, pos.height))
-        cbar = fig.colorbar(sm, cax=cax)
-        cbar.set_label(backplane.description)
+    vmin = np.nanmin([np.nanmin(backplane_img), np.nanmin(backplane_map)])
+    vmax = np.nanmax([np.nanmax(backplane_img), np.nanmax(backplane_map)])
 
-        fig.suptitle(
-            f'{backplane.name} backplane in PlanetMapper', y=0.95, size='x-large'
-        )
-        for ax in axs:
-            ax.set_title('')
+    body.plot_img(backplane_img, ax=axs[0], vmin=vmin, vmax=vmax, cmap='viridis')
+    sm = body.plot_map(backplane_map, ax=axs[1], vmin=vmin, vmax=vmax, cmap='viridis')
 
-        fig.savefig(str(image_path))
+    pos = axs[1].get_position()
+    cax = fig.add_axes((pos.x1 + 0.05, pos.y0, 0.02, pos.height))
+    cbar = fig.colorbar(sm, cax=cax)
+    cbar.set_label(backplane.description)
+
+    fig.suptitle(f'{backplane.name} backplane in PlanetMapper', y=0.95, size='x-large')
+    for ax in axs:
+        ax.set_title('')
+
+    if save_to is None:
+        plt.show()
+    else:
+        fig.savefig(str(save_to))
         plt.close(fig)
+
+
+def make_wireframe_images(body: planetmapper.BodyXY, save_dir: Path) -> None:
+    path = save_dir / 'wireframe_overlay_img.png'
+    print(f'Generating {path}', flush=True)
+    plt.imsave(str(path), np.flipud(body.get_wireframe_overlay_img(rgba=True)))
+
+    path = save_dir / 'wireframe_overlay_map_rectangular.png'
+    print(f'Generating {path}', flush=True)
+    plt.imsave(str(path), np.flipud(body.get_wireframe_overlay_map(rgba=True)))
+
+    path = save_dir / 'wireframe_overlay_map_azimuthal.png'
+    print(f'Generating {path}', flush=True)
+    plt.imsave(
+        str(path),
+        np.flipud(
+            body.get_wireframe_overlay_map(rgba=True, projection='azimuthal', lat=90)
+        ),
+    )
 
 
 def get_backplane_img_filename(backplane: planetmapper.Backplane) -> str:
