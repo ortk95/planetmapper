@@ -27,7 +27,7 @@ If you installed PlanetMapper with pip, it can be upgraded to the latest version
 
 or, if you installed PlanetMapper with conda, run: ::
 
-    conda update planetmapper
+    conda update -c conda-forge planetmapper
 
 Note that it can sometimes take a few days for the latest version to appear on conda after it has been released on PyPI, so try again later if you aren't getting the very latest version.
 
