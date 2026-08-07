@@ -230,6 +230,35 @@ def _run_gui_from_cli(*args: str | None) -> None:
     gui.run()
 
 
+def _is_maybe_x11() -> bool:
+    """
+    Guess if we are running on a remote system through X11.
+
+    Things like fonts can look worse on X11 (e.g. they are raster rather than vector),
+    so it can be useful to adjust settings for legibility. This is only an approximate
+    heuristic, but is probably sufficient to improve the cosmetics for the majority of
+    cases.
+    """
+    # User has explicitly set environment variable to fix a bug related to fonts on X11
+    if USE_X11_FONT_BUGFIX:
+        return True
+
+    # Assume most remote X11 systems are Linux, so if we are on a different system, we
+    # are probably not running on X11
+    if platform.system() != 'Linux':
+        return False
+
+    # X11 display numbers are usually = 10 + (local system display number).
+    # https://askubuntu.com/a/1025756
+    # If we have any errors, the $DISPLAY variable is formatted in an unexpected way, so
+    # assume we aren't on X11.
+    try:
+        display_num = int(os.environ['DISPLAY'].split(':')[1].split('.')[0])
+        return display_num >= 10
+    except (KeyError, IndexError, ValueError):
+        return False
+
+
 def run_gui(path: str | os.PathLike | None = None) -> None:
     """
     Launch the PlanetMapper Graphical User Interface (GUI) to fit observations.
@@ -722,6 +751,7 @@ class GUI:
 
         self._default_font = tkinter.font.nametofont('TkDefaultFont').actual()
         self._default_font_size = self._default_font['size']
+        self._allow_small_bold_fonts = not _is_maybe_x11()
 
         self.style.map('TScale', troughcolor=[('disabled', '#d9d9d9')])
         self.style.map(
@@ -853,7 +883,11 @@ class GUI:
             disc_method_frame,
             text='',
             justify='center',
-            font=('TkDefaultFont', int(self._default_font_size * 0.9), 'bold'),
+            font=(
+                'TkDefaultFont',
+                int(self._default_font_size * 0.9),
+                'bold' if self._allow_small_bold_fonts else 'normal',
+            ),
             wraplength=self.CONTROLS_WIDTH - 10,
         )
         self.disc_method_message.pack()
