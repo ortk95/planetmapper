@@ -127,10 +127,9 @@ DEFAULT_HINT = ''
 # of a hack and produces an uglier UI, but is better than always crashing.
 # TODO remove this when the bug is fixed in XQuartz
 # https://github.com/ortk95/planetmapper/issues/145
-try:
-    USE_X11_FONT_BUGFIX = bool(os.environ['PLANETMAPPER_USE_X11_FONT_BUGFIX'])
-except KeyError:
-    USE_X11_FONT_BUGFIX = False  # pyright: ignore[reportConstantRedefinition]
+USE_X11_FONT_BUGFIX = os.environ.get(
+    'PLANETMAPPER_USE_X11_FONT_BUGFIX', ''
+).strip().lower() not in {'', '0', 'false'}
 X11_FONT_BUGFIX_TRANSLATIONS = str.maketrans(
     {
         '↖': None,
