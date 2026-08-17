@@ -143,6 +143,9 @@ X11_FONT_BUGFIX_TRANSLATIONS = str.maketrans(
         '↺': '<',
         '↻': '>',
         '⚠': '!',
+        '′': '\'',
+        '″': '"',
+        '\u2009': ' ',  # thin space
     }
 )
 
@@ -1696,7 +1699,11 @@ class GUI:
         self.coords_formatted_str = self.make_click_formatted_string(coords_strs)
 
         for k, label in self.coords_tab_labels.items():
-            label.configure(text=coords_strs.get(k, ''))
+            label.configure(
+                text=self.maybe_replace_string_with_x11_bugfix(
+                    coords_strs.get(k, ''),
+                )
+            )
 
     def get_click_coords_formatted_strings(
         self, coords: dict[str, float], fmt: str = '.2f', dms_fmt: str = '.3f'
