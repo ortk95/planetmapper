@@ -3688,8 +3688,8 @@ class SpectrumPopup(Popup):
         self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
 
         self.fig.set_dpi(100)
-        self.ax.xaxis.set_tick_params(labelsize='x-small')
-        self.ax.yaxis.set_tick_params(labelsize='x-small')
+        self.ax.xaxis.set_tick_params(which='both', labelsize='x-small')
+        self.ax.yaxis.set_tick_params(which='both', labelsize='x-small')
         self.ax.yaxis.get_offset_text().set_fontsize('x-small')
         delta = (
             0.5
