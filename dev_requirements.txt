@@ -1,8 +1,8 @@
 # Development requirements (e.g. for run_checks.sh)
-ruff==0.16.5
-pyright==1.1.411
-pylint==4.0.7
-coverage==7.16.0
+ruff==0.16.9
+pyright==1.1.414
+pylint==4.0.9
+coverage==7.16.2
 setuptools==84.0.0
 packaging==26.3
 -r docs/requirements.txt
