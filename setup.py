@@ -89,5 +89,6 @@ setuptools.setup(
         'Topic :: Scientific/Engineering :: Visualization',
         'Topic :: Scientific/Engineering :: Physics',
         'Framework :: Matplotlib',
+        'Typing :: Typed',
     ],
 )
