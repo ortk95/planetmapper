@@ -28,7 +28,7 @@ def main(args: list[str] | None = None) -> None:
     :meta private:
     """
     parsed_args = _get_parser().parse_args(args)
-    _run_gui(parsed_args.file_path)
+    _run_gui(**vars(parsed_args))
 
 
 def _get_parser() -> argparse.ArgumentParser:
@@ -46,7 +46,7 @@ documentation.
         'file_path',
         nargs='?',
         type=str,
-        help='launch the PlanetMapper GUI with the specified FITS file open',
+        help='open the specified observation file (e.g. FITS, PNG, JPEG) in the PlanetMapper GUI',
         default=None,
     )
     parser.add_argument(
@@ -56,16 +56,31 @@ documentation.
         version=f'PlanetMapper {_get_version()}',
         help='print the version number and exit',
     )
+    parser.add_argument(
+        '--target',
+        type=str,
+        help='override the name of the target body',
+    )
+    parser.add_argument(
+        '--observer',
+        type=str,
+        help='override the name of the observing body',
+    )
+    parser.add_argument(
+        '--utc',
+        type=str,
+        help='override the time of the observation (e.g. 2000-12-31T23:59:59), assumed to be UTC unless specified otherwise',
+    )
     return parser
 
 
-def _run_gui(file_path: str | None) -> None:
+def _run_gui(file_path: str | None, **kwargs) -> None:
     print(f'Launching PlanetMapper {_get_version()}', flush=True)
 
     from . import gui
 
     # pylint: disable-next=protected-access
-    gui._run_gui_from_cli(file_path)
+    gui._run_gui_from_cli(file_path, **kwargs)
 
 
 def _get_version() -> str:

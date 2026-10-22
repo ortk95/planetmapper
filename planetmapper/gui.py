@@ -5,7 +5,6 @@ import json
 import math
 import os
 import platform
-import sys
 import tkinter as tk
 import tkinter.colorchooser
 import tkinter.filedialog
@@ -217,18 +216,20 @@ def _maybe_switch_matplotlib_backend_to_tkagg() -> None:
         raise e
 
 
-def _run_gui_from_cli(*args: str | None) -> None:
+def _run_gui_from_cli(file_path: str | None, **kwargs) -> None:
     """Called with `planetmapper` from the command line"""
     if USE_X11_FONT_BUGFIX:
         print('*** Using X11 font bugfix ***')
     gui = GUI()
-    if args and args[0] is not None:
+    if file_path is not None:
         try:
-            gui.set_observation(Observation(args[0]))
+            observation = Observation(file_path, **kwargs)
         # pylint: disable-next=broad-exception-caught
         except Exception as e:
-            print(f'Error loading observation: {e}')
-            sys.exit(1)
+            observation = None
+        if observation is not None:
+            gui.set_observation(observation)
+    gui._set_default_open_observation_dialog_options(file_path, **kwargs)
     gui.run()
 
 
@@ -522,6 +523,8 @@ class GUI:
             tuple[float, float, float, float] | None
         ) = None
 
+        self._default_open_observation_dialog_options: dict[str, str] = {}
+
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
 
@@ -551,6 +554,15 @@ class GUI:
             OpenObservation(gui=self, first_run=self._observation is None)
         if self._observation is None:
             raise Quit
+
+    def _set_default_open_observation_dialog_options(
+        self, file_path: str | None = None, **kwargs: Any
+    ) -> None:
+        self._default_open_observation_dialog_options.clear()
+        if file_path is not None:
+            self._default_open_observation_dialog_options['path'] = file_path
+        for k, v in kwargs.items():
+            self._default_open_observation_dialog_options[k] = str(v)
 
     def set_observation(self, observation: Observation) -> None:
         """
@@ -2667,6 +2679,9 @@ class OpenObservation(Popup):
             kwargs['target'] = observation.target
             kwargs['utc'] = observation.utc
             kwargs['observer'] = observation.observer
+        else:
+            for k, v in self.gui._default_open_observation_dialog_options.items():
+                kwargs[k] = v
 
         _path = kwargs.get('path', '')
         self.stringvars['path'] = tk.StringVar(
