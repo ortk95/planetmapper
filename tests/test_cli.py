@@ -11,11 +11,30 @@ class TestCLI(common_testing.BaseTestCase):
     @patch('planetmapper.cli._run_gui')
     def test_main(self, mock_run_gui: MagicMock):
         planetmapper.cli.main([])
-        mock_run_gui.assert_called_once_with(None)
+        mock_run_gui.assert_called_once_with(file_path=None)
         mock_run_gui.reset_mock()
 
         planetmapper.cli.main(['test.fits'])
-        mock_run_gui.assert_called_once_with('test.fits')
+        mock_run_gui.assert_called_once_with(file_path='test.fits')
+        mock_run_gui.reset_mock()
+
+        planetmapper.cli.main(
+            [
+                'test.fits',
+                '--target',
+                'Mars',
+                '--observer',
+                'Jupiter',
+                '--utc',
+                '2000-12-31T23:59:59',
+            ]
+        )
+        mock_run_gui.assert_called_once_with(
+            file_path='test.fits',
+            target='Mars',
+            observer='Jupiter',
+            utc='2000-12-31T23:59:59',
+        )
         mock_run_gui.reset_mock()
 
         flags = [

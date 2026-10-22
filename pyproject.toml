@@ -1,5 +1,5 @@
 [tool.ruff]
-extend-exclude = ["python-type-stubs"]
+extend-exclude = ["python-type-stubs", "*.md"]
 
 [tool.ruff.format]
 quote-style = "preserve"

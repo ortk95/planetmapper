@@ -5,7 +5,6 @@ import json
 import math
 import os
 import platform
-import sys
 import tkinter as tk
 import tkinter.colorchooser
 import tkinter.filedialog
@@ -127,10 +126,9 @@ DEFAULT_HINT = ''
 # of a hack and produces an uglier UI, but is better than always crashing.
 # TODO remove this when the bug is fixed in XQuartz
 # https://github.com/ortk95/planetmapper/issues/145
-try:
-    USE_X11_FONT_BUGFIX = bool(os.environ['PLANETMAPPER_USE_X11_FONT_BUGFIX'])
-except KeyError:
-    USE_X11_FONT_BUGFIX = False  # pyright: ignore[reportConstantRedefinition]
+USE_X11_FONT_BUGFIX = os.environ.get(
+    'PLANETMAPPER_USE_X11_FONT_BUGFIX', ''
+).strip().lower() not in {'', '0', 'false'}
 X11_FONT_BUGFIX_TRANSLATIONS = str.maketrans(
     {
         '↖': None,
@@ -144,6 +142,9 @@ X11_FONT_BUGFIX_TRANSLATIONS = str.maketrans(
         '↺': '<',
         '↻': '>',
         '⚠': '!',
+        '′': '\'',
+        '″': '"',
+        '\u2009': ' ',  # thin space
     }
 )
 
@@ -215,19 +216,50 @@ def _maybe_switch_matplotlib_backend_to_tkagg() -> None:
         raise e
 
 
-def _run_gui_from_cli(*args: str | None) -> None:
+def _run_gui_from_cli(file_path: str | None, **kwargs) -> None:
     """Called with `planetmapper` from the command line"""
     if USE_X11_FONT_BUGFIX:
         print('*** Using X11 font bugfix ***')
     gui = GUI()
-    if args and args[0] is not None:
+    if file_path is not None:
         try:
-            gui.set_observation(Observation(args[0]))
+            observation = Observation(file_path, **kwargs)
         # pylint: disable-next=broad-exception-caught
         except Exception as e:
-            print(f'Error loading observation: {e}')
-            sys.exit(1)
+            observation = None
+        if observation is not None:
+            gui.set_observation(observation)
+    gui._set_default_open_observation_dialog_options(file_path, **kwargs)
     gui.run()
+
+
+def _is_maybe_x11() -> bool:
+    """
+    Guess if we are running on a remote system through X11.
+
+    Things like fonts can look worse on X11 (e.g. they are raster rather than vector),
+    so it can be useful to adjust settings for legibility. This is only an approximate
+    heuristic, but is probably sufficient to improve the cosmetics for the majority of
+    cases.
+    """
+    # User has explicitly set environment variable to fix a bug related to fonts on X11
+    if USE_X11_FONT_BUGFIX:
+        return True
+
+    # Assume most remote X11 systems are Linux, so if we are on a different system, we
+    # are probably not running on X11
+    if platform.system() != 'Linux':
+        return False
+
+    # X11 display numbers are usually = 10 + (local system display number).
+    # https://askubuntu.com/a/1025756
+    # If we have any errors, the $DISPLAY variable is formatted in an unexpected way, so
+    # assume we aren't on X11.
+    try:
+        display_num = int(os.environ['DISPLAY'].split(':')[1].split('.')[0])
+        return display_num >= 10
+    except (KeyError, IndexError, ValueError):
+        return False
 
 
 def run_gui(path: str | os.PathLike | None = None) -> None:
@@ -491,6 +523,8 @@ class GUI:
             tuple[float, float, float, float] | None
         ) = None
 
+        self._default_open_observation_dialog_options: dict[str, str] = {}
+
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
 
@@ -520,6 +554,15 @@ class GUI:
             OpenObservation(gui=self, first_run=self._observation is None)
         if self._observation is None:
             raise Quit
+
+    def _set_default_open_observation_dialog_options(
+        self, file_path: str | None = None, **kwargs: Any
+    ) -> None:
+        self._default_open_observation_dialog_options.clear()
+        if file_path is not None:
+            self._default_open_observation_dialog_options['path'] = file_path
+        for k, v in kwargs.items():
+            self._default_open_observation_dialog_options[k] = str(v)
 
     def set_observation(self, observation: Observation) -> None:
         """
@@ -722,6 +765,7 @@ class GUI:
 
         self._default_font = tkinter.font.nametofont('TkDefaultFont').actual()
         self._default_font_size = self._default_font['size']
+        self._allow_small_bold_fonts = not _is_maybe_x11()
 
         self.style.map('TScale', troughcolor=[('disabled', '#d9d9d9')])
         self.style.map(
@@ -853,7 +897,11 @@ class GUI:
             disc_method_frame,
             text='',
             justify='center',
-            font=('TkDefaultFont', int(self._default_font_size * 0.9), 'bold'),
+            font=(
+                'TkDefaultFont',
+                int(self._default_font_size * 0.9),
+                'bold' if self._allow_small_bold_fonts else 'normal',
+            ),
             wraplength=self.CONTROLS_WIDTH - 10,
         )
         self.disc_method_message.pack()
@@ -1663,7 +1711,11 @@ class GUI:
         self.coords_formatted_str = self.make_click_formatted_string(coords_strs)
 
         for k, label in self.coords_tab_labels.items():
-            label.configure(text=coords_strs.get(k, ''))
+            label.configure(
+                text=self.maybe_replace_string_with_x11_bugfix(
+                    coords_strs.get(k, ''),
+                )
+            )
 
     def get_click_coords_formatted_strings(
         self, coords: dict[str, float], fmt: str = '.2f', dms_fmt: str = '.3f'
@@ -2627,6 +2679,9 @@ class OpenObservation(Popup):
             kwargs['target'] = observation.target
             kwargs['utc'] = observation.utc
             kwargs['observer'] = observation.observer
+        else:
+            for k, v in self.gui._default_open_observation_dialog_options.items():
+                kwargs[k] = v
 
         _path = kwargs.get('path', '')
         self.stringvars['path'] = tk.StringVar(
@@ -3648,8 +3703,8 @@ class SpectrumPopup(Popup):
         self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
 
         self.fig.set_dpi(100)
-        self.ax.xaxis.set_tick_params(labelsize='x-small')
-        self.ax.yaxis.set_tick_params(labelsize='x-small')
+        self.ax.xaxis.set_tick_params(which='both', labelsize='x-small')
+        self.ax.yaxis.set_tick_params(which='both', labelsize='x-small')
         self.ax.yaxis.get_offset_text().set_fontsize('x-small')
         delta = (
             0.5

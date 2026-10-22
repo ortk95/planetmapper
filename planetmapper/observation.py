@@ -497,7 +497,7 @@ class Observation(BodyXY):
         )
         x_foc, y_foc = wcs.pix2foc(x, y, 0)
         distortion_img = np.hypot(x_foc - x, y_foc - y)
-        return np.max(distortion_img), np.mean(distortion_img)
+        return np.max(distortion_img), float(np.mean(distortion_img))
 
     def disc_from_wcs(
         self,
